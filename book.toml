@@ -1,0 +1,13 @@
+[book]
+authors = ["Zack Grannan"]
+language = "en"
+multilingual = false
+src = "src"
+title = "PCG Documentation"
+
+[preprocessor.katex]
+after = ["links"]
+macros = "macros.txt"
+
+[output.html]
+mathjax-support = true
