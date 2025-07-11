@@ -2,23 +2,18 @@
 
 ## Blocking
 
-A lifetime projection $p\downarrow~r$ *blocks* a place $p_b$ at a location $l$ iff:
+A place $p_{blocker}$ *blocks* a place $p_{blocked}$ at a location $l$ if a
+usage of $p_{blocked}$ at $l$ would invalidate a live borrow $b$ contained in the origins of $p_{blocker}$ at $l$.
 
-- there is a loan $p' = \mathtt{\&mut}~p_b'$ with lifetime $r_L$
-- the place $p_b'$ *conflicts* with $p_b$
-- $r$ contains $r_L$ at $l$
+## Place Liveness
 
+A place $p$ is live at a location $l$ iff there exists a location $l'$ and a control flow-path $c$ from $l$ to $l'$ where a place *conflicting with* $p$ is used at $l'$ and there are no assignments of any places *conflicting with* $p$ along c.
 
-A place $p$ *blocks* a place $p_b$ at a location $l$ iff it has an associated lifetime projection $p\downarrow~r$ that blocks $p_b$.
+## Borrow Liveness
 
-If a node $n$ blocks a place $p_b$, then $n$ also blocks all associated lifetime projections of $p_b$.
+A borrow $p = \&\texttt{mut}~p'$ is *live* at location $l$ if a usage of $p'$ at
+$l$ would invalidate the borrow.
 
-<div class="info">
-ZG: The rules for NLL are based on the implementation in the rust_borrowck crate.
+## Directly Borrowed
 
-The rules for Polonius are based on the blog post description.
-</div>
-
-<div class="info">
-Note that the rules for a place $p$ blocking a place $p_b$ only consider the lifetimes in the type of $p$, and do not consider its relation to the original assigned place $p'$ borrowing $p_b$. This is intentional (for example, $p$ could block $p_b$ due to the original assigned place $p'$ being moved into $p$).
-</div>
+A place $p$ is *directly borrowed* by a borrow $b$ if $p$ is exactly the borrowed place (not e.g. a pre- or postfix of the place).

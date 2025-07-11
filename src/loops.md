@@ -12,66 +12,89 @@ We construct the state $\mathcal{G}_h$ for the loop head as follows:
 
 <!-- In this step we identify $\mathcal{N}_{blocked}$ and $RP_{blocker}$, the sets of
 PCG nodes used inside the loop that may potentially be included in the loop invariants. -->
-We identify the following sets of nodes:
+We identify the following sets of places:
 
-- $P_{loop}$: the places used inside the loop that are *live* and *initialized* at $l_h$.
+- $P_{live}$: the places used inside the loop that are *[live](definitions.html#place-liveness)* and *initialized* at $l_h$.
 
-- $RP_{blocker}$: the set of associated lifetime projections of $P_{loop}$.
+- $\blockedloopplaces$: the subset of $P_{live}$ that are [directly
+  borrowed](definitions.html#borrow-liveness) by a borrow [live](definitions.html#borrow-liveness) at $l_h$
 
-- $P_{blocked}$: the subset of $P_{loop}$ that are directly borrowed at $l_h$ by a borrow live at $l_h$[^borrow-live].
+- $P_{blockers}$: the subset of $P_{live}$ that contain lifetime projections
 
-- $N_{blocked}$: the union of $P_{blocked}$ and associated lifetime projections
+- $P_{loop}$: Places used in the loop that may be relevant for the invariant: $\blockedloopplaces \cup P_{blockers}$
 
-- $\mathcal{N}_{loop}$: $RP_{blocker} \cup \mathcal{N}_{blocked}$.
-[^borrow-live]: A live borrow is one for which the loan has definitely not been killed by $l_h$.
+$\mathcal{N}_{loop}$ is the union of $P_{loop}$ and the associated lifetime projections of $P_{loop}$.
+
+$RP_{blockers}$ are the associated lifetime projections of $P_{blockers}$.
+
 
 ### Step 2 - Expand Pre-State Graph to Include Relevant Loop Nodes
-The places in $\mathcal{N}_{loop}$ will need to appear in $\mathcal{G}_{h}$ but may not be present in $\mathcal{G}_{pre}$ (for example, it's possible that the loop could borrow from a subplace that requires unpacking). We construct a graph $\mathcal{G}_{pre}'$ by unpacking $\mathcal{G}_{pre}$ such that $\mathcal{G}_{pre}'$ contains all places in $\mathcal{N}_{loop}$.[^nofail]
+The nodes in $\mathcal{N}_{loop}$ will need to appear in $\mathcal{G}_{h}$ but
+may not be present in $\mathcal{G}_{pre}$ (for example, it's possible that the
+loop could borrow from a subplace that requires unpacking). We construct a graph
+$\mathcal{G}_{pre}'$ by unpacking $\mathcal{G}_{pre}$ such that
+$\mathcal{G}_{pre}'$ contains all places in $P_{loop}$.
 
-### Step 3 - Identify Root Nodes
-We then identify $\mathcal{N}_{roots}$, the most immediate nodes that $\mathcal{N}_{loop}$ could be borrowing from and later become accessible (excluding nodes already in $\mathcal{N}_{loop})$. Note that unlike the method for deriving $\mathcal{N}_{loop}$, identifying these nodes requires considering the PCG state $\mathcal{G}_{pre}'$.
-<br/>The algorithm to compute $\mathcal{N}_{roots}$ is:
-- Initialize $\mathcal{N}_{roots} = \emptyset$
-- For each $n_{loop} \in \mathcal{N}_{loop}$:
-    - Initialize a list $L = [n_{loop}]$
-    - while $L$ is not empty:
-        - Pop $n$ from $L$
-        - For each edge $e$ blocked by $n$ in $\mathcal{G}_{pre}'$:
-            - If the edge is an unpack edge, add all of its blocked nodes to $L$[^note]
-            - Otherwise, for each blocked node $n'$ in $e$:
-                - If $n' \in \mathcal{N}_{roots}$ or $n' \in \mathcal{N}_{loop}$, do nothing
-                - If $n'$ is live at $l_h$, add $n'$ to $\mathcal{N}_{roots}$[^live]
-                - If $n'$ is a root in $\mathcal{G}_{pre}'$, add $n'$ to $\mathcal{N}_{roots}$
-                - Otherwise, add $n'$ to $L$
+### Step 3 - Identify Borrow Roots $P_{roots}$
 
-### Step 4 - Construct Abstraction Graph
+The *borrow roots* of a place $p$ are the most immediate places that $p$
+could be borrowing from and later become accessible, and excluding places already
+in $P_{loop}$
+
+We defined the borrow roots using the function $roots(p)$:
+- Initialize a list $L$ to contain all lifetime projections in $p$
+- while $L$ is not empty:
+    - Pop $n$ from $L$
+    - For each edge $e$ blocked by $n$ in $\mathcal{G}_{pre}'$:
+        - If the edge is an unpack edge, add all of its blocked nodes to $L$
+        - Otherwise, for each blocked node $n'$ in $e$:
+            - If $n' \in \mathcal{N}_{roots}^{p}$ or $n' \in \mathcal{N}_{loop}$, do nothing
+            - If $n'$ is live at $l_h$, add $n'$ to $\mathcal{N}_{roots}^{p}$
+            - If $n'$ is a root in $\mathcal{G}_{pre}'$, add $n'$ to $\mathcal{N}_{roots}^{p}$
+            - Otherwise, add $n'$ to $L$
+- The resulting roots are the associated places of $\mathcal{N}_{roots}^{p}$
+
+We then identify $P_{roots}$, the most immediate nodes that $P_{loop}$ could be
+borrowing from and later become accessible (excluding nodes already in
+$\mathcal{P}_{loop}$). $P_{roots}$ is the union of the roots for each place in
+$P_{loop}$.
+
+### Step 4 - Construct Abstraction Graph And Compute Blocked Lifetime Projections
 We construct an abstraction graph $\mathcal{A}$ that describes the blocking
-relations potentially introduced in the loop from nodes in
-$\mathcal{N}_\textit{roots}$ to nodes in $RP_{blockers}$ and from nodes in
-$\mathcal{N}_{blocked}$ to nodes in $RP_{blockers}$.
-In the process we also identify:
-- $RP_{rename}$: the lifetime projections that will need to be re-labelled in $\mathcal{G}_{h}$
+relations potentially introduced in the loop from places in
+$P_\textit{roots}$ to nodes in $P_{blockers}$ and from nodes in
+$\blockedloopplaces$ to nodes in $P_{blockers}$.
 
-**Algorithm**:
+#### *connect()* function:
+We begin by define a helper function $connect(p_{blocked}, p_{blocker})$ which adds edges to $\mathcal{A}$ based on $p_{blocked}$ being blocked by $p_{blocker}$ in the loop:
+- Identify $p_{blocker} \downarrow r_{top}$: the top-level lifetime projection in $p_{blocker}$
+    - Insert a loop abstraction edge $\{p_{blocked}\} \rightarrow \{p_{blocker} \downarrow~r_{top}\}$ into $\mathcal{A}$
+- For each $p_{blocked} \downarrow r \in RP(p_{blocked})$:
+    - Identify the lifetime projections in $p_{blocker}$ that may mutate borrows in $p_{blocked} \downarrow r$
+        - $RP_{mut} = \{p \downarrow r'~|~ p \downarrow r' \in RP(p_{blocker}), r \approx r'\}$
+        - If $RP_{mut}$ is nonempty:
+            - Introduce a placeholder node $p_{blocked} \downarrow r~\mathtt{at~FUTURE}$
+            - Add a borrowflow hyperedge $\{p_{blocked} \downarrow r \} \rightarrow RP_{mut}$
+            - Add a future hyperedges:
+                - $\{p_{blocked} \downarrow r\} \rightarrow \{p_{blocked} \downarrow r~\mathtt{at~FUTURE}\}$
+                - $RP_{mut} \rightarrow \{p_{blocked} \downarrow r~\mathtt{at~FUTURE}\}$
+    - Identify the lifetime projections in $p_{blocker}$ that borrows in $p_{blocked} \downarrow r$ may flow into
+        - $RP_{flow} = \{p \downarrow r'~|~ p \downarrow r' \in RP(p_{blocker}), r~\text{outlives}~r'\} \setminus RP_{flow}$
+        - If $RP_{flow}$ is nonempty:
+            - Add a borrowflow hyperedge $\{p_{blocked} \downarrow r \} \rightarrow RP_{flow}$
 
-- For each candidate *blocked place* $p_{blocked}$ in $\mathcal{N}_{blocked}
-  \cup \mathcal{N}_{roots}$:
-    - The set of *blockers* $RP_b$ is the subset of $RP_{blocked}$ such that each $p_{blocker} \downarrow r$ in $RP_b$:
-        - $p_{blocker}$ and $p_{blocked}$ have distinct related locals
-        - $p_{blocker} \downarrow r$ [blocks](./definitions.html#blocking) $p_{blocked}$ at $l_h$.
-    - For each $p_{blocker} \downarrow r \in RP_b$:
-        - Insert a loop abstraction edge $\{p_{blocked}\} \rightarrow \{p \downarrow~r\}$ into $\mathcal{A}$
-        - For each lifetime projection $p_{blocked} \downarrow r'$ in $p_{blocked}$:
-            - Insert a loop abstraction edge $\{p_{blocked}\} \rightarrow \{p \downarrow~r\}$ into $\mathcal{A}$
-            - Identify $RP_{mut}$: the subset of lifetime projections in $p_{blocker}$ that may mutate borrows in $p_{blocked}$
-                - $RP_{mut} = \{p \downarrow r''~|~ p \downarrow r'' \in RP(p_{blocker}), r' \approx r''\}$
-            - If $RP_{mut}$ is nonempty:
-                - Introduce a placeholder node $p_{blocked} \downarrow r'~\mathtt{at~FUTURE}$
+#### Algorithm:
+
+- For each blocker place $p_{blocker} \in P_{blocker}$:
+    - For each $p_{blocked} \in roots(p_{blocker})$, perform $connect(p_{blocked}, p_{blocker})$
+    - For each $p_{blocked} \in \blockedloopplaces$
+        - If $p_{blocker}$ blocks $p_{blocked}$ at $l_h$, then perform $connect(p_{blocked}, p_{blocker})$
+
 -  Subsequently, ensure that $\mathcal{A}$ is well-formed by adding unpack edges where appropriate. For example, if `(*x).f` is in the graph, there should also be an expansion edge from `*x` to `(*x).f`.
 - We identify the set $RP_{rename}$ of lifetime projections that will need to be renamed (indicating they will be expanded in the loop and remain non-accessible at the loop head). $RP_{rename}$ is the set of non-leaf lifetime projection nodes in $\mathcal{A}$ (leaf nodes are accessible at the head).
 - Label all lifetime projections in $RP_{rename}$ with location $l_h$, add connections to their `Future` nodes as necessary.
 
-### Step 5 - Label Affected Lifetime Projections in Pre-State
+### Step 5 - Label Blocked Lifetime Projections in Pre-State
 The resulting graph for the loop head will require new labels on lifetime projections modified in the loop. We begin by constructing an intermediate  graph $\mathcal{G}_{pre}''$  by labelling each lifetime projection in $RP_{rename}$ with $l_h$ and remove capabilities to all places in $P_{remove}$ in $\mathcal{G}_{pre}'$.
 
 ### Step 6 - Identify Pre-State Subgraph to Replace With Abstraction Graph

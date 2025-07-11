@@ -196,10 +196,6 @@ First, we initialize $\mathcal{G}$ as $\mathcal{A} \cup \mathcal{G}_0$. For each
 2. For each `Future` edge $p \downarrow r \rightarrow p' \downarrow r'~\mathtt{at Future}$ in $\mathcal{G}_0$, remove the edge, and for each leaf $n$ in $\mathcal{G}_0$ with an ancestor $\tilde{p} \downarrow r~\mathtt{at PRE}, insert the `Future` edge $\{n\} \rightarrow p' \downarrow r' to $\mathcal{G}$.
 3. Remove $p \downarrow r$ from $\mathcal{G}$.
 
-## Liveness
-
-A place $p$ is live at a location $l$ iff there exists a location $l'$ and a control flow-path $c$ from $l$ to $l'$ where a place *conflicting with* $p$ is used at $l'$ and there are no assignments of any places *conflicting with* $p$ along c.
-
 ## Origin Containg Loan
 
 An origin $r$ contains a loan $r_L$ created at location $l$ iff:
