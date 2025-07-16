@@ -4,26 +4,32 @@
 TODO: Clean-up this writing
 </div>
 
-The purpose of the *PCG Analysis* is to provide clients with the following:
+The purpose of the _PCG Analysis_ is to provide clients with the following:
+
 - The PCG data structure representing the state of ownership and borrowing of Rust
   places at arbitrary [program points](definitions.html#program-point) within a Rust function
-- For any pair $pp_i, pp_j$ of consecutive program points, an ordered list of *actions* that describe the transformation of the  PCG of $pp_i$ to the PCG of $pp_j$.
+- For any pair $pp_i, pp_j$ of consecutive program points, an ordered list of _actions_ that describe the transformation of the PCG of $pp_i$ to the PCG of $pp_j$.
 
 ## PCG Analysis Algorithm
 
-The *PCG Analysis Algorithm* operates on the MIR *Body* of a Rust function and
-returns a *PCG Analysis* of the function. A *PCG Analysis* contains *PCG Data*
-for every reachable[^reachable] MIR location in the Body[^datastorage]. The *PCG
-Data* is a tuple of *PCG States* and *PCG Action Data*.
+Key Concepts:
 
-[^reachable]: A MIR location $l$ reachable iff its basic block $b_l$ is
-    reachable from the start block in the CFG without traversing *unwind* or
-    *fake* edges (the latter kind do not correspond to the actual control flow
+- The _PCG Analysis Algorithm_ operates on the MIR _Body_ of a Rust function and
+  returns a _PCG Analysis_ of the function.
+- A _PCG Analysis_ contains _PCG Data_
+  for every reachable[^reachable] MIR location in the Body[^datastorage].
+- The _PCG Data_ is a tuple of _PCG States_ and _PCG Action Data_.
+
+[^reachable]:
+    A MIR location $l$ reachable iff its basic block $b_l$ is
+    reachable from the start block in the CFG without traversing _unwind_ or
+    _fake_ edges (the latter kind do not correspond to the actual control flow
     of the function). The original reason for only considering reachable edges
     was to improve performance; removing this constraint (and instead
     considering all locations) would be simple to change in the implementation.
 
-[^datastorage]: The PCG analysis algorithm is implemented as a MIR dataflow
+[^datastorage]:
+    The PCG analysis algorithm is implemented as a MIR dataflow
     analysis defined by the rust compiler crate. In the implementation, the PCG
     Data is computed for every reachable MIR location during the algorithm
     execution itself, but only the PCG Data for the entry state of each basic
@@ -31,17 +37,66 @@ Data* is a tuple of *PCG States* and *PCG Action Data*.
     re-computed by applying the dataflow analysis transfer function from the
     entry state.
 
-The *PCG States* of a MIR location is a list of the PCGs computed at that location,
+The _PCG States_ of a MIR location is a list of the PCGs computed at that location,
 concretely:
-- An *Initial* state, followed by
-- One state for every [PCG evaluation phase](definitions.html#pcg-evaluation-phase)
 
-The *PCG Action Data* of a MIR location contains a list of *PCG Actions* for
+- An _Initial_ PCG, followed by
+- One PCG for every [PCG evaluation phase](definitions.html#pcg-evaluation-phase)
+
+The _PCG Action Data_ of a MIR location contains a list of _PCG Actions_ for
 each evaluation phase in the location (i.e. the actions performed at that
 phase).
 
-The PCG Analysis Algorithm is implemented as a dataflow analysis in which every
-reachable statement is visited exactly once[^confirmimpl]. This property is
+#### The PCG Dataflow Analysis
+
+The PCG Analysis Algorithm is implemented as a MIR dataflow analysis.  At a high
+level, a MIR dataflow analysis is defined by the following elements:
+- A *domain* $\mathcal{D}$
+- A *join operation* $\mathit{join}: (\mathcal{D} \times \mathcal{D}) \rightarrow \mathcal{D}$
+- An *empty state* $d_\epsilon \in \mathcal{D}$
+- A *transfer function* $\mathit{transfer}: (\mathcal{D} \times \mathit{Location}) \rightarrow \mathcal{D}$
+
+Performing the dataflow analysis on a MIR body $B$ computes a value of type
+$\mathcal{D}$ for every location in $B$. The analysis is performed (conceptually) as follows[^dataflowimpl]:
+
+[^dataflowimpl]: The current analysis implementation (defined in the rust
+    compiler) is more efficient than what we describe because it tracks state
+    per basic block rather than per-location, as the states for any location in
+    a block can be computed by repeated application of the transfer function to
+    the entry state.
+
+- The analysis defines a map $S$ that maps locations in $B$ to elements of $\mathcal{D}$.
+- Each location in $S$ is initialized to $\mathcal{d}_\epsilon$
+- The operation *analyze(b)* updates $S$ as follows:
+    - $s[b[0]] \leftarrow \mathit{transfer}(s[b[0]], b[0])$
+    - For $0 < i  \leqslant |b|: s[b[i]] \leftarrow \mathit{transfer}(s[b[i -1]], b[i])$
+- The analysis defines a worklist $W = [b_0]$
+- While $W$ is not empty:
+    - Pop $b$ from $W$
+    - Perform $analyze(b)$
+    - Let $s_b^\mathit{exit}$ be the entry of the last location in $b$ in $s$
+    - For each successor $b'$ of $b$:
+        - Let $s_{b'}^{\mathit{entry}} = s[b'[0]]$
+        - Let $s_{b'}^{\mathit{join}} = \mathit{join(s_{b'}^{\mathit{entry}}, s_b^{\mathit{exit}})}$
+        - If $s_{b'}^{\mathit{join}} \neq s_{b'}^{\mathit{entry}}$:
+            - $s[b'[0]] \leftarrow s_{b'}^{\mathit{join}}$
+            - Add $b'$ to $W$
+- $S$ is the result
+
+<div class="warning">
+
+I'm not sure of the order things are popped from $W$. Any ordering should yield
+the same $S$ but some blocks may be analyzed more frequently than necessary. We
+should check the rustc implementation.
+
+</div>
+
+Given a basic block $b$ and an *entry state* $d \in \mathcal{D}$, a state is
+  computed for each location in the block by repeated application of the transfer function
+
+
+
+This property is
 ensured because the final state at a loop head is computed upon entering it in
 the analysis (without having first seen the body). The join of the state at a
 back edge with the state at the loop head should yield the loop head state.
@@ -54,17 +109,18 @@ We currently have not implemented the check to join the two states to confirm th
 
 ## PCG Data Structure
 
-The *PCG* data structure represents the state of ownership and borrowing of Rust
-  places at an arbitrary [program point](definitions.html#program-point).
+The _PCG_ data structure represents the state of ownership and borrowing of Rust
+places at an arbitrary [program point](definitions.html#program-point).
 
 <div class="warning">
 Perhaps this describes too much implementation-specific details?
 </div>
 
 In our implementation, it consists of three components:
-- The *Owned PCG*, which describes the state of [owned places](definitions.html#owned-places)
-- The *Borrow State*, which describes borrowed memory (borrowed places and lifetime projections) and borrow relations, and also some auxillary data structures
-- The *Place Capabilities* which is a map from places to capabilities
+
+- The _Owned PCG_, which describes the state of [owned places](definitions.html#owned-places)
+- The _Borrow State_, which describes borrowed memory (borrowed places and lifetime projections) and borrow relations, and also some auxillary data structures
+- The _Place Capabilities_ which is a map from places to capabilities
 
 ### Owned PCG
 
@@ -77,12 +133,12 @@ hyperedge from the singleton set $\{ n \}$ to its children.
 
 <div class="warning">
 
-Expansions of *borrowed* places are represented as *borrow expansion hyperedges*
+Expansions of _borrowed_ places are represented as _borrow expansion hyperedges_
 in the Borrows Graph. They are used to represent, e.g. the projection $p'$ of a
 borrowed place $p$, where $p'$ will be further reborrowed.
 
 It would probably be a better design to remove the Owned PCG and change the
-Borrows Graph to a *PCG graph* by changing *borrow expansion* hyperedges to simply be *expansion hyperedges*.
+Borrows Graph to a _PCG graph_ by changing _borrow expansion_ hyperedges to simply be _expansion hyperedges_.
 
 This would likely simplify things a bit because algorithms related to
 expanding/collapsing are currently defined for both the Owned PCG and the
@@ -96,7 +152,7 @@ after the join. Currently our implementation handles this by redirecting the
 borrow to the collapsed place.
 
 However, merging the owned and borrow graphs would probably require a bit of
-thinking about how to implement the *join* operation on the merged data
+thinking about how to implement the _join_ operation on the merged data
 structure.
-</div>
 
+</div>
