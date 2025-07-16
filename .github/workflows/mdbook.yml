@@ -32,11 +32,11 @@ jobs:
       MDBOOK_VERSION: 0.4.51
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      # - name: Setup Pages
+      #   id: pages
+      #   uses: actions/configure-pages@v5
+      #   with:
+      #     enablement: true
       - name: Install mdBook
         run: |
           curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf -y | sh
