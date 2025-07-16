@@ -49,63 +49,32 @@ phase).
 
 #### The PCG Dataflow Analysis
 
-The PCG Analysis Algorithm is implemented as a MIR dataflow analysis.  At a high
-level, a MIR dataflow analysis is defined by the following elements:
-- A *domain* $\mathcal{D}$
-- A *join operation* $\mathit{join}: (\mathcal{D} \times \mathcal{D}) \rightarrow \mathcal{D}$
-- An *empty state* $d_\epsilon \in \mathcal{D}$
-- A *transfer function* $\mathit{transfer}: (\mathcal{D} \times \mathit{Location}) \rightarrow \mathcal{D}$
+The PCG Analysis Algorithm is implemented as a [MIR dataflow
+analysis](definitions/mir.html#mir-dataflow-analysis) using `PcgDomainData` as
+the domain. `PcgDomainData` contains a `PCGData` value and other relevant
+metadata (e.g the associated basic block). Notably, the analysis only analyzes
+each basic block one time. Conceptually, this property is ensured because the
+final state at a loop head is computed upon entering it in the analysis (without
+having first seen the body).
 
-Performing the dataflow analysis on a MIR body $B$ computes a value of type
-$\mathcal{D}$ for every location in $B$. The analysis is performed (conceptually) as follows[^dataflowimpl]:
+We note that the behaviour of the *join* operation on `PCGDomainData` requires
+careful tracking of what blocks have been previously joined (this is basically a
+consequence of the interface of the MIR dataflow analysis). We define
+$\mathit{join}(s', s)$ (joining the state computed at $s$ into $s'$) as follows:
+- Let $b', b$ be the associated blocks of $s'$ and $s$ respectively
 
-[^dataflowimpl]: The current analysis implementation (defined in the rust
-    compiler) is more efficient than what we describe because it tracks state
-    per basic block rather than per-location, as the states for any location in
-    a block can be computed by repeated application of the transfer function to
-    the entry state.
-
-- The analysis defines a map $S$ that maps locations in $B$ to elements of $\mathcal{D}$.
-- Each location in $S$ is initialized to $\mathcal{d}_\epsilon$
-- The operation *analyze(b)* updates $S$ as follows:
-    - $s[b[0]] \leftarrow \mathit{transfer}(s[b[0]], b[0])$
-    - For $0 < i  \leqslant |b|: s[b[i]] \leftarrow \mathit{transfer}(s[b[i -1]], b[i])$
-- The analysis defines a worklist $W = [b_0]$
-- While $W$ is not empty:
-    - Pop $b$ from $W$
-    - Perform $analyze(b)$
-    - Let $s_b^\mathit{exit}$ be the entry of the last location in $b$ in $s$
-    - For each successor $b'$ of $b$:
-        - Let $s_{b'}^{\mathit{entry}} = s[b'[0]]$
-        - Let $s_{b'}^{\mathit{join}} = \mathit{join(s_{b'}^{\mathit{entry}}, s_b^{\mathit{exit}})}$
-        - If $s_{b'}^{\mathit{join}} \neq s_{b'}^{\mathit{entry}}$:
-            - $s[b'[0]] \leftarrow s_{b'}^{\mathit{join}}$
-            - Add $b'$ to $W$
-- $S$ is the result
-
-<div class="warning">
-
-I'm not sure of the order things are popped from $W$. Any ordering should yield
-the same $S$ but some blocks may be analyzed more frequently than necessary. We
-should check the rustc implementation.
-
-</div>
-
-Given a basic block $b$ and an *entry state* $d \in \mathcal{D}$, a state is
-  computed for each location in the block by repeated application of the transfer function
-
-
-
-This property is
-ensured because the final state at a loop head is computed upon entering it in
-the analysis (without having first seen the body). The join of the state at a
-back edge with the state at the loop head should yield the loop head state.
+In the implementation the *join* operation
+associated with the `PcgDomainData`, we have $\mathit{join}(s_h, s_b) = s_h$ if $s_h$
+is the state of a loop head and $s_b$ is the state of a back edge; this ensures
+that loop heads are only considered once[^confirmimpl].
 
 [^confirmimpl]: We should confirm that this also holds in the implementation as this previously was not the case. However, visiting the same stmt multiple times should only affect performance, not correctness.
 
 <div class="warning">
-We currently have not implemented the check to join the two states to confirm the correctness of the loop head state.
+Our implementation should also be checking that the PCG generated at the loop head is valid w.r.t the state at the back edge here, but this is not happening yet.
 </div>
+
+We note that to correspond
 
 ## PCG Data Structure
 
