@@ -49,6 +49,10 @@ phase).
 
 #### The PCG Dataflow Analysis
 
+<div class="warning">
+Work in progress
+</div>
+
 The PCG Analysis Algorithm is implemented as a [MIR dataflow
 analysis](definitions/mir.html#mir-dataflow-analysis) using `PcgDomainData` as
 the domain. `PcgDomainData` contains a `PCGData` value and other relevant
@@ -62,6 +66,7 @@ careful tracking of what blocks have been previously joined (this is basically a
 consequence of the interface of the MIR dataflow analysis). We define
 $\mathit{join}(s', s)$ (joining the state computed at $s$ into $s'$) as follows:
 - Let $b', b$ be the associated blocks of $s'$ and $s$ respectively
+- If no block has ever been joined into $b'$, then \mathit{join}(s', s)
 
 In the implementation the *join* operation
 associated with the `PcgDomainData`, we have $\mathit{join}(s_h, s_b) = s_h$ if $s_h$
