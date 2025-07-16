@@ -1,5 +1,6 @@
 # Summary
 
-- [Chapter 1](./chapter_1.md)
+- [Introduction](./introduction.md)
 - [Definitions](./definitions.md)
 - [Loops](./loops.md)
+- [Misc (To Update)](./misc.md)
