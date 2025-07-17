@@ -1,4 +1,4 @@
-# MIR
+# MIR Definitions
 
 Here we describe definitions of MIR concepts that are relevant to the PCG.
 
@@ -9,6 +9,18 @@ stable. If there is any discrepency between the descriptions here and those from
 official Rust sources (e.g. the [dev guide](https://rustc-dev-guide.rust-lang.org/)), this page should be updated accordingly.
 
 </div>
+
+## Places
+
+### Place Prefix
+
+A place $p$ is a *prefix* of a place $p'$ iff:
+- $p$ and $p'$ have the same local, and
+- The projection of $p$ is a prefix of the projection of $p'$
+
+Note that $p$ is a prefix of itself.
+
+A place $p$ is a *strict prefix* of $p'$ iff $p$ is a prefix of $p'$ and $p \neq p'$.
 
 ## MIR Dataflow Analysis
 

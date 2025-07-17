@@ -12,13 +12,6 @@ A type $\tau$ *contains* a type $\tau'$, iff:
 
 ---
 
-### Definition: Subplaces
-
-A place $p'$ is a *subplace* of $p$ if $p = p'$ or the projection of $p$ is a
-prefix of the projection of $p'$.
-
----
-
 ### Definition: Containing Lifetimes
 
 A type $\tau$ *contains* a lifetime $r$ iff $\tau$ contains the type
