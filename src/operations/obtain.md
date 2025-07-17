@@ -68,13 +68,26 @@ other pre-and postfix places of (*c).f2 to None (in this case c and
 but this is not always the case (e.g. if we wanted to obtain
 (*c).f2.f3 instead)
 
-### Step 2 - Restoring Capability to Ancestor
-Then, if a node for $p$ exists in the graph and $p$'s capability is not at least as strong as $c$, we iteratively pack up the projections of $p$ in reverse topological order, with the effect of flowing capabilities back to $p$.
+### Step 2 - Collapse 
+
+Then, if a node for $p$ exists in the graph and $p$'s capability is not at least as strong as $c$, *collapse* the subgraph rooted at $p$ (and obtain capability $c$ for $p$) by performing the *collapse(p, c)* operation.
+
+#### *collapse*
+
+The *collapse* operation is implemented as follows:
+
+- For each $p'$ such that $p$ is a [prefix](../definitions/mir.html#place-prefix) of $p'$ (from longest to shortest) and there is a node for $p'$ in the graph:
+  - perform the [*Collapse*](./repack-ops.html#Collapse) _Repack Operation_ on $p'$.
+  - For each lifetime $'r$ in the type of $p'$:
+    - Create a new lifetime projection node $p'\downarrow~'r$
+    - For each lifetime projection node $p''\downarrow~'r$ where $p''$ is an expansion of $p'$:
+      - Label $p''$
+      - Add an edge $\{p''\downarrow~'r\}\rightarrow\{p'\downarrow~'r\}$
 
 ### Step 3 - Labelling Lifetime Projections
 At this point, if $c$ is $W$, we know that a subsequent operation will mutate $p$.
 As a result, if there exists a lifetime projection node for $p$ (for example, if $p$ stores a borrow that has since been reborrowed), it will no longer be tied to the current value of $p$.
-So, we label the place as "old".
+So, we label $p$.
 
 ### Step 4 - Expand
 
@@ -121,4 +134,4 @@ The operation is implemented as follows:
 ### Step 5 - Labelling Lifetime Projections for Projections
 Finally, if we are obtaining $W$ or $E$ capability, we can again assume that the intention is to mutate $p$.
 If there exist any lifetime projection nodes for dereferences of $p$'s fields (or $p$'s fields' fields, and so on...), we encounter the same problem that was described in Step 3.
-To address this, we label any lifetime projections for dereferences of places *for which $p$ is a prefix* (`*p.f`, for example) as "old" using the current program point.
+To address this, we label any lifetime projections for dereferences of places *for which $p$ is a prefix* (`*p.f`, for example).

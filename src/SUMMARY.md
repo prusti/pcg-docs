@@ -8,4 +8,5 @@
 - [Misc (To Update)](./misc.md)
 - [PCG Operations](./operations.md)
     - [Obtaining Capability to a Place](./operations/obtain.md)
-- [Collapse Owned Places](./collapse-owned-places.md)
+    - [Collapsing Owned Places](./operations/collapse-owned-places.md)
+    - [Repack Operations](./operations/repack-ops.md)
