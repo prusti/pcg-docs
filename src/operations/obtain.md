@@ -74,7 +74,7 @@ Then, if a node for $p$ exists in the graph and $p$'s capability is not at least
 
 #### *collapse*
 
-The *collapse* operation is implemented as follows:
+The *collapse(p)* operation is implemented as follows:
 
 - For each $p'$ such that $p$ is a [prefix](../definitions/mir.html#place-prefix) of $p'$ (from longest to shortest) and there is a node for $p'$ in the graph:
   - perform the [*Collapse*](./repack-ops.html#Collapse) _Repack Operation_ on $p'$.
