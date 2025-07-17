@@ -1,9 +1,7 @@
 This repository stores documentation on the PCG design and implementation. It is
 intended to be the authoritative source on information about the PCG.
 
-Currently the published version of these documents are accessible at: https://zackg.me/pcg-docs
-
-The deployed version will eventually be accessible at: https://viperproject.github.io/pcg-docs
+These documents are accessible at: https://viperproject.github.io/pcg-docs
 
 ## Local Development
 
