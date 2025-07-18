@@ -9,4 +9,6 @@
 - [PCG Operations](./operations.md)
     - [Obtaining Capability to a Place](./operations/obtain.md)
     - [Collapsing Owned Places](./operations/collapse-owned-places.md)
+    - [Activating Two-Phase Borrows](./operations/activate-twophase.md)
+    - [Packing Old and Dead Borrow Leaves](./operations/pack-old-and-dead-borrow-leaves.md)
     - [Repack Operations](./operations/repack-ops.md)

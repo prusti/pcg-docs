@@ -2,6 +2,8 @@
 
 At the outset of each program point, the *collapse_owned_places* operation eagerly collapses the _Owned PCG_.
 
+This operation is implemented as `PcgVisitor::collapse_owned_places` (see [https://github.com/viperproject/pcg/blob/main/src/pcg/visitor/pack.rs](https://github.com/viperproject/pcg/blob/main/src/pcg/visitor/pack.rs)
+
 It is implemented as follows:
 
 - For each place $p$ for which there exists a place node (from longest to shortest):

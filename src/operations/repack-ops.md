@@ -1,5 +1,13 @@
 # Repack Operations
 
+## RegainLoanedCapability
+
+## DerefShallowInit
+
 ## Collapse
-- TODO
+
+The *Collapse()* _Repack Operation_
+
+## Expand
+
 
