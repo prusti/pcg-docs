@@ -1,6 +1,29 @@
 # Definitions
 
-## Place Expansion
+## Types
+
+### Type Contains
+
+A type $\tau$ *contains* a type $\tau'$, iff:
+
+1. $\tau = \tau'$, or
+2. $\tau$ is an ADT and contains a field $\mathtt{f}: \tau_\mathtt{f}$ and $\tau_\mathtt{f}$ contains $\tau'$
+3. $\tau = \mathtt{\&'r~mut}~\tau_{\text{tgt}}$ and $\tau_{\text{tgt}}$ contains $\tau'$
+
+### Types Containing Lifetimes
+
+A type $\tau$ *contains* a lifetime $r$ iff $\tau$ contains the type
+$\mathtt{\&\tick{r}~mut}~\tau'$ for some type $\tau'$. A lifetime $r$ is *nested*
+in a type $\tau$ iff $\tau$ contains a type $\mathtt{\&'r~mut}~\tau'$ and $\tau'$ contains $r$.
+We extend these concept to places: a place $p: \tau$ contains a lifetime $r$ iff
+$\tau$ contains $r$; $r$ is nested in $p: \tau$ iff $r$ is nested in $\tau$. A lifetime
+projection $p \downarrow r$ is *nested* if $r$ is nested in $p$.
+
+---
+
+## Places
+
+### Place Expansion
 
 <div class="warning">
 This is missing some cases
@@ -12,10 +35,14 @@ A set of places $\overline{p}$ is an *expansion* of a place *p* iff:
 - $p$ is a reference-typed field and $\overline{p} = \{*p\}$
 - $p$ is an array or slice and $\overline{p} = p[i]$ (TODO: more cases)
 
-## Owned Places
+### Owned Places
 
 A place is *owned* iff it does not project from the dereference of a
 reference-typed place.
+
+### Place Liveness
+
+A place $p$ is live at a location $l$ iff there exists a location $l'$ and a control flow-path $c$ from $l$ to $l'$ where a place *conflicting with* $p$ is used at $l'$ and there are no assignments of any places *conflicting with* $p$ along c.
 
 ## PCG Evaluation Phase
 
@@ -43,20 +70,19 @@ Concretely, a program point is either:
 - The start of a basic block
 - A pair of a MIR location and a PCG evaluation phase
 
-## Blocking
+## Borrows and Blocking
+
+### Blocking
 
 A place $p_{blocker}$ *blocks* a place $p_{blocked}$ at a location $l$ if a
 usage of $p_{blocked}$ at $l$ would invalidate a live borrow $b$ contained in the origins of $p_{blocker}$ at $l$.
 
-## Place Liveness
 
-A place $p$ is live at a location $l$ iff there exists a location $l'$ and a control flow-path $c$ from $l$ to $l'$ where a place *conflicting with* $p$ is used at $l'$ and there are no assignments of any places *conflicting with* $p$ along c.
-
-## Borrow Liveness
+### Borrow Liveness
 
 A borrow $p = \&\texttt{mut}~p'$ is *live* at location $l$ if a usage of $p'$ at
 $l$ would invalidate the borrow.
 
-## Directly Borrowed
+### Directly Borrowed
 
 A place $p$ is *directly borrowed* by a borrow $b$ if $p$ is exactly the borrowed place (not e.g. a pre- or postfix of the place).

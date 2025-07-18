@@ -1,9 +1,5 @@
 # Overview
 
-<div class="warning">
-TODO: Clean-up this writing
-</div>
-
 The purpose of the _PCG Analysis_ is to provide clients with the following:
 
 - The PCG data structure representing the state of ownership and borrowing of Rust

@@ -3,6 +3,7 @@
 - [Overview](./overview.md)
     - [Analysing Statements](./overview/statements.md)
 - [Definitions](./definitions.md)
+    - [PCG Nodes](./definitions/pcg-nodes.md)
     - [MIR Definitions](./definitions/mir.md)
 - [Loops](./loops.md)
 - [Misc (To Update)](./misc.md)

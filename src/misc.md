@@ -1,32 +1,5 @@
 # Misc (To Update)
 
-## Preliminary Definitions
-
-### Definition: Type Contains
-
-A type $\tau$ *contains* a type $\tau'$, iff:
-
-1. $\tau = \tau'$, or
-2. $\tau$ is an ADT and contains a field $\mathtt{f}: \tau_\mathtt{f}$ and $\tau_\mathtt{f}$ contains $\tau'$
-3. $\tau = \mathtt{\&'r~mut}~\tau_{\text{tgt}}$ and $\tau_{\text{tgt}}$ contains $\tau'$
-
----
-
-### Definition: Containing Lifetimes
-
-A type $\tau$ *contains* a lifetime $r$ iff $\tau$ contains the type
-$\mathtt{\&\tick{r}~mut}~\tau'$ for some type $\tau'$. A lifetime $r$ is *nested*
-in a type $\tau$ iff $\tau$ contains a type $\mathtt{\&'r~mut}~\tau'$ and $\tau'$ contains $r$.
-We extend these concept to places: a place $p: \tau$ contains a lifetime $r$ iff
-$\tau$ contains $r$; $r$ is nested in $p: \tau$ iff $r$ is nested in $\tau$. A lifetime
-projection $p \downarrow r$ is *nested* if $r$ is nested in $p$.
-
----
-
-### Definition: Program Points
-
-A program point is either `start bb | mid l | after l`, where `bb` is a MIR basic block and l is MIR location.
-
 ## Nodes
 
 $$
