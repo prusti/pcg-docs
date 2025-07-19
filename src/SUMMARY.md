@@ -4,6 +4,8 @@
     - [Analysing Statements](./overview/statements.md)
 - [Definitions](./definitions.md)
     - [PCG Nodes](./definitions/pcg-nodes.md)
+    - [PCG Hyperedges](./definitions/pcg-edges.md)
+    - [Validity Conditions](./definitions/validity-conditions.md)
     - [MIR Definitions](./definitions/mir.md)
 - [Loops](./loops.md)
 - [Misc (To Update)](./misc.md)

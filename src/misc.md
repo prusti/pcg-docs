@@ -1,51 +1,5 @@
 # Misc (To Update)
 
-## Nodes
-
-$$
-\newcommand{\bb}{\mathtt{bb}}          % Basic blocks
-\newcommand{\ppointbefore}[1]{{\text{before}~#1}}
-\newcommand{\ppointafter}[1]{{\text{after}~#1}}
-\newcommand{\ppoint}{{l}}
-\newcommand{\location}{\mathtt{loc}}   % Locations
-\newcommand{\placeelem}{e}    % PlaceElems
-\newcommand{\rustfield}{f}
-\newcommand{\rustty}{T}
-\newcommand{\maybelabelled}{\tilde{p}}
-\newcommand{\maybelabelledregion}{\tilde{r}}
-\newcommand{\current}{\mathtt{current}}
-\newcommand{\pcgplace}{\hat{p}}
-\newcommand{\remote}[1]{\mathit{origin}(#1)}
-\newcommand{\lifetimeproj}{\mathit{rp}}
-\newcommand{\lproj}[2]{#1 \downarrow #2}
-\newcommand{\const}{\mathtt{const}}
-\newcommand{\lifetime}{r}
-\begin{array}{l l r}
-    b & ::= \bb_i & \textbf{(Basic Block)} \\
-    \ppoint & ::= \ppointbefore{b}~|~\ppointafter{\location} & \textbf{(Program Point)} \\
-    \placeelem & ::= .\rustfield~|~*~|~\mathtt{@}~\rustty & \textbf{(Place Element)} \\
-    p & ::= & \textbf{(Rust Place)} \\
-    p & ::=  \langle i, \overline{\placeelem} \rangle & \textbf{(Rust Place)} \\
-    \maybelabelled & ::=  & \textbf{(Maybe-Labelled Place)} \\
-    & \mid \current{}~p & \text{(Current Place)} \\
-    & \mid p~\mathtt{at}~\ppoint & \text{(Labelled Place)} \\
-    \maybelabelledregion & ::=  & \textbf{(Maybe-Labelled Lifetime)} \\
-    & \mid \current~r & \text{(Current Lifetime)} \\
-    & \mid r~\mathtt{at}~\ppoint & \text{(Labelled Lifetime)} \\
-    \pcgplace & ::=  & \textbf{(PCG Place)} \\
-    & \mid \maybelabelled & \text{(Maybe-Labelled Place)} \\
-    & \mid \remote{i} & \text{(Remote Place)} \\
-    \lifetimeproj & ::=  & \textbf{(Lifetime Projection)} \\
-    & \mid \lproj{\pcgplace}{\maybelabelledregion} & \text{(Place Projection)} \\
-    & \mid \lproj{\const}{\lifetime} & \text{(Constant Projection)} \\
-    n & ::= \pcgplace~|~\lifetimeproj & \textbf{(PCG Node)}
-\end{array}
-$$
-
-:::warning
-In the implementation we currently refer to lifetime projections as "region projections" and labelled places as "old" places.
-:::
-
 ## The "Latest" Map
 
 The "Latest" map $\mathcal{L}$ is a partial map from places to program points.
