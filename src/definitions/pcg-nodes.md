@@ -9,19 +9,12 @@ $$
 \newcommand{\placeelem}{e}    % PlaceElems
 \newcommand{\rustfield}{f}
 \newcommand{\rustty}{T}
-\newcommand{\maybelabelled}{\widetilde{p}}
 \newcommand{\maybelabelledregion}{\widetilde{r}}
 \newcommand{\current}{\mathtt{current}}
-\newcommand{\pcgplace}{\hat{p}}
-\newcommand{\remote}[1]{\mathit{remote}(#1)}
-\newcommand{\lifetimeproj}{\mathit{rp}}
-\newcommand{\lproj}[2]{#1 \downarrow #2}
-\newcommand{\const}{\mathtt{const}}
-\newcommand{\placeholderlabel}{\texttt{FUTURE}}
-\newcommand{\label}{\ell}
-\newcommand{\lifetime}{r}
 \begin{array}{l l r}
     i && \textbf{(Integer)} \\
+    \local && \textbf{(MIR Local)} \\
+    c && \textbf{(MIR Constant)} \\
     b && \textbf{(MIR Basic Block Index)} \\
     l & ::= b[i] & \textbf{(MIR Location)} \\
     p && \textbf{(MIR Place)} \\
@@ -36,15 +29,13 @@ $$
     \maybelabelled & ::=  & \textbf{(Maybe-Labelled Place)} \\
     & \mid p & \text{(Current Place)} \\
     & \mid p~\mathtt{at}~\label & \text{(Labelled Place)} \\
-    \maybelabelledregion & ::=  & \textbf{(Maybe-Labelled Lifetime)} \\
-    & \mid r & \text{(Current Lifetime)} \\
-    & \mid r~\mathtt{at}~\label & \text{(Snapshotted Lifetime)} \\
-    & \mid r~\mathtt{at}~\placeholderlabel & \text{(Placeholder Lifetime)} \\
     \pcgplace & ::=  & \textbf{(PCG Place)} \\
     & \mid \maybelabelled & \text{(Maybe-Labelled Place)} \\
-    & \mid \remote{i} & \text{(Remote Place)} \\
+    & \mid \remote{\local} & \text{(Remote Place)} \\
     \lifetimeproj & ::=  & \textbf{(Lifetime Projection)} \\
-    & \mid \lproj{\pcgplace}{\maybelabelledregion} & \text{(Place Projection)} \\
+    & \mid \lproj{\pcgplace}{r} & \text{(Place Projection)} \\
+    & \mid \lproj{\pcgplace}{r~\texttt{at}~\label} & \text{(Snapshot of Place Projection)} \\
+    & \mid \lproj{\pcgplace}{r~\texttt{at}~\placeholderlabel} & \text{(Placeholder Projection)} \\
     & \mid \lproj{\const}{\lifetime} & \text{(Constant Projection)} \\
     n & ::= \pcgplace~|~\lifetimeproj & \textbf{(PCG Node)}
 \end{array}
@@ -57,3 +48,16 @@ We probably don't need so many label types, but we have them in the implementati
 <div class="warning">
 In the implementation we currently refer to lifetime projections as "region projections" and labelled places as "old" places.
 </div>
+
+## Associated Place
+
+The associated place of a PCG node $n$ is defined by the partial function $p(n)$ :
+- $p(p) = p$
+- $p(p~\texttt{at}~\label) = p$
+- $p(\lifetimeproj) = p(\base(\lifetimeproj))$
+
+Where $\base(\lifetimeproj)$ is the base of the lifetime projection $\lifetimeproj$ as defined [here](lifetime-projections.html#lifetime-projection-base).
+
+## Local PCG Nodes
+
+A PCG node $n$ is a local node if it has an associated place $p(n)$.

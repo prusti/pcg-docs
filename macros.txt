@@ -1,2 +1,13 @@
 \tick:{\mathtt{'}#1}
 \blockedloopplaces:{P_{blocked}^{loop}}
+\maybelabelled:{\widetilde{p}}
+\lifetimeproj:{\mathit{rp}}
+\label:{\ell}
+\const:{c}
+\lproj:{#1 \downarrow #2}
+\placeholderlabel:{\texttt{FUTURE}}
+\pcgplace:{\hat{p}}
+\lifetime:{r}
+\base:{\mathit{base}}
+\local:{v}
+\remote:{\mathit{remote}(#1)}

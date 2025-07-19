@@ -5,6 +5,8 @@
 - [Definitions](./definitions.md)
     - [PCG Nodes](./definitions/pcg-nodes.md)
     - [PCG Hyperedges](./definitions/pcg-edges.md)
+    - [Places](./definitions/places.md)
+    - [Lifetime Projections](./definitions/lifetime-projections.md)
     - [Validity Conditions](./definitions/validity-conditions.md)
     - [MIR Definitions](./definitions/mir.md)
 - [Loops](./loops.md)
