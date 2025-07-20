@@ -94,3 +94,16 @@ The place $p$ is labelled (but none of its prefixes or postfixes).
 ### `LabelSharedDerefProjections`
 
 All *strict* postfixes of $p$ are labelled.
+
+## RemoveEdge
+
+Removes an edge from the graph. If the removal of the edge causes any place
+nodes to be removed from the graph, the capability of those places are removed.
+
+## AddEdge
+
+Inserts an edge into the graph. This does not change the capabilities.
+
+## SetLatest
+
+Updates the latest label of place $p$ to label $l$ in the Latest Map.
