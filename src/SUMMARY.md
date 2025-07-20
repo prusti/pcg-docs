@@ -2,6 +2,7 @@
 
 - [Overview](./overview.md)
     - [Analysing Statements](./overview/statements.md)
+    - [Choosing Place Labels](./overview/choosing-place-labels.md)
 - [Definitions](./definitions.md)
     - [PCG Nodes](./definitions/pcg-nodes.md)
     - [PCG Hyperedges](./definitions/pcg-edges.md)
@@ -17,3 +18,4 @@
     - [Activating Two-Phase Borrows](./operations/activate-twophase.md)
     - [Packing Old and Dead Borrow Leaves](./operations/pack-old-and-dead-borrow-leaves.md)
     - [Repack Operations](./operations/repack-ops.md)
+    - [Borrow PCG Actions](./operations/borrow-pcg-actions.md)

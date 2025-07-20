@@ -1,30 +1,5 @@
 # Misc (To Update)
 
-## The "Latest" Map
-
-The "Latest" map $\mathcal{L}$ is a partial map from places to program points.
-
-The function $\mathit{latest}(p)$ is defined as follows:
-
-$$
-\mathit{latest}(p) = \begin{cases}
-\mathcal{L}[p']& \text{if}~\mathcal{L}~\text{contains any subplace of}~p \\
-\mathtt{start bb0}&\text{otherwise}
-\end{cases}
-$$
-
-where $p'$ is the longest subplace of $p$ where $p' \in \mathcal{L}$.
-
-
-## Labelling Places
-
-To label a place $p$ in the graph, for each node in the graph, for each $\mathtt{current}~p'$ in each node, if $p'$ is a subplace of $p$ or $p$ is a subplace of $p'$, $\mathtt{current}~p'$ is replaced with the labelled place $p'~\mathtt{at}~\mathit{latest(p')}$.
-
-
-## Labelling Lifetime Projections
-
-The operation of labelling a lifetime projection $p \downarrow r$ with a program point $l$ is to replace the node in the graph with the node $p \downarrow r~\mathtt{at}~l$.
-
 ## Mutable Borrows
 
 Consider the stmt `p = &mut q`, at a program point $l$, where $p$ has type $\&r_0 ~\mathtt{mut}~\tau$, and $q$ has type $\tau$, and $\tau$ is a type containing lifetimes $r_1, \ldots r_n$.
