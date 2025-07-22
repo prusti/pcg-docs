@@ -82,7 +82,7 @@ The *collapse(p)* operation is implemented as follows:
     - Create a new lifetime projection node $p'\downarrow~'r$
     - For each lifetime projection node $p''\downarrow~'r$ where $p''$ is an expansion of $p'$:
       - Label $p''$
-      - Add an edge $\{p''\downarrow~'r\}\rightarrow\{p'\downarrow~'r\}$
+      - Create a new `BorrowFlow` edge $\{p''\downarrow~'r\}\rightarrow\{p'\downarrow~'r\}$
 
 ### Step 3 - Labelling Lifetime Projections
 At this point, if $c$ is $W$, we know that a subsequent operation will mutate $p$.
