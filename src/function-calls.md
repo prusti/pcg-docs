@@ -46,5 +46,5 @@ We add an abstraction graph $\mathcal{A}$ to a PCG $\mathcal{G}_0$ to create a n
 
 First, we initialize $\mathcal{G}$ as $\mathcal{A} \cup \mathcal{G}_0$. For each projection $p \downarrow r$ in $RP$, we modify $\mathcal{G}$ as follows:
 1. For each endpoint in $\mathcal{G}_0$ whose target is $p \downarrow r$, redirect the target to $\tilde{p}\downarrow r~\mathtt{at~PRE}$.
-2. For each `Future` edge $p \downarrow r \rightarrow p' \downarrow r'~\mathtt{at Future}$ in $\mathcal{G}_0$, remove the edge, and for each leaf $n$ in $\mathcal{G}_0$ with an ancestor $\tilde{p} \downarrow r~\mathtt{at PRE}, insert the `Future` edge $\{n\} \rightarrow p' \downarrow r' to $\mathcal{G}$.
+2. For each `Future` edge $p \downarrow r \rightarrow p' \downarrow r'~\mathtt{at~Future}$ in $\mathcal{G}_0$, remove the edge, and for each leaf $n$ in $\mathcal{G}_0$ with an ancestor $\tilde{p} \downarrow r~\mathtt{at PRE}, insert the `Future` edge $\{n\} \rightarrow p' \downarrow r' to $\mathcal{G}$.
 3. Remove $p \downarrow r$ from $\mathcal{G}$.

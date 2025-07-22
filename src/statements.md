@@ -1,6 +1,6 @@
 # Analysing Statements
 
-The PCG Analysis computes four states for each MIR statement, corresponding to the [PCG evaluation phases](../definitions.html?#pcg-evaluation-phase):
+The PCG Analysis computes four states for each MIR statement, corresponding to the [PCG evaluation phases](./definitions.html?#pcg-evaluation-phase):
 
 - `PreOperands`
 - `PostOperands`
@@ -19,10 +19,13 @@ A *place condition* is a predicate on the PCG related to a particular MIR place.
 We define the following place conditions:
 
 - `Capability`: Place $p$ must have capability $c$
+- `RemoveCapability`: Capability for place $p$ should be removed[^removecap]
 - `AllocateOrDeallocate`: Storage for local $\local$ is allocated (e.g. via the `StorageLive` instruction)
 - `Unalloc`: Storage for local $\local$ is not allocated (e.g. via the `StorageDead` instruction)
 - `ExpandTwoPhase`: Place $p$ is the borrowed place of a two-phase borrow
 - `Return`: The `RETURN` place has Exclusive capability
+
+[^removecap]: This is only used for mutably borrowed places
 
 <div class="warning">
 
@@ -34,20 +37,23 @@ permission.
 
 During this step of the analysis, place conditions are computed for each phase.
 The determination of place conditions is based on the MIR statement; the state
-of the PCG is not relevant. The conditions computed for each phase are as
-follows:
+of the PCG is not relevant.
+
+The conditions computed for each phase are as follows:
 
 - `PreOperands`: Pre-conditions on the PCG for the operands in the statement to be evaluated
 - `PostOperands`: Post-conditions on the PCG after the operands in the statement has been evaluated
 - `PreMain`: Pre-conditions on the PCG for the main effect of the statement to be applied
-- `PreMain`: Post-conditions on the PCG after the main effect of the statement has been applied
+- `PostMain`: Post-conditions on the PCG after the main effect of the statement has been applied
 
-As an example, the MIR statement: `let y = move x` would have the following place conditions:
+As an example, the MIR statement: `let y = move x` would have the following
+place conditions:
 
 - `PreOperands`: `{x: E}`
 - `PostOperands`: `{x: W}`
 - `PreMain`: `{y: W}`
 - `PostMain`: `{y: E}`
+
 
 <div class="warning">
 TODO: Write a page for each kind of statement.

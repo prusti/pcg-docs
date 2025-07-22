@@ -2,7 +2,6 @@
 
 - [Overview](./overview.md)
     - [Capabilities](./overview/capabilities.md)
-    - [Analysing Statements](./overview/statements.md)
     - [Choosing Place Labels](./overview/choosing-place-labels.md)
 - [Definitions](./definitions.md)
     - [PCG Nodes](./definitions/pcg-nodes.md)
@@ -11,6 +10,8 @@
     - [Lifetime Projections](./definitions/lifetime-projections.md)
     - [Validity Conditions](./definitions/validity-conditions.md)
     - [MIR Definitions](./definitions/mir.md)
+- [Analysing Statements](./statements.md)
+    - [Rules for Determining Place Conditions](./statements/place-condition-rules.md)
 - [Loops](./loops.md)
 - [Function Calls](./function-calls.md)
 - [Misc (To Update)](./misc.md)
