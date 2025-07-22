@@ -11,3 +11,9 @@
 \base:{\mathit{base}}
 \local:{v}
 \remote:{\mathit{remote}(#1)}
+\pc:{\mathit{pc}}
+\pcs:{\mathit{I}}
+\Bb:{\mathit{B}}
+\block:{b}
+\powerset:{\mathcal{P}(#1)}
+\dom:{\text{dom}(#1)}

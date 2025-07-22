@@ -11,3 +11,4 @@ macros = "macros.txt"
 
 [output.html]
 mathjax-support = true
+additional-css = ["theme/custom.css"]

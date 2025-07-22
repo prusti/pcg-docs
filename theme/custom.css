@@ -1,0 +1,41 @@
+:root {
+    --info-border-color: #2196F3;
+    --info-bg-color: #f0f7ff;
+    --info-fg-color: #1a7ab5;
+}
+
+.ayu, .coal, .navy {
+    --info-border-color: #2196F3;
+    --info-bg-color: #14202e;
+    --info-fg-color: #a6d5f7;
+}
+
+@media (prefers-color-scheme: dark) {
+    html:not(.js) {
+        --info-border-color: #2196F3;
+        --info-bg-color: #14202e;
+        --info-fg-color: #a6d5f7;
+    }
+}
+
+/* Add custom CSS rules here */
+
+.info {
+  position: relative;
+  margin: 20px;
+  padding: 0 20px;
+  border-inline-start: 2px solid var(--info-border-color);
+}
+
+.info:before {
+    position: absolute;
+    width: 3rem;
+    height: 3rem;
+    margin-inline-start: calc(-1.5rem - 21px);
+    content: "ⓘ";
+    text-align: center;
+    background-color: var(--bg);
+    color: var(--info-border-color);
+    font-weight: bold;
+    font-size: 2rem;
+}
