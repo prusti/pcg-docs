@@ -17,3 +17,9 @@
 \block:{b}
 \powerset:{\mathcal{P}(#1)}
 \dom:{\text{dom}(#1)}
+\pcg:{\mathcal{G}}
+\ownedpcg:{\mathcal{O}}
+\ownedpcgroot:{\mathcal{E}}
+\Placeexp:{\mathcal{E}}
+\Placecap:{\mathcal{C}}
+\borrowpcg:{\mathcal{B}}

@@ -3,14 +3,20 @@
 A PCG Hyperedge is a directed edge of the form $\overline{n_s} \rightarrow
 \overline{n_t}$, where elements of $\overline{n_s}$ and $\overline{n_t}$ are PCG
 nodes. The set $\overline{n_s}$ are referred to as the _source nodes_ of the
-edge, and $\overline{n_t}$ are the _target nodes. Hyperedges in the PCG are
+edge, and $\overline{n_t}$ are the _target nodes_. Hyperedges in the PCG are
 labelled with [validity conditions](./validity-conditions.md)[^owned].
 
 [^owned]: Currently not in the owned portion of the PCG, but this should happen eventually.
 
-We currently define the following edge types:
+We represent a PCG hyperedge as a tuple of an *edge kind* and *validity conditions*.
 
-## Unpack Edges
+## Edge Kinds
+
+An *edge kind* is a description an edge, including its source and target nodes,
+as well as other associated metadata. The metadata is described by the *type* of
+the edge, the various types are presented below:
+
+### Unpack Edges
 
 Unpack edges are used to represent the unpack of an _owned_ place in order to
 access one of its fields. For example, writing to a field `x.f` requires
@@ -38,7 +44,7 @@ implementation.
 
 </div>
 
-## Borrow PCG Expansion Edge
+### Borrow PCG Expansion Edge
 
 Borrow PCG Expansion Edges conceptually take one of three forms:
 
@@ -46,7 +52,7 @@ Borrow PCG Expansion Edges conceptually take one of three forms:
 - _Place Expansion_: The expansion of a borrowed place to access one of its fields
 - _Lifetime Projection Expansion_: The expansion of the lifetime projections of an owned or borrowed place
 
-### Dereference Expansion
+#### Dereference Expansion
 
 The _source nodes_ of a dereference expansion consist of:
 
@@ -58,7 +64,7 @@ Where $\maybelabelled_s$ and $\lifetimeproj_s$ have the same associated place $p
 The _target node_ $\maybelabelled_t$ of a dereference expansion is a
 maybe-labelled place with associated place $*p_s$.
 
-### Place Expansion
+#### Place Expansion
 
 The _source node_ of a place expansion is a maybe-labelled place
 $\maybelabelled_s$ with associated place $p_s$, where $p_s$ is a borrowed place
@@ -68,7 +74,7 @@ The _target nodes_ of a place expansion is a set of maybe-labelled places
 $\overline{\maybelabelled_t}$ where the associated places of
 $\overline{\maybelabelled_t}$ are an expansion of $p_s$.
 
-### Lifetime Projection Expansion
+#### Lifetime Projection Expansion
 
 The _source node_ of a lifetime projection expansion is a lifetime projection
 $\lifetimeproj_s$ where $\base(\lifetimeproj_s)$ is a maybe-labelled place $\maybelabelled_s$ with associated place of $p_s$.
@@ -88,7 +94,7 @@ repacked, or could be repacked with entirely unrelated lifetime projections)
 
 </div>
 
-## Borrow Edges
+### Borrow Edges
 
 Borrow edges are used to represent direct borrows in the program. We define two types:
 
@@ -99,22 +105,22 @@ Borrow edges are used to represent direct borrows in the program. We define two 
 Remote Borrows are named as such because (unlike local borrows), the borrowed
 place does not have a name in the MIR body (since it was created by the caller).
 
-### Local Borrows
+#### Local Borrows
 
 The _source node_ of a local borrow is a maybe-labelled place $\maybelabelled$.
 The _target node_ of a local borrow is a lifetime projection $\lifetimeproj$ where $\base(\lifetimeproj)$ is a maybe-labelled place.
 
-### Remote Borrows
+#### Remote Borrows
 
 The _source node_ of a remote borrow is a remote place $\remote{\local}$.
 The _target node_ of a remote borrow is a lifetime projection $\lifetimeproj$ where $\base(\lifetimeproj)$ is a maybe-labelled place.
 
-## Abstraction Edge
+### Abstraction Edge
 
 An abstraction edge represents the flow of borrows introduced due to a function
 call or loop.
 
-### Function Call Abstraction Edge
+#### Function Call Abstraction Edge
 
 The _source node_ of a function call abstraction edge is a lifetime projection
 $\lifetimeproj$ where $\base(\lifetimeproj)$ is a maybe-labelled place.
@@ -122,14 +128,14 @@ $\lifetimeproj$ where $\base(\lifetimeproj)$ is a maybe-labelled place.
 The _target node_ of a function call abstraction edge is a lifetime projection
 $\lifetimeproj$ where $\base(\lifetimeproj)$ is a maybe-labelled place.
 
-### Loop Abstraction Edge
+#### Loop Abstraction Edge
 
 The _source node_ of a loop abstraction edge is a PCG node.
 
 The _target node_ of a loop abstraction edge is a [local PCG
 node](pcg-nodes.html#local-pcg-nodes).
 
-## Borrow-Flow Edge
+### Borrow-Flow Edge
 
 A borrow-flow edge represents the flow of borrows between a lifetime projection
 $\lifetimeproj_s$ and a [local](pcg-nodes.html#local-pcg-nodes) lifetime
@@ -140,7 +146,7 @@ expansion or a borrow.
 Borrow-Flow Edges are labelled with a _Borrow-Flow Edge Kind_ with associated
 metadata, enumerated as follows:
 
-### Aggregate
+#### Aggregate
 
 **Metadata**:
 
@@ -169,7 +175,7 @@ different edge kind could be used in that case.
 
 </div>
 
-### Reference to Constant
+#### Reference to Constant
 
 Connects a region projection from a constant to some PCG node. For example `let
 x: &'x C = c;` where `c` is a constant of type `&'c C`, then an edge `{c↓'c} ->
@@ -181,7 +187,7 @@ This seems quite similar to "Borrow Outlives", perhaps we should merge them?
 
 </div>
 
-### Borrow Outlives
+#### Borrow Outlives
 
 For a borrow e.g. `let x: &mut y;`, the PCG analysis inserts edges of this kind
 to connect the (potentially snapshotted) lifetime projections of `y` to the
@@ -192,7 +198,7 @@ lifetime projections of `x`.
     - If $r$ outlives $r'$ then:
         - The PCG analysis adds the edge $\{\lproj{y}{r}\} \rightarrow \{\lproj{x}{r'}\}$ -->
 
-### Initial Borrows
+#### Initial Borrows
 
 To construct the initial PCG state, the PCG analysis adds an edge of this kind
 between every lifetime projection in each remote place to the corresponding
@@ -205,20 +211,20 @@ in the graph.
 
 Connects the lifetime projections of remote places to the lifetime projections of
 
-### Copy
+#### Copy
 
 For a copy `let x = y;`, the PCG analysis inserts edges of this kind
 to connect the lifetime projections of `y` to the lifetime projections of `x`.
 
 In the implementation this is currently called `CopyRef`.
 
-### Move
+#### Move
 
 For a move `let x = move y;`, the PCG analysis inserts edges of this kind to
 connect the (potentially snapshotted) lifetime projections of `y` to the
 lifetime projections of `x`.
 
-### Future
+#### Future
 
 These edges are introduced to describe the flow of borrows to the lifetime
 projections of a place that is currently blocked. When they are created, the

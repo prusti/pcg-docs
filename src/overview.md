@@ -95,12 +95,24 @@ In our implementation, it consists of three components:
 ### Owned PCG
 
 The Owned PCG is a forest, where the root of each tree in the forest is a MIR
-`Local`. This forest describes how unpacked all of the owned places are. In the
-forest, each node is a place, and its child nodes an
-[expansion](definitions.html#place-expansion) of the place. The forest can be
-viewed as a set of hyper-edges where for each interior node $n$ there is a
-hyperedge from the singleton set $\{ n \}$ to its children.
+`Local`.
 
+Each tree in the forest is defined by a set of [place
+expansions](./definitions/places.md#place-expansion), which describe how
+unpacked all of the owned places are. For each expansion $\overline{p}$ in the
+set, the base $p$ is a node in the forest and $\overline{p}$ are its children.
+We note that each expansion can be similarly interpreted as a hyperedge $\{p\}
+\rightarrow \overline{p}$
+
+Each local in the body of a MIR function is either *unallocated* or *allocated*
+in the Owned PCG. A local is allocated iff there exists a corresponding root node
+in the Owned PCG, otherwise it is unallocated.
+
+The operation *allocate* $v$ in the Owned PCG requires that $v$ is not
+allocated, and adds a new root for $v$. The *deallocate* $v$ operation removes the
+forest rooted at $v$.
+
+<!--
 <div class="warning">
 
 Expansions of _borrowed_ places are represented as _borrow expansion hyperedges_
@@ -126,10 +138,11 @@ thinking about how to implement the _join_ operation on the merged data
 structure.
 
 </div>
+-->
 
 ### Borrow State
 
 The Borrow State is a 3-tuple containing a [*Latest Map*](overview/choosing-place-labels.html#the-latest-map) describing the latest locations of each place; a set of [*Validity Conditions*](definitions/validity-conditions.html#validity-conditions) that describes the set of paths leading to the current block; and a *Borrows Graph*, a directed acyclic hypergraph which describes borrowed places, sets of borrows, and their relation to one another.
-The *Borrows Graph* is represented as a set of hyperedges annotated with validity conditions.
+The *Borrows Graph* is represented as a set of PCG hyperedges.
 
-Because a borrow created within a block exists only for executions that visit that block, we label new borrows using the validity conditions of the block in which they were created. 
+Because a borrow created within a block exists only for executions that visit that block, we label new borrows using the validity conditions of the block in which they were created.

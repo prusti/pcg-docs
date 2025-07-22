@@ -8,11 +8,15 @@ A place $p$ is a tuple of a local $\local$ and a projection.
 This is missing some cases
 </div>
 
-A set of places $\overline{p}$ is an *expansion* of a place *p* iff:
+A set of places $\overline{p}$ is a *place expansion* iff there exists a *base*
+$p$ such that:
 - $p$ is an `enum` type and $\overline{p} = \{p~\mathtt{@}~V\}$ and $V$ is a variant of $p$
 - $p$ is a `struct` or tuple type and $\overline{p}$ is the set of places obtained by projecting $p$ with each of the fields in the type of $p$
 - $p$ is a reference-typed field and $\overline{p} = \{*p\}$
 - $p$ is an array or slice and $\overline{p} = p[i]$ (TODO: more cases)
+
+If there is such a $p$, then that $p$ is unique, and $\overline{p}$ is an
+*expansion* of $p$.
 
 ## Owned Places
 

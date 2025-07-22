@@ -13,6 +13,8 @@
 - [Analysing Statements](./statements.md)
     - [Rules for Determining Place Conditions](./statements/place-condition-rules.md)
     - [Rules for the Creation of Borrows](./statements/borrow-rules.md)
+- [Owned PCG Operations](./owned-pcg-operations.md)
+- [Join Operation](./join.md)
 - [Loops](./loops.md)
 - [Function Calls](./function-calls.md)
 - [Misc (To Update)](./misc.md)
