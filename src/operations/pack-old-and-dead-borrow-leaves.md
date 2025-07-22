@@ -57,19 +57,17 @@ It proceeds as follows:
 <!-- Note: this has not been updated to match the version with the additional `for_place` parameter -->
 
 - Until the PCG remains unchanged across the following steps:
-    - Let $E$ be be the set of edges $e = \{n\}\rightarrow\{n_1, .., n_k\}$ such that either:
+    - Let $E$ be be the set of edges $e = \overline{n_s}\rightarrow \overline{n_t}$ such that either:
       - $e$ is an *Borrow PCG Expansion* edge and either:
-        - for each $n_i$, either:
-          - $n_i = p$ and $isDead(p, l)$, where $l$ is the current MIR location
-          - or $n_i$ is old
-        - or $n = p$, any pair of place nodes in $\{n_1, .., n_k\}$ have the same capability, and for all $n_i$ such that $n_i = p_i$, $p_i$ has the same label as $p$ and $p$ is an exact prefix of $p_i$
-        - or $n = p\downarrow~'r$ and for all $n_i$ such that $n_i = p_i \downarrow~'r_i$, $p$ is an exact prefix of $p_i$, $p$ and $p_i$ have the same label, and $'r$ and $'r_i$ have the same label.
-      - or each $n_i$ is not a local, and either:
-        - $n_i = p$ and either:
-        - $p$ is old
-        - or $p$ has a non-empty projection and $n_i$ *is not blocked by* an edge
-        - or $n_i = p_i\downarrow~'r_i$ and either:
-        - $p_i$ is old
-        - or $p_i$ has a non-empty projection and $n_i$ *is not blocked by* an edge
+        - for each $n_t$, either:
+          - $isDead(n_t, l)$, where $l$ is the current MIR location
+          - or $n_t$ is old
+        - or $n = p$, any pair of place nodes in $\overline{n_t}$ have the same capability, and for all $n_t$ such that $n_t = p_t$, $p_t$ has the same label as $p$ and $p$ is an exact prefix of $p_t$
+        - or $n = p\downarrow~'r$ and for all $n_t$ such that $n_t = p_t \downarrow~'r_t$, $p$ is an exact prefix of $p_t$; $p$ and $p_t$ have the same label; and $'r$ and $'r_t$ have the same label.
+      - or for each $n_t$, where $n_t = \hat{p}$ or $n_t = \hat{p} \downarrow ..$, either:
+        - $\hat{p}$ is old
+        - or $\hat{p}$'s associated place is not a function argument and either:
+            - $\hat{p}$ has a non-empty projection and $n_t$ *is not blocked by* an edge
+            - or $isDead(n_t, l)$, where $l$ is the current MIR location
     - For each $e$ in $E$:
       - perform *removeEdgeAndPerformAssociatedStateUpdates(e)*
