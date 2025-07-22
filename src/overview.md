@@ -131,3 +131,5 @@ structure.
 
 The Borrow State is a 3-tuple containing a [*Latest Map*](overview/choosing-place-labels.html#the-latest-map) describing the latest locations of each place; a set of [*Validity Conditions*](definitions/validity-conditions.html#validity-conditions) that describes the set of paths leading to the current block; and a *Borrows Graph*, a directed acyclic hypergraph which describes borrowed places, sets of borrows, and their relation to one another.
 The *Borrows Graph* is represented as a set of hyperedges annotated with validity conditions.
+
+Because a borrow created within a block exists only for executions that visit that block, we label new borrows using the validity conditions of the block in which they were created. 
