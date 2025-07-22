@@ -39,7 +39,7 @@ example, one path of execution to `bb4` can be described by: $\texttt{bb0}
 
 Validity conditions $\pc$ conceptually define a predicate on *execution paths*.
 For example, the validity conditions $\pc_{x \rightarrow r}$ describing the
-control flow where `r` borrows from `z` at `bb4` require that the path contain
+control flow where `r` borrows from `z` at `bb3` require that the path contain
 $\texttt{bb2} \rightarrow \texttt{bb3}$.
 
 We represent validity conditions $\pc$ as a partial function $B \rightarrow

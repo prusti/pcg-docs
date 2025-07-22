@@ -126,3 +126,8 @@ thinking about how to implement the _join_ operation on the merged data
 structure.
 
 </div>
+
+### Borrow State
+
+The Borrow State is a 3-tuple containing a [*Latest Map*](overview/choosing-place-labels.html#the-latest-map) describing the latest locations of each place; a set of [*Validity Conditions*](definitions/validity-conditions.html#validity-conditions) that describes the set of paths leading to the current block; and a *Borrows Graph*, a directed acyclic hypergraph which describes borrowed places, sets of borrows, and their relation to one another.
+The *Borrows Graph* is represented as a set of hyperedges annotated with validity conditions.
