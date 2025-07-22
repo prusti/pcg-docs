@@ -1,6 +1,7 @@
 # Summary
 
 - [Overview](./overview.md)
+    - [Capabilities](./overview/capabilities.md)
     - [Analysing Statements](./overview/statements.md)
     - [Choosing Place Labels](./overview/choosing-place-labels.md)
 - [Definitions](./definitions.md)
@@ -11,6 +12,7 @@
     - [Validity Conditions](./definitions/validity-conditions.md)
     - [MIR Definitions](./definitions/mir.md)
 - [Loops](./loops.md)
+- [Function Calls](./function-calls.md)
 - [Misc (To Update)](./misc.md)
 - [PCG Operations](./operations.md)
     - [Obtaining Capability to a Place](./operations/obtain.md)
