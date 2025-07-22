@@ -12,6 +12,7 @@
     - [MIR Definitions](./definitions/mir.md)
 - [Analysing Statements](./statements.md)
     - [Rules for Determining Place Conditions](./statements/place-condition-rules.md)
+    - [Rules for the Creation of Borrows](./statements/borrow-rules.md)
 - [Loops](./loops.md)
 - [Function Calls](./function-calls.md)
 - [Misc (To Update)](./misc.md)
