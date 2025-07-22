@@ -55,9 +55,8 @@ place conditions:
 - `PostMain`: `{y: E}`
 
 
-<div class="warning">
-TODO: Write a page for each kind of statement.
-</div>
+The rules describing how these place conditions are generated for a statement
+are described [here](./statements/place-condition-rules.md).
 
 ## Performing PCG Actions
 
@@ -91,9 +90,31 @@ Capabilities for every moved-out operand are set to Write.
 The place capabilities required by the `PreMain` place conditions are
 [obtained](../operations/obtain.html).
 
+Then, the behaviour depends on the type of statement:
+
+1. `StorageDead(v)`
+   1. The analysis performs the `MakePlaceOld(v, StorageDead)` action.
+2. `Assign(p r)`
+   1. If `p` is a reference-typed value and contained in the borrows graph and the capability for `p` is `R`:
+      1. The analysis performs the `RestoreCapability(p, E)` action
+   2. If $\mathcal{C}[p] \neq \texttt{W}$:
+      1. The analysis performs the $\texttt{Weaken}(p, \mathcal{C}[p], \texttt{W})$ action
+   3. All edges in the borrow PCG blocked by any of the lifetime projections in
+      `p` are removed
+
+
 ### `PostMain`
 
-The actions corresponding to the statement occur.
+1. For every operand `move p` in the statement:
+   1. The analysis performs the `MakePlaceOld(p, MoveOut)` action.
+2. If the statement is a function call `p = call f(..)`:
+   1. The entry for `p` in the *latest* map is updated to the current location
+   2. Function call abstraction edges are described using the rules defined [here](./function-calls.md)
+3. If the statement takes the form `Assign(p, r)`:
+   1. The entry for `p` in the *latest* map is updated to the current location
+   2. `p` is given exclusive permission
+   3. If $r$ takes the form `Aggregate(o_1, ..., o_n)`:
+      1. For every $i, 0 \leqslant i < n$:
 
 <div class="warning">
 TODO: Explain more
