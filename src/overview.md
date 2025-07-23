@@ -45,48 +45,43 @@ phase).
 
 #### The PCG Dataflow Analysis
 
-<div class="warning">
-Work in progress
-</div>
-
 The PCG Analysis Algorithm is implemented as a [MIR dataflow
 analysis](definitions/mir.html#mir-dataflow-analysis) using `PcgDomainData` as
 the domain. `PcgDomainData` contains a `PCGData` value and other relevant
 metadata (e.g the associated basic block). Notably, the analysis only analyzes
-each basic block one time. Conceptually, this property is ensured because the
-final state at a loop head is computed upon entering it in the analysis (without
-having first seen the body).
+the statements in each basic block one time. Conceptually, this property is
+ensured because the final state at a loop head is computed upon entering it in
+the analysis (without having first seen the body).
 
 We note that the behaviour of the *join* operation on `PCGDomainData` requires
-careful tracking of what blocks have been previously joined (this is basically a
-consequence of the interface of the MIR dataflow analysis). We define
-$\mathit{join}(s', s)$ (joining the state computed at $s$ into $s'$) as follows:
-- Let $b', b$ be the associated blocks of $s'$ and $s$ respectively
-- If no block has ever been joined into $b'$, then \mathit{join}(s', s)
+tracking of what blocks have been previously joined (this is basically a
+consequence of the interface of the MIR dataflow analysis). The `PCGDomainData`
+*join* operation joins the PCG $\pcg'$ of block $b'$ *into* the PCG $\pcg$ at
+block $b$ as follows:
+1. If no block has ever been joined into $b$, then set $\pcg$ = $\pcg'$
+2. If the edge from $b'$ to $b$ is *not* a back edge[^backedge] of a loop, then $\pcg'$ is joined into
+   $\pcg$ using the algorithm defined [here](./join.md)
 
-In the implementation the *join* operation
-associated with the `PcgDomainData`, we have $\mathit{join}(s_h, s_b) = s_h$ if $s_h$
-is the state of a loop head and $s_b$ is the state of a back edge; this ensures
-that loop heads are only considered once[^confirmimpl].
+[^backedge]: In the join implementation, we an edge from $b'$ to $b$ is a back
+    edge if $b$ dominates $b'$ in the CFG
 
-[^confirmimpl]: We should confirm that this also holds in the implementation as this previously was not the case. However, visiting the same stmt multiple times should only affect performance, not correctness.
+Because the join does not modify the PCG for back edges, the analysis can be
+completed without ever having to re-analyse the statements within a block.
 
 <div class="warning">
-Our implementation should also be checking that the PCG generated at the loop head is valid w.r.t the state at the back edge here, but this is not happening yet.
-</div>
 
-We note that to correspond
+Our implementation should also be checking that the PCG generated at the loop
+head is valid w.r.t the state at the back edge here, but this is not happening
+yet.
+
+</div>
 
 ## PCG Data Structure
 
 The _PCG_ data structure represents the state of ownership and borrowing of Rust
 places at an arbitrary [program point](definitions.html#program-point).
 
-<div class="warning">
-Perhaps this describes too much implementation-specific details?
-</div>
-
-In our implementation, it consists of three components:
+It consists of three components:
 
 - The _Owned PCG_, which describes the state of [owned places](definitions.html#owned-places)
 - The _Borrow State_, which describes borrowed memory (borrowed places and lifetime projections) and borrow relations, and also some auxillary data structures
@@ -146,3 +141,14 @@ The Borrow State is a 3-tuple containing a [*Latest Map*](overview/choosing-plac
 The *Borrows Graph* is represented as a set of PCG hyperedges.
 
 Because a borrow created within a block exists only for executions that visit that block, we label new borrows using the validity conditions of the block in which they were created.
+
+
+### Place Capabilities
+
+Place capabilities $\Placecap$ is a partial map from places to capabilities.
+
+<div class="warning">
+
+We may want to change the domain to be maybe-labelled places instead.
+
+</div>
