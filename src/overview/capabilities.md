@@ -1,6 +1,7 @@
 # Capabilities
 
-There are four types of capabilites:
+A capability describes the actions that the program is permitted to perform on a
+place at a particular program point. There are three main capabilities:
 
 ## Exclusive (`E`)
 
@@ -28,12 +29,17 @@ The place can be written to.
 When an exclusive reference $p$ is dereferenced, the capability to $p$ is downgraded
 to `W`.
 
-## ShallowExclusive (`e`)
+<hr />
 
-This is used for a rather specific and uncommon situation. When converting a raw
+<div class="info">
+
+In the implementation we define a fourth capability __ShallowExclusive__ (`e`),
+which is used for a rather specific and uncommon situation. When converting a raw
 pointer `*mut T` into a `Box<T>`, there is an intermediate state where the
 memory for the box is allocated on the heap but the box does not yet hold a
 value. We use `ShallowExclusive` to represent this state.
 
-Writing to a Box-typed place `p` via e.g. `*p = 5` requires that `p` have
-capability `e`.
+In the implementation, writing to a Box-typed place `p` via e.g. `*p = 5`
+requires that `p` have capability `e`.
+
+</div>

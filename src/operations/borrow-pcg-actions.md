@@ -28,13 +28,6 @@ In general the $c_f$ is Exclusive, for example in the following cases:
 
 ### Applying Weaken
 
-<div style="padding:10px;border:1px solid #FFF">
-
-**Preconditions**:
-- Place $p$ has capability $c_p \geqslant c_f$
-
-</div>
-
 If $c_t$ is defined, the capability of $p$ is set to $c_t$. Otherwise,
 capability to $p$ is removed.
 

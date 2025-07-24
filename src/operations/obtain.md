@@ -1,5 +1,40 @@
 # Obtaining Capability to a Place
 
+The operation to obtain capability $c$ to a place $p$ in a PCG $\pcg$ proceeds
+as follows.
+
+When performing this operation to satisfy the place capability required for a
+statement, the analysis guarantees that no live mutable borrows conflicting with
+$p$[^rationale]. At a high level, capability to $p$ is obtained by first
+collapsing the owned places in $\pcg$ to $p$
+
+[^rationale]: If the program requires capability to the place to do some action,
+    then the place cannot be borrowed mutably. This invariant does not hold when
+    we are obtaining capability to the place in order to construct a loop
+    abstraction.
+
+### Step 1 - Label dereferences of shared borrows stored in $p$
+
+Reborrows of shared references derived from $p$ (i.e. from any postfix of $p$)
+will survive even if $p$ is moved or mutated. Therefore, if $c$ permits the
+function to mutate $p$ (i.e. $c \neq \readcap$), then the analysis labels all
+places that project from shared references derived from $p$.
+
+Formally:
+
+If $c \neq \readcap$, then for each place $p'$ in $\pcg$ where:
+- $p'$ is a strict postfix of $p$, and
+- $p'$ is a shared reference, and
+- $*p'$ is in $\pcg$
+
+The analysis labels every postfix of $p'$ in $\pcg$.
+
+### Step 2 - Collapse
+
+## Implementation
+
+This operation is implemented as [`PlaceObtainer::obtain`](https://github.com/viperproject/pcg/blob/d4591e49f5870b49332d47fcd2a2da1d4678a1a7/src/pcg/visitor/obtain.rs#L778)
+
 The *obtain(p, o)* operation reorganizes a PCG state to a new state in where the
 PCG node for a place $p$ is present in the graph. The parameter *o* is an
 *Obtain Type* which describes the reason for the expansion. The reason $o$ is either:
@@ -20,14 +55,16 @@ similar queries as part of the *expand* step.
 
 </div>
 
-Note that a place node for $p$
-is not necessarily present in the graph before this occurs.
-
-This operation is implemented as `PcgVisitor::obtain` (see [https://github.com/viperproject/pcg/blob/main/src/pcg/visitor/obtain.rs](https://github.com/viperproject/pcg/blob/main/src/pcg/visitor/obtain.rs))
+Note that a place node for $p$ is not necessarily present in the graph before
+this occurs.
 
 This proceeds as follows:
 
-### Step 1 - Upgrading Closest Ancestor From R to E
+### Step 1 - Label dereferences of shared borrows stored in $p$
+
+(Same as high-level description)
+
+### Step 2 - Upgrading Closest Ancestor From R to E
 
 This step is included to handle a relatively uncommon case (see the Rationale
 section below).
@@ -68,7 +105,7 @@ other pre-and postfix places of (*c).f2 to None (in this case c and
 but this is not always the case (e.g. if we wanted to obtain
 (*c).f2.f3 instead)
 
-### Step 2 - Collapse 
+### Step 3 - Collapse
 
 Then, if a node for $p$ exists in the graph and $p$'s capability is not at least as strong as $c$, *collapse* the subgraph rooted at $p$ (and obtain capability $c$ for $p$) by performing the *collapse(p, c)* operation.
 
@@ -84,12 +121,12 @@ The *collapse(p)* operation is implemented as follows:
       - Label $p''$
       - Create a new `BorrowFlow` edge $\{p''\downarrow~'r\}\rightarrow\{p'\downarrow~'r\}$
 
-### Step 3 - Labelling Lifetime Projections
+### Step 4 - Labelling $p$
 At this point, if $c$ is $W$, we know that a subsequent operation will mutate $p$.
 As a result, if there exists a lifetime projection node for $p$ (for example, if $p$ stores a borrow that has since been reborrowed), it will no longer be tied to the current value of $p$.
-So, we label $p$.
+So, we label $p$ with reason `ReAssign`.
 
-### Step 4 - Expand
+### Step 5 - Expand
 
 At this point there should be a node for some prefix $p'$ of $p$ in the graph such that $\mathcal{C}[p'] \geqslant c$.
 
@@ -130,8 +167,3 @@ The operation is implemented as follows:
         - Create a new *Borrow PCG Expansion* hyperedge $e = \{rp_b\} \rightarrow \overline{rp}_r$
 
 [^possible]: This could happen e.g. expanding an `x : Option<&'a T>` to a `x@None`
-
-### Step 5 - Labelling Lifetime Projections for Projections
-Finally, if we are obtaining $W$ or $E$ capability, we can again assume that the intention is to mutate $p$.
-If there exist any lifetime projection nodes for dereferences of $p$'s fields (or $p$'s fields' fields, and so on...), we encounter the same problem that was described in Step 3.
-To address this, we label any lifetime projections for dereferences of places *for which $p$ is a prefix* (`*p.f`, for example).

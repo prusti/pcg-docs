@@ -60,16 +60,42 @@ new edge at a basic block (inherent VCs). Describe the join informally.
 
 ## Formal Definition
 
-Validity conditions $\pc \in \pcs~$ is a map $\Bb \rightarrow \powerset{\Bb}$
+Validity conditions $\pc \in \pcs~$ is a partial map $\Bb \rightarrow \powerset{\Bb}$
+describing control-flow conditions. For each block $\block \in \dom{\pc}$,
+$\pc[b]$ is a subset of the *real* successors of $\block$.
+
+The *join* $pc_i \cup pc_j$ of validity conditions $\pc_i$ and $\pc_j$ is
+defined as:
+
+$$
+(\pc_i \cup \pc_j)[b] =
+\begin{cases}
+  \text{undefined} & \text{if } b \not\in pc_i \vee b \not\in pc_j \\
+  \pc_i[b] \cup \pc_j[b] & \text{otherwise}
+\end{cases}
+$$
+
+Validity conditions $\pc$ are *valid* for a path $b_0,~\ldots,~b_n$ iff:
+
+$$
+\forall i \in \{0, \ldots, n-1\} : b_i \not \in \pc \vee b_{i+1} \in \pc[b_i]
+$$
+
+## Implementation
+
+The representation of validity conditions in our implementations corresponds
+closely to the following description:
+
+Validity conditions $\pc \in \pcs~$ is a partial map $\Bb \rightarrow \powerset{\Bb}$
 describing control-flow conditions. For each block $\block \in \dom{\pc}$,
 $\pc[b]$ is a strict subset of the *real* successors of $\block$.
 
 The *join* of validity conditions $\pc_i$ and $\pc_j$ is defined as:
 
-
 $$
 (\pc_i \cup \pc_j)[b] =
 \begin{cases}
+  \text{undefined} & \text{if } b \not\in pc_i \vee b \not\in pc_j \\
   \emptyset & \text{if } \pc_i[b] \cup \pc_j[b] = \text{succ}_{\mathit{real}}(b) \\
   \pc_i[b] \cup \pc_j[b] & \text{otherwise}
 \end{cases}
@@ -78,7 +104,7 @@ $$
 Validity conditions $\pc$ are *valid* for a path $b_0,~\ldots,~b_n$ iff:
 
 $$
-\forall i \in \{0, \ldots, n-1\} : \pc[b_i] = \emptyset \vee b_{i+1} \in \pc[b_i]
+\forall i \in \{0, \ldots, n-1\} : b_i \not\in pc \vee \pc[b_i] = \emptyset \vee b_{i+1} \in \pc[b_i]
 $$
 
 <div class="info">

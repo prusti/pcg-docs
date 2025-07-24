@@ -23,3 +23,4 @@
 \Placeexp:{\mathcal{E}}
 \Placecap:{\mathcal{C}}
 \borrowpcg:{\mathcal{B}}
+\readcap:{\text{R}}

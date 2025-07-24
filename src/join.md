@@ -45,7 +45,7 @@ The algorithm $\mathit{join_\ownedpcgroot}(\ownedpcgroot, \ownedpcgroot', \mathc
        3. For each $p'' \in \overline{p'}$:
             1. If $p'' \in \mathcal{C}'$:
                 1. Assign capability $\mathcal{C}'[p'']$ to $p''$ in $\mathcal{C}$
-                2. Otherwise, remove capability to $p''$ in $\mathcal{C}$
+            2. Otherwise, remove capability to $p''$ in $\mathcal{C}$
 
 ## Place Capabilitiies Join
 
