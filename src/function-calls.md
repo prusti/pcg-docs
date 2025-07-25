@@ -20,9 +20,23 @@ $p~\mathtt{at}~\mathit{latest}(p)$.
 We define the set of lifetime projections of the moved-out operands as
 $\widetilde{RP} = \{\tilde{p} \downarrow r~|~ p \downarrow r \in RP\}$.
 
-We define the "pre-call states" of $\widetilde{RP}$ as $S = \{\tilde{p} \downarrow r~ \mathtt{at~PRE}~|~ p \downarrow r \in RP\}$.
+We define the "pre-call states" of $\widetilde{RP}$ as $S = \{\tilde{p}
+\downarrow r~ \mathtt{at~PRE}~|~ p \downarrow r \in RP\}$.
 
-We define  the "post-call states" of $\widetilde{RP}$ as $T = \{\tilde{p} \downarrow r~ \mathtt{at~POST}~|~ p \downarrow r \in RP\}$.
+We define the "post-call states" of $\widetilde{RP}$ as $T = \{\tilde{p}
+\downarrow r~ \mathtt{at~POST}~|~ p \downarrow r \in RP~\text{and}~r~\text{is nested in}~p\}$
+
+<div class="info">
+
+The definitions of sets $RP$, $\widetilde{RP}$, $S$, and $T$ do *not* depend on
+the nodes present in the PCG. In general, we postulate that following invariants
+should always hold:
+
+- Only the nodes in $RP$ are in the graph at the end of $\texttt{PreOperands}$ stage
+- Only the nodes in $\widetilde{RP}$ are in the graph at the end of the $\texttt{PostOperands}$ stage
+- Only the nodes in $S \cup T$ are in the graph at the end of the $\texttt{PostMain}$ stage
+
+</div>
 
 ### 1. Redirect Future Nodes
 
@@ -41,16 +55,11 @@ Label projections in $\widetilde{RP}$ to become $S$ in the graph:
 
 ### 3. Add Abstraction Edges
 
-At a high level we construct by :
- 1. Connecting lifetime projections from $S$ to *nested* lifetime projections in $T$
- 2. Connecting lifetime projections from $S$ to lifetime projections in $p_\textit{result}$
+At a high level we construct by connecting lifetime projections $S$ to the
+lifetime projections in $T$ and the lifetime projections in $p_{result}$, where
+connections are made based on outlives constraints. Concretely:
 
-where connections are made based on outlives constraints. Concretely:
-
-1. For each $s$ in $S$:
-   1. Let $\mathcal{O} = \emptyset$ be the set of target nodes
-   2. Add to $\mathcal{O}$ the each $t \in T$ where:
-      1. $t$ is a nested lifetime, and
-      2. The lifetime of $s$ ourlives the lifetime of $T$
-   3. Add to $\mathcal{O}$ the each $rp \in p_{result}$ where the lifetime of $s$ outlives the lifetime of $rp$
-   4. If $\mathcal{O}$ is not empty, add the abstraction edge $\{s\} \rightarrow \mathcal{O}$ to the PCG
+1. Let $\mathcal{O}$ be union of $T$ and the lifetime projections in $p_{result}$
+2. For each $\lproj{\tilde{p}}{r_s~\texttt{at~PRE}}$ in $S$:
+   1. Let $\mathcal{O}_s$ contain each lifetime projection $rp \in \mathcal{O}$ where $r_s$ outlives the lifetime of $rp$
+   2. If $\mathcal{O}_s$ is not empty, add the abstraction edge $\{\lproj{\tilde{p}}{r_s~\texttt{at~PRE}}\} \rightarrow \mathcal{O}_s$ to the PCG
