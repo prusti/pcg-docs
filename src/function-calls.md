@@ -42,9 +42,9 @@ should always hold:
 
 This follows the standard process, e.g. similar to borrows and borrow PCG expansions
 
-1. For each $0 < i \leqslant |RP|$:
-   1. For each `Future` edge $e$ where the source node is $RP_i$
-      1. Update the edge such that the source node is $T_i$
+1. For each `Future` edge $e$ where the source node is in $RP$:
+   1. Change the source node from $\langle \lproj{\tilde{p}}{r}\rangle$ to $\langle \tilde{p}
+\downarrow r~ \mathtt{at~POST} \rangle$
 
 ### 2. Label Lifetime Projections for Pre-State
 
