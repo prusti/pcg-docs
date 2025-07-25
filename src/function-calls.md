@@ -10,45 +10,47 @@ The function call abstraction is created in the `PostMain` evalution stage,
 after all of the operands have been evaluated. Therefore, all places in
 $\overline{p}$ are labelled, as they have been moved-out by this point.
 
-### Creating the Function Call Abstraction Graph
+## Algorithm
 
-The PCG constructs a *function call abstraction graph* $\mathcal{A}$ to reflect the effect of the call.
+Let $RP$ be the set of lifetime projections in $\overline{p}$ (that is, obtained
+from places in $p$, regardless of whether they are already in the graph). For
+any place $p$, we define $\tilde{p}$ as the place
+$p~\mathtt{at}~\mathit{latest}(p)$.
 
-We begin by determining how $f$ may manipulate the borrows in $f$ by
-constructing the bipartite graph $\mathcal{A}_0$ as follows:
+We define the set of lifetime projections of the moved-out operands as
+$\widetilde{RP} = \{\tilde{p} \downarrow r~|~ p \downarrow r \in RP\}$.
 
-<div style="padding:10px;border:1px solid #FFF">
+We define the "pre-call states" of $\widetilde{RP}$ as $S = \{\tilde{p} \downarrow r~ \mathtt{at~PRE}~|~ p \downarrow r \in RP\}$.
 
-Let $RP$ be the set of lifetime projections in $\overline{p}$. For any place $p$, we define $\tilde{p}$ as the place $p~\mathtt{at}~\mathit{latest}(p)$.
+We define  the "post-call states" of $\widetilde{RP}$ as $T = \{\tilde{p} \downarrow r~ \mathtt{at~POST}~|~ p \downarrow r \in RP\}$.
 
-Let $S$ be the set $\{\tilde{p} \downarrow r~ \mathtt{at~PRE}~|~ p \downarrow r \in RP\}$.
+### 1. Redirect Future Nodes
 
-Let $T$ be the set $\{\tilde{p} \downarrow r~ \mathtt{at~POST}~|~ p \downarrow r \in RP\}$.
+This follows the standard process, e.g. similar to borrows and borrow PCG expansions
 
-Add all nodes in $S$ to $\mathcal{A}_0$
+1. For each $0 < i \leqslant |RP|$:
+   1. For each `Future` edge $e$ where the source node is $RP_i$
+      1. Update the edge such that the source node is $T_i$
 
-For each $\tilde{p}_s \downarrow r_s \in S, \tilde{p}_t \downarrow r_t \in T$
-if $r_t$ is nested in $p$, and $r_s$ outlives $r_t$, we add to $\mathcal{A}_0$ a
-[Function Call Abstraction Edge](./definitions/pcg-edges.html#function-call-abstraction-edge) $\{\tilde{p}_s \downarrow r_s\} \rightarrow \{\tilde{p}_t
-\downarrow r_t\}$.
+### 2. Label Lifetime Projections for Pre-State
 
-</div>
+Label projections in $\widetilde{RP}$ to become $S$ in the graph:
 
-The function call abstraction graph $\mathcal{A}$ is constructed by adding to
-$\mathcal{A}_0$ edges such that for every lifetime $r$ in $p_\mathit{result}$,
-we define the set $S_r = \{\tilde{p} \downarrow r~|~\tilde{p}\downarrow
-r~\text{is a leaf in}~\mathcal{G}_0 \}$, and add a `BorrowFlow` edge $S_r
-\rightarrow \{p_\mathit{result} \downarrow r \}$.
+1. For each $0 < i \leqslant |RP|$:
+   1. Label the $\widetilde{RP}_i$ with $\texttt{PRE}$
 
-### Adding the Function Call Abstraction Graph to the PCG
+### 3. Add Abstraction Edges
 
-We add an abstraction graph $\mathcal{A}$ to a PCG $\mathcal{G}_0$ to create a new PCG $\mathcal{G}$ as follows.
+At a high level we construct by :
+ 1. Connecting lifetime projections from $S$ to *nested* lifetime projections in $T$
+ 2. Connecting lifetime projections from $S$ to lifetime projections in $p_\textit{result}$
 
-First, we initialize $\mathcal{G}$ as $\mathcal{A} \cup \mathcal{G}_0$. For each projection $p \downarrow r$ in $RP$, we modify $\mathcal{G}$ as follows:
-1. For each endpoint in $\mathcal{G}_0$ whose target is $p \downarrow r$, redirect the target to $\tilde{p}\downarrow r~\mathtt{at~PRE}$.
-2. For each `Future` edge $p \downarrow r \rightarrow p' \downarrow
-   r'~\mathtt{at~Future}$ in $\mathcal{G}_0$, remove the edge, and for each leaf
-   $n$ in $\mathcal{G}_0$ with an ancestor $\tilde{p} \downarrow r~\mathtt{at
-   ~PRE}$, insert the `Future` edge $\{n\} \rightarrow p' \downarrow r'$ to
-   $\mathcal{G}$.
-3. Remove $p \downarrow r$ from $\mathcal{G}$.
+where connections are made based on outlives constraints. Concretely:
+
+1. For each $s$ in $S$:
+   1. Let $\mathcal{O} = \emptyset$ be the set of target nodes
+   2. Add to $\mathcal{O}$ the each $t \in T$ where:
+      1. $t$ is a nested lifetime, and
+      2. The lifetime of $s$ ourlives the lifetime of $T$
+   3. Add to $\mathcal{O}$ the each $rp \in p_{result}$ where the lifetime of $s$ outlives the lifetime of $rp$
+   4. If $\mathcal{O}$ is not empty, add the abstraction edge $\{s\} \rightarrow \mathcal{O}$ to the PCG
