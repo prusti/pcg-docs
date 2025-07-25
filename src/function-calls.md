@@ -28,7 +28,7 @@ Let $T$ be the set $\{\tilde{p} \downarrow r~ \mathtt{at~POST}~|~ p \downarrow r
 Add all nodes in $S$ to $\mathcal{A}_0$
 
 For each $\tilde{p}_s \downarrow r_s \in S, \tilde{p}_t \downarrow r_t \in T$
-if $r_s$ is nested in $p$, and $r_t$ outlives $r_s$, we add to $\mathcal{A}_0$ a
+if $r_t$ is nested in $p$, and $r_s$ outlives $r_t$, we add to $\mathcal{A}_0$ a
 [Function Call Abstraction Edge](./definitions/pcg-edges.html#function-call-abstraction-edge) $\{\tilde{p}_s \downarrow r_s\} \rightarrow \{\tilde{p}_t
 \downarrow r_t\}$.
 
@@ -46,5 +46,9 @@ We add an abstraction graph $\mathcal{A}$ to a PCG $\mathcal{G}_0$ to create a n
 
 First, we initialize $\mathcal{G}$ as $\mathcal{A} \cup \mathcal{G}_0$. For each projection $p \downarrow r$ in $RP$, we modify $\mathcal{G}$ as follows:
 1. For each endpoint in $\mathcal{G}_0$ whose target is $p \downarrow r$, redirect the target to $\tilde{p}\downarrow r~\mathtt{at~PRE}$.
-2. For each `Future` edge $p \downarrow r \rightarrow p' \downarrow r'~\mathtt{at~Future}$ in $\mathcal{G}_0$, remove the edge, and for each leaf $n$ in $\mathcal{G}_0$ with an ancestor $\tilde{p} \downarrow r~\mathtt{at PRE}, insert the `Future` edge $\{n\} \rightarrow p' \downarrow r' to $\mathcal{G}$.
+2. For each `Future` edge $p \downarrow r \rightarrow p' \downarrow
+   r'~\mathtt{at~Future}$ in $\mathcal{G}_0$, remove the edge, and for each leaf
+   $n$ in $\mathcal{G}_0$ with an ancestor $\tilde{p} \downarrow r~\mathtt{at
+   ~PRE}$, insert the `Future` edge $\{n\} \rightarrow p' \downarrow r'$ to
+   $\mathcal{G}$.
 3. Remove $p \downarrow r$ from $\mathcal{G}$.
