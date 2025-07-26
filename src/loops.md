@@ -8,13 +8,18 @@ The following operations are performed when we join the pre-loop block with the 
 
 We construct the state $\mathcal{G}_h$ for the loop head as follows:
 
-### Step 1 - Identify Relevant Loop Nodes
+### Step 1 - Identify Relevant Loop Places
 
-<!-- In this step we identify $\mathcal{N}_{blocked}$ and $RP_{blocker}$, the sets of
-PCG nodes used inside the loop that may potentially be included in the loop invariants. -->
 We identify the following sets of places:
 
-- $P_{live}$: the places used inside the loop that are *[live](definitions.html#place-liveness)* and *initialized* at $l_h$.
+- $P_{live}$: the places used inside the loop that are *[live](definitions.html#place-liveness)* and
+  *initialized* at $l_h$.
+
+<div class="TODO">
+
+TODO: Doesn't liveness imply initialization?
+
+</div>
 
 - $\blockedloopplaces$: the subset of $P_{live}$ that are [directly
   borrowed](definitions.html#borrow-liveness) by a borrow [live](definitions.html#borrow-liveness) at $l_h$
@@ -28,12 +33,13 @@ $\mathcal{N}_{loop}$ is the union of $P_{loop}$ and the associated lifetime proj
 $RP_{blockers}$ are the associated lifetime projections of $P_{blockers}$.
 
 
-### Step 2 - Expand Pre-State Graph to Include Relevant Loop Nodes
+### Step 2 - Obtain Relevant Loop Nodes in Pre-state Graph
+
 The nodes in $\mathcal{N}_{loop}$ will need to appear in $\mathcal{G}_{h}$ but
 may not be present in $\mathcal{G}_{pre}$ (for example, it's possible that the
 loop could borrow from a subplace that requires unpacking). We construct a graph
-$\mathcal{G}_{pre}'$ by unpacking $\mathcal{G}_{pre}$ such that
-$\mathcal{G}_{pre}'$ contains all places in $P_{loop}$.
+$\mathcal{G}_{pre}'$ by performing the *obtain* operation on each place in
+$P_{loop}$.
 
 ### Step 3 - Identify Borrow Roots $P_{roots}$
 
@@ -86,9 +92,9 @@ We begin by define a helper function $connect(p_{blocked}, p_{blocker})$ which a
 #### Algorithm:
 
 - For each blocker place $p_{blocker} \in P_{blocker}$:
-    - For each $p_{blocked} \in roots(p_{blocker})$, perform $connect(p_{blocked}, p_{blocker})$
-    - For each $p_{blocked} \in \blockedloopplaces$
-        - If $p_{blocker}$ blocks $p_{blocked}$ at $l_h$, then perform $connect(p_{blocked}, p_{blocker})$
+    - For each $p_{blocked} \in (P_{roots} \cup P_{blocked})$:
+        - If $p_{blocked}$ is a remote node, or if $p_{blocker}$ blocks $p_{root}$ at $l_h$:
+            - Perform $connect(p_{blocked}, p_{blocker})$
 
 -  Subsequently, ensure that $\mathcal{A}$ is well-formed by adding unpack edges where appropriate. For example, if `(*x).f` is in the graph, there should also be an expansion edge from `*x` to `(*x).f`.
 - We identify the set $RP_{rename}$ of lifetime projections that will need to be renamed (indicating they will be expanded in the loop and remain non-accessible at the loop head). $RP_{rename}$ is the set of non-leaf lifetime projection nodes in $\mathcal{A}$ (leaf nodes are accessible at the head).
