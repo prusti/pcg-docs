@@ -47,17 +47,14 @@ The capability of $p$ is set to $c$.
 
 ## LabelPlace
 
-Note this is called `MakePlaceOld` in the implementation.
-
 **Fields**
 - $p$ - Place
+- $s$ - The snapshot location to use
 - *reason* - Why the place is to be made labelled
 
 The purpose of this action is to label current versions of $p$ (and potentially
 prefixes and postfixes of $p$) with the label corresponding to the last time
-they were updated. The *Latest Map* (described
-[here](../overview/choosing-place-labels.html)) determines what label is to be
-used.
+they were updated.
 
 There are six reasons defined:
 - `StorageDead`
@@ -96,7 +93,3 @@ nodes to be removed from the graph, the capability of those places are removed.
 ## AddEdge
 
 Inserts an edge into the graph. This does not change the capabilities.
-
-## SetLatest
-
-Updates the latest label of place $p$ to label $l$ in the Latest Map.

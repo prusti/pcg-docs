@@ -1,10 +1,9 @@
 # Function Calls
 
-Consider a function call $p_{\mathit{result}} = f(o_1, \ldots, o_n)$. Each $o_i
+Consider a function call $p_{\mathit{result}} = f(o_1, \ldots, o_n)$ at location $l$. Each $o_i
 \in \{o_1, \ldots, o_n\}$ is an *operand* of the form  `move p | copy p | const
 c`.
-Let $\overline{p}$ be the set of moved operand places, and let
-$\mathit{latest}(p)$ denote the program point where $p$ was last modified.
+Let $\overline{p}$ be the set of moved operand places.
 
 The function call abstraction is created in the `PostMain` evalution stage,
 after all of the operands have been evaluated. Therefore, all places in
@@ -15,7 +14,7 @@ $\overline{p}$ are labelled, as they have been moved-out by this point.
 Let $RP$ be the set of lifetime projections in $\overline{p}$ (that is, obtained
 from places in $p$, regardless of whether they are already in the graph). For
 any place $p$, we define $\tilde{p}$ as the place
-$p~\mathtt{at}~\mathit{latest}(p)$.
+$p~\at~\mathtt{before}~\mathit{l:\texttt{PostOperands}}$.
 
 We define the set of lifetime projections of the moved-out operands as
 $\widetilde{RP} = \{\tilde{p} \downarrow r~|~ p \downarrow r \in RP\}$.

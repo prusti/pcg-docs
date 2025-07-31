@@ -2,7 +2,6 @@
 
 - [Overview](./overview.md)
     - [Capabilities](./overview/capabilities.md)
-    - [Choosing Place Labels](./overview/choosing-place-labels.md)
 - [Definitions](./definitions.md)
     - [PCG Nodes](./definitions/pcg-nodes.md)
     - [PCG Hyperedges](./definitions/pcg-edges.md)

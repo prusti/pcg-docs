@@ -108,32 +108,30 @@ Then, the behaviour depends on the type of statement:
 1. For every operand `move p` in the statement:
    1. The analysis performs the `MakePlaceOld(p, MoveOut)` action.
 2. If the statement is a function call `p = call f(..)`:
-   1. The entry for `p` in the *latest* map is updated to the current location
-   2. Function call abstraction edges are described using the rules defined [here](./function-calls.md)
+   1. Function call abstraction edges are inserted using the rules defined [here](./function-calls.md)
 3. If the statement takes the form `Assign(p, r)`:
-   1. The entry for `p` in the *latest* map is updated to the current location
-   2. `p` is given exclusive permission
-   3. If $r$ takes the form `Aggregate(o_1, ..., o_n)`:
+   1. `p` is given exclusive permission
+   2. If $r$ takes the form `Aggregate(o_1, ..., o_n)`:
       1. For every $i \in \{i~|0 \leqslant i < n \land (o_i = \texttt{move p}~\lor o_i = ~\texttt{copy p})\}$
          1. Let $p_i$ be the associated place of $o_i$
          2. For all $j.k. 0 \leqslant j < |rp(p)|, 0 \leqslant k < |rp(p_i)|$
             1. If $\lproj{p_i}{r_k}$ outlives $\lproj{p}{r_j}$:
                1. Add an `Aggregate` BorrowFlow edge $\{\lproj{p_i}{r_k}\} \rightarrow \{\lproj{p}{r_j}\}$, with associated field index $i$ and lifetime projection index $k$.
-   4. If $r$ takes the form `use c`, `c` is a reference-typed constant with
+   3. If $r$ takes the form `use c`, `c` is a reference-typed constant with
       lifetime $r_c$, and $p$ is a reference-typed place with lifetime $r_p$, then:
       1. Create a new `ConstRef` borrowedge of the form $\{\lproj{c}{r_c}\} \rightarrow \{\lproj{p}{r_p}\}$
-   5. If $r$ takes the form `move p_f` or `cast(_, move p_f)`:
+   4. If $r$ takes the form `move p_f` or `cast(_, move p_f)`:
       1. For all $i, 0 \leqslant i < |rp(p)|$:
          1. Let $p \downarrow r$ be the i'th lifetime projection in `p`
          2. Let $p_f \downarrow r_f$ be the i'th lifetime projection in `p_f`
-         3. Let $\label$ be the location of `p_f` in the *latest* map
+         3. Let $\label$ be the snapshot location $\texttt{before}~l:PostOperands$
          4. Add a `Move` edge $\{p_f~\text{at}~\label\ \downarrow r_f\} \rightarrow \{p \downarrow r \}$
-   6. If $r$ takes the form `copy p_f` or `cast(_, copy p_f)`:
+   5. If $r$ takes the form `copy p_f` or `cast(_, copy p_f)`:
       1. For all $i, 0 \leqslant i < |rp(p)|$:
          1. Let $p \downarrow r$ be the i'th lifetime projection in `p`
          2. Let $p_f \downarrow r_f$ be the i'th lifetime projection in `p_f`
          3. Add a `CopyRef` edge $\{p_f \downarrow r_f\} \rightarrow \{p \downarrow r \}$
-   7. If $r$ takes the form `&p` or `&mut p`:
+   6. If $r$ takes the form `&p` or `&mut p`:
       1. Handle the borrow as described [here](./statements/borrow-rules.md)
 
 [^effective]: The set of *effective leaf edges* are the leaf edges in the graph

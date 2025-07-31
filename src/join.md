@@ -62,8 +62,7 @@ The algorithm *join*($\Placecap, \Placecap'$) is defined as:
 ## Borrow State Join
 
 1. The borrow graphs are joined
-2. The latest maps are joined
-3. The validity conditions are joined
+2. The validity conditions are joined
 
 ### Borrow PCG Join
 

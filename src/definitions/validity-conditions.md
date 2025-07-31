@@ -33,7 +33,7 @@ $\texttt{bb0} \rightarrow \texttt{bb2}$ and one branch choice from `bb1` (to
 `bb2`).
 
 For any given basic block $b$ in the program, an *execution path* leading to $b$
-is an ordered list $\overline{d} \in \powerset{D}$ of branch choices. For
+is an ordered list of blocks ending in $b$. For
 example, one path of execution to `bb4` can be described by: $\texttt{bb0}
 \rightarrow \texttt{bb2} \rightarrow \texttt{bb3} \rightarrow \texttt{bb4}$.
 
@@ -105,7 +105,7 @@ $e$.__
 
 Every $\overline{d}$ has a prefix $\overline{d_f}$ and ends with $b_f
 \rightarrow b_n$, by our IH we have $\overline{d_f}$ satisfies $pc_e^f$. We need
-to then show that $\overline{d} = \overline{d_f} \cup b_f \rightarrow b_n $ satisfies $pc_e^n$.
+to then show that $\overline{d} = \overline{d_f} \mathtt{++} [b_n]$ satisfies $pc_e^n$.
 Our proof is by contradiction.
 
 Suppose $\overline{d}$ did not satisfy $pc_e^n$; then there must be a pair $(b
