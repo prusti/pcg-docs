@@ -18,7 +18,7 @@
 - [Join Operation](./join.md)
 - [Loops](./loops.md)
 - [Function Calls](./function-calls.md)
-- [Generating Annotations for Magic Wands](./magic-wands.md)
+- [Generating Annotations](./annotations.md)
 - [Misc (To Update)](./misc.md)
 - [PCG Operations](./operations.md)
     - [Obtaining Capability to a Place](./operations/obtain.md)
