@@ -70,42 +70,31 @@ fn m<'a: 'c, 'b: 'e, 'c, 'd, 'e, T>(
 ```
 
 In `m`, argument `x` is blocked by lifetimes `'c` and `'d`, and `y` is blocked
-by `'d` and `'e`. Expiry of lifetime `'d`, on its own, is tracked by the type
-system but is not sufficient to unblock either `x` and `y`.
-
-The PCG shape for a call to `m` forms an "m" pattern when visualized:
+by `'d` and `'e`. The shape of the function therefore looks like:
 
 ```hypergraph
 {
   "nodes": [
-    {"id": "x", "label": "x:'a", "type": "input", "x": 50, "y": 100},
-    {"id": "y", "label": "y:'b", "type": "input", "x": 250, "y": 100},
-    {"id": "c", "label": "'c", "type": "output", "x": 50, "y": 250},
-    {"id": "d", "label": "'d", "type": "output", "x": 150, "y": 250},
-    {"id": "e", "label": "'e", "type": "output", "x": 250, "y": 250}
+    {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
+    {"id": "y_b", "place": "y", "lifetime": "'b", "x": 300, "y": 100},
+    {"id": "result_c", "place": "result", "lifetime": "'c", "x": 0, "y": 200},
+    {"id": "result_d", "place": "result", "lifetime": "'d", "x": 200, "y": 200},
+    {"id": "result_e", "place": "result", "lifetime": "'e", "x": 400, "y": 200}
   ],
   "edges": [
-    {"source": "x", "target": "c", "label": "'a → 'c"},
-    {"source": "x", "target": "d", "label": "'a → 'd"},
-    {"source": "y", "target": "d", "label": "'b → 'd"},
-    {"source": "y", "target": "e", "label": "'b → 'e"}
-  ],
-  "hyperedges": [
-    {
-      "id": "he1",
-      "sources": ["x", "y"],
-      "targets": ["d"],
-      "label": "Shared 'd",
-      "coupled": true
-    }
+    {"sources": ["x_a"], "targets": ["result_c"], "label": ""},
+    {"sources": ["x_a"], "targets": ["result_d"], "label": ""},
+    {"sources": ["y_b"], "targets": ["result_d"], "label": ""},
+    {"sources": ["y_b"], "targets": ["result_e"], "label": ""}
   ]
 }
 ```
 
-This diagram shows how the lifetime projection nodes form an "m" shape:
-- The two input parameters `x` and `y` are at the top
-- The three output lifetimes `'c`, `'d`, and `'e` are at the bottom
-- The edges show the lifetime relationships, with `'d` being reachable from both inputs
+Expiry of lifetime `'d`, on its own, is tracked by the type
+system but is not sufficient to unblock either `x` and `y`.
+
+The PCG shape for a call to `m` forms an "m" pattern when visualized:
+
 
 
 <!-- For example, consider the function:

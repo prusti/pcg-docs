@@ -25,20 +25,13 @@ This documentation includes a custom mdbook preprocessor for rendering hypergrap
 ```hypergraph
 {
   "nodes": [
-    {"id": "n1", "label": "Node 1", "type": "input", "x": 100, "y": 100},
-    {"id": "n2", "label": "Node 2", "type": "output", "x": 200, "y": 200}
+    {"id": "lp1", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
+    {"id": "p1", "place": "y", "x": 200, "y": 200},
+    {"id": "p2", "place": "z", "x": 300, "y": 150}
   ],
   "edges": [
-    {"source": "n1", "target": "n2", "label": "edge label"}
-  ],
-  "hyperedges": [
-    {
-      "id": "he1",
-      "sources": ["n1"],
-      "targets": ["n2"],
-      "label": "Hyperedge",
-      "coupled": true
-    }
+    {"sources": ["lp1"], "targets": ["p1"], "label": "simple edge"},
+    {"sources": ["lp1", "p1"], "targets": ["p2"], "label": "hyperedge"}
   ]
 }
 ```

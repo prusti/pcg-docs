@@ -63,57 +63,71 @@
         // Add nodes
         if (data.nodes) {
             data.nodes.forEach(function(node) {
+                // Determine node type and label based on place/lifetime fields
+                let nodeType = 'default';
+                let label = node.id;
+
+                if (node.place && !node.lifetime) {
+                    // Place node - just show the place
+                    nodeType = 'place';
+                    label = node.place;
+                } else if (node.place && node.lifetime) {
+                    // Lifetime projection node - show place ↓ lifetime
+                    nodeType = 'lifetimeProjection';
+                    label = node.place + ' ↓ ' + node.lifetime;
+                } else if (node.label) {
+                    // Fallback to provided label
+                    label = node.label;
+                }
+
                 elements.push({
                     data: {
                         id: node.id,
-                        label: node.label || node.id,
-                        nodeType: node.type || 'default'
+                        label: label,
+                        nodeType: nodeType,
+                        place: node.place,
+                        lifetime: node.lifetime
                     },
                     position: {
                         x: node.x || Math.random() * 300,
                         y: node.y || Math.random() * 300
                     },
-                    classes: node.type || 'default'
+                    classes: nodeType
                 });
             });
         }
 
-        // Add regular edges
+        // Add edges (all edges are hyperedges with sources and targets arrays)
         if (data.edges) {
             data.edges.forEach(function(edge, idx) {
-                elements.push({
-                    data: {
-                        id: 'edge-' + idx,
-                        source: edge.source,
-                        target: edge.target,
-                        label: edge.label || ''
-                    }
-                });
-            });
-        }
+                const edgeId = edge.id || 'edge-' + idx;
 
-        // Add hyperedges (visualized as compound nodes)
-        if (data.hyperedges) {
-            data.hyperedges.forEach(function(hyperedge) {
-                // Create a compound node for the hyperedge
-                const heId = hyperedge.id || 'he-' + Math.random();
-
-                // Add hyperedge as a styled edge group
-                if (hyperedge.sources && hyperedge.targets) {
-                    hyperedge.sources.forEach(function(source) {
-                        hyperedge.targets.forEach(function(target) {
+                // Handle edges with sources and targets arrays (hyperedges)
+                if (edge.sources && edge.targets) {
+                    // For hyperedges, create individual edges from each source to each target
+                    edge.sources.forEach(function(source) {
+                        edge.targets.forEach(function(target) {
                             elements.push({
                                 data: {
-                                    id: heId + '-' + source + '-' + target,
+                                    id: edgeId + '-' + source + '-' + target,
                                     source: source,
                                     target: target,
-                                    label: hyperedge.label || '',
-                                    hyperedge: true,
-                                    coupled: hyperedge.coupled || false
+                                    label: edge.label || '',
+                                    hyperedge: edge.sources.length > 1 || edge.targets.length > 1
                                 },
-                                classes: 'hyperedge' + (hyperedge.coupled ? ' coupled' : '')
+                                classes: (edge.sources.length > 1 || edge.targets.length > 1) ? 'hyperedge' : ''
                             });
                         });
+                    });
+                } else if (edge.source && edge.target) {
+                    // Backward compatibility: handle old format with single source/target
+                    elements.push({
+                        data: {
+                            id: edgeId,
+                            source: edge.source,
+                            target: edge.target,
+                            label: edge.label || ''
+                        }
                     });
                 }
             });
@@ -132,12 +146,34 @@
                         'label': 'data(label)',
                         'text-valign': 'center',
                         'text-halign': 'center',
-                        'width': '60px',
-                        'height': '60px',
-                        'font-size': '14px',
+                        'width': '100px',
+                        'height': '40px',
+                        'font-size': '12px',
+                        'font-family': 'monospace',
                         'color': '#fff',
                         'text-outline-width': 2,
-                        'text-outline-color': '#666'
+                        'text-outline-color': '#666',
+                        'shape': 'ellipse'
+                    }
+                },
+                {
+                    selector: 'node.lifetimeProjection',
+                    style: {
+                        'background-color': '#673AB7',
+                        'text-outline-color': '#673AB7',
+                        'shape': 'hexagon',
+                        'width': '110px',
+                        'height': '35px'
+                    }
+                },
+                {
+                    selector: 'node.place',
+                    style: {
+                        'background-color': '#FF9800',
+                        'text-outline-color': '#FF9800',
+                        'shape': 'round-rectangle',
+                        'width': '80px',
+                        'height': '35px'
                     }
                 },
                 {
@@ -177,15 +213,6 @@
                         'target-arrow-color': '#FF5722',
                         'width': 4,
                         'line-style': 'dashed'
-                    }
-                },
-                {
-                    selector: 'edge.coupled',
-                    style: {
-                        'line-color': '#9C27B0',
-                        'target-arrow-color': '#9C27B0',
-                        'width': 5,
-                        'line-style': 'solid'
                     }
                 }
             ],
