@@ -1,8 +1,6 @@
-# Sample workflow for building and deploying a mdBook site to GitHub Pages
-#
-# To get started with mdBook see: https://rust-lang.github.io/mdBook/index.html
-#
-name: Deploy mdBook site to Pages
+# Workflow for building and deploying the PCG documentation to GitHub Pages
+# This workflow uses the npm build system defined in package.json
+name: Deploy PCG Documentation
 
 on:
   # Runs on pushes targeting the default branch
@@ -28,31 +26,40 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-latest
-    env:
-      MDBOOK_VERSION: 0.4.51
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Install mdBook
-        run: |
-          curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf -y | sh
-          rustup update
-          cargo install --version ${MDBOOK_VERSION} mdbook
-      - name: Install mdbook-katex
-        run: |
-          cargo install mdbook-katex
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-      - name: Install npm dependencies
-        run: npm install
-      - name: Build with mdBook
-        run: mdbook build
+          cache: 'npm'
+
+      - name: Cache Cargo packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/scripts/setup-mdbook.js') }}
+
+      - name: Setup project
+        run: make setup
+
+      - name: Build documentation
+        run: make build
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

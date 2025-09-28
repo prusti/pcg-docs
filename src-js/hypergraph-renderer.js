@@ -1,4 +1,12 @@
-// Hypergraph renderer using Cytoscape.js
+import cytoscape from 'cytoscape';
+import Layers from 'cytoscape-layers';
+import BubbleSets from 'cytoscape-bubblesets';
+
+// Register extensions
+cytoscape.use(Layers);
+cytoscape.use(BubbleSets);
+
+// Hypergraph renderer
 (function() {
     // Wait for page to load
     document.addEventListener('DOMContentLoaded', function() {
@@ -62,7 +70,7 @@
 
         // Prepare elements for Cytoscape
         const elements = [];
-        const compoundNodeCounter = { count: 0 };
+        const hyperedgeGroups = []; // Store hyperedge groupings for bubblesets
 
         // Add nodes
         if (data.nodes) {
@@ -101,7 +109,7 @@
             });
         }
 
-        // Process edges - create compound nodes for hyperedges
+        // Process edges - create individual edges for all source-target pairs
         if (data.edges) {
             data.edges.forEach(function(edge, idx) {
                 const edgeId = edge.id || 'edge-' + idx;
@@ -111,71 +119,39 @@
                     const isHyperedge = edge.sources.length > 1 || edge.targets.length > 1;
 
                     if (isHyperedge) {
-                        // Create compound nodes for hyperedges
-                        let sourceCompoundId = null;
-                        let targetCompoundId = null;
+                        // Store hyperedge grouping for bubblesets
+                        const group = {
+                            id: edgeId,
+                            sources: edge.sources,
+                            targets: edge.targets,
+                            edges: []
+                        };
 
-                        // Create source compound node if multiple sources
-                        if (edge.sources.length > 1) {
-                            sourceCompoundId = 'compound-src-' + edgeId;
-                            elements.push({
-                                data: {
-                                    id: sourceCompoundId,
-                                    label: ''
-                                },
-                                classes: 'compound-source'
+                        // Create individual edges from each source to each target
+                        edge.sources.forEach(function(source) {
+                            edge.targets.forEach(function(target) {
+                                const individualEdgeId = edgeId + '-' + source + '-' + target;
+                                group.edges.push(individualEdgeId);
+                                elements.push({
+                                    data: {
+                                        id: individualEdgeId,
+                                        source: source,
+                                        target: target,
+                                        hyperedgeGroup: edgeId
+                                    },
+                                    classes: 'hyperedge'
+                                });
                             });
-
-                            // Update source nodes to have this compound as parent
-                            edge.sources.forEach(function(sourceId) {
-                                const sourceNode = elements.find(el => el.data.id === sourceId);
-                                if (sourceNode) {
-                                    sourceNode.data.parent = sourceCompoundId;
-                                }
-                            });
-                        }
-
-                        // Create target compound node if multiple targets
-                        if (edge.targets.length > 1) {
-                            targetCompoundId = 'compound-tgt-' + edgeId;
-                            elements.push({
-                                data: {
-                                    id: targetCompoundId,
-                                    label: ''
-                                },
-                                classes: 'compound-target'
-                            });
-
-                            // Update target nodes to have this compound as parent
-                            edge.targets.forEach(function(targetId) {
-                                const targetNode = elements.find(el => el.data.id === targetId);
-                                if (targetNode) {
-                                    targetNode.data.parent = targetCompoundId;
-                                }
-                            });
-                        }
-
-                        // Create the hyperedge connecting compound nodes or individual nodes
-                        const edgeSource = sourceCompoundId || edge.sources[0];
-                        const edgeTarget = targetCompoundId || edge.targets[0];
-
-                        elements.push({
-                            data: {
-                                id: edgeId,
-                                source: edgeSource,
-                                target: edgeTarget,
-                                label: edge.label || ''
-                            },
-                            classes: 'hyperedge'
                         });
+
+                        hyperedgeGroups.push(group);
                     } else {
                         // Simple edge (single source to single target)
                         elements.push({
                             data: {
                                 id: edgeId,
                                 source: edge.sources[0],
-                                target: edge.targets[0],
-                                label: edge.label || ''
+                                target: edge.targets[0]
                             }
                         });
                     }
@@ -185,8 +161,7 @@
                         data: {
                             id: edgeId,
                             source: edge.source,
-                            target: edge.target,
-                            label: edge.label || ''
+                            target: edge.target
                         }
                     });
                 }
@@ -213,35 +188,8 @@
                         'color': '#fff',
                         'text-outline-width': 2,
                         'text-outline-color': '#666',
-                        'shape': 'ellipse'
-                    }
-                },
-                {
-                    selector: 'node:parent',
-                    style: {
-                        'background-color': 'rgba(200, 200, 200, 0.2)',
-                        'border-width': 2,
-                        'border-color': '#888',
-                        'border-style': 'dashed',
-                        'padding': '10px',
-                        'text-valign': 'top',
-                        'text-halign': 'center'
-                    }
-                },
-                {
-                    selector: 'node.compound-source',
-                    style: {
-                        'background-color': 'rgba(255, 87, 34, 0.1)',
-                        'border-color': '#FF5722',
-                        'shape': 'round-rectangle'
-                    }
-                },
-                {
-                    selector: 'node.compound-target',
-                    style: {
-                        'background-color': 'rgba(33, 150, 243, 0.1)',
-                        'border-color': '#2196F3',
-                        'shape': 'round-rectangle'
+                        'shape': 'ellipse',
+                        'z-index': 10
                     }
                 },
                 {
@@ -297,11 +245,12 @@
                 {
                     selector: 'edge.hyperedge',
                     style: {
-                        'line-color': '#FF5722',
-                        'target-arrow-color': '#FF5722',
-                        'width': 5,
-                        'line-style': 'solid',
-                        'target-arrow-shape': 'vee'
+                        'line-color': 'rgba(255, 87, 34, 0.3)',
+                        'target-arrow-color': 'rgba(255, 87, 34, 0.5)',
+                        'width': 2,
+                        'line-style': 'dotted',
+                        'target-arrow-shape': 'triangle',
+                        'z-index': 1
                     }
                 }
             ],
@@ -343,5 +292,40 @@
 
         // Auto-fit the graph
         cy.fit();
+
+        // Initialize bubblesets
+        const bb = cy.bubbleSets();
+
+        // Add bubblesets for each hyperedge group
+        hyperedgeGroups.forEach(function(group, idx) {
+            // Collect all nodes in this hyperedge
+            const nodeIds = [...new Set([...group.sources, ...group.targets])];
+            const nodes = cy.nodes().filter(function(node) {
+                return nodeIds.includes(node.id());
+            });
+
+            // Collect all edges in this hyperedge
+            const edges = cy.edges().filter(function(edge) {
+                return group.edges.includes(edge.id());
+            });
+
+            // Create a bubbleset path
+            const color = `hsla(${(idx * 137) % 360}, 70%, 50%, 0.15)`;
+            const borderColor = `hsla(${(idx * 137) % 360}, 70%, 50%, 0.6)`;
+
+            bb.addPath(nodes, edges, null, {
+                virtualEdges: true,
+                style: {
+                    fill: color,
+                    stroke: borderColor,
+                    strokeWidth: 2
+                },
+                throttle: 10,
+                zIndex: -1
+            });
+        });
     }
+
+    // Export for global access if needed
+    window.renderHypergraph = renderHypergraph;
 })();

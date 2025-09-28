@@ -3,13 +3,28 @@
   "version": "1.0.0",
   "description": "PCG Documentation with hypergraph support",
   "scripts": {
-    "build": "mdbook build",
-    "serve": "mdbook serve"
+    "setup": "npm install && npm run setup:mdbook",
+    "setup:mdbook": "node scripts/setup-mdbook.js",
+    "serve": "npm run build:js && concurrently \"npm run watch:js\" \"npm run serve:mdbook\"",
+    "serve:mdbook": "mdbook serve",
+    "watch:js": "webpack --watch",
+    "build": "npm run build:js && npm run build:mdbook",
+    "build:js": "webpack",
+    "build:mdbook": "mdbook build",
+    "clean": "rm -rf book node_modules package-lock.json theme/hypergraph.js",
+    "test": "npm run build"
   },
   "dependencies": {
+    "cytoscape": "^3.28.1",
+    "cytoscape-bubblesets": "^4.0.0",
+    "cytoscape-layers": "^3.0.0",
     "js-yaml": "^4.1.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
   "engines": {
     "node": ">=14.0.0"
   }

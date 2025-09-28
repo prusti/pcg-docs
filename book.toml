@@ -15,4 +15,4 @@ command = "node preprocessors/hypergraph.js"
 [output.html]
 mathjax-support = true
 additional-css = ["theme/custom.css"]
-additional-js = ["theme/cytoscape.min.js", "theme/hypergraph.js"]
+additional-js = ["theme/hypergraph.js"]

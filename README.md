@@ -1,26 +1,66 @@
-This repository stores documentation on the PCG design and implementation. It is
-intended to be the authoritative source on information about the PCG.
+# PCG Documentation
 
-These documents are accessible at: https://viperproject.github.io/pcg-docs
+This repository contains documentation on the PCG design and implementation. It
+is intended to be the authoritative source on information about the PCG.
+However, because much of the documentation is still incomplete or outdated, the
+paper describing the PCG is probably a better resource currently:
+https://arxiv.org/pdf/2503.21691.
 
-## Local Development
 
-Ensure that you have `mdbook`, `mdbook katex`, and Node.js (>=14.0.0) installed:
+**Live documentation**: https://viperproject.github.io/pcg-docs
 
+## Quick Start
+
+### Prerequisites
+
+- **Node.js** (>= 14.0.0) - [Install from nodejs.org](https://nodejs.org/)
+- **Rust** (for mdbook) - [Install from rust-lang.org](https://www.rust-lang.org/tools/install)
+
+### Setup
+
+First-time setup installs all dependencies including mdbook and mdbook-katex:
+
+```bash
+make setup
 ```
-cargo install mdbook
-cargo install mdbook-katex
+
+This command will:
+- Install dependencies (Cytoscape.js, webpack, etc.)
+- Install mdbook and mdbook-katex via cargo
+
+### Development
+
+Start the development server with automatic reload on changes:
+
+```bash
+make serve
 ```
 
-The documentation renders hypergraphs using Cytoscape.js. The hypergraph preprocessor requires Node.js to be installed.
+This will:
+- Build the JavaScript bundle
+- Start watching for JavaScript changes
+- Start mdbook server at http://localhost:3000
+- Automatically rebuild on any source file changes
 
-If this is your first time setting up the project or if package dependencies have changed, run:
-```
-npm install
+### Build for Production
+
+Build the static site for deployment:
+
+```bash
+make build
 ```
 
-Once you have the prerequisites and dependencies installed, run `mdbook serve` from the root directory. The
-book should then be hosted on at `http://localhost:3000`
+This creates the production-ready site in the `book/` directory.
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `make setup` | One-time setup: installs all dependencies |
+| `make serve` | Start development server with auto-reload |
+| `make build` | Build production site |
+| `make clean` | Remove generated files and dependencies |
+| `make help` | Show available commands |
 
 ### Hypergraph Support
 
@@ -104,8 +144,47 @@ All edges in the hypergraph are represented uniformly with:
 
 Edges are automatically styled as hyperedges when they have multiple sources or targets.
 
+#### Hyperedge Visualization
+
+Hyperedges (edges with multiple sources or targets) are visualized using the cytoscape-bubblesets library:
+- Individual edges are drawn between all source-target pairs with dotted lines
+- A colored bubble overlay groups all nodes participating in the hyperedge
+- Each hyperedge gets a unique color for its bubble
+- Bubbles can overlap, allowing nodes to belong to multiple hyperedges
+
 
 ## Deployment
 
-The documentation will automatically be built and deployed upon a push to
-`main`. This is implemented via a Github action.
+The documentation is automatically built and deployed to GitHub Pages when changes are pushed to the `main` branch.
+
+## Technical Details
+
+### Architecture
+
+The documentation system consists of:
+- **mdbook**: Static site generator for the main documentation
+- **mdbook-katex**: LaTeX math rendering support
+- **Custom preprocessor**: Converts hypergraph code blocks to interactive visualizations
+- **Cytoscape.js**: Graph visualization library
+- **cytoscape-bubblesets**: Plugin for visualizing hyperedges as bubble overlays
+- **Webpack**: Bundles JavaScript dependencies into a single file
+
+### Build Process
+
+1. **Preprocessing**: The hypergraph preprocessor (`preprocessors/hypergraph.js`) converts graph definitions in markdown to HTML containers
+2. **JavaScript bundling**: Webpack bundles the renderer and dependencies into `theme/hypergraph.js`
+3. **Site generation**: mdbook processes markdown files and generates the static HTML site
+4. **Runtime rendering**: The bundled JavaScript renders interactive graphs in the browser
+
+### Project Structure
+
+```
+pcg-docs/
+├── src/                 # Markdown source files
+├── src-js/              # JavaScript source for hypergraph renderer
+├── preprocessors/       # mdbook preprocessors
+├── theme/              # CSS and bundled JavaScript
+├── scripts/            # Build and setup scripts
+├── book/               # Generated static site (not stored in version control)
+└── webpack.config.js   # Webpack bundling configuration
+```
