@@ -109,7 +109,7 @@ cytoscape.use(BubbleSets);
             });
         }
 
-        // Process edges - create individual edges for all source-target pairs
+        // Process edges - create individual edges only for 1-1 connections
         if (data.edges) {
             data.edges.forEach(function(edge, idx) {
                 const edgeId = edge.id || 'edge-' + idx;
@@ -119,34 +119,17 @@ cytoscape.use(BubbleSets);
                     const isHyperedge = edge.sources.length > 1 || edge.targets.length > 1;
 
                     if (isHyperedge) {
-                        // Store hyperedge grouping for bubblesets
+                        // For non-1-1 hyperedges: only store grouping for bubblesets, no edges
                         const group = {
                             id: edgeId,
                             sources: edge.sources,
                             targets: edge.targets,
-                            edges: []
+                            edges: [] // No individual edges for hyperedges
                         };
-
-                        // Create individual edges from each source to each target
-                        edge.sources.forEach(function(source) {
-                            edge.targets.forEach(function(target) {
-                                const individualEdgeId = edgeId + '-' + source + '-' + target;
-                                group.edges.push(individualEdgeId);
-                                elements.push({
-                                    data: {
-                                        id: individualEdgeId,
-                                        source: source,
-                                        target: target,
-                                        hyperedgeGroup: edgeId
-                                    },
-                                    classes: 'hyperedge'
-                                });
-                            });
-                        });
 
                         hyperedgeGroups.push(group);
                     } else {
-                        // Simple edge (single source to single target)
+                        // For 1-1 edges: create the edge but no bubbleset
                         elements.push({
                             data: {
                                 id: edgeId,
@@ -296,7 +279,7 @@ cytoscape.use(BubbleSets);
         // Initialize bubblesets
         const bb = cy.bubbleSets();
 
-        // Add bubblesets for each hyperedge group
+        // Add bubblesets for each hyperedge group (non-1-1 edges only)
         hyperedgeGroups.forEach(function(group, idx) {
             // Collect all nodes in this hyperedge
             const nodeIds = [...new Set([...group.sources, ...group.targets])];
@@ -304,10 +287,8 @@ cytoscape.use(BubbleSets);
                 return nodeIds.includes(node.id());
             });
 
-            // Collect all edges in this hyperedge
-            const edges = cy.edges().filter(function(edge) {
-                return group.edges.includes(edge.id());
-            });
+            // For hyperedges, we don't have individual edges, so pass empty collection
+            const edges = cy.collection();
 
             // Create a bubbleset path
             const color = `hsla(${(idx * 137) % 360}, 70%, 50%, 0.15)`;

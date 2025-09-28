@@ -107,9 +107,11 @@ Under definition (1)  the expiry of `'d` is relevant, with the resulting coupled
     {"id": "result_e", "place": "result", "lifetime": "'e", "x": 400, "y": 200}
   ],
   "edges": [
-    {"sources": ["x_a", "y_b"], "targets": ["result_d"]},
     {"sources": ["x_a"], "targets": ["result_c"]},
-    {"sources": ["y_b"], "targets": ["result_e"]}
+    {"sources": ["x_a"], "targets": ["result_d"]},
+    {"sources": ["y_b"], "targets": ["result_d"]},
+    {"sources": ["y_b"], "targets": ["result_e"]},
+    {"sources": ["x_a", "y_b"], "targets": ["result_d"]}
   ]
 }
 ```
@@ -127,8 +129,12 @@ Under definition (2), coupled edges must include an unblocked node. Because $\lp
     {"id": "result_e", "place": "result", "lifetime": "'e", "x": 400, "y": 200}
   ],
   "edges": [
-    {"sources": ["x_a"], "targets": ["result_c", "result_d"]},
-    {"sources": ["y_b"], "targets": ["result_d", "result_e"]}
+    {"sources": ["x_a"], "targets": ["result_c"]},
+    {"sources": ["x_a"], "targets": ["result_d"]},
+    {"sources": ["y_b"], "targets": ["result_d"]},
+    {"sources": ["y_b"], "targets": ["result_e"]},
+    {"sources": ["x_a", "y_b"], "targets": ["result_c", "result_d"]},
+    {"sources": ["x_a", "y_b"], "targets": ["result_d", "result_e"]}
   ]
 }
 ```
