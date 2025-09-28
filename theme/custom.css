@@ -39,3 +39,33 @@
     font-weight: bold;
     font-size: 2rem;
 }
+
+/* Hypergraph container styles */
+.hypergraph-container {
+    margin: 1em 0;
+    padding: 1em;
+    background: var(--quote-bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.hypergraph-error {
+    padding: 1em;
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef5350;
+    border-radius: 4px;
+}
+
+.ayu .hypergraph-error,
+.coal .hypergraph-error,
+.navy .hypergraph-error {
+    background: #3a1616;
+    color: #ff6b6b;
+    border-color: #8b3030;
+}
+
+/* Hide the JSON data once rendered */
+.hypergraph-container[data-rendered] .hypergraph-data {
+    display: none;
+}

@@ -27,3 +27,4 @@
     - [Packing Old and Dead Borrow Leaves](./operations/pack-old-and-dead-borrow-leaves.md)
     - [Repack Operations](./operations/repack-ops.md)
     - [Borrow PCG Actions](./operations/borrow-pcg-actions.md)
+- [Coupling](./coupling.md)

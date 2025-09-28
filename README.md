@@ -5,15 +5,45 @@ These documents are accessible at: https://viperproject.github.io/pcg-docs
 
 ## Local Development
 
-Ensure that you have `mdbook` and `mdbook katex`
+Ensure that you have `mdbook`, `mdbook katex`, and Node.js (>=14.0.0) installed:
 
 ```
 cargo install mdbook
 cargo install mdbook-katex
 ```
 
+The documentation renders hypergraphs using Cytoscape.js. The hypergraph preprocessor requires Node.js to be installed.
+
 Once you have the prerequisites, run `mdbook serve` from the root directory. The
 book should then be hosted on at `http://localhost:3000`
+
+### Hypergraph Support
+
+This documentation includes a custom mdbook preprocessor for rendering hypergraphs. Hypergraphs can be included in markdown files using the following syntax:
+
+````markdown
+```hypergraph
+{
+  "nodes": [
+    {"id": "n1", "label": "Node 1", "type": "input", "x": 100, "y": 100},
+    {"id": "n2", "label": "Node 2", "type": "output", "x": 200, "y": 200}
+  ],
+  "edges": [
+    {"source": "n1", "target": "n2", "label": "edge label"}
+  ],
+  "hyperedges": [
+    {
+      "id": "he1",
+      "sources": ["n1"],
+      "targets": ["n2"],
+      "label": "Hyperedge",
+      "coupled": true
+    }
+  ]
+}
+```
+````
+
 
 ## Deployment
 

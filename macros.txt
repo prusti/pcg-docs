@@ -5,6 +5,7 @@
 \label:{\ell}
 \const:{c}
 \lproj:{#1 \downarrow #2}
+\lprojtt:{\mathtt{#1 \downarrow #2}}
 \placeholderlabel:{\texttt{FUTURE}}
 \pcgplace:{\hat{p}}
 \lifetime:{r}
