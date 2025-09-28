@@ -101,8 +101,8 @@ cytoscape.use(BubbleSets);
                         lifetime: node.lifetime
                     },
                     position: {
-                        x: node.x || Math.random() * 300,
-                        y: node.y || Math.random() * 300
+                        x: node.x,
+                        y: node.y
                     },
                     classes: nodeType
                 });
