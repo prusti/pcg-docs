@@ -74,6 +74,7 @@ by `'d` and `'e`. The shape of the function therefore looks like:
 
 ```hypergraph
 {
+  "height": "300px",
   "nodes": [
     {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
     {"id": "y_b", "place": "y", "lifetime": "'b", "x": 300, "y": 100},
@@ -82,19 +83,55 @@ by `'d` and `'e`. The shape of the function therefore looks like:
     {"id": "result_e", "place": "result", "lifetime": "'e", "x": 400, "y": 200}
   ],
   "edges": [
-    {"sources": ["x_a"], "targets": ["result_c"], "label": ""},
-    {"sources": ["x_a"], "targets": ["result_d"], "label": ""},
-    {"sources": ["y_b"], "targets": ["result_d"], "label": ""},
-    {"sources": ["y_b"], "targets": ["result_e"], "label": ""}
+    {"sources": ["x_a"], "targets": ["result_c"]},
+    {"sources": ["x_a"], "targets": ["result_d"]},
+    {"sources": ["y_b"], "targets": ["result_d"]},
+    {"sources": ["y_b"], "targets": ["result_e"]}
   ]
 }
 ```
 
-Expiry of lifetime `'d`, on its own, is tracked by the type
-system but is not sufficient to unblock either `x` and `y`.
+From the caller's perspective, the expiry of `'d` is tracked by the type system
+but is not sufficient on its own to unblock either `x` and `y`.
 
-The PCG shape for a call to `m` forms an "m" pattern when visualized:
+Under definition (1)  the expiry of `'d` is relevant, with the resulting coupled graph appearing as:
 
+```hypergraph
+{
+  "height": "300px",
+  "nodes": [
+    {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
+    {"id": "y_b", "place": "y", "lifetime": "'b", "x": 300, "y": 100},
+    {"id": "result_c", "place": "result", "lifetime": "'c", "x": 0, "y": 200},
+    {"id": "result_d", "place": "result", "lifetime": "'d", "x": 200, "y": 200},
+    {"id": "result_e", "place": "result", "lifetime": "'e", "x": 400, "y": 200}
+  ],
+  "edges": [
+    {"sources": ["x_a", "y_b"], "targets": ["result_d"]},
+    {"sources": ["x_a"], "targets": ["result_c"]},
+    {"sources": ["y_b"], "targets": ["result_e"]}
+  ]
+}
+```
+
+Under definition (2), coupled edges must include an unblocked node. Because $\lprojtt{x}{a}$ and $\lprojtt{y}{b}$ can expire independently, the resulting graph has two (partially overlapping) coupled edges:
+
+```hypergraph
+{
+  "height": "300px",
+  "nodes": [
+    {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
+    {"id": "y_b", "place": "y", "lifetime": "'b", "x": 300, "y": 100},
+    {"id": "result_c", "place": "result", "lifetime": "'c", "x": 0, "y": 200},
+    {"id": "result_d", "place": "result", "lifetime": "'d", "x": 200, "y": 200},
+    {"id": "result_e", "place": "result", "lifetime": "'e", "x": 400, "y": 200}
+  ],
+  "edges": [
+    {"sources": ["x_a"], "targets": ["result_c", "result_d"]},
+    {"sources": ["y_b"], "targets": ["result_d", "result_e"]}
+  ]
+}
+```
 
 
 <!-- For example, consider the function:
@@ -118,6 +155,3 @@ fn w<'a: 'd, 'b: 'd, 'c: 'e, 'd, 'e, T>(
 ```
 
 -->
-
-
-

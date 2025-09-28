@@ -1,0 +1,16 @@
+{
+  "name": "pcg-docs",
+  "version": "1.0.0",
+  "description": "PCG Documentation with hypergraph support",
+  "scripts": {
+    "build": "mdbook build",
+    "serve": "mdbook serve"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

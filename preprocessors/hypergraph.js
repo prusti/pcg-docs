@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const process = require('process');
+const yaml = require('js-yaml');
 
 // Check if this is a supports check
 if (process.argv.length > 2 && process.argv[2] === 'supports') {
@@ -65,31 +66,49 @@ process.stdin.on('end', () => {
 function processChapter(chapter) {
     if (!chapter.content) return;
 
-    // Find and replace hypergraph code blocks
-    const hypergraphPattern = /```hypergraph\n([\s\S]*?)```/g;
+    // Find and replace hypergraph code blocks (both JSON and YAML formats)
+    const hypergraphPattern = /```hypergraph(?:-yaml)?\n([\s\S]*?)```/g;
     let match;
     let newContent = chapter.content;
     let counter = 0;
 
     while ((match = hypergraphPattern.exec(chapter.content)) !== null) {
-        const graphData = match[1];
+        const rawData = match[1];
+        const isYaml = match[0].includes('hypergraph-yaml');
         const graphId = `hypergraph-${(chapter.name || 'unknown').replace(/[^a-zA-Z0-9]/g, '-')}-${counter++}`;
 
         try {
-            // Validate JSON
-            JSON.parse(graphData);
+            let parsedData;
 
-            // Create HTML container with the graph data
-            const replacement = `<div class="hypergraph-container" id="${graphId}">
-    <script type="application/json" class="hypergraph-data">${graphData}</script>
+            // Parse YAML or JSON
+            if (isYaml) {
+                parsedData = yaml.load(rawData);
+            } else {
+                parsedData = JSON.parse(rawData);
+            }
+
+            // Extract height if specified
+            const height = parsedData.height || '400px';
+            // Remove height from data if it exists (it's a meta-parameter)
+            if (parsedData.height) {
+                delete parsedData.height;
+            }
+
+            // Convert back to JSON for embedding
+            const jsonData = JSON.stringify(parsedData, null, 2);
+
+            // Create HTML container with the graph data and custom height
+            const replacement = `<div class="hypergraph-container" id="${graphId}" data-height="${height}">
+    <script type="application/json" class="hypergraph-data">${jsonData}</script>
 </div>`;
 
             newContent = newContent.replace(match[0], replacement);
         } catch (e) {
-            // If JSON is invalid, leave as code block with error message
+            // If parsing fails, leave as code block with error message
+            const errorType = isYaml ? 'YAML' : 'JSON';
             const replacement = `<div class="hypergraph-error">
-    <p>Error: Invalid JSON in hypergraph definition</p>
-    <pre><code>${graphData}</code></pre>
+    <p>Error: Invalid ${errorType} in hypergraph definition: ${e.message}</p>
+    <pre><code>${rawData}</code></pre>
 </div>`;
             newContent = newContent.replace(match[0], replacement);
         }

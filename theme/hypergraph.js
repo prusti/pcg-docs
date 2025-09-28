@@ -49,9 +49,12 @@
         // Clear the container
         container.innerHTML = '';
 
+        // Get custom height from container attribute, default to 400px
+        const customHeight = container.getAttribute('data-height') || '400px';
+
         // Create a div for the graph
         const graphDiv = document.createElement('div');
-        graphDiv.style.height = '400px';
+        graphDiv.style.height = customHeight;
         graphDiv.style.width = '100%';
         graphDiv.style.border = '1px solid #ddd';
         graphDiv.style.borderRadius = '4px';
@@ -59,6 +62,7 @@
 
         // Prepare elements for Cytoscape
         const elements = [];
+        const compoundNodeCounter = { count: 0 };
 
         // Add nodes
         if (data.nodes) {
@@ -97,28 +101,84 @@
             });
         }
 
-        // Add edges (all edges are hyperedges with sources and targets arrays)
+        // Process edges - create compound nodes for hyperedges
         if (data.edges) {
             data.edges.forEach(function(edge, idx) {
                 const edgeId = edge.id || 'edge-' + idx;
 
-                // Handle edges with sources and targets arrays (hyperedges)
+                // Handle edges with sources and targets arrays
                 if (edge.sources && edge.targets) {
-                    // For hyperedges, create individual edges from each source to each target
-                    edge.sources.forEach(function(source) {
-                        edge.targets.forEach(function(target) {
+                    const isHyperedge = edge.sources.length > 1 || edge.targets.length > 1;
+
+                    if (isHyperedge) {
+                        // Create compound nodes for hyperedges
+                        let sourceCompoundId = null;
+                        let targetCompoundId = null;
+
+                        // Create source compound node if multiple sources
+                        if (edge.sources.length > 1) {
+                            sourceCompoundId = 'compound-src-' + edgeId;
                             elements.push({
                                 data: {
-                                    id: edgeId + '-' + source + '-' + target,
-                                    source: source,
-                                    target: target,
-                                    label: edge.label || '',
-                                    hyperedge: edge.sources.length > 1 || edge.targets.length > 1
+                                    id: sourceCompoundId,
+                                    label: ''
                                 },
-                                classes: (edge.sources.length > 1 || edge.targets.length > 1) ? 'hyperedge' : ''
+                                classes: 'compound-source'
                             });
+
+                            // Update source nodes to have this compound as parent
+                            edge.sources.forEach(function(sourceId) {
+                                const sourceNode = elements.find(el => el.data.id === sourceId);
+                                if (sourceNode) {
+                                    sourceNode.data.parent = sourceCompoundId;
+                                }
+                            });
+                        }
+
+                        // Create target compound node if multiple targets
+                        if (edge.targets.length > 1) {
+                            targetCompoundId = 'compound-tgt-' + edgeId;
+                            elements.push({
+                                data: {
+                                    id: targetCompoundId,
+                                    label: ''
+                                },
+                                classes: 'compound-target'
+                            });
+
+                            // Update target nodes to have this compound as parent
+                            edge.targets.forEach(function(targetId) {
+                                const targetNode = elements.find(el => el.data.id === targetId);
+                                if (targetNode) {
+                                    targetNode.data.parent = targetCompoundId;
+                                }
+                            });
+                        }
+
+                        // Create the hyperedge connecting compound nodes or individual nodes
+                        const edgeSource = sourceCompoundId || edge.sources[0];
+                        const edgeTarget = targetCompoundId || edge.targets[0];
+
+                        elements.push({
+                            data: {
+                                id: edgeId,
+                                source: edgeSource,
+                                target: edgeTarget,
+                                label: edge.label || ''
+                            },
+                            classes: 'hyperedge'
                         });
-                    });
+                    } else {
+                        // Simple edge (single source to single target)
+                        elements.push({
+                            data: {
+                                id: edgeId,
+                                source: edge.sources[0],
+                                target: edge.targets[0],
+                                label: edge.label || ''
+                            }
+                        });
+                    }
                 } else if (edge.source && edge.target) {
                     // Backward compatibility: handle old format with single source/target
                     elements.push({
@@ -154,6 +214,34 @@
                         'text-outline-width': 2,
                         'text-outline-color': '#666',
                         'shape': 'ellipse'
+                    }
+                },
+                {
+                    selector: 'node:parent',
+                    style: {
+                        'background-color': 'rgba(200, 200, 200, 0.2)',
+                        'border-width': 2,
+                        'border-color': '#888',
+                        'border-style': 'dashed',
+                        'padding': '10px',
+                        'text-valign': 'top',
+                        'text-halign': 'center'
+                    }
+                },
+                {
+                    selector: 'node.compound-source',
+                    style: {
+                        'background-color': 'rgba(255, 87, 34, 0.1)',
+                        'border-color': '#FF5722',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node.compound-target',
+                    style: {
+                        'background-color': 'rgba(33, 150, 243, 0.1)',
+                        'border-color': '#2196F3',
+                        'shape': 'round-rectangle'
                     }
                 },
                 {
@@ -211,15 +299,31 @@
                     style: {
                         'line-color': '#FF5722',
                         'target-arrow-color': '#FF5722',
-                        'width': 4,
-                        'line-style': 'dashed'
+                        'width': 5,
+                        'line-style': 'solid',
+                        'target-arrow-shape': 'vee'
                     }
                 }
             ],
 
             layout: {
-                name: 'preset',
-                padding: 30
+                name: data.nodes && data.nodes.some(n => n.x !== undefined && n.y !== undefined) ? 'preset' : 'cose',
+                padding: 30,
+                // Options for cose layout when positions aren't specified
+                idealEdgeLength: 100,
+                nodeOverlap: 20,
+                refresh: 20,
+                fit: true,
+                randomize: false,
+                componentSpacing: 100,
+                nodeRepulsion: 400000,
+                edgeElasticity: 100,
+                nestingFactor: 5,
+                gravity: 80,
+                numIter: 1000,
+                initialTemp: 200,
+                coolingFactor: 0.95,
+                minTemp: 1.0
             }
         });
 

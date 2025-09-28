@@ -114,5 +114,4 @@ The graph $\mathcal{G_h}$ for the loop head is defined as $\mathcal{G_h} = \math
 ### Step 8 (Optional) - Confirm Invariant is Correct
 To confirm that the resulting graph is correct, for any back edge into the state at $\mathcal{G}_h$ with state $\mathcal{G}'$, performing the *loop join* operation on $\mathcal{G}'$ and $\mathcal{G}_h$ should yield $\mathcal{G}_h$.
 
-[^note]: If the edge is a deref expansion, only add the blocked lifetime projection
 [^live]: The liveness condition could also be checked for the block after the loop (assuming there is a single block). However the result is equivalent: if any node is live at $l_h$ but not after the loop, then it must be used inside the loop, and should be part of $\mathcal{N}_{loop}$ and therefore not in $\mathcal{N}_{roots}$.
