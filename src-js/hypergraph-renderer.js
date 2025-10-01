@@ -64,8 +64,9 @@ cytoscape.use(BubbleSets);
         const graphDiv = document.createElement('div');
         graphDiv.style.height = customHeight;
         graphDiv.style.width = '100%';
-        graphDiv.style.border = '1px solid #ddd';
+        graphDiv.style.border = '1px solid #ccc';
         graphDiv.style.borderRadius = '4px';
+        graphDiv.style.backgroundColor = '#fff';
         container.appendChild(graphDiv);
 
         // Prepare elements for Cytoscape
@@ -130,22 +131,30 @@ cytoscape.use(BubbleSets);
                         hyperedgeGroups.push(group);
                     } else {
                         // For 1-1 edges: create the edge but no bubbleset
+                        const edgeData = {
+                            id: edgeId,
+                            source: edge.sources[0],
+                            target: edge.targets[0]
+                        };
+                        if (edge.label) {
+                            edgeData.label = edge.label;
+                        }
                         elements.push({
-                            data: {
-                                id: edgeId,
-                                source: edge.sources[0],
-                                target: edge.targets[0]
-                            }
+                            data: edgeData
                         });
                     }
                 } else if (edge.source && edge.target) {
                     // Backward compatibility: handle old format with single source/target
+                    const edgeData = {
+                        id: edgeId,
+                        source: edge.source,
+                        target: edge.target
+                    };
+                    if (edge.label) {
+                        edgeData.label = edge.label;
+                    }
                     elements.push({
-                        data: {
-                            id: edgeId,
-                            source: edge.source,
-                            target: edge.target
-                        }
+                        data: edgeData
                     });
                 }
             });
@@ -160,7 +169,7 @@ cytoscape.use(BubbleSets);
                 {
                     selector: 'node',
                     style: {
-                        'background-color': '#666',
+                        'background-color': '#e0e0e0',
                         'label': 'data(label)',
                         'text-valign': 'center',
                         'text-halign': 'center',
@@ -168,18 +177,22 @@ cytoscape.use(BubbleSets);
                         'height': '40px',
                         'font-size': '12px',
                         'font-family': 'monospace',
-                        'color': '#fff',
+                        'color': '#333',
                         'text-outline-width': 2,
-                        'text-outline-color': '#666',
+                        'text-outline-color': '#e0e0e0',
                         'shape': 'ellipse',
-                        'z-index': 10
+                        'z-index': 10,
+                        'border-width': 2,
+                        'border-color': '#999'
                     }
                 },
                 {
                     selector: 'node.lifetimeProjection',
                     style: {
-                        'background-color': '#673AB7',
-                        'text-outline-color': '#673AB7',
+                        'background-color': '#fff',
+                        'text-outline-color': '#fff',
+                        'border-color': '#000',
+                        'border-width': 1,
                         'shape': 'hexagon',
                         'width': '110px',
                         'height': '35px'
@@ -188,8 +201,9 @@ cytoscape.use(BubbleSets);
                 {
                     selector: 'node.place',
                     style: {
-                        'background-color': '#FF9800',
-                        'text-outline-color': '#FF9800',
+                        'background-color': '#ffe0b2',
+                        'text-outline-color': '#ffe0b2',
+                        'border-color': '#FF9800',
                         'shape': 'round-rectangle',
                         'width': '80px',
                         'height': '35px'
@@ -198,16 +212,18 @@ cytoscape.use(BubbleSets);
                 {
                     selector: 'node.input',
                     style: {
-                        'background-color': '#4CAF50',
-                        'text-outline-color': '#4CAF50',
+                        'background-color': '#c8e6c9',
+                        'text-outline-color': '#c8e6c9',
+                        'border-color': '#4CAF50',
                         'shape': 'ellipse'
                     }
                 },
                 {
                     selector: 'node.output',
                     style: {
-                        'background-color': '#2196F3',
-                        'text-outline-color': '#2196F3',
+                        'background-color': '#bbdefb',
+                        'text-outline-color': '#bbdefb',
+                        'border-color': '#2196F3',
                         'shape': 'round-rectangle'
                     }
                 },
@@ -215,21 +231,26 @@ cytoscape.use(BubbleSets);
                     selector: 'edge',
                     style: {
                         'width': 3,
-                        'line-color': '#999',
-                        'target-arrow-color': '#999',
+                        'line-color': '#555',
+                        'target-arrow-color': '#555',
                         'target-arrow-shape': 'triangle',
                         'curve-style': 'bezier',
                         'label': 'data(label)',
                         'font-size': '12px',
-                        'text-rotation': 'autorotate',
-                        'text-margin-y': -10
+                        'text-rotation': 'none',
+                        'text-background-color': '#ffffff',
+                        'text-background-opacity': 1,
+                        'text-background-padding': '3px',
+                        'text-border-width': 1,
+                        'text-border-color': '#ccc',
+                        'text-border-opacity': 1
                     }
                 },
                 {
                     selector: 'edge.hyperedge',
                     style: {
-                        'line-color': 'rgba(255, 87, 34, 0.3)',
-                        'target-arrow-color': 'rgba(255, 87, 34, 0.5)',
+                        'line-color': 'rgba(255, 87, 34, 0.5)',
+                        'target-arrow-color': 'rgba(255, 87, 34, 0.7)',
                         'width': 2,
                         'line-style': 'dotted',
                         'target-arrow-shape': 'triangle',

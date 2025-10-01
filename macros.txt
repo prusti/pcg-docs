@@ -26,3 +26,9 @@
 \borrowpcg:{\mathcal{B}}
 \readcap:{\text{R}}
 \at:{\mathtt{at}}
+\frontier:{\textit{frontier}}
+\descendant:{\geqslant_G}
+\validexpiry:{#2 \setminus #1}
+\sources:{\textit{sources}}
+\targets:{\textit{targets}}
+\expiresbefore:{\geqslant_G}

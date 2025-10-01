@@ -38,20 +38,23 @@ magic wand that Prusti encodes (although this is not always the case).
 
 Another benefit is that coupling can reduce the size of the graphs.
 
-## Formally Defining Coupling
+## Candidate Definitions of Coupling
 
-A pair of edges $e_1$ and $e_2$ are *definitely coupled* (denoted $e_1 \approx
+### Preliminaries
+
+A pair of edges $e_1$ and $e_2$ are *definitely coupled* (denoted $e_1 \sim
 e_2$) if the type system ensures they will always be removed at the same time.
-Note that $\approx$ is an equivalence relation.
+Note that $\sim$ is an equivalence relation. We describe *coupling* as a
+predicate on *sets* of edges.
 
-We describe *coupling* as a predicate on *sets* of edges.
+### Candidate Definitions
 
 At a high level, there are two possible definitions of coupling we could consider:
 
-1. A set of edges $E$ is coupled iff it is an equivalence class induced by $\approx$
+1. A set of edges $E$ is coupled iff it is an equivalence class induced by $\sim$
 2. A set of edges $E$ is coupled iff, for some nonempty set of nodes $N$ that the compiler
    requires to be unblocked simultanesouly, it is the smallest set of edges that unblocks
-   all nodes in $N$ and is closed under $\approx$.
+   all nodes in $N$ and is closed under $\sim$.
 
 Def. (1) defines coupling solely in terms of what Rust's type system is capable
 of tracking, while (2) is based on possible states that could possibly be
@@ -140,24 +143,74 @@ Under definition (2), coupled edges must include an unblocked node. Because $\lp
 ```
 
 
-<!-- For example, consider the function:
+## Formally Defining Coupling
 
-```rust
-fn f<'a: 'b, 'b, T>(x: &'a mut T, y: &'a mut T, z: &'b mut T) -> (&'a mut T, &'b mut T) {
-    unimplemented!()
-}
+### Preliminaries
 
-For example consider the `w` function:
+A hyperedge $E$ is a tuple $\langle S, T \rangle$ where $S$ is a nonempty set
+of *source nodes* and $T$ is a nonempty set of *target nodes*. The functions $\sources(E)$ and $\targets(E)$ return the source and target nodes respectively.
 
-```rust
-fn w<'a: 'd, 'b: 'd, 'c: 'e, 'd, 'e, T>(
-    x: &'a mut T,
-    y: &'b mut T,
-    z: &'c mut T,
-) -> (&'d mut T, &'e mut T)
-    where 'b: 'e {
-         unimplemented!()
+A hypergraph $G$ is a tuple $\langle S, E \rangle$ where $S$ is a set of nodes and $E$ is a set
+of hyperedges. Functions $nodes(G)$ and $edges(G)$ return the sets of nodes and
+hyperedges respectively.
+
+A node $n$ is *blocked* in $G$ iff $n \in nodes(G)$ and $n$ is not a leaf in $G$.
+
+We define the *descendant* relation $\descendant$ as
+
+$$
+  s~\descendant~s'~\text{iff}~s = s'~\text{or}~s'\text{is a descendant of}~s~\text{in}~G.
+$$
+
+A set of nodes $S$ is a *frontier* of a hypergraph $G$ (denoted $\frontier(S,
+G)$) iff $S \subseteq nodes(G)$ and $S$ is closed under $\descendant$.
+
+If $S$ is a frontier of $G$, it defines a *valid expiry*. The *valid expiry*
+$\validexpiry{S}{G}$ is the subgraph of $G$ obtained by removing all
+nodes in $S$ and all edges containing sources or targets in $S$.
+
+
+We define coupling in terms of the *expires before* relation $\expiresbefore$,
+where $e_1~\expiresbefore~e_2$ iff:
+
+$$
+\forall~S \subseteq nodes(G),~ n \in sources(e_1).~\\
+  \frontier(S, G) \land \neg blocked(n, \validexpiry{S}{G}) \implies
+  e_2 \not\in edges(\validexpiry{S}{G})
+$$
+
+Intuitively, this definition captures the notion that $e_1$ expires before $e_2$
+in any expiry of the graph that unblocks a source node of $e_1$ also removes
+$e_2$.
+
+We note, however, that $\expiresbefore$ is not actually transitive.
+
+```hypergraph
+{
+  "height": "300px",
+  "nodes": [
+    {"id": "a", "place": "a", "x": 0, "y": 0},
+    {"id": "b", "place": "b", "x": 100, "y": 0},
+    {"id": "c", "place": "c", "x": -80, "y": 100},
+    {"id": "d", "place": "d", "x": 60, "y": 100},
+    {"id": "e", "place": "e", "x": 150, "y": 100}
+  ],
+  "edges": [
+    {"sources": ["a"], "targets": ["c"], "label": "1"},
+    {"sources": ["b"], "targets": ["c"], "label": "2"},
+    {"sources": ["a"], "targets": ["d"], "label": "3"},
+    {"sources": ["b"], "targets": ["d"], "label": "4"},
+    {"sources": ["b"], "targets": ["e"], "label": "5"}
+  ]
 }
 ```
 
--->
+In the above graph we have $e_1~\expiresbefore~e_4$ and $e_4 ~\expiresbefore~e_5$ but $e_1 \not\geqslant_G e_5$.
+
+$e_1~\expiresbefore~e_4$ holds because the only expiry that unblocks $a$ also removes $d$ and therefore removes $e_4$.
+
+$e_4~\expiresbefore~e_5$ holds because any expiry that unblocks $b$ must remove $e_5$.
+
+$e_1~\expiresbefore~e_5$ does *not* hold because the expiry that unblocks $a$ only retains $e_5$.
+
+Therefore, $\expiresbefore$ cannot be used directly to define an equivalence class.
