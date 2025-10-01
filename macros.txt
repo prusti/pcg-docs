@@ -31,4 +31,5 @@
 \validexpiry:{#2 \setminus #1}
 \sources:{\textit{sources}}
 \targets:{\textit{targets}}
-\expiresbefore:{\geqslant_G}
+\expiresafter:{\geqslant_G}
+\eqdef:{\stackrel{\text{def}}{=}}

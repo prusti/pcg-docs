@@ -117,20 +117,21 @@ cytoscape.use(BubbleSets);
 
                 // Handle edges with sources and targets arrays
                 if (edge.sources && edge.targets) {
-                    const isHyperedge = edge.sources.length > 1 || edge.targets.length > 1;
+                    const isMultiSourceOrTarget = edge.sources.length > 1 || edge.targets.length > 1;
+                    const useBubbles = isMultiSourceOrTarget || edge.style === 'coupled';
 
-                    if (isHyperedge) {
-                        // For non-1-1 hyperedges: only store grouping for bubblesets, no edges
+                    if (useBubbles) {
+                        // For edges with multiple sources/targets or style="coupled": use bubblesets
                         const group = {
                             id: edgeId,
                             sources: edge.sources,
                             targets: edge.targets,
-                            edges: [] // No individual edges for hyperedges
+                            edges: []
                         };
 
                         hyperedgeGroups.push(group);
                     } else {
-                        // For 1-1 edges: create the edge but no bubbleset
+                        // For regular 1-1 edges: create the edge but no bubbleset
                         const edgeData = {
                             id: edgeId,
                             source: edge.sources[0],

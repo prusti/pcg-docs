@@ -38,7 +38,7 @@ magic wand that Prusti encodes (although this is not always the case).
 
 Another benefit is that coupling can reduce the size of the graphs.
 
-## Candidate Definitions of Coupling
+## Some Candidate Definitions of Coupling
 
 ### Preliminaries
 
@@ -114,6 +114,8 @@ Under definition (1)  the expiry of `'d` is relevant, with the resulting coupled
     {"sources": ["x_a"], "targets": ["result_d"]},
     {"sources": ["y_b"], "targets": ["result_d"]},
     {"sources": ["y_b"], "targets": ["result_e"]},
+    {"sources": ["x_a"], "targets": ["result_c"], "style": "coupled"},
+    {"sources": ["y_b"], "targets": ["result_e"], "style": "coupled"},
     {"sources": ["x_a", "y_b"], "targets": ["result_d"]}
   ]
 }
@@ -143,7 +145,8 @@ Under definition (2), coupled edges must include an unblocked node. Because $\lp
 ```
 
 
-## Formally Defining Coupling
+## Defining Coupling Based on an *Expires After* Relation
+
 
 ### Preliminaries
 
@@ -170,8 +173,8 @@ $\validexpiry{S}{G}$ is the subgraph of $G$ obtained by removing all
 nodes in $S$ and all edges containing sources or targets in $S$.
 
 
-We define coupling in terms of the *expires before* relation $\expiresbefore$,
-where $e_1~\expiresbefore~e_2$ iff:
+We define coupling in terms of the *expires after* relation $\expiresafter$,
+where $e_1~\expiresafter~e_2$ iff:
 
 $$
 \forall~S \subseteq nodes(G),~ n \in sources(e_1).~\\
@@ -183,7 +186,7 @@ Intuitively, this definition captures the notion that $e_1$ expires before $e_2$
 in any expiry of the graph that unblocks a source node of $e_1$ also removes
 $e_2$.
 
-We note, however, that $\expiresbefore$ is not actually transitive.
+We note, however, that $\expiresafter$ is not actually transitive.
 
 ```hypergraph
 {
@@ -205,12 +208,44 @@ We note, however, that $\expiresbefore$ is not actually transitive.
 }
 ```
 
-In the above graph we have $e_1~\expiresbefore~e_4$ and $e_4 ~\expiresbefore~e_5$ but $e_1 \not\geqslant_G e_5$.
+In the above graph we have $e_1~\expiresafter~e_4$ and $e_4 ~\expiresafter~e_5$ but $e_1 \not\geqslant_G e_5$.
 
-$e_1~\expiresbefore~e_4$ holds because the only expiry that unblocks $a$ also removes $d$ and therefore removes $e_4$.
+$e_1~\expiresafter~e_4$ holds because the only expiry that unblocks $a$ also removes $d$ and therefore removes $e_4$.
 
-$e_4~\expiresbefore~e_5$ holds because any expiry that unblocks $b$ must remove $e_5$.
+$e_4~\expiresafter~e_5$ holds because any expiry that unblocks $b$ must remove $e_5$.
 
-$e_1~\expiresbefore~e_5$ does *not* hold because the expiry that unblocks $a$ only retains $e_5$.
+$e_1~\expiresafter~e_5$ does *not* hold because the expiry that unblocks $a$ only retains $e_5$.
 
-Therefore, $\expiresbefore$ cannot be used directly to define an equivalence class.
+### Possible Formal Definitions
+
+We say that edges $e_1$ and $e_2$ *expire together* iff the relation $e_1 \approx_G e_2$ holds. We define $\approx_G$ as:
+
+$$
+e_1 \approx_G e_2~\text{iff}~e_1\expiresafter~e_2~\text{and}~e_2\expiresafter~e_1
+$$
+
+We note that $\approx_G$ does __not__ define an equivalence relation because the
+underlying relation $\expiresafter$ is not transitive. Extending $\expiresafter$
+to include its transitive closure would trivially ensure transitivity but would
+not work for our notion of coupling: it would couple all edges in the above
+graph (which is undesirable because $a$ can be unblocked before $b$).
+
+<!-- Instead, we could use $\approx_G$ relation to define a predicates on sets of
+hyperedges, with the following development.
+
+The operation $G \setminus \overline{e}$
+
+The predicate $C(\overline{e})$ defines what it means for a set of edges
+$\overline{e}$ to be a *valid coupling*.
+
+$$
+C(\overline{e})~\eqdef~\forall~e_1~ e_2 \in \overline{e}~.~e_1 \approx_G e_2
+$$
+
+A graph $G$ can have multiple partitioning of edges into valid couplings.
+
+A stronger notions
+
+$$
+C_M(\overline{e})~\eqdef~
+$$ -->
