@@ -40,6 +40,7 @@ Another benefit is that coupling can reduce the size of the graphs.
 
 ## Some Candidate Definitions of Coupling
 
+
 ### Preliminaries
 
 A pair of edges $e_1$ and $e_2$ are *definitely coupled* (denoted $e_1 \sim
@@ -54,7 +55,7 @@ At a high level, there are two possible definitions of coupling we could conside
 1. A set of edges $E$ is coupled iff it is an equivalence class induced by $\sim$
 2. A set of edges $E$ is coupled iff, for some nonempty set of nodes $N$ that the compiler
    requires to be unblocked simultanesouly, it is the smallest set of edges that unblocks
-   all nodes in $N$ and is closed under $\sim$.
+   all nodes in $N$ and is the union of equivalence classes induced by $\sim$.
 
 Def. (1) defines coupling solely in terms of what Rust's type system is capable
 of tracking, while (2) is based on possible states that could possibly be
@@ -150,8 +151,16 @@ Under definition (2), coupled edges must include an unblocked node. Because $\lp
 
 ### Preliminaries
 
-A hyperedge $E$ is a tuple $\langle S, T \rangle$ where $S$ is a nonempty set
-of *source nodes* and $T$ is a nonempty set of *target nodes*. The functions $\sources(E)$ and $\targets(E)$ return the source and target nodes respectively.
+A hyperedge $e$ is an object with an associated set of *source nodes* and
+*target nodes*. The functions $\sources(e)$ and $\targets(e)$ denote the source
+and target nodes respectively.
+
+A *coupled edge* $c$ is a hyperedge defined by a set of *underlying* hyperedges,
+where the sources and targets are defined as follows:
+
+Let $S$ be the union of the sources of $\overline{e}$ and $T$ be the union of
+the targets of $T$.  Then $sources(c) = S \setminus T$ and $targets(c) = T
+\setminus S$.
 
 A hypergraph $G$ is a tuple $\langle S, E \rangle$ where $S$ is a set of nodes and $E$ is a set
 of hyperedges. Functions $nodes(G)$ and $edges(G)$ return the sets of nodes and
@@ -170,7 +179,7 @@ G)$) iff $S \subseteq nodes(G)$ and $S$ is closed under $\descendant$.
 
 If $S$ is a frontier of $G$, it defines a *valid expiry*. The *valid expiry*
 $\validexpiry{S}{G}$ is the subgraph of $G$ obtained by removing all
-nodes in $S$ and all edges containing sources or targets in $S$.
+nodes in $S$ and all edges containing sources or targets in $S$. The *expired edges* of a valid
 
 
 We define coupling in terms of the *expires after* relation $\expiresafter$,
@@ -216,7 +225,7 @@ $e_4~\expiresafter~e_5$ holds because any expiry that unblocks $b$ must remove $
 
 $e_1~\expiresafter~e_5$ does *not* hold because the expiry that unblocks $a$ only retains $e_5$.
 
-### Possible Formal Definitions
+### Definition Based on $\expiresafter$
 
 We say that edges $e_1$ and $e_2$ *expire together* iff the relation $e_1 \approx_G e_2$ holds. We define $\approx_G$ as:
 
@@ -229,6 +238,43 @@ underlying relation $\expiresafter$ is not transitive. Extending $\expiresafter$
 to include its transitive closure would trivially ensure transitivity but would
 not work for our notion of coupling: it would couple all edges in the above
 graph (which is undesirable because $a$ can be unblocked before $b$).
+
+### Definition Based on Productive Expiries
+
+We define the set of coupled edges by providing an algorithm that generates
+them based on a notion of *minimal productive expiry*, which we define as follows:
+
+We say that the expiry of a frontier $S$ makes a node $n$ *accessible* iff $n$
+is blocked in $G$ and is a leaf in $G \setminus S$. An expiry of a frontier $S$
+is *productive* if it makes at least one node accessible. The *expiry edge* of a
+productive expiry is a coupled hyperedge constructed from the edges present in
+$G$ and absent in $G \setminus S$.
+
+A frontier $S$ defines a *minimal productive expiry* of a hypergraph $G$ iff
+its expiry is productive and there does not exist any $S' \subset S$ such that
+$S'$ defines a productive expiry on $G$.
+
+Then, we define the set of coupled edges for a graph $G$ via the function
+$couple: G \rightarrow \powerset{E}$, which is implemented as follows:
+
+1. Let $C = \emptyset{}$ be the set of coupled edges.
+2. While $G$ contains any hyperedges:
+    1. For each frontier $S$ that defines a minimal productive expiry of $G$:
+        1. Add the expiry edge of $S$ to $C$
+        2. $C \leftarrow C \cup couple(G \setminus S)$
+3. Return $C$
+
+### Properties
+
+An *unblocking* of a graph $G$ is an ordered partitioning of the non-root nodes
+of $G$ into non-empty subsets $S_1, \ldots, S_n$, satisfying the property that
+there exists a frontier $S'$ of $G$ with an expiry that unblocks all nodes in
+$S_1$, and $S_2, \ldots S_n$ is an unblocking of $G \setminus S'$. The
+*unblocking expiry edges* of an unblocking of $G$ is an ordered list $e_1,
+\ldots, e_n$ corresponding to the expiry edges of the corresponding frontiers.
+
+Then can then prove that for every unblocking $U$ of $G$, the set of coupled
+edges $coupled(G)$ contains all unblocking expiry edges of $U$.
 
 <!-- Instead, we could use $\approx_G$ relation to define a predicates on sets of
 hyperedges, with the following development.
