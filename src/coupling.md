@@ -241,10 +241,31 @@ graph (which is undesirable because $a$ can be unblocked before $b$).
 
 ### Definition Based on Frontier Expiries
 
-An *unblocking* of a graph $G$ is an ordered partitioning of the non-root nodes
-of $G$ into non-empty subsets $S_1, \ldots, S_n$, satisfying the property that
-there exists a frontier $S'$ of $G$ with an expiry that unblocks all nodes in
-$S_1$, and $S_2, \ldots S_n$ is an unblocking of $G \setminus S'$.
+An *unblocking* $U$ of a graph $G$ is an ordered partitioning of the non-root
+nodes of $G$ into non-empty subsets $S_1, \ldots, S_n$, satisfying the property
+that there exists a frontier $S'$ of $G$ with an expiry that unblocks all nodes
+in $S_1$, and $S_2, \ldots S_n$ is an unblocking of $G \setminus S'$. For a
+graph $G_0$ and an unblocking $U = S_1, \ldots, S_n$ of $G_0$, the
+*reachable subgraphs* of an unblocking $U = S_1, \ldots, S_n$ is the list of
+graphs $G_0, \ldots, G_n$ where $\forall i, 1 \leqslant i \leqslant n~.~G_{i} =
+G_{i-1} \setminus S_{i}$. The *transition graphs* of $U$ is the set of pairs of
+reachable subgraphs given by $\{\langle G_i, G_i+1 \rangle~|~0 \leqslant i <
+n\}$.
+
+An unblocking $U = S_1, \ldots, S_n$ is *immediately subsumed by* an unblocking
+$U' = S'_1, \ldots S'_{n+1}$ iff there exists an $i, 0 \leqslant i \leqslant n$
+such that $S_i = S'_i \cup S'_{i+1}$ and $\forall j < i~.~S_j = S'_j$ and
+$\forall j > i + 1 . S_j = S'_{j+1}$. We have $U < U'$ iff $U'$ is transitively
+subsumed by $U$.
+
+The *distinct unblockings* of a graph $G$ is the subset of $G's$ unblockings
+obtained by removing all non-minimal elements w.r.t $<$.
+
+A set of edges $E$ are *effectively coupled* for a graph $G_0$ iff for all
+reachable subgraphs $G'$ in the distinct unblockings of $G$, $G'$ contains
+either all edges in $E$ or none of them. A set of edges $E$ is *maximally
+coupled* if it is effectively coupled and not a subset of an effectively coupled
+set.
 
 ### Definition Based on Productive Expiries
 
