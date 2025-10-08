@@ -239,6 +239,13 @@ to include its transitive closure would trivially ensure transitivity but would
 not work for our notion of coupling: it would couple all edges in the above
 graph (which is undesirable because $a$ can be unblocked before $b$).
 
+### Definition Based on Frontier Expiries
+
+An *unblocking* of a graph $G$ is an ordered partitioning of the non-root nodes
+of $G$ into non-empty subsets $S_1, \ldots, S_n$, satisfying the property that
+there exists a frontier $S'$ of $G$ with an expiry that unblocks all nodes in
+$S_1$, and $S_2, \ldots S_n$ is an unblocking of $G \setminus S'$.
+
 ### Definition Based on Productive Expiries
 
 We define the set of coupled edges by providing an algorithm that generates
@@ -266,32 +273,24 @@ $couple: G \rightarrow \powerset{E}$, which is implemented as follows:
 
 ### Properties
 
-An *unblocking* of a graph $G$ is an ordered partitioning of the non-root nodes
-of $G$ into non-empty subsets $S_1, \ldots, S_n$, satisfying the property that
-there exists a frontier $S'$ of $G$ with an expiry that unblocks all nodes in
-$S_1$, and $S_2, \ldots S_n$ is an unblocking of $G \setminus S'$. The
+
+The
 *unblocking expiry edges* of an unblocking of $G$ is an ordered list $e_1,
 \ldots, e_n$ corresponding to the expiry edges of the corresponding frontiers.
 
-Then can then prove that for every unblocking $U$ of $G$, the set of coupled
-edges $coupled(G)$ contains all unblocking expiry edges of $U$.
+Then can then prove that for every unblocking $U$ of $G$, the following property holds:
 
-<!-- Instead, we could use $\approx_G$ relation to define a predicates on sets of
-hyperedges, with the following development.
+For every unblocking expiry edge $e$ in $U$, either $e \in coupled(G)$, or $e$
+has a set of underlying edges $E$ and $E \subseteq coupled(G)$
 
-The operation $G \setminus \overline{e}$
+#### Proof
 
-The predicate $C(\overline{e})$ defines what it means for a set of edges
-$\overline{e}$ to be a *valid coupling*.
+Our proof requires the following lemma:
 
-$$
-C(\overline{e})~\eqdef~\forall~e_1~ e_2 \in \overline{e}~.~e_1 \approx_G e_2
-$$
+The valid
 
-A graph $G$ can have multiple partitioning of edges into valid couplings.
+Our proof goes by induction on the list $U$. The property holds trivially for
+the base case where $U$ is empty.
 
-A stronger notions
-
-$$
-C_M(\overline{e})~\eqdef~
-$$ -->
+We then need to show that expiry edge $e_1$ that unblocks $U_1$ is either in
+$coupled(G)$ or is a combination of edges in $coupled(G)$.
