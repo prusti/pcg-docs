@@ -252,53 +252,231 @@ class HypergraphForCoupling {
 }
 
 /**
- * Coupling algorithm based on productive expiries
- *
- * This algorithm generates coupled edges by finding minimal productive expiries.
- * A productive expiry is one that makes at least one blocked node accessible.
- *
- * From coupling.md lines 270-293:
- * 1. Let C = ∅ be the set of coupled edges
- * 2. While G contains any hyperedges:
- *    a. For each frontier S that defines a minimal productive expiry of G:
- *       i. Add the expiry edge of S to C
- *       ii. C ← C ∪ couple(G \ S)
- * 3. Return C
+ * Represents an unblocking of a graph - an ordered partition of non-root nodes
  */
-function computeCouplingProductiveExpiries(nodes: Node[], edges: Edge[]): CoupledEdgeResult[] {
+interface Unblocking {
+    partitions: string[][];
+    reachableGraphs: HypergraphForCoupling[];
+}
+
+/**
+ * Coupling algorithm based on frontier expiries
+ *
+ * This algorithm generates coupled edges by finding maximally coupled edges.
+ * Edges are effectively coupled if for all reachable subgraphs in distinct
+ * unblockings, the graph contains either all edges or none of them.
+ *
+ * From coupling.md lines 243-269:
+ * An unblocking U is an ordered partitioning of non-root nodes satisfying
+ * that there exists a frontier with an expiry that unblocks all nodes in the
+ * first partition, and the remaining partitions form an unblocking of the
+ * reduced graph.
+ *
+ * Edges are effectively coupled if they appear together in all reachable
+ * subgraphs. Maximally coupled edges are effectively coupled sets that are
+ * not subsets of other effectively coupled sets.
+ */
+function computeCouplingFrontierExpiries(nodes: Node[], edges: Edge[]): CoupledEdgeResult[] {
     const graph = new HypergraphForCoupling(nodes, edges);
 
-    function couple(g: HypergraphForCoupling): CoupledEdgeResult[] {
-        if (g.isEmpty()) {
-            return [];
+    const allUnblockings = computeAllUnblockings(graph);
+    const distinctUnblockings = getDistinctUnblockings(allUnblockings);
+
+    const reachableGraphs = new Set<HypergraphForCoupling>();
+    for (const unblocking of distinctUnblockings) {
+        for (const g of unblocking.reachableGraphs) {
+            reachableGraphs.add(g);
         }
-
-        const result: CoupledEdgeResult[] = [];
-        const minimalFrontiers = g.getMinimalProductiveFrontiers();
-
-        for (const frontier of minimalFrontiers) {
-            const expiryEdges = g.getExpiryEdges(frontier);
-
-            if (expiryEdges.length > 0) {
-                result.push({
-                    type: 'coupled',
-                    underlyingEdges: expiryEdges,
-                    frontier: frontier,
-                    sources: new CoupledEdge(expiryEdges).sources,
-                    targets: new CoupledEdge(expiryEdges).targets
-                });
-            }
-
-            const remainingGraph = g.clone();
-            remainingGraph.removeNodes(frontier);
-            const recursiveResult = couple(remainingGraph);
-            result.push(...recursiveResult);
-        }
-
-        return result;
     }
 
-    return couple(graph);
+    const edgeIds = graph.edges.map(e => e.id);
+    const effectivelyCoupled = findEffectivelyCoupledSets(
+        Array.from(reachableGraphs),
+        edgeIds
+    );
+
+    const maximallyCoupled = findMaximallyCoupledSets(effectivelyCoupled);
+
+    return maximallyCoupled.map((edgeIdSet, idx) => {
+        const underlyingEdges = graph.edges.filter(e => edgeIdSet.has(e.id));
+        const coupled = new CoupledEdge(underlyingEdges);
+        return {
+            type: 'coupled',
+            underlyingEdges: underlyingEdges,
+            sources: coupled.sources,
+            targets: coupled.targets
+        };
+    });
+}
+
+/**
+ * Compute all unblockings of a graph
+ */
+function computeAllUnblockings(graph: HypergraphForCoupling): Unblocking[] {
+    if (graph.isEmpty()) {
+        return [];
+    }
+
+    const blockedNodes = graph.getBlockedNodes();
+    if (blockedNodes.length === 0) {
+        return [];
+    }
+
+    const result: Unblocking[] = [];
+    const frontiers = graph.getAllFrontiers();
+    const productiveFrontiers = frontiers.filter(f => graph.isProductiveExpiry(f));
+
+    for (const frontier of productiveFrontiers) {
+        const unblockedNodes = graph.getUnblockedNodes(frontier);
+        if (unblockedNodes.length === 0) continue;
+
+        const remainingGraph = graph.clone();
+        remainingGraph.removeNodes(frontier);
+
+        const recursiveUnblockings = computeAllUnblockings(remainingGraph);
+
+        if (recursiveUnblockings.length === 0) {
+            result.push({
+                partitions: [unblockedNodes],
+                reachableGraphs: [graph, remainingGraph]
+            });
+        } else {
+            for (const subUnblocking of recursiveUnblockings) {
+                result.push({
+                    partitions: [unblockedNodes, ...subUnblocking.partitions],
+                    reachableGraphs: [graph, ...subUnblocking.reachableGraphs]
+                });
+            }
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Get distinct unblockings (remove non-minimal w.r.t subsumption)
+ */
+function getDistinctUnblockings(unblockings: Unblocking[]): Unblocking[] {
+    return unblockings.filter(u1 => {
+        return !unblockings.some(u2 => {
+            if (u1 === u2) return false;
+            return isImmediatelySubsumedBy(u1, u2);
+        });
+    });
+}
+
+/**
+ * Check if u1 is immediately subsumed by u2
+ */
+function isImmediatelySubsumedBy(u1: Unblocking, u2: Unblocking): boolean {
+    if (u1.partitions.length !== u2.partitions.length - 1) {
+        return false;
+    }
+
+    for (let i = 0; i <= u1.partitions.length; i++) {
+        const merged = new Set([
+            ...u1.partitions[i] || [],
+            ...u1.partitions[i + 1] || []
+        ]);
+
+        const u2Part = new Set(u2.partitions[i] || []);
+
+        if (merged.size === u2Part.size &&
+            Array.from(merged).every(n => u2Part.has(n))) {
+
+            let beforeMatch = true;
+            for (let j = 0; j < i; j++) {
+                const u1Set = new Set(u1.partitions[j]);
+                const u2Set = new Set(u2.partitions[j]);
+                if (u1Set.size !== u2Set.size ||
+                    !Array.from(u1Set).every(n => u2Set.has(n))) {
+                    beforeMatch = false;
+                    break;
+                }
+            }
+
+            if (!beforeMatch) continue;
+
+            let afterMatch = true;
+            for (let j = i + 1; j < u1.partitions.length; j++) {
+                const u1Set = new Set(u1.partitions[j]);
+                const u2Set = new Set(u2.partitions[j + 1] || []);
+                if (u1Set.size !== u2Set.size ||
+                    !Array.from(u1Set).every(n => u2Set.has(n))) {
+                    afterMatch = false;
+                    break;
+                }
+            }
+
+            if (afterMatch) return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Find all effectively coupled sets of edges
+ */
+function findEffectivelyCoupledSets(
+    reachableGraphs: HypergraphForCoupling[],
+    edgeIds: string[]
+): Set<string>[] {
+    const effectivelyCoupled: Set<string>[] = [];
+
+    const numSubsets = Math.pow(2, edgeIds.length);
+    for (let i = 1; i < numSubsets; i++) {
+        const subset: string[] = [];
+        for (let j = 0; j < edgeIds.length; j++) {
+            if (i & (1 << j)) {
+                subset.push(edgeIds[j]);
+            }
+        }
+
+        if (isEffectivelyCoupled(subset, reachableGraphs)) {
+            effectivelyCoupled.push(new Set(subset));
+        }
+    }
+
+    return effectivelyCoupled;
+}
+
+/**
+ * Check if a set of edges is effectively coupled
+ */
+function isEffectivelyCoupled(
+    edgeIds: string[],
+    reachableGraphs: HypergraphForCoupling[]
+): boolean {
+    const edgeSet = new Set(edgeIds);
+
+    for (const graph of reachableGraphs) {
+        const graphEdgeIds = new Set(graph.edges.map(e => e.id));
+
+        const containsAll = edgeIds.every(id => graphEdgeIds.has(id));
+        const containsNone = edgeIds.every(id => !graphEdgeIds.has(id));
+
+        if (!containsAll && !containsNone) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Find maximally coupled sets (not subsets of other effectively coupled sets)
+ */
+function findMaximallyCoupledSets(effectivelyCoupled: Set<string>[]): Set<string>[] {
+    return effectivelyCoupled.filter(set1 => {
+        return !effectivelyCoupled.some(set2 => {
+            if (set1 === set2) return false;
+
+            if (set1.size >= set2.size) return false;
+
+            return Array.from(set1).every(id => set2.has(id));
+        });
+    });
 }
 
 /**
@@ -334,10 +512,10 @@ export const COUPLING_ALGORITHMS: Record<string, CouplingAlgorithm> = {
         description: 'Show original edges without coupling',
         compute: computeCouplingIdentity
     },
-    'productive-expiries': {
-        name: 'Productive Expiries',
-        description: 'Maximal coupling based on minimal productive expiries',
-        compute: computeCouplingProductiveExpiries
+    'frontier-expiries': {
+        name: 'Frontier Expiries',
+        description: 'Maximal coupling based on frontier expiries',
+        compute: computeCouplingFrontierExpiries
     }
 };
 
@@ -352,4 +530,13 @@ export function applyCouplingAlgorithm(algorithmId: string, nodes: Node[], edges
 
     return algorithm.compute(nodes, edges);
 }
+
+export {
+    HypergraphForCoupling,
+    computeAllUnblockings,
+    getDistinctUnblockings,
+    findEffectivelyCoupledSets,
+    findMaximallyCoupledSets,
+    isEffectivelyCoupled
+};
 

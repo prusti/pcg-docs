@@ -200,7 +200,7 @@ We note, however, that $\expiresafter$ is not actually transitive.
 ```hypergraph
 {
   "height": "300px",
-  "couplingAlgorithms": ["productive-expiries"],
+  "couplingAlgorithms": ["frontier-expiries"],
   "nodes": [
     {"id": "a", "place": "a", "x": 0, "y": 0},
     {"id": "b", "place": "b", "x": 100, "y": 0},
