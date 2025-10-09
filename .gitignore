@@ -6,3 +6,5 @@ package-lock.json
 # Build artifacts
 theme/hypergraph.js
 theme/hypergraph.js.LICENSE.txt
+dist
+*.map

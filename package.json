@@ -9,9 +9,10 @@
     "serve:mdbook": "mdbook serve",
     "watch:js": "webpack --watch",
     "build": "npm run build:js && npm run build:mdbook",
-    "build:js": "webpack",
+    "build:js": "npm run build:preprocessor && webpack",
+    "build:preprocessor": "tsc -p tsconfig.preprocessor.json",
     "build:mdbook": "mdbook build",
-    "clean": "rm -rf book node_modules package-lock.json theme/hypergraph.js",
+    "clean": "rm -rf book node_modules package-lock.json theme/hypergraph.js preprocessors/*.js",
     "test": "npm run build"
   },
   "dependencies": {
@@ -21,7 +22,12 @@
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
+    "@types/cytoscape": "^3.21.9",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.7.0",
     "concurrently": "^8.2.2",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   },
