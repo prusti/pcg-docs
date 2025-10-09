@@ -5,9 +5,10 @@
   "scripts": {
     "setup": "npm install && npm run setup:mdbook",
     "setup:mdbook": "node scripts/setup-mdbook.js",
-    "serve": "npm run build:js && concurrently \"npm run watch:js\" \"npm run serve:mdbook\"",
+    "serve": "npm run build:js && concurrently \"npm run watch:preprocessor\" \"npm run watch:webpack\" \"npm run serve:mdbook\"",
     "serve:mdbook": "mdbook serve",
-    "watch:js": "webpack --watch",
+    "watch:preprocessor": "tsc -p tsconfig.preprocessor.json --watch",
+    "watch:webpack": "webpack --watch --mode development",
     "build": "npm run build:js && npm run build:mdbook",
     "build:js": "npm run build:preprocessor && webpack",
     "build:preprocessor": "tsc -p tsconfig.preprocessor.json",
