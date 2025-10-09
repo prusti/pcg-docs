@@ -221,6 +221,7 @@ const CYTOSCAPE_STYLES = [
       couplingSelector.style.padding = "10px";
       couplingSelector.style.backgroundColor = "#f5f5f5";
       couplingSelector.style.borderRadius = "4px";
+      const defaultAlgorithm = couplingAlgorithms[0];
       couplingSelector.innerHTML = `
                 <label style="margin-right: 10px; font-weight: bold;">Coupling Algorithm:</label>
                 <select id="coupling-select-${container.id}" style="padding: 5px; border-radius: 3px;">
@@ -228,7 +229,8 @@ const CYTOSCAPE_STYLES = [
                     ${couplingAlgorithms
                       .map((alg) => {
                         const algInfo = COUPLING_ALGORITHMS[alg];
-                        return `<option value="${alg}">${algInfo ? algInfo.name : alg}</option>`;
+                        const selected = alg === defaultAlgorithm ? ' selected' : '';
+                        return `<option value="${alg}"${selected}>${algInfo ? algInfo.name : alg}</option>`;
                       })
                       .join("")}
                 </select>
@@ -397,7 +399,8 @@ const CYTOSCAPE_STYLES = [
       };
     }
 
-    let { elements, hyperedgeGroups } = renderGraph("none");
+    const initialAlgorithm = couplingAlgorithms.length > 0 ? couplingAlgorithms[0] : "none";
+    let { elements, hyperedgeGroups } = renderGraph(initialAlgorithm);
 
     const cy = cytoscape({
       container: graphDiv,
