@@ -447,3 +447,33 @@ fn f<'a, 'b: 'a>(x: &'a mut T, y: &'b mut T) -> &'a mut T {
   ]
 }
 ```
+
+### Non-Bipartite Graph Example
+
+```hypergraph
+{
+  "height": "350px",
+  "couplingAlgorithms": ["frontier-expiries"],
+  "nodes": [
+    {"id": "x1", "place": "x1", "x": 50, "y": 50},
+    {"id": "y1", "place": "y1", "x": 50, "y": 200},
+    {"id": "a", "place": "a", "x": 250, "y": 70},
+    {"id": "c", "place": "c", "x": 180, "y": 150},
+    {"id": "b", "place": "b", "x": 280, "y": 220},
+    {"id": "x", "place": "x", "x": 400, "y": 80},
+    {"id": "y", "place": "y", "x": 420, "y": 220}
+  ],
+  "edges": [
+    {"sources": ["x1"], "targets": ["a"]},
+    {"sources": ["a"], "targets": ["b"]},
+    {"sources": ["b"], "targets": ["x"]},
+    {"sources": ["y1"], "targets": ["c"]},
+    {"sources": ["c"], "targets": ["y"]},
+    {"sources": ["x1"], "targets": ["c"]},
+    {"sources": ["c"], "targets": ["a"]},
+    {"sources": ["a"], "targets": ["x"]},
+    {"sources": ["y1"], "targets": ["b"]},
+    {"sources": ["b"], "targets": ["y"]}
+  ]
+}
+```

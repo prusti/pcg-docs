@@ -310,7 +310,41 @@ const CYTOSCAPE_STYLES = [
           `coupling-info-${container.id}`
         );
         if (infoSpan) {
-          infoSpan.textContent = `(${coupledEdges.length} coupled edge${coupledEdges.length !== 1 ? "s" : ""})`;
+          infoSpan.innerHTML = '';
+
+          const countText = document.createTextNode(
+            `(${coupledEdges.length} coupled edge${coupledEdges.length !== 1 ? "s" : ""}:`
+          );
+          infoSpan.appendChild(countText);
+
+          const edgesList = document.createElement('div');
+          edgesList.style.marginLeft = '20px';
+
+          coupledEdges.forEach((edge, idx) => {
+            const sourcesStr = edge.sources.length > 1 ? `{${edge.sources.join(", ")}}` : edge.sources[0];
+            const targetsStr = edge.targets.length > 1 ? `{${edge.targets.join(", ")}}` : edge.targets[0];
+
+            const edgeDiv = document.createElement('div');
+
+            const label = document.createElement('label');
+            label.style.whiteSpace = 'nowrap';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.dataset.coupledIndex = idx.toString();
+            checkbox.style.marginRight = '4px';
+            checkbox.dataset.containerId = container.id;
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(`${sourcesStr} → ${targetsStr}`));
+
+            edgeDiv.appendChild(label);
+            edgesList.appendChild(edgeDiv);
+          });
+
+          infoSpan.appendChild(edgesList);
+          infoSpan.appendChild(document.createTextNode(')'));
         }
 
         return [...edges, ...coupledEdgeObjects];
@@ -456,7 +490,31 @@ const CYTOSCAPE_STYLES = [
       });
       bubblePaths = [];
 
+      const infoSpan = document.getElementById(
+        `coupling-info-${container.id}`
+      );
+      const visibleIndices = new Set<number>();
+
+      if (infoSpan) {
+        const checkboxes = infoSpan.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach((checkbox: Element) => {
+          const cb = checkbox as HTMLInputElement;
+          if (cb.checked && cb.dataset.coupledIndex) {
+            visibleIndices.add(parseInt(cb.dataset.coupledIndex));
+          }
+        });
+      }
+
       hyperedgeGroups.forEach(function (group, idx) {
+        // Check if this is a coupled edge and if it's visible
+        const isCoupledEdge = group.id.startsWith('coupled-');
+        if (isCoupledEdge) {
+          const coupledIndex = parseInt(group.id.replace('coupled-', ''));
+          if (!visibleIndices.has(coupledIndex)) {
+            return; // Skip this coupled edge
+          }
+        }
+
         const nodeIds = [...new Set([...group.sources, ...group.targets])];
         const nodes = cy.nodes().filter(function (node) {
           return nodeIds.includes(node.id());
@@ -482,6 +540,17 @@ const CYTOSCAPE_STYLES = [
     }
 
     renderBubblesets();
+
+    // Add event listener for coupled edge visibility checkboxes
+    container.addEventListener('change', function(event) {
+      const target = event.target as HTMLElement;
+      if (target instanceof HTMLInputElement &&
+          target.type === 'checkbox' &&
+          target.dataset.coupledIndex !== undefined &&
+          target.dataset.containerId === container.id) {
+        renderBubblesets();
+      }
+    });
 
     if (couplingSelector) {
       const select = document.getElementById(
