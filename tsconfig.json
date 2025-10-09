@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2015",
+    "module": "ES2015",
+    "lib": ["ES2015", "DOM"],
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "src-js/**/*",
+    "preprocessors/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "book",
+    "theme"
+  ]
+}
+
