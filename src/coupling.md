@@ -399,3 +399,51 @@ fn w<'a: 'd, 'b: 'd, 'c: 'e, 'd, 'e T>(
   ]
 }
 ```
+
+## Additional Examples from HackMD
+
+### One Lifetime Reborrower Function
+
+```rust
+fn f<'a>(x: &'a mut T) -> &'a mut T {
+    x
+}
+```
+
+```hypergraph
+{
+  "height": "250px",
+  "couplingAlgorithms": ["frontier-expiries"],
+  "nodes": [
+    {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
+    {"id": "result_a", "place": "result", "lifetime": "'a", "x": 100, "y": 200}
+  ],
+  "edges": [
+    {"sources": ["x_a"], "targets": ["result_a"]}
+  ]
+}
+```
+
+### Possible Outlives Reborrower Function
+
+```rust
+fn f<'a, 'b: 'a>(x: &'a mut T, y: &'b mut T) -> &'a mut T {
+    todo!()
+}
+```
+
+```hypergraph
+{
+  "height": "300px",
+  "couplingAlgorithms": ["frontier-expiries"],
+  "nodes": [
+    {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
+    {"id": "y_b", "place": "y", "lifetime": "'b", "x": 300, "y": 100},
+    {"id": "result_a", "place": "result", "lifetime": "'a", "x": 200, "y": 200}
+  ],
+  "edges": [
+    {"sources": ["x_a"], "targets": ["result_a"]},
+    {"sources": ["y_b"], "targets": ["result_a"]}
+  ]
+}
+```
