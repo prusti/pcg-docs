@@ -98,7 +98,7 @@ none of them, i.e.:
 1. $\overline{e} \cap edges(G) = \overline{e}$, or
 2. $\overline{e} \cap edges(G) = \emptyset$
 
-If a set of edges $\overline{e}$ expire togehter on a graph $G$, then there must
+If a set of edges $\overline{e}$ expire together on a graph $G$, then there must
 exist a set of edges $\overline{e'} \supseteq \overline{e}$ that are coupled for
 $G$.
 
@@ -362,6 +362,62 @@ the base case where $U$ is empty.
 We then need to show that expiry edge $e_1$ that unblocks $U_1$ is either in
 $coupled(G)$ or is a combination of edges in $coupled(G)$. -->
 
+<!-- ## Merged Unblocking Frontier Expiries
+
+The _merged unblocking frontier expiries_ algorithm takes the coupled edges
+computed by the unblocking frontier expiries algorithm and performs an additional
+merging step to ensure that removing any coupled edge unblocks at least one node.
+
+### Motivation
+
+The unblocking frontier expiries algorithm produces maximally coupled edges, but
+these edges don't necessarily satisfy the property that removing each individual
+coupled edge unblocks a node. For example, in the `m` function graph, the
+algorithm may produce coupled edges where some don't directly unblock a source node.
+
+The merged algorithm addresses this by grouping coupled edges based on which
+nodes they unblock, ensuring that each resulting coupled edge corresponds to the
+expiry that unblocks a specific node.
+
+### Algorithm
+
+Given a graph $G$ and the coupled edges $C$ from the unblocking frontier
+expiries algorithm:
+
+1. For each node $n \in nodes(G)$:
+   1. Let $E_n = \\{c \in C \mid n \in sources(c)\\}$ be the set of coupled edges whose sources contain $n$
+   2. If $E_n \neq \emptyset$, create a new coupled hyperedge $c_n$ whose underlying edges are $\bigcup_{c \in E_n} underlyingEdges(c)$
+2. Let $M$ be the set of all $c_n$ (removing duplicates)
+3. Filter out redundant edges: Remove any edge $E \in M$ if there exist distinct edges $E_1, E_2 \in M$ such that $underlyingEdges(E_1) \cup underlyingEdges(E_2) = underlyingEdges(E)$
+4. Return the filtered set
+
+**Rationale for filtering**: If a coupled edge $E$ can be expressed as the union
+of two other coupled edges $E_1$ and $E_2$, then unblocking $E$ is equivalent to
+unblocking $E_1$ and $E_2$ in sequence. Therefore, $E$ is redundant and can be
+safely removed without losing any information about the unblocking structure of
+the graph.
+
+### Properties
+
+**Overlapping Coupled Edges**: Unlike the unblocking frontier expiries algorithm,
+the merged algorithm produces coupled edges that may overlap. That is, two
+different coupled edges may share some underlying edges. This is necessary to
+ensure that each coupled edge corresponds to unblocking a specific node.
+
+**Unblocking Invariant**: For every coupled edge $c$ in the result, removing $c$
+from $G$ unblocks at least one node whose place corresponds to a source of $c$.
+
+### Example: The `m` Function
+
+For the `m` function graph (shown below in Test Graphs), the merged algorithm
+produces two overlapping coupled edges:
+
+1. $\\{x_a, y_b\\} \rightarrow \\{result_c, result_d\\}$ — Removing this unblocks $x$
+2. $\\{x_a, y_b\\} \rightarrow \\{result_d, result_e\\}$ — Removing this unblocks $y$
+
+Note that both coupled edges share the underlying edge from $x_a$ to $result_d$
+and from $y_b$ to $result_d$, demonstrating the overlap property. -->
+
 ## Test Graphs
 
 ### `m` function
@@ -379,7 +435,7 @@ fn m<'a: 'c, 'b: 'e, 'c, 'd, 'e, T>(
 ```hypergraph
 {
   "height": "300px",
-  "couplingAlgorithms": ["frontier-expiries"],
+  "couplingAlgorithms": "all",
   "nodes": [
     {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
     {"id": "y_b", "place": "y", "lifetime": "'b", "x": 300, "y": 100},
@@ -411,7 +467,7 @@ fn w<'a: 'd, 'b: 'd, 'c: 'e, 'd, 'e T>(
 ```hypergraph
 {
   "height": "300px",
-  "couplingAlgorithms": ["frontier-expiries"],
+  "couplingAlgorithms": "all",
   "nodes": [
     {"id": "x_a", "place": "x", "lifetime": "'a", "x": 50, "y": 100},
     {"id": "y_b", "place": "y", "lifetime": "'b", "x": 200, "y": 100},
@@ -433,7 +489,7 @@ fn w<'a: 'd, 'b: 'd, 'c: 'e, 'd, 'e T>(
 ```hypergraph
 {
   "height": "300px",
-  "couplingAlgorithms": ["frontier-expiries"],
+  "couplingAlgorithms": "all",
   "nodes": [
     {"id": "a", "place": "a", "x": 0, "y": 0},
     {"id": "b", "place": "b", "x": 100, "y": 0},
@@ -464,7 +520,7 @@ fn f<'a>(x: &'a mut T) -> &'a mut T {
 ```hypergraph
 {
   "height": "250px",
-  "couplingAlgorithms": ["frontier-expiries"],
+  "couplingAlgorithms": "all",
   "nodes": [
     {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
     {"id": "result_a", "place": "result", "lifetime": "'a", "x": 100, "y": 200}
@@ -486,7 +542,7 @@ fn f<'a, 'b: 'a>(x: &'a mut T, y: &'b mut T) -> &'a mut T {
 ```hypergraph
 {
   "height": "300px",
-  "couplingAlgorithms": ["frontier-expiries"],
+  "couplingAlgorithms": "all",
   "nodes": [
     {"id": "x_a", "place": "x", "lifetime": "'a", "x": 100, "y": 100},
     {"id": "y_b", "place": "y", "lifetime": "'b", "x": 300, "y": 100},
@@ -504,7 +560,7 @@ fn f<'a, 'b: 'a>(x: &'a mut T, y: &'b mut T) -> &'a mut T {
 ```hypergraph
 {
   "height": "350px",
-  "couplingAlgorithms": ["frontier-expiries"],
+  "couplingAlgorithms": "all",
   "nodes": [
     {"id": "x1", "place": "x1", "x": 50, "y": 50},
     {"id": "y1", "place": "y1", "x": 50, "y": 200},

@@ -10,6 +10,7 @@ import BubbleSets from "cytoscape-bubblesets";
 import {
   COUPLING_ALGORITHMS,
   applyCouplingAlgorithm,
+  CouplingAlgorithmId,
 } from "./coupling-algorithms";
 
 // Register extensions
@@ -208,7 +209,14 @@ const CYTOSCAPE_STYLES = [
     try {
       const couplingAttr = container.getAttribute("data-coupling-algorithms");
       if (couplingAttr) {
-        couplingAlgorithms = JSON.parse(couplingAttr) as string[];
+        const parsed = JSON.parse(couplingAttr);
+        if (parsed === "all") {
+          couplingAlgorithms = Object.keys(COUPLING_ALGORITHMS).filter(id => id !== "none");
+        } else if (Array.isArray(parsed)) {
+          couplingAlgorithms = parsed as string[];
+        } else {
+          couplingAlgorithms = [];
+        }
       }
     } catch (e) {
       console.error("Failed to parse coupling algorithms:", e);
@@ -228,7 +236,7 @@ const CYTOSCAPE_STYLES = [
                     <option value="none">None (Original)</option>
                     ${couplingAlgorithms
                       .map((alg) => {
-                        const algInfo = COUPLING_ALGORITHMS[alg];
+                        const algInfo = COUPLING_ALGORITHMS[alg as CouplingAlgorithmId];
                         const selected = alg === defaultAlgorithm ? ' selected' : '';
                         return `<option value="${alg}"${selected}>${algInfo ? algInfo.name : alg}</option>`;
                       })
@@ -282,7 +290,7 @@ const CYTOSCAPE_STYLES = [
     function applyCouplingToEdges(
       edges: GraphEdge[],
       nodes: GraphNode[],
-      couplingAlgorithmId: string
+      couplingAlgorithmId: CouplingAlgorithmId
     ): GraphEdge[] {
       if (!couplingAlgorithmId || couplingAlgorithmId === "none") {
         return edges;
@@ -338,6 +346,14 @@ const CYTOSCAPE_STYLES = [
 
             label.appendChild(checkbox);
             label.appendChild(document.createTextNode(`${sourcesStr} → ${targetsStr}`));
+
+            const underlyingEdgesStr = edge.underlyingEdges.map(e => {
+              const uSources = e.sources.length > 1 ? `{${e.sources.join(", ")}}` : e.sources[0];
+              const uTargets = e.targets.length > 1 ? `{${e.targets.join(", ")}}` : e.targets[0];
+              return `${uSources} → ${uTargets}`;
+            }).join(', ');
+
+            label.appendChild(document.createTextNode(` [${underlyingEdgesStr}]`));
 
             edgeDiv.appendChild(label);
             edgesList.appendChild(edgeDiv);
@@ -415,7 +431,7 @@ const CYTOSCAPE_STYLES = [
       return { edgeElements, hyperedgeGroups };
     }
 
-    function renderGraph(couplingAlgorithmId: string): RenderResult {
+    function renderGraph(couplingAlgorithmId: CouplingAlgorithmId): RenderResult {
       const nodeElements = processNodes(data.nodes);
 
       const edgesToRender = applyCouplingToEdges(
@@ -433,7 +449,7 @@ const CYTOSCAPE_STYLES = [
       };
     }
 
-    const initialAlgorithm = couplingAlgorithms.length > 0 ? couplingAlgorithms[0] : "none";
+    const initialAlgorithm = (couplingAlgorithms.length > 0 ? couplingAlgorithms[0] : "none") as CouplingAlgorithmId;
     let { elements, hyperedgeGroups } = renderGraph(initialAlgorithm);
 
     const cy = cytoscape({
@@ -558,7 +574,7 @@ const CYTOSCAPE_STYLES = [
       ) as HTMLSelectElement;
       if (select) {
         select.addEventListener("change", function () {
-          const selectedAlgorithm = select.value;
+          const selectedAlgorithm = select.value as CouplingAlgorithmId;
 
           cy.elements().remove();
 

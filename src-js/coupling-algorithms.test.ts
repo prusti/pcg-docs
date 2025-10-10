@@ -1,7 +1,7 @@
 /**
  * Test suite for coupling algorithms
  *
- * These tests verify each step of the frontier expiries algorithm
+ * These tests verify each step of the unblocking frontier expiries algorithm
  * using the example graph from "Defining Coupling Based on an Expires After Relation"
  * in coupling.md
  */
@@ -344,10 +344,10 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
   });
 
-  describe("Complete Frontier Expiries Algorithm", () => {
+  describe("Unblocking Frontier Expiries Algorithm", () => {
     test("should produce coupled edges", () => {
       const result = applyCouplingAlgorithm(
-        "frontier-expiries",
+        "unblocking-frontier-expiries",
         testNodes,
         testEdges
       );
@@ -359,7 +359,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
     test("should document the expected coupled edges for the test graph", () => {
       const result = applyCouplingAlgorithm(
-        "frontier-expiries",
+        "unblocking-frontier-expiries",
         testNodes,
         testEdges
       );
@@ -388,7 +388,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
     test("coupled edges should have valid structure", () => {
       const result = applyCouplingAlgorithm(
-        "frontier-expiries",
+        "unblocking-frontier-expiries",
         testNodes,
         testEdges
       );
@@ -406,7 +406,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
     test("coupled edges should be consistent with underlying edges", () => {
       const result = applyCouplingAlgorithm(
-        "frontier-expiries",
+        "unblocking-frontier-expiries",
         testNodes,
         testEdges
       );
@@ -434,7 +434,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
     test("should produce different results than identity coupling", () => {
       const frontierResult = applyCouplingAlgorithm(
-        "frontier-expiries",
+        "unblocking-frontier-expiries",
         testNodes,
         testEdges
       );
@@ -450,7 +450,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
   describe("Edge Case Handling", () => {
     test("should handle empty graph", () => {
-      const emptyResult = applyCouplingAlgorithm("frontier-expiries", [], []);
+      const emptyResult = applyCouplingAlgorithm("unblocking-frontier-expiries", [], []);
       expect(emptyResult).toEqual([]);
     });
 
@@ -462,7 +462,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
       const noEdges: Edge[] = [];
 
       const result = applyCouplingAlgorithm(
-        "frontier-expiries",
+        "unblocking-frontier-expiries",
         leafNodes,
         noEdges
       );
@@ -477,7 +477,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
       const singleEdge: Edge[] = [{ id: "e1", sources: ["a"], targets: ["b"] }];
 
       const result = applyCouplingAlgorithm(
-        "frontier-expiries",
+        "unblocking-frontier-expiries",
         simpleNodes,
         singleEdge
       );
