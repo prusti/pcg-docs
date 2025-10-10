@@ -16,6 +16,8 @@
 \pcs:{\mathit{I}}
 \Bb:{\mathit{B}}
 \block:{b}
+\reachable:{R}
+\reachableset:{\hat{R}}
 \powerset:{\mathcal{P}(#1)}
 \dom:{\text{dom}(#1)}
 \pcg:{\mathcal{G}}
@@ -27,9 +29,11 @@
 \readcap:{\text{R}}
 \at:{\mathtt{at}}
 \frontier:{\textit{frontier}}
-\descendant:{\geqslant_G}
+\descendant:{\leqslant_G}
 \validexpiry:{#2 \setminus #1}
 \sources:{\textit{sources}}
 \targets:{\textit{targets}}
 \expiresafter:{\geqslant_G}
 \eqdef:{\stackrel{\text{def}}{=}}
+\unblockings:{\mathit{Ub}}
+\dunblockings:{\mathit{Dub}}
