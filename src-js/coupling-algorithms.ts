@@ -728,11 +728,16 @@ interface CouplingAlgorithm {
 /**
  * Available coupling algorithms
  */
-export const COUPLING_ALGORITHMS: Record<string, CouplingAlgorithm> = {
+export const COUPLING_ALGORITHMS = {
     'none': {
         name: 'None (Original)',
         description: 'Show original edges without coupling',
         compute: computeCouplingIdentity
+    },
+    'frontier-expiries': {
+        name: 'Frontier Expiries',
+        description: 'Maximal coupling based on unblocking frontier expiries',
+        compute: computeCouplingUnblockingFrontierExpiries
     },
     'unblocking-frontier-expiries': {
         name: 'Unblocking Frontier Expiries',
@@ -749,17 +754,15 @@ export const COUPLING_ALGORITHMS: Record<string, CouplingAlgorithm> = {
         description: 'Coupling based on edges that expire together in all reachable subgraphs',
         compute: computeCouplingExpireTogether
     }
-};
+} as const;
+
+export type CouplingAlgorithmId = keyof typeof COUPLING_ALGORITHMS;
 
 /**
  * Apply coupling algorithm to a graph
  */
-export function applyCouplingAlgorithm(algorithmId: string, nodes: Node[], edges: Edge[]): CoupledEdgeResult[] {
+export function applyCouplingAlgorithm(algorithmId: CouplingAlgorithmId, nodes: Node[], edges: Edge[]): CoupledEdgeResult[] {
     const algorithm = COUPLING_ALGORITHMS[algorithmId];
-    if (!algorithm) {
-        throw new Error(`Unknown coupling algorithm: ${algorithmId}`);
-    }
-
     return algorithm.compute(nodes, edges);
 }
 

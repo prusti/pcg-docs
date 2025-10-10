@@ -10,6 +10,7 @@ import BubbleSets from "cytoscape-bubblesets";
 import {
   COUPLING_ALGORITHMS,
   applyCouplingAlgorithm,
+  CouplingAlgorithmId,
 } from "./coupling-algorithms";
 
 // Register extensions
@@ -235,7 +236,7 @@ const CYTOSCAPE_STYLES = [
                     <option value="none">None (Original)</option>
                     ${couplingAlgorithms
                       .map((alg) => {
-                        const algInfo = COUPLING_ALGORITHMS[alg];
+                        const algInfo = COUPLING_ALGORITHMS[alg as CouplingAlgorithmId];
                         const selected = alg === defaultAlgorithm ? ' selected' : '';
                         return `<option value="${alg}"${selected}>${algInfo ? algInfo.name : alg}</option>`;
                       })
@@ -289,7 +290,7 @@ const CYTOSCAPE_STYLES = [
     function applyCouplingToEdges(
       edges: GraphEdge[],
       nodes: GraphNode[],
-      couplingAlgorithmId: string
+      couplingAlgorithmId: CouplingAlgorithmId
     ): GraphEdge[] {
       if (!couplingAlgorithmId || couplingAlgorithmId === "none") {
         return edges;
@@ -430,7 +431,7 @@ const CYTOSCAPE_STYLES = [
       return { edgeElements, hyperedgeGroups };
     }
 
-    function renderGraph(couplingAlgorithmId: string): RenderResult {
+    function renderGraph(couplingAlgorithmId: CouplingAlgorithmId): RenderResult {
       const nodeElements = processNodes(data.nodes);
 
       const edgesToRender = applyCouplingToEdges(
@@ -448,7 +449,7 @@ const CYTOSCAPE_STYLES = [
       };
     }
 
-    const initialAlgorithm = couplingAlgorithms.length > 0 ? couplingAlgorithms[0] : "none";
+    const initialAlgorithm = (couplingAlgorithms.length > 0 ? couplingAlgorithms[0] : "none") as CouplingAlgorithmId;
     let { elements, hyperedgeGroups } = renderGraph(initialAlgorithm);
 
     const cy = cytoscape({
@@ -573,7 +574,7 @@ const CYTOSCAPE_STYLES = [
       ) as HTMLSelectElement;
       if (select) {
         select.addEventListener("change", function () {
-          const selectedAlgorithm = select.value;
+          const selectedAlgorithm = select.value as CouplingAlgorithmId;
 
           cy.elements().remove();
 
