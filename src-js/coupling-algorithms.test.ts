@@ -1,7 +1,7 @@
 /**
  * Test suite for coupling algorithms
  *
- * These tests verify each step of the frontier expiries algorithm
+ * These tests verify each step of the unblocking frontier expiries algorithm
  * using the example graph from "Defining Coupling Based on an Expires After Relation"
  * in coupling.md
  */

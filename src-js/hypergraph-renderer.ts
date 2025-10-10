@@ -208,7 +208,14 @@ const CYTOSCAPE_STYLES = [
     try {
       const couplingAttr = container.getAttribute("data-coupling-algorithms");
       if (couplingAttr) {
-        couplingAlgorithms = JSON.parse(couplingAttr) as string[];
+        const parsed = JSON.parse(couplingAttr);
+        if (parsed === "all") {
+          couplingAlgorithms = Object.keys(COUPLING_ALGORITHMS).filter(id => id !== "none");
+        } else if (Array.isArray(parsed)) {
+          couplingAlgorithms = parsed as string[];
+        } else {
+          couplingAlgorithms = [];
+        }
       }
     } catch (e) {
       console.error("Failed to parse coupling algorithms:", e);
@@ -338,6 +345,14 @@ const CYTOSCAPE_STYLES = [
 
             label.appendChild(checkbox);
             label.appendChild(document.createTextNode(`${sourcesStr} → ${targetsStr}`));
+
+            const underlyingEdgesStr = edge.underlyingEdges.map(e => {
+              const uSources = e.sources.length > 1 ? `{${e.sources.join(", ")}}` : e.sources[0];
+              const uTargets = e.targets.length > 1 ? `{${e.targets.join(", ")}}` : e.targets[0];
+              return `${uSources} → ${uTargets}`;
+            }).join(', ');
+
+            label.appendChild(document.createTextNode(` [${underlyingEdgesStr}]`));
 
             edgeDiv.appendChild(label);
             edgesList.appendChild(edgeDiv);
