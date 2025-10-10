@@ -734,11 +734,6 @@ export const COUPLING_ALGORITHMS = {
         description: 'Show original edges without coupling',
         compute: computeCouplingIdentity
     },
-    'frontier-expiries': {
-        name: 'Frontier Expiries',
-        description: 'Maximal coupling based on unblocking frontier expiries',
-        compute: computeCouplingUnblockingFrontierExpiries
-    },
     'unblocking-frontier-expiries': {
         name: 'Unblocking Frontier Expiries',
         description: 'Maximal coupling based on unblocking frontier expiries',
