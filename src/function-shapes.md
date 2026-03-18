@@ -32,13 +32,17 @@ shape _target base_ $B_T$ is either $\text{arg}~i$ or $\text{result}$.  A
 function shape _source node_ $N_B$ is a pair $\langle B_S, i \rangle$ where $i$ is
 the _region index_ of the node. Target nodes $N_T$ are defined analogously. A
 _function shape edge_ $E$ is a pair $\langle N_B,~ N_T \rangle$ and a _function
-shape_ $S$ is a set of pairs.
+shape_ $S$ is a set of edges.
 
-### Borrow-flow Relation
+A shape $S$ _permits more borrowing_ than a shape $S'$ iff $S' \subseteq S$;
+likewise $S$ _permits less borrowing_ than $S'$ iff $S \subseteq S'$.
 
-A borrow-flow relation $F$ is a binary relation relating source nodes to target nodes.
+### Borrow-Flow Relation
 
-A function shape $S$ is _valid_ with respect to a borrow-flow relation $O$ iff for each $\langle n_s, n_t \rangle \in S$ we have $(n_s, n_t) \in R$.
+A borrow-flow relation $F$ is a binary relation relating source nodes to target
+nodes; the _implied shape_ of the relation contains one edge for each
+
+The _implied shape_ of a borrow-flow relation $F$ is the shape $S$ where $\langle n_s, n_t \rangle \in S$ iff $(n_s, n_t) \in F$.
 
 ### Functions
 
@@ -46,37 +50,30 @@ A function $f$ is parameterized by a list of _early-bound args_ $E$ and _late-bo
 
 ### Function Definition Borrow-Flow Relation
 
-The _function definition borrow-flow relation_ $\bfrel{def}$ for a function instantiation $\funcinst{f}$ is defined as follows:
+The _function definition borrow-flow relation_ $\bfrel{\funcinst{f}}{def}$ for a function instantiation $\funcinst{f}$ is defined as follows:
 
 The region $r(n)$ of a node $n = \pair{a}{i}$ the $i'th$ region of the arg / result $a$.
-Then, $\pairp{n_s}{n_t} \in \bfrel{def}$ iff:
+Then, $\pairp{n_s}{n_t} \in \bfrel{\funcinst{f}}{def}$ iff:
 
 1. $r(n)~\text{outlives}~r(n')$ in the signature of $\funcinst{f}$.
 2. $base(n_t)$ is $\text{result}$, or $r(n)$ is invariant in the $i'th$ type
 
 ### Function Call Borrow-Flow Relation
 
-The _function call borrowflow relation_ $\bfrel{call}$ for a function call $\funcinst{f}(\overline{p})$ at $l$ is:
+For a function call $FC = \funcinst{f}(\overline{p})~\text{at}~l$,
+the _function call borrowflow relation_ $\bfrel{FC}{call}$ is:
 
 The region $r(n)$ of a node $n = \pair{a}{i}$ the $i'th$ region of the arg / result $a$.
 
-Then, $\pairp{n_s}{n_t} \in \bfrel{call}$ iff
+Then, $\pairp{n_s}{n_t} \in \bfrel{\funcinst{f}}{call}$ iff
 
 1. $r(n)~\text{outlives}~r(n')$ at $l$ according to the borrow-checker.
 2. $base(n_t)$ is $\text{result}$, or $r(n)$ is invariant in the $i'th$ type
 
-
-### Precision
-
-A shape $s$ is _at least as precise_ as a shape $s'$ if the edges in $s$ are a
-subset of the edges in $s'$.
-
-Accordingly, we can prove for all calls to $\funcinst{f}$, the definition shape
-will be at least as precise as the call shape.
-
 ### Definition-Derived Call Shape
 
-For a call $\funcinst{f}(\overline{p})$, there exists
+For a call $FC = \funcinst{f}(\overline{p})$ at $l$, the _definition-derived
+borrow-flow relation_ $\bfrel{FC}{def}$
 
 ### Function Shape Types
 

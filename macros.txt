@@ -40,4 +40,4 @@
 \funcinst:{\hat{#1}}
 \pair:{\langle #1,~#2 \rangle}
 \pairp:{(#1,~#2)}
-\bfrel:{B_{\funcinst{f}}^\text{#1}}
+\bfrel:{B_{#1}^\text{#2}}
