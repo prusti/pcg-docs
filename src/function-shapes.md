@@ -43,9 +43,11 @@ likewise $S$ _permits less borrowing_ than $S'$ iff $S \subseteq S'$.
 
 ### Function Signatures
 
-A function signature $f$ is a tuple $\langle id, ~\fargtys,~\fresty \rangle$. An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, E, L \rangle$;
-where $E$ is a list of early-bound args and $L$ is list of late-bound arguments.
-An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, E, L \rangle$; the _identity instantiation_ $f_I$ of $f$ is obtained by applying the _identity substitutions_ $I_E$ and $I_L$.  Function calls are applied to _instantiations_ of a function.
+A _function signature_ is a pair $\langle\fargtys,~\fresty\rangle$.
+
+A _defined function signature_ $f$ is a tuple $\langle id, ~\fargtys,~\fresty \rangle$. An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, E, L \rangle$;
+where $E$ is a map from types to types (early-bound args) and $L$ is a map from regions to regions (late-bound arguments).
+An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, E, L \rangle$; the _identity instantiation_ $f_I$ of $f$ is obtained by applying the _identity substitutions_ $I_E$ and $I_L$.  _Defined function calls_ are applied to _instantiations_ of a function.
 
 The _lifetime projections_ $RP(\hat{f})$ of a function instantiation $\hat{f}$ is defined as the set:
 
@@ -55,6 +57,8 @@ $\{\lproj{\text{result}}{r}~|~r \in RP(\fresty)\}$
 #### Signature Shape
 
 The _corresponding node_ $n(rp)$ of a lifetime projection $rp \in RP(\funcinst{f})$ is  $\langle \lpbase{rp},~\lpindex{rp} \rangle$.
+
+The _corresponding lifetime projection_ $rp(n)$ of a node $n = \langle b,~i \rangle$ is the lifetime projection $rp \in RP(\funcinst{f})$ such that $n(rp) = n$.
 
 $\{\langle \lpbase{rp},~\lpindex{rp} \rangle~|~rp \in RP(\funcinst{f}) \}$
 
@@ -68,8 +72,10 @@ $\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\sigshape
 
 ### Function Calls
 
-A function call $FC$ takes the form $p =
-\funcinst{f}(\overline{op})~\text{at}~l$, where $p$ is a MIR place, and
+A _function call target_ $\tilde{f}$ is either an instantiation $\funcinst{f}$ or a closure / function pointer $ct$.
+
+A _function call_ $FC$ takes the form $p =
+\tilde{f}(\overline{op})~\text{at}~l$, where $p$ is a MIR place, and
 $\overline{op}$ is a sequence of MIR operands.
 
 The _lifetime projections_ $RP(FC)$ of a function call is the union of the lifetime projections in $p$ and the lifetime projections in $\overline{op}$.
@@ -105,15 +111,21 @@ $\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{F
 For a call $FC = \funcinst{f}(\overline{p})$ at $l$, the _signature-derived
 call shape_ $\sigshape{FC}$ is obtained as follows:
 
-$\sigshape{f_I}$ is the signature shape of $f_I$. Then, for each $(n_s, n_t) \in \sigshape{f_I}$:
-  - Let $r_s = r_\text{def}(\sigshape{f_I}, n_s)$,
-        $r_t = r_\text{def}(\sigshape{f_I}, n_t)$.
+Let $E$, $L$ be the early and late-bound parameters respectively of
+$\funcinst{f}$ and $\sigshape{f_I}$ is the signature shape of $f_I$. Then, for
+each $(n_s, n_t) \in \sigshape{f_I}$:
+  - Let $\lproj{b_s}{r_s} = rp(n_s)$, $\lproj{b_t}{r_t} = rp(n_t)$ be the corresponding lifetime projections.
   - Let $r_s' = (E \cup L)[r_s]$, $r_t' = (E \cup L)[r_t]$
-  - By the unique region property, there exists lifetime projections $rp_s$ and
-    $rp_t$ that
+  - By the unique region property, there exist lifetime projections $rp_s$ and
+    $rp_t$ in $RP(FC)$ such that $rp_s$ has region $r_s'$ and $rp_t$ has region $r_t'$.
+    Then add $\langle n(rp_s),~ n(rp_t) \rangle$ to $\sigshape{FC}$.
 
+## Using shapes for function calls in the PCG
 
-### Function Shape Types
+If the function call target is an instantiation, then the signature-derived call
+shape is used. Otherwise, the call shape is used.
+
+## More Background
 
 For a function $f$, there are three types of shapes to consider:
 
@@ -130,13 +142,9 @@ These different shape types are relevant for Prusti, as:
 
 The call shape and implementation shapes are necessarily related to the signature shape; the former can contain _more_ edges while the latter can contain _less_.
 
-For example, in Prusti, the _signature shape_
+<!-- We can generate shapes for both function calls, as well as for functions themselves. Generation for calls is performed straightforwardly by identifying the lifetime projections from the inputs and outputs, then querying the borrow-checker for outlives constraints between their corresponding regions. In this case, the base of these lifetime projections are mir places and their regions are always `RegionVid`s. We will call these regions `CallRegion`s. A pair (place, `CallRegion`) is a _Call Projection_.
 
-
-We can generate shapes for both function calls, as well as for functions themselves. Generation for calls is performed straightforwardly by identifying the lifetime projections from the inputs and outputs, then querying the borrow-checker for outlives constraints between their corresponding regions. In this case, the base of these lifetime projections are mir places and their regions are always `RegionVid`s. We will call these regions `CallRegion`s. A pair (place, `CallRegion`) is a _Call Projection_.
-
-For a function call, we can, in-principle, generate a shape in a similar matter. For example, a function `fn f<'a, 'b: 'a, 'c>(x: T<'a>, y: U<'b>, z: T<'c>) -> W<'a>` would have edges corresponding to `x|'a -> result|'a` and `y|'b -> result|'a`, with the latter reflecting the outlives constraints from the function signature. In this case, the bases are either $\text{arg}~i$ or `result`, and their regions (I think) early or late-bound lifetime vars, or the `'static` lifetime. We will call these `DefRegion`s. A pair of such a base (argidx or result) and a `DefRegion` is a `Def Projection`.
-
+For a function call, we can, in-principle, generate a shape in a similar matter. For example, a function `fn f<'a, 'b: 'a, 'c>(x: T<'a>, y: U<'b>, z: T<'c>) -> W<'a>` would have edges corresponding to `x|'a -> result|'a` and `y|'b -> result|'a`, with the latter reflecting the outlives constraints from the function signature. In this case, the bases are either $\text{arg}~i$ or `result`, and their regions (I think) early or late-bound lifetime vars, or the `'static` lifetime. We will call these `DefRegion`s. A pair of such a base (argidx or result) and a `DefRegion` is a `Def Projection`. -->
 
 The shape for a function call must necessarily have corresponding edges that appear in the shape for the function signature. The reverse is not necessarily the case. For example, consider the following:
 
@@ -204,8 +212,8 @@ adding
 
 Then applying the substitutions our shape is  `_1|'?8 -> result|'?7`
 
-## Implementation
+<!-- ## Implementation
 
 We differentiate shapes for calls and functions at the type level.
 
-We define a `FunctionShape<Type>`
+We define a `FunctionShape<Type>` -->
