@@ -58,10 +58,10 @@ The _corresponding node_ $n(rp)$ of a lifetime projection $rp \in RP(\funcinst{f
 
 $\{\langle \lpbase{rp},~\lpindex{rp} \rangle~|~rp \in RP(\funcinst{f}) \}$
 
-The _signature shape_ $\fshape{\funcinst{f}}{def}$ for a function instantiation $\funcinst{f}$ is defined as follows:
+The _signature shape_ $\sigshape{\funcinst{f}}$ for a function instantiation $\funcinst{f}$ is defined as follows:
 
 For each $\langle \lproj{b_s}{r_s}, \lproj{b_t}{r_t} \rangle \in RP(\funcinst{f}) \times RP(\funcinst{f})$ then add
-$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{\funcinst{f}}{def}$ if either:
+$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\sigshape{\funcinst{f}}$ if either:
 
 1. $r_t~\text{outlives}~r_s$ in the signature of $\funcinst{f}$, or
 2. $b_t$ is $\text{result}$, or $r_s$ is invariant in $b_t$.
@@ -92,23 +92,22 @@ The _corresponding node_ $n(rp)$ of a lifetime projection $\lproj{p}{r} \in RP(F
 
 $\{\langle \lpbase{rp},~\lpindex{rp} \rangle~|~rp \in RP(\funcinst{f}) \}$
 
-For a function call $FC$, the _call shape_ $\fshape{FC}{call}$ is defined as follows:
+The _call shape_ $\fshape{FC}{call}$ for a function call $FC$ is defined as follows:
 
-The region $r_\text{call}(FC, n)$ of a node $n = \pair{a}{i}$ the $i'th$ region of the arg / result $a$.
+For each $\langle \lproj{b_s}{r_s}, \lproj{b_t}{r_t} \rangle \in RP(FC) \times RP(FC)$ then add
+$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{FC}{call}$ if either:
 
-Then, $\pairp{n_s}{n_t} \in \fshape{\funcinst{f}}{call}$ iff
+1. $r_t~\text{outlives}~r_s$ at $l$ according to the borrow checker, or
+2. $b_t$ is $p$, or $r_s$ is invariant in $b_t$.
 
-1. $r(n)~\text{outlives}~r(n')$ at $l$ according to the borrow-checker.
-2. $base(n_t)$ is $\text{result}$, or $r(n)$ is invariant in the $i'th$ type
+### Signature-Derived Call Shape
 
-### Definition-Derived Call Shape
+For a call $FC = \funcinst{f}(\overline{p})$ at $l$, the _signature-derived
+call shape_ $\sigshape{FC}$ is obtained as follows:
 
-For a call $FC = \funcinst{f}(\overline{p})$ at $l$, the _definition-derived
-call shape_ $\fshape{FC}{def}$ is obtained as follows:
-
-$\fshape{f_I}{def}$ is the definition shape of $f_I$. Then, for each $(n_s, n_t) \in \fshape{f_I}{def}$:
-  - Let $r_s = r_\text{def}(\fshape{f_I}{def}, n_s)$,
-        $r_t = r_\text{def}(\fshape{f_I}{def}, n_t)$.
+$\sigshape{f_I}$ is the signature shape of $f_I$. Then, for each $(n_s, n_t) \in \sigshape{f_I}$:
+  - Let $r_s = r_\text{def}(\sigshape{f_I}, n_s)$,
+        $r_t = r_\text{def}(\sigshape{f_I}, n_t)$.
   - Let $r_s' = (E \cup L)[r_s]$, $r_t' = (E \cup L)[r_t]$
   - By the unique region property, there exists lifetime projections $rp_s$ and
     $rp_t$ that
@@ -118,20 +117,20 @@ $\fshape{f_I}{def}$ is the definition shape of $f_I$. Then, for each $(n_s, n_t)
 
 For a function $f$, there are three types of shapes to consider:
 
-- _Definition Shapes_: The shape of an instantiation of $f$ generated from its signature
+- _Signature Shapes_: The shape of an instantiation of $f$ generated from its signature
 - _Call Shapes_: A shape used to represent _call_ to an instantiation of $f$
 - _Implementation Shapes_: A shape representing $f$'s body, which connects remote lifetime projection nodes to the the result.
 
 These different shape types are relevant for Prusti, as:
 
-- Definition shapes define the shape of a magic wand
+- Signature shapes define the shape of a magic wand
 - Call shapes are used for magic wands that will be applied
 - Implementation shapes define magic wands that will be packaged
 
 
-The call shape and implementation shapes are necessarily related to the definition shape; the former can contain _more_ edges while the latter can contain _less_.
+The call shape and implementation shapes are necessarily related to the signature shape; the former can contain _more_ edges while the latter can contain _less_.
 
-For example, in Prusti, the _definition shape_
+For example, in Prusti, the _signature shape_
 
 
 We can generate shapes for both function calls, as well as for functions themselves. Generation for calls is performed straightforwardly by identifying the lifetime projections from the inputs and outputs, then querying the borrow-checker for outlives constraints between their corresponding regions. In this case, the base of these lifetime projections are mir places and their regions are always `RegionVid`s. We will call these regions `CallRegion`s. A pair (place, `CallRegion`) is a _Call Projection_.

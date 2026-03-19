@@ -46,3 +46,4 @@
 \fresty:{ty^\text{out}}
 \lpindex:{\textit{index}(#1)}
 \lpbase:{\textit{base}(#1)}
+\sigshape:{S_{#1}^\text{sig}}
