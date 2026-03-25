@@ -47,3 +47,7 @@
 \lpindex:{\textit{index}(#1)}
 \lpbase:{\textit{base}(#1)}
 \sigshape:{S_{#1}^\text{sig}}
+\glft:{gr}
+\glfts:{GR}
+\glproj:{grp}
+\glprojs:{GRP}

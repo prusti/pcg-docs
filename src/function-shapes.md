@@ -25,7 +25,14 @@ returned).
 
 ### Lifetime Projections
 
-A lifetime projection $rp$ takes the form $\lproj{b}{r}$ where $b$ is a _base_ having an associated type $\tau$. The _index_ $\lpindex{rp}$ of a lifetime projection is the index of the occurence of $r$ in the _region list_ of $\tau$ (the list of regions in $\tau$, occurring in the order they appear in $\tau$, and with duplicates removed).
+A _generic lifetime_ $\glft$ is either a region $r$ or a type $\tau$, where
+$\tau$ is either:
+1. a type parameter, or
+2. a type alias that cannot be normalized
+
+A _generic lifetime projection_ $\glproj$ takes the form $\lproj{b}{gr}$ where $b$ is a _base_ having an associated type $\tau$. The _index_ $\lpindex{\glproj}$ of a lifetime projection is the index of the occurence of $gr$ in the _generic lifetime list_ $\glfts(\tau)$ (the list of generic lifetimes in $\tau$, occurring in the order they appear in $\tau$, and with duplicates removed).
+
+A _lifetime projection_ is a generic lifetime projection of the form $\lproj{b}{r}$ (that is, a generic lifetime projection where the associated generic lifetime is a region).
 
 ## Creating Function Shapes
 
@@ -49,26 +56,37 @@ A _defined function signature_ $f$ is a tuple $\langle id, ~\fargtys,~\fresty \r
 where $E$ is a map from types to types (early-bound args) and $L$ is a map from regions to regions (late-bound arguments).
 An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, E, L \rangle$; the _identity instantiation_ $f_I$ of $f$ is obtained by applying the _identity substitutions_ $I_E$ and $I_L$.  _Defined function calls_ are applied to _instantiations_ of a function.
 
-The _lifetime projections_ $RP(\hat{f})$ of a function instantiation $\hat{f}$ is defined as the set:
+The _generic lifetime projections_ $\glprojs(\funcinst{f})$ of a function instantiation $\hat{f}$ is defined as the set:
 
-$\{\lproj{\text{arg}~i}{r}~|~ i \leqslant |\fargtys|, r \in RP(\fargty{i})|\} \cup $
-$\{\lproj{\text{result}}{r}~|~r \in RP(\fresty)\}$
+$\{\lproj{\text{arg}~i}{\glft}~|~ i \leqslant |\fargtys|, \glft \in \glfts(\fargty{i})|\} \cup $
+$\{\lproj{\text{result}}{\glft}~|~\glft \in \glfts(\fresty)\}$
 
 #### Signature Shape
 
-The _corresponding node_ $n(rp)$ of a lifetime projection $rp \in RP(\funcinst{f})$ is  $\langle \lpbase{rp},~\lpindex{rp} \rangle$.
+The _corresponding node_ $n(\glproj)$ of a generic lifetime projection $\glproj \in \glprojs(\funcinst{f})$ is  $\langle \lpbase{rp},~\lpindex{rp} \rangle$.
 
-The _corresponding lifetime projection_ $rp(n)$ of a node $n = \langle b,~i \rangle$ is the lifetime projection $rp \in RP(\funcinst{f})$ such that $n(rp) = n$.
+The _corresponding generic lifetime projection_ $\glproj(n)$ of a node $n = \langle b,~i \rangle$ is the generic lifetime projection $\glproj \in \glprojs(\funcinst{f})$ such that $n(\glproj) = n$.
 
-$\{\langle \lpbase{rp},~\lpindex{rp} \rangle~|~rp \in RP(\funcinst{f}) \}$
+A generic lifetime $\glft$ _outlives_ a generic lifetime $\glft'$ in the signature of $\funcinst{f}$ iff:
+
+- $\glft = \glft'$, or
+- $gr$ is a region $r$ and $gr'$ is a region $r'$ and $r$ outlives $r'$ in $\funcinst{f}$, or
+- $gr$ a type $\tau$ and $gr'$ is a type $\tau'$ and $\tau'$ is an associated type of $\tau$.
+- $gr$ a type $\tau$ and $gr'$ is a region $r'$ and the constraint $\tau : r'$ holds; i.e. this constraint exists syntactically or $\tau$ outlives some region $r$ where $r$ outlives $r'$
 
 The _signature shape_ $\sigshape{\funcinst{f}}$ for a function instantiation $\funcinst{f}$ is defined as follows:
 
-For each $\langle \lproj{b_s}{r_s}, \lproj{b_t}{r_t} \rangle \in RP(\funcinst{f}) \times RP(\funcinst{f})$ then add
-$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\sigshape{\funcinst{f}}$ if either:
+For each $\langle \lproj{b_s}{\glft{}_s}, \lproj{b_t}{\glft{}_t} \rangle \in \glprojs(\funcinst{f}) \times \glprojs(\funcinst{f})$ then add
+$\langle{n(\lproj{b_s}{\glft_s}), n(\lproj{b_t}{\glft_t} \rangle)\rangle}$ to $\sigshape{\funcinst{f}}$ if both:
 
-1. $r_t~\text{outlives}~r_s$ in the signature of $\funcinst{f}$, or
-2. $b_t$ is $\text{result}$, or $r_s$ is invariant in $b_t$.
+1. $\glft_t~\text{outlives}~\glft_s$ in the signature of $\funcinst{f}$, and
+2. $b_t$ is $\text{result}$, or $\glft_s$ is a region $r$ that is invariant in $b_t$.
+
+<div class="warning">
+
+The above defn does not include edges for e.g. $(\lproj{arg}{T}) \rightarrow (\lproj{arg}{T})$, which presumably should be there in some form for regions in $T$ that are invariant in the type of $\textit{arg}$.
+
+</div>
 
 ### Function Calls
 
@@ -101,9 +119,9 @@ $\{\langle \lpbase{rp},~\lpindex{rp} \rangle~|~rp \in RP(\funcinst{f}) \}$
 The _call shape_ $\fshape{FC}{call}$ for a function call $FC$ is defined as follows:
 
 For each $\langle \lproj{b_s}{r_s}, \lproj{b_t}{r_t} \rangle \in RP(FC) \times RP(FC)$ then add
-$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{FC}{call}$ if either:
+$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{FC}{call}$ if both:
 
-1. $r_t~\text{outlives}~r_s$ at $l$ according to the borrow checker, or
+1. $r_t~\text{outlives}~r_s$ at $l$ according to the borrow checker, and
 2. $b_t$ is $p$, or $r_s$ is invariant in $b_t$.
 
 ### Signature-Derived Call Shape
@@ -112,9 +130,16 @@ For a call $FC = \funcinst{f}(\overline{p})$ at $l$, the _signature-derived
 call shape_ $\sigshape{FC}$ is obtained as follows:
 
 Let $E$, $L$ be the early and late-bound parameters respectively of
-$\funcinst{f}$ and $\sigshape{f_I}$ is the signature shape of $f_I$. Then, for
-each $(n_s, n_t) \in \sigshape{f_I}$:
-  - Let $\lproj{b_s}{r_s} = rp(n_s)$, $\lproj{b_t}{r_t} = rp(n_t)$ be the corresponding lifetime projections.
+$\funcinst{f}$ and $\sigshape{\funcinst{f}}$ is the signature shape of $\funcinst{f}$.
+
+<!-- Then the _concretization function_ $R(gr)$ is defined as:
+- If $gr$ is a region $r$ $R(gr) = [(E \cup L)[r]]$
+- If $gr$ is a type parameter $T$, $R(gr)$ is the region list of $E[T]$. -->
+
+Then, for
+each $(n_s, n_t) \in \sigshape{\funcinst{f}}$:
+  <!-- - Let $\lproj{b_s}{\glft_s} = \glproj(n_s)$, $\lproj{b_t}{\glft_t} = \glproj(n_t)$ be the corresponding generic lifetime projections. -->
+  - Let $\lproj{b_s}{r_s} = rp(n_s)$, $\lproj{b_t}{r_t} = rp(n_t)$ be the corresponding lifetime projections (i.e. ignoring non-region cases).
   - Let $r_s' = (E \cup L)[r_s]$, $r_t' = (E \cup L)[r_t]$
   - By the unique region property, there exist lifetime projections $rp_s$ and
     $rp_t$ in $RP(FC)$ such that $rp_s$ has region $r_s'$ and $rp_t$ has region $r_t'$.
