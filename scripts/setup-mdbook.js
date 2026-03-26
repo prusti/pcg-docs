@@ -61,7 +61,7 @@ function checkAndInstall(command, crate, targetVersion) {
 }
 
 function main() {
-  console.log('🚀 Setting up mdbook and dependencies...\n');
+  console.log('Setting up mdbook and dependencies...\n');
 
   // Check if cargo is installed
   if (!commandExists('cargo')) {
@@ -78,7 +78,7 @@ function main() {
   // Check and install mdbook-katex
   checkAndInstall('mdbook-katex', 'mdbook-katex', MDBOOK_KATEX_VERSION);
 
-  console.log('\n✨ Setup complete! You can now run:');
+  console.log('\nSetup complete! You can now run:');
   console.log('  npm run serve  - Start development server');
   console.log('  npm run build  - Build for production');
 }

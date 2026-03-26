@@ -17,6 +17,7 @@
 - [Owned PCG Operations](./owned-pcg-operations.md)
 - [Join Operation](./join.md)
 - [Loops](./loops.md)
+- [Function Shapes](./function-shapes.md)
 - [Function Calls](./function-calls.md)
 - [Generating Annotations](./annotations.md)
 - [Misc (To Update)](./misc.md)
