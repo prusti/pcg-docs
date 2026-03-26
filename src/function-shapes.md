@@ -44,14 +44,14 @@ If $\tau = T\langle\tau_1, \ldots, t_n\rangle$  and $\tau_c = T\langle\tau_{c_1}
 
 ### Lifetime Projections
 
-A _generic lifetime_ $\glft$ is either a region $r$ or a type $\tau$, where
+A _generalized lifetime_ $\glft$ is either a region $r$ or $\text{RegionsIn}(\tau)$, where
 $\tau$ is either:
 1. a type parameter, or
 2. a type alias that cannot be normalized
 
-A _generic lifetime projection_ $\glproj$ takes the form $\lproj{b}{gr}$ where $b$ is a _base_ having an associated type $\tau$. The _index_ $\lpindex{\glproj}$ of a lifetime projection is the index of the occurence of $gr$ in the _generic lifetime list_ $\glfts(\tau)$ (the list of generic lifetimes in $\tau$, occurring in the order they appear in $\tau$, and with duplicates removed).
+A _generalized lifetime projection_ $\glproj$ takes the form $\lproj{b}{gr}$ where $b$ is a _base_ having an associated type $\tau$. The _index_ $\lpindex{\glproj}$ of a lifetime projection is the index of the occurence of $gr$ in the _generalized lifetime list_ $\glfts(\tau)$ (the list of generalized lifetimes in $\tau$, occurring in the order they appear in $\tau$, and with duplicates removed).
 
-A _lifetime projection_ is a generic lifetime projection of the form $\lproj{b}{r}$ (that is, a generic lifetime projection where the associated generic lifetime is a region).
+A _lifetime projection_ is a generalized lifetime projection of the form $\lproj{b}{r}$ (that is, a generalized lifetime projection where the associated generalized lifetime is a region).
 
 ## Creating Function Shapes
 
@@ -78,18 +78,18 @@ An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, \overline{\gty}\ran
 where $\gty$ is a list of _early-bound parameters_.
 An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, \overline{\gty}\rangle$; the _identity instantiation_ $f_I$ of $f$ is obtained by applying the _identity substitution_ $I_\gty$.  _Defined function calls_ are applied to _instantiations_ of a function.
 
-The _generic lifetime projections_ $\glprojs(\funcinst{f})$ of a function instantiation $\hat{f}$ is defined as the set:
+The _generalized lifetime projections_ $\glprojs(\funcinst{f})$ of a function instantiation $\hat{f}$ is defined as the set:
 
 $\{\lproj{\text{arg}~i}{\glft}~|~ i \leqslant |\fargtys|, \glft \in \glfts(\fargty{i})|\} \cup $
 $\{\lproj{\text{result}}{\glft}~|~\glft \in \glfts(\fresty)\}$
 
 #### Signature Shape
 
-The _corresponding node_ $n(\glproj)$ of a generic lifetime projection $\glproj \in \glprojs(\funcinst{f})$ is  $\langle \lpbase{rp},~\lpindex{rp} \rangle$.
+The _corresponding node_ $n(\glproj)$ of a generalized lifetime projection $\glproj \in \glprojs(\funcinst{f})$ is  $\langle \lpbase{rp},~\lpindex{rp} \rangle$.
 
-The _corresponding generic lifetime projection_ $\glproj(n)$ of a node $n = \langle b,~i \rangle$ is the generic lifetime projection $\glproj \in \glprojs(\funcinst{f})$ such that $n(\glproj) = n$.
+The _corresponding generalized lifetime projection_ $\glproj(n)$ of a node $n = \langle b,~i \rangle$ is the generalized lifetime projection $\glproj \in \glprojs(\funcinst{f})$ such that $n(\glproj) = n$.
 
-A generic lifetime $\glft$ _outlives_ a generic lifetime $\glft'$ in the signature of $\funcinst{f}$ iff:
+A generalized lifetime $\glft$ _outlives_ a generalized lifetime $\glft'$ in the signature of $\funcinst{f}$ iff:
 
 - $\glft = \glft'$, or
 - $gr$ is a region $r$ and $gr'$ is a region $r'$ and $r$ outlives $r'$ in $\funcinst{f}$, or
