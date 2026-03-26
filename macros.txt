@@ -41,13 +41,18 @@
 \pair:{\langle #1,~#2 \rangle}
 \pairp:{(#1,~#2)}
 \fshape:{S_{#1}^\text{#2}}
-\fargtys:{TY^\text{in}}
-\fargty:{TY_{#1}^\text{in}}
-\fresty:{ty^\text{out}}
+\fargtys:{\overline{\tau^\text{in}}}
+\fargty:{\tau_{#1}^\text{in}}
+\fresty:{\tau^\text{out}}
 \lpindex:{\textit{index}(#1)}
 \lpbase:{\textit{base}(#1)}
-\sigshape:{S_{#1}^\text{sig}}
+\sigshape:{\fshape{#1}{sig}}
+\callshape:{\fshape{#1}{call}}
 \glft:{gr}
 \glfts:{GR}
 \glproj:{grp}
 \glprojs:{GRP}
+\ops:{\overline{op}}
+\gty:{\tau^*}
+\normalize:{\textit{normalize}}
+\paramenv:{E}

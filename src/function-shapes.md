@@ -23,6 +23,25 @@ corresponding post-state projection as well as the post-state nested lifetime
 projections that it outlives (analogously to sets of borrows explicitly
 returned).
 
+### Types and Parameter Environments
+
+A _type_ $\tau$ is either:
+- A type parameter of the form $\text{param}~i$
+- An alias type of the form $\tau::T\langle\overline{\tau}\rangle$
+- A _type constructor application_ of the form $T\langle\overline{\tau}\rangle$
+
+A _generalized type_ $\gty$ is either a type $\tau$ or a region $r$
+
+A _param env_ $\paramenv$ is a list of constraints $\overline{\gty : \gty'}$.
+
+#### Corresponding Regions
+
+If $r$ is a region in $\tau$, the _corresponding region_ $r_c$ in a type $\tau_c$ is:
+
+If $\tau = \texttt{\&}~r~m~\tau'$ and $\tau_c = \texttt{\&}~r_c'~m~\tau_c'$ then $r_c = r_c'$
+
+If $\tau = T\langle\tau_1, \ldots, t_n\rangle$  and $\tau_c = T\langle\tau_{c_1}, \ldots, t_{c_n}\rangle$, iterate $i$ over $1, \ldots, n$, and if there exists an $r_c'$ where $r_c'$ in $\tau_{c_i}$ is the corresponding region of $r$ in $t_i$, then $r_c = r_c'$.
+
 ### Lifetime Projections
 
 A _generic lifetime_ $\glft$ is either a region $r$ or a type $\tau$, where
@@ -52,9 +71,12 @@ likewise $S$ _permits less borrowing_ than $S'$ iff $S \subseteq S'$.
 
 A _function signature_ is a pair $\langle\fargtys,~\fresty\rangle$.
 
-A _defined function signature_ $f$ is a tuple $\langle id, ~\fargtys,~\fresty \rangle$. An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, E, L \rangle$;
-where $E$ is a map from types to types (early-bound args) and $L$ is a map from regions to regions (late-bound arguments).
-An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, E, L \rangle$; the _identity instantiation_ $f_I$ of $f$ is obtained by applying the _identity substitutions_ $I_E$ and $I_L$.  _Defined function calls_ are applied to _instantiations_ of a function.
+A _defined function signature_ $f$ is a tuple $\langle id, ~\fargtys,~\fresty, \paramenv \rangle$.
+
+
+An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, \overline{\gty}\rangle$;
+where $\gty$ is a list of _early-bound parameters_.
+An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, \overline{\gty}\rangle$; the _identity instantiation_ $f_I$ of $f$ is obtained by applying the _identity substitution_ $I_\gty$.  _Defined function calls_ are applied to _instantiations_ of a function.
 
 The _generic lifetime projections_ $\glprojs(\funcinst{f})$ of a function instantiation $\hat{f}$ is defined as the set:
 
@@ -116,7 +138,7 @@ The _corresponding node_ $n(rp)$ of a lifetime projection $\lproj{p}{r} \in RP(F
 
 $\{\langle \lpbase{rp},~\lpindex{rp} \rangle~|~rp \in RP(\funcinst{f}) \}$
 
-The _call shape_ $\fshape{FC}{call}$ for a function call $FC$ is defined as follows:
+The _call shape_ $\callshape{FC}$ for a function call $FC$ is defined as follows:
 
 For each $\langle \lproj{b_s}{r_s}, \lproj{b_t}{r_t} \rangle \in RP(FC) \times RP(FC)$ then add
 $\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{FC}{call}$ if both:
@@ -124,31 +146,36 @@ $\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{F
 1. $r_t~\text{outlives}~r_s$ at $l$ according to the borrow checker, and
 2. $b_t$ is $p$, or $r_s$ is invariant in $b_t$.
 
+### Type Aliases and Normalization
+
+
+An _alias type_ $\tau_\alpha$ is a type of the form $\tau::T\langle\overline{\gty}\rangle$ where $T$ is a type constructor. The function $\normalize(\tau, E)$ returns a type $\tau'$ where alias types in $\tau$ may possibly be replaced with other types. This normalisation is idempotent, e.g. $\normalize(\normalize(\tau, E), E) = \normalize(\tau, E)$.
+
 ### Signature-Derived Call Shape
 
-For a call $FC = \funcinst{f}(\overline{p})$ at $l$, the _signature-derived
+For a call $FC = (p = \funcinst{f}(\ops)$ at $l$), the _signature-derived
 call shape_ $\sigshape{FC}$ is obtained as follows:
 
-Let $E$, $L$ be the early and late-bound parameters respectively of
-$\funcinst{f}$ and $\sigshape{\funcinst{f}}$ is the signature shape of $\funcinst{f}$.
+Let $\fshape{\funcinst{f}}{norm}$ be the _normalized signature shape_, e.g the one obtained by replacing each $\tau$ in $\sigshape{\funcinst{f}}$ with $\normalize(\tau, \paramenv)$,
+where $\paramenv$ is the param env of $f$.
 
-<!-- Then the _concretization function_ $R(gr)$ is defined as:
-- If $gr$ is a region $r$ $R(gr) = [(E \cup L)[r]]$
-- If $gr$ is a type parameter $T$, $R(gr)$ is the region list of $E[T]$. -->
+If $b$ is the $i'th$ operand in $FC$, the _corresponding normalized type_
+$\tau_b$ is the type of the $i'th$ argument in $\fshape{\funcinst{f}}{norm}$.
+Likewise, if $b = \text{result}$, then $\tau_b$ is the output type
+of$\fshape{\funcinst{f}}{norm}$. Then, the _corresponding normalized region_ of
+a lifetime projection $\lproj{b}{r}$ is the region in $\tau_b$ that corresponds
+to $r$ in $b$.
 
-Then, for
-each $(n_s, n_t) \in \sigshape{\funcinst{f}}$:
-  <!-- - Let $\lproj{b_s}{\glft_s} = \glproj(n_s)$, $\lproj{b_t}{\glft_t} = \glproj(n_t)$ be the corresponding generic lifetime projections. -->
-  - Let $\lproj{b_s}{r_s} = rp(n_s)$, $\lproj{b_t}{r_t} = rp(n_t)$ be the corresponding lifetime projections (i.e. ignoring non-region cases).
-  - Let $r_s' = (E \cup L)[r_s]$, $r_t' = (E \cup L)[r_t]$
-  - By the unique region property, there exist lifetime projections $rp_s$ and
-    $rp_t$ in $RP(FC)$ such that $rp_s$ has region $r_s'$ and $rp_t$ has region $r_t'$.
-    Then add $\langle n(rp_s),~ n(rp_t) \rangle$ to $\sigshape{FC}$.
+For each $(n_s, n_t) \in \callshape{FC}$:
+  - Let $\lproj{b_s}{r_s} = rp(n_s)$, $\lproj{b_t}{r_t} = rp(n_t)$ be the corresponding lifetime projections
+  - Then, let $r_s'$ and $r_t'$ be the corresponding normalized regions of $r_s$ and $r_t$ respectively.
+  - If $r_s'$ outlives $r_t'$ in $\fshape{\funcinst{f}}{norm}$, then add $(n_s, n_t)$
+    to $\sigshape{FC}$
 
 ## Using shapes for function calls in the PCG
 
-If the function call target is an instantiation, then the signature-derived call
-shape is used. Otherwise, the call shape is used.
+If the call is to a defined function, then the signature-derived call shape is
+used. Otherwise, the call shape is used.
 
 ## More Background
 
