@@ -4,7 +4,7 @@ Lifetime projections take the following form
 
 $$
 \begin{array}{l l r}
-\lifetimeproj & ::=  & \textbf{(Lifetime Projection)} \\
+\defn{lifetimeproj}{\lifetimeproj} & ::=  & \textbf{(Lifetime Projection)} \\
 & \mid \lproj{\pcgplace}{r} & \text{(Place Projection)} \\
 & \mid \lproj{\pcgplace}{r~\texttt{at}~\label} & \text{(Snapshot of Place Projection)} \\
 & \mid \lproj{\pcgplace}{r~\texttt{at}~\placeholderlabel} & \text{(Placeholder Projection)} \\

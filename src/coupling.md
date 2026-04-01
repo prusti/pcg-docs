@@ -43,7 +43,7 @@ Another benefit is that coupling can reduce the size of the graphs.
 ### Hyperedge
 
 A hyperedge $e$ is an object with an associated set of _source nodes_ and
-_target nodes_. The functions $\sources(e)$ and $\targets(e)$ denote the source
+_target nodes_. The functions $\defn{sources}{\sources(e)}$ and $\defn{targets}{\targets(e)}$ denote the source
 and target nodes respectively.
 
 ### Coupled Edges
@@ -67,7 +67,7 @@ A node $n$ is _blocked_ in $G$ iff $n \in nodes(G)$ and $n$ is not a leaf in $G$
 
 ### Descendant Relation
 
-We define the _descendant_ relation $\descendant$ as
+We define the _descendant_ relation $\defn{descendant}{\descendant}$ as
 
 $$
   s~\descendant~s'~\text{iff}~s = s'~\text{or}~s~\text{is a descendant of}~s'~\text{in}~G.
@@ -75,11 +75,11 @@ $$
 
 ### Frontier
 
-A set of nodes $S$ is a _frontier_ of a hypergraph $G$ (denoted $\frontier(S,
-G)$) iff $S \subseteq nodes(G)$ and $S$ is closed under $\descendant$.
+A set of nodes $S$ is a _frontier_ of a hypergraph $G$ (denoted $\defn{frontier}{\frontier(S,
+G)}$) iff $S \subseteq nodes(G)$ and $S$ is closed under $\descendant$.
 
 If $S$ is a frontier of $G$, it defines a _valid expiry_. The _valid expiry_
-$\validexpiry{S}{G}$ is the subgraph of $G$ obtained by removing all
+$\defn{validexpiry}{\validexpiry{S}{G}}$ is the subgraph of $G$ obtained by removing all
 nodes in $S$ and all edges containing sources or targets in $S$. The _expired edges_ of a valid
 
 ### Reachable Subgraph
@@ -219,7 +219,7 @@ An _unblocking_ $U$ of a graph $G$ is an ordered partitioning of the non-root
 nodes of $G$ into non-empty subsets $S_1, \ldots, S_n$, satisfying the property
 that there exists a frontier $S'$ of $G$ with an expiry that unblocks all nodes
 in $S_1$, and $S_2, \ldots S_n$ is an unblocking of $G \setminus S'$.  The
-function $\unblockings(G)$ denotes the set of all unblockings of $G$.
+function $\defn{unblockings}{\unblockings(G)}$ denotes the set of all unblockings of $G$.
 
 
 Correspondingly, we can define edges as coupled if they always *observably*
@@ -229,10 +229,10 @@ either all in the graph or none of them are.
 ### Reachable Subgraphs
 
 Formally, for a graph $G_0$ and an unblocking $U = S_1, \ldots, S_n$ of $G_0$,
-the _reachable subgraphs_ $\reachable(U, G_0)$ of an unblocking $U = S_1,
+the _reachable subgraphs_ $\defn{reachable}{\reachable(U, G_0)}$ of an unblocking $U = S_1,
 \ldots, S_n$ is the list of graphs $G_0, \ldots, G_n$ where $\forall i, 1
 \leqslant i \leqslant n~.~G_{i} = G_{i-1} \setminus S_{i}$.
-The function $\reachableset$ is the lifting of $\reachable$ to sets of unblockings:
+The function $\defn{reachableset}{\reachableset}$ is the lifting of $\reachable$ to sets of unblockings:
 $$\reachableset(\overline{U}, G) = \bigcup_{U \in \overline{U}} \reachable(U, G)$$
 
 Therefore, edges should be coupled if they are either all present or all absent
@@ -257,7 +257,7 @@ __Theorem (Subsumption)__: If $U < U'$, then $\reachable(G, U) \subset \reachabl
 
 ### Distinct Unblockings
 
-The _distinct unblockings_ of a graph $G$ (denoted $\dunblockings(G)$) is the
+The _distinct unblockings_ of a graph $G$ (denoted $\defn{dunblockings}{\dunblockings(G)}$) is the
 subset of $G's$ unblockings obtained by removing all non-minimal elements w.r.t
 $<$.
 

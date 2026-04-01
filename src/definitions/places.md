@@ -1,6 +1,6 @@
 # Places
 
-A place $p$ is a tuple of a local $\local$ and a projection.
+A place $p$ is a tuple of a local $\defn{local}{\local}$ and a projection.
 
 ## Place Expansion
 

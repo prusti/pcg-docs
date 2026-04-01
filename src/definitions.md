@@ -4,19 +4,19 @@
 
 ### Type Contains
 
-A type $\tau$ *contains* a type $\tau'$, iff:
+A type $\ty$ *contains* a type $\ty'$, iff:
 
-1. $\tau = \tau'$, or
-2. $\tau$ is an ADT and contains a field $\mathtt{f}: \tau_\mathtt{f}$ and $\tau_\mathtt{f}$ contains $\tau'$
-3. $\tau = \mathtt{\&'r~mut}~\tau_{\text{tgt}}$ and $\tau_{\text{tgt}}$ contains $\tau'$
+1. $\ty = \ty'$, or
+2. $\ty$ is an ADT and contains a field $\mathtt{f}: \ty_\mathtt{f}$ and $\ty_\mathtt{f}$ contains $\ty'$
+3. $\ty = \mathtt{\&'r~mut}~\ty_{\text{tgt}}$ and $\ty_{\text{tgt}}$ contains $\ty'$
 
 ### Types Containing Lifetimes
 
-A type $\tau$ *contains* a lifetime $r$ iff $\tau$ contains the type
-$\mathtt{\&\tick{r}~mut}~\tau'$ for some type $\tau'$. A lifetime $r$ is *nested*
-in a type $\tau$ iff $\tau$ contains a type $\mathtt{\&'r~mut}~\tau'$ and $\tau'$ contains $r$.
-We extend these concept to places: a place $p: \tau$ contains a lifetime $r$ iff
-$\tau$ contains $r$; $r$ is nested in $p: \tau$ iff $r$ is nested in $\tau$. A lifetime
+A type $\ty$ *contains* a lifetime $r$ iff $\ty$ contains the type
+$\mathtt{\&\tick{r}~mut}~\ty'$ for some type $\ty'$. A lifetime $r$ is *nested*
+in a type $\ty$ iff $\ty$ contains a type $\mathtt{\&'r~mut}~\ty'$ and $\ty'$ contains $r$.
+We extend these concept to places: a place $p: \ty$ contains a lifetime $r$ iff
+$\ty$ contains $r$; $r$ is nested in $p: \ty$ iff $r$ is nested in $\ty$. A lifetime
 projection $p \downarrow r$ is *nested* if $r$ is nested in $p$.
 
 ---

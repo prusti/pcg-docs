@@ -155,7 +155,7 @@ Because a borrow created within a block exists only for executions that visit th
 
 ### Place Capabilities
 
-Place capabilities $\Placecap$ is a partial map from places to capabilities.
+Place capabilities $\defn{Placecap}{\Placecap}$ is a partial map from places to capabilities.
 
 <div class="warning">
 

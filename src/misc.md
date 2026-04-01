@@ -17,7 +17,7 @@ A *read-only* unpack operation requires that $p$ have capability $R$ and assigns
 
 ### Updating Lifetime Projections
 
-Assume the source place $p$ has type $\tau$ with lifetimes $r_1, \ldots, r_n$. If the unpack operation is mutable, then we label each lifetime projection $p\downarrow r_i$ with location $l$.
+Assume the source place $p$ has type $\ty$ with lifetimes $r_1, \ldots, r_n$. If the unpack operation is mutable, then we label each lifetime projection $p\downarrow r_i$ with location $l$.
 
 The *source* lifetime projection for a lifetime $r$ is $p \downarrow r~\mathtt{at}~l$ if the unpack is mutable, and $p\downarrow r$ otherwise. The *target* lifetime projections is the set $\{p' \downarrow r~|~p' \in \overline p~\text{and}~r~\text{is in the type of}~p'\}$.
 
