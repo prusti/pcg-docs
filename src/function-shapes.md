@@ -23,101 +23,49 @@ corresponding post-state projection as well as the post-state nested lifetime
 projections that it outlives (analogously to sets of borrows explicitly
 returned).
 
-### Types and Parameter Environments
-
-A _type_ $\defn{ty}{\ty}$ is either:
-- A type parameter of the form $\text{param}~i$
-- An alias type of the form $\ty::T\langle\overline{\ty}\rangle$
-- A _type constructor application_ of the form $T\langle\overline{\ty}\rangle$
-
-A _generalized type_ $\defn{gty}{\gty}$ is either a type $\ty$ or a region $r$
-
-A _param env_ $\defn{paramenv}{\paramenv}$ is a list of constraints $\overline{\gty : \gty'}$.
-
-#### Corresponding Regions
-
-If $r$ is a region in $\ty$, the _corresponding region_ $r_c$ in a type $\ty_c$ is:
-
-If $\ty = \texttt{\&}~r~m~\ty'$ and $\ty_c = \texttt{\&}~r_c'~m~\ty_c'$ then $r_c = r_c'$
-
-If $\ty = T\langle\ty_1, \ldots, t_n\rangle$  and $\ty_c =
-T\langle\ty_{c_1}, \ldots, t_{c_n}\rangle$, iterate $i$ over $1, \ldots, n$,
-and if there exists an $r_c'$ where $r_c'$ in $\ty_{c_i}$ is the corresponding
-region of $r$ in $t_i$, then $r_c = r_c'$.
-
-### Lifetime Projections
-
-A _generalized lifetime_ $\defn{glft}{\glft}$ is either a region $r$ or $\text{RegionsIn}(\ty)$, where
-$\ty$ is either:
-1. a type parameter, or
-2. a type alias that cannot be normalized
-
-A _generalized lifetime projection_ $\defn{glproj}{\glproj}$ takes the form
-$\defn{lproj}{\lproj{b}{gr}}$ where $b$ is a _base_ having an associated type
-$\ty$.
-The _index_ $\defn{lpindex}{\lpindex{\glproj}}$ of a lifetime projection
-is the index of the occurence of $gr$ in the _generalized lifetime list_
-$\defn{glfts}{\glfts(\ty)}$ (the list of generalized lifetimes in $\ty$,
-occurring in the order they appear in $\ty$, and with duplicates removed).
-
-A _lifetime projection_ is a generalized lifetime projection of the form
-$\lproj{b}{r}$ (that is, a generalized lifetime projection where the associated
-generalized lifetime is a region).
-
 ## Creating Function Shapes
 
 ### Function Shapes
 
-A function shape _source base_ $B_S$ takes the form $\text{arg}~i$. A function
-shape _target base_ $B_T$ is either $\text{arg}~i$ or $\text{result}$.  A
-function shape _source node_ $N_B$ is a pair $\langle B_S, i \rangle$ where $i$ is
-the _region index_ of the node. Target nodes $N_T$ are defined analogously.
-A _function shape edge_ is a pair $\langle N_B,~ N_T \rangle$ and a
+A _function shape source base_ $B_S$ takes the form $\text{arg}~i$. A function
+shape _target base_ $B_T$ is either $\text{arg}~i$ or $\text{result}$.
+
+A _function shape source node_ $N_B$ is a pair $\langle B_S, i \rangle$ where
+$i$ is the _region index_ of the node. _Function shape target nodes_ $N_T$ are defined
+analogously.
+
+A _function shape edge_ is a pair $\langle N_B,~ N_T \rangle$, and a
 _function shape_ $S$ is a set of edges.
 
 A shape $S$ _permits more borrowing_ than a shape $S'$ iff $S' \subseteq S$;
 likewise $S$ _permits less borrowing_ than $S'$ iff $S \subseteq S'$.
 
-### Function Signatures
-
-A _function signature_ is a pair $\langle\fargtys,~\fresty\rangle$.
-
-A _defined function signature_ $f$ is a tuple $\langle id, ~\fargtys,~\fresty, \paramenv \rangle$.
-
-An _instantiation_ $\defn{funcinst}{\hat{f}}$ of $f$ is the tuple $\langle f, \overline{\gty}\rangle$;
-where $\gty$ is a list of _early-bound parameters_.
-An _instantiation_ $\hat{f}$ of $f$ is the tuple $\langle f, \overline{\gty}\rangle$; the _identity instantiation_ $f_I$ of $f$ is obtained by applying the _identity substitution_ $I_\gty$.  _Defined function calls_ are applied to _instantiations_ of a function.
-
-The _generalized lifetime projections_ $\defn{glprojs}{\glprojs(\funcinst{f})}$ of a function instantiation $\hat{f}$ is defined as the set:
-
-$\{\lproj{\text{arg}~i}{\glft}~|~ i \leqslant |\fargtys|, \glft \in \glfts(\fargty{i})|\} \cup $
-$\{\lproj{\text{result}}{\glft}~|~\glft \in \glfts(\fresty)\}$
-
-#### Signature Shape
+### Signature Shape
 
 The _corresponding node_ $n(\glproj)$ of a generalized lifetime projection $\glproj \in \glprojs(\funcinst{f})$ is  $\langle \lpbase{rp},~\lpindex{rp} \rangle$.
 
 The _corresponding generalized lifetime projection_ $\glproj(n)$ of a node $n = \langle b,~i \rangle$ is the generalized lifetime projection $\glproj \in \glprojs(\funcinst{f})$ such that $n(\glproj) = n$.
 
-A generalized lifetime $\glft$ _outlives_ a generalized lifetime $\glft'$ in the signature of $\funcinst{f}$ iff:
+A generalized lifetime $\glft$ _outlives_ a generalized lifetime $\glft'$ in the signature of $\funcinst{f}$ (denoted $\funcinst{f} \vdash \glft : \glft'$ iff:
 
 - $\glft = \glft'$, or
-- $\glft$ is a region $r$ and $\glft'$ is a region $r'$ and $r$ outlives $r'$ in $\funcinst{f}$, or
-- $\glft$ is a type $\ty$ and $\glft'$ is a type $\ty'$ and $\ty = \ty'$, or
-- $\glft$ is a type $\ty$ and $\glft'$ is a region $r'$ and the constraint $\ty : r'$ holds; i.e. this constraint exists syntactically or $\ty$ outlives some region $r$ where $r$ outlives $r'$
+- $\glft$ is a generalized type $\gty$ and $\glft'$ is a region $\region'$ and
+$\paramenv(\funcinst{f}) \vdash \glft : \region'$
 
-Note that $\text{RegionsIn}(\ty)$ represents _all_ regions that could occur in
-$\ty$. More generally, $\text{RegionsIn}(\ty)$ outlives $\text{RegionsIn}(\ty')$ when
-all regions in $\ty$ outlive all corresponding regions in $\ty'$. The current
+Note that $\regionsin{\ty}$ represents _all_ regions that could occur in
+$\ty$. More generally, $\regionsin{\ty}$ outlives $\regionsin{\ty'}$ when
+all regions in $\ty$ outlive all _corresponding_ regions in $\ty'$. The current
 implementation handles the case where $\ty = \ty'$ (reflexivity); other cases
 may be added in the future.
+
+<!--
 
 ##### Trait-bound region extraction
 
 When extracting generalized lifetimes from a function signature, regions from
 trait bounds of type parameters are included as separate lifetime projections.
 For a type parameter $\ty$ with bound $\ty : \text{Foo}\langle r \rangle$, the
-generalized lifetimes for $\ty$ include both $\text{RegionsIn}(\ty)$ and
+generalized lifetimes for $\ty$ include both $\regionsin{\ty}$ and
 $\text{Region}(r)$. This allows the signature shape to track individual
 trait-bound regions and establish fine-grained outlives relationships.
 
@@ -163,7 +111,7 @@ The graph has three kinds of edges:
    explicit outlives bounds like $r : r'$. These edges are checked _after_ the
    BFS completes (see below).
 
-2. **$\text{RegionsIn}(\ty) \Rightarrow \text{Region}(r)$**: If any of the
+2. **$\regionsin{\ty} \Rightarrow \text{Region}(r)$**: If any of the
    following hold:
    - There is an explicit $\ty : r$ type-outlives clause in the param env.
    - An implied bound $\ty : r$ was derived from a reference type in the
@@ -171,17 +119,17 @@ The graph has three kinds of edges:
    - $r$ appears directly in $\ty$ itself (e.g. if $\ty$ is $A\langle r \rangle$ after
      substitution of a type parameter).
 
-3. **$\text{RegionsIn}(\ty) \Rightarrow \text{RegionsIn}(\ty)$**: Reflexivity —
-   since $\text{RegionsIn}(\ty)$ represents all regions in $\ty$, it trivially
+3. **$\regionsin{\ty} \Rightarrow \regionsin{\ty}$**: Reflexivity —
+   since $\regionsin{\ty}$ represents all regions in $\ty$, it trivially
    outlives itself. This is handled by the equality check in the BFS.
 
 Trait bounds like $\ty : \text{Foo}\langle r \rangle$ do **not** produce edges
 in either direction: they do not imply $\ty : r$ (so no
-$\text{RegionsIn}(\ty) \Rightarrow \text{Region}(r)$), nor that $r$ is a
+$\regionsin{\ty} \Rightarrow \text{Region}(r)$), nor that $r$ is a
 region "in" $\ty$ (so no $\text{Region}(r) \Rightarrow
-\text{RegionsIn}(\ty)$).
+\regionsin{\ty}$).
 
-There is also no general $\text{Region}(r) \Rightarrow \text{RegionsIn}(\ty)$
+There is also no general $\text{Region}(r) \Rightarrow \regionsin{\ty}$
 edge: just because $r$ outlives some region in $\ty$ does not mean $r$ outlives
 _all_ regions in $\ty$ (unless $r$ is $\texttt{'static}$).
 
@@ -192,7 +140,7 @@ The function performs a breadth-first search starting from `sup`:
 - At each node, if the current node equals `sub`, return `true`.
 - For a $\text{Region}(r)$ node: no outgoing edges in the BFS (Region →
   Region edges are handled after the BFS via the free-region map).
-- For a $\text{RegionsIn}(\ty)$ node: follow edges of kind 2 — enqueue
+- For a $\regionsin{\ty}$ node: follow edges of kind 2 — enqueue
   $\text{Region}(r)$ for each $r$ reachable from $\ty$ via explicit
   type-outlives clauses, implied bounds, or regions appearing in $\ty$
   itself.
@@ -217,66 +165,44 @@ The pre-computed data contains:
 - Trait bound regions: $T \mapsto \{\texttt{'a}\}$ (from $T : \text{Foo}\langle\texttt{'a}\rangle$)
 - Implied type-outlives: $T \mapsto \{\texttt{'b}\}$ (from $\texttt{\&'b}~T$)
 
-To check whether $\text{RegionsIn}(T)$ outlives $\texttt{'a}$:
-1. Start BFS at $\text{RegionsIn}(T)$.
-2. From $\text{RegionsIn}(T)$, follow edges to $\text{Region}(\texttt{'a})$
+To check whether $\regionsin{T}$ outlives $\texttt{'a}$:
+1. Start BFS at $\regionsin{T}$.
+2. From $\regionsin{T}$, follow edges to $\text{Region}(\texttt{'a})$
    (explicit $T : \texttt{'a}$ clause in the param env)
    and $\text{Region}(\texttt{'b})$ (implied bound from $\texttt{\&'b}~T$).
 3. $\text{Region}(\texttt{'a})$ matches the target — return `true`.
 
 Note that the trait bound $T : \text{Foo}\langle\texttt{'a}\rangle$ does **not**
-contribute to this result — the $\text{RegionsIn}(T) \Rightarrow
+contribute to this result — the $\regionsin{T} \Rightarrow
 \text{Region}(\texttt{'a})$ edge comes from the explicit $T : \texttt{'a}$
 clause, not from the trait bound.
+
+-->
 
 The _signature shape_ $\defn{sigshape}{\sigshape{\funcinst{f}}}$ for a function instantiation $\funcinst{f}$ is defined as follows:
 
 For each $\langle \lproj{b_s}{\glft{}_s}, \lproj{b_t}{\glft{}_t} \rangle \in \glprojs(\funcinst{f}) \times \glprojs(\funcinst{f})$ then add
 $\langle{n(\lproj{b_s}{\glft_s}), n(\lproj{b_t}{\glft_t} \rangle)\rangle}$ to $\sigshape{\funcinst{f}}$ if both:
 
-1. $\glft_t~\text{outlives}~\glft_s$ in the signature of $\funcinst{f}$, and
+1. $\funcinst{f} \vdash \glft_s: ~\glft_t$, and
 2. $b_t$ is $\text{result}$, or $\glft_s$ is a region $r$ that is invariant in $b_t$.
 
-<div class="warning">
+### Call Shape
 
-The above defn does not include edges for e.g. $(\lproj{arg}{T}) \rightarrow (\lproj{arg}{T})$, which presumably should be there in some form for regions in $T$ that are invariant in the type of $\textit{arg}$.
-
-</div>
-
-### Function Calls
-
-A _function call target_ $\tilde{f}$ is either an instantiation $\funcinst{f}$ or a closure / function pointer $ct$.
-
-A _function call_ $FC$ takes the form $p =
-\tilde{f}(\overline{op})~\text{at}~l$, where $p$ is a MIR place, and
-$\overline{op}$ is a sequence of MIR operands.
-
-The _lifetime projections_ $RP(FC)$ of a function call is the union of the lifetime projections in $p$ and the lifetime projections in $\overline{op}$.
-
-A function call $FC$ is valid iff it satisfies the _unique region property_: each region in the lifetime projections of $FC$ is unique.
-
-<div class="warning">
-We assume that function calls generated by directly extracting the result place
-and operands from a MIR body are valid.
-We note that converting the places to PCG places (which use the type derived from their local), does not necessarily maintain the validity of a function call.
-</div>
-
-#### Call Shape
-
-The _corresponding node_ $n(rp)$ of a lifetime projection $\lproj{op}{r} \in RP(FC)$ is
+The _corresponding node_ $n(rp)$ of a lifetime projection $\lproj{op}{r} \in RP(\fncall)$ is
  $\langle \text{arg}~i, \lpindex{rp} \rangle$.
 
-The _corresponding node_ $n(rp)$ of a lifetime projection $\lproj{p}{r} \in RP(FC)$ is
+The _corresponding node_ $n(rp)$ of a lifetime projection $\lproj{p}{r} \in RP(\fncall)$ is
  $\langle \text{result}, \lpindex{rp} \rangle$.
 
 $\{\langle \lpbase{rp},~\lpindex{rp} \rangle~|~rp \in RP(\funcinst{f}) \}$
 
-The _call shape_ $\defn{callshape}{\callshape{FC}}$ for a function call $FC$ is defined as follows:
+The _call shape_ $\defn{callshape}{\callshape{\fncall}}$ for a function call $\fncall$ is defined as follows:
 
-For each $\langle \lproj{b_s}{r_s}, \lproj{b_t}{r_t} \rangle \in RP(FC) \times RP(FC)$ then add
-$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{FC}{call}$ if both:
+For each $\langle \lproj{b_s}{r_s}, \lproj{b_t}{r_t} \rangle \in RP(\fncall) \times RP(\fncall)$ then add
+$\langle{n(\lproj{b_s}{r_s}), n(\lproj{b_t}{r_t} \rangle)\rangle}$ to $\fshape{\fncall}{call}$ if both:
 
-1. $r_t~\text{outlives}~r_s$ at $l$ according to the borrow checker, and
+1. $r_s~\text{outlives}~r_t$ at $l$ according to the borrow checker, and
 2. $b_t$ is $p$, or $r_s$ is invariant in $b_t$.
 
 ### Type Aliases and Normalization
@@ -286,24 +212,23 @@ An _alias type_ $\ty_\alpha$ is a type of the form $\ty::T\langle\overline{\gty}
 
 ### Signature-Derived Call Shape
 
-For a call $FC = (p = \funcinst{f}(\ops)$ at $l$), the _signature-derived
-call shape_ $\sigshape{FC}$ is obtained as follows:
+For a call $\fncall = (p = \funcinst{f}(\ops)$ at $l$), the _signature-derived
+call shape_ $\sigshape{\fncall}$ is obtained as follows:
 
-Let $\fshape{\funcinst{f}}{norm}$ be the _normalized signature shape_, e.g the one obtained by replacing each $\ty$ in $\sigshape{\funcinst{f}}$ with $\normalize(\ty, \paramenv)$,
-where $\paramenv$ is the param env of $f$.
+Let $\fshape{\funcinst{f}}{norm}$ be the _normalized signature shape_, e.g the one obtained by replacing each $\ty$ in $\sigshape{\funcinst{f}}$ with $\normalize(\ty, \paramenv(\fncall))$.
 
-If $b$ is the $i'th$ operand in $FC$, the _corresponding normalized type_
+If $b$ is the $i'th$ operand in $\fncall$, the _corresponding normalized type_
 $\ty_b$ is the type of the $i'th$ argument in $\fshape{\funcinst{f}}{norm}$.
 Likewise, if $b = \text{result}$, then $\ty_b$ is the output type
 of$\fshape{\funcinst{f}}{norm}$. Then, the _corresponding normalized region_ of
 a lifetime projection $\lproj{b}{r}$ is the region in $\ty_b$ that corresponds
 to $r$ in $b$.
 
-For each $(n_s, n_t) \in \callshape{FC}$:
+For each $(n_s, n_t) \in \callshape{\fncall}$:
   - Let $\lproj{b_s}{r_s} = rp(n_s)$, $\lproj{b_t}{r_t} = rp(n_t)$ be the corresponding lifetime projections
   - Then, let $r_s'$ and $r_t'$ be the corresponding normalized regions of $r_s$ and $r_t$ respectively.
   - If $r_s'$ outlives $r_t'$ in $\fshape{\funcinst{f}}{norm}$, then add $(n_s, n_t)$
-    to $\sigshape{FC}$
+    to $\sigshape{\fncall}$
 
 ## Using shapes for function calls in the PCG
 

@@ -45,6 +45,13 @@ function chapterPathToHtml(chapterPath: string): string {
   return chapterPath.replace(/\.md$/, ".html");
 }
 
+/// Computes a relative path from `fromChapter` to `toChapter` (both as .md paths from src root).
+function relativeHtmlPath(fromChapter: string, toChapter: string): string {
+  const fromDir = path.dirname(fromChapter);
+  const toHtml = chapterPathToHtml(toChapter);
+  return path.relative(fromDir, toHtml);
+}
+
 interface MathSegment {
   start: number;
   end: number;
@@ -195,7 +202,8 @@ function buildMacroPattern(definedMacroNames: string[]): RegExp | null {
 /// Resolves `\ref{id}{content}` to `\href{file.html#defn-id}{content}`.
 function resolveManualRefs(
   text: string,
-  defnMap: Map<string, DefnSite>
+  defnMap: Map<string, DefnSite>,
+  fromChapter: string
 ): string {
   return text.replace(
     /\\ref\{([^}]+)\}/g,
@@ -205,7 +213,7 @@ function resolveManualRefs(
         process.stderr.write(`Warning: \\ref id "${id}" has no matching \\defn\n`);
         return _match;
       }
-      const htmlPath = chapterPathToHtml(defnSite.chapterPath);
+      const htmlPath = relativeHtmlPath(fromChapter, defnSite.chapterPath);
       return `\\href{${htmlPath}#defn-${id}}`;
     }
   );
@@ -227,14 +235,15 @@ function processMathContent(
   mathText: string,
   defnMap: Map<string, DefnSite>,
   macros: Map<string, MacroInfo>,
-  macroPattern: RegExp | null
+  macroPattern: RegExp | null,
+  fromChapter: string
 ): string {
   let result = mathText.replace(
     /\\defn\{([^}]+)\}/g,
     (_match, id: string) => `\\htmlId{defn-${id}}`
   );
 
-  result = resolveManualRefs(result, defnMap);
+  result = resolveManualRefs(result, defnMap, fromChapter);
 
   if (!macroPattern) return stripNoref(result);
 
@@ -253,8 +262,7 @@ function processMathContent(
 
     const defnSite = defnMap.get(macroName)!;
     const macroInfo = macros.get(macroName)!;
-    const htmlPath = chapterPathToHtml(defnSite.chapterPath);
-    const href = `${htmlPath}#defn-${macroName}`;
+    const href = `${relativeHtmlPath(fromChapter, defnSite.chapterPath)}#defn-${macroName}`;
 
     output += result.slice(lastIndex, matchStart);
 
@@ -289,7 +297,8 @@ function isInsideMath(pos: number, segments: MathSegment[]): boolean {
 function resolveTextRefs(
   content: string,
   defnMap: Map<string, DefnSite>,
-  mathSegments: MathSegment[]
+  mathSegments: MathSegment[],
+  fromChapter: string
 ): string {
   const pattern = /\\ref\{([^}]+)\}\{/g;
   let output = "";
@@ -308,7 +317,7 @@ function resolveTextRefs(
       process.stderr.write(`Warning: \\ref id "${id}" has no matching \\defn\n`);
       output += contentArg.arg;
     } else {
-      const htmlPath = chapterPathToHtml(defnSite.chapterPath);
+      const htmlPath = relativeHtmlPath(fromChapter, defnSite.chapterPath);
       output += `<a href="${htmlPath}#defn-${id}" class="defn-ref">${contentArg.arg}</a>`;
     }
     lastIndex = contentArg.end;
@@ -323,10 +332,11 @@ function processChapterContent(
   content: string,
   defnMap: Map<string, DefnSite>,
   macros: Map<string, MacroInfo>,
-  macroPattern: RegExp | null
+  macroPattern: RegExp | null,
+  chapterPath: string
 ): string {
   const mathSegments = findMathSegments(content);
-  const withTextRefs = resolveTextRefs(content, defnMap, mathSegments);
+  const withTextRefs = resolveTextRefs(content, defnMap, mathSegments, chapterPath);
 
   const segments = findMathSegments(withTextRefs);
   let result = "";
@@ -337,7 +347,7 @@ function processChapterContent(
     const mathText = withTextRefs.slice(seg.start, seg.end);
     const delimLen = seg.isDisplay ? 2 : 1;
     const inner = mathText.slice(delimLen, mathText.length - delimLen);
-    const processed = processMathContent(inner, defnMap, macros, macroPattern);
+    const processed = processMathContent(inner, defnMap, macros, macroPattern, chapterPath);
     const delim = seg.isDisplay ? "$$" : "$";
     result += delim + processed + delim;
     lastEnd = seg.end;
@@ -365,12 +375,13 @@ runPreprocessor((context, book) => {
   const macroPattern = buildMacroPattern(definedMacroNames);
 
   forEachChapter(sections, (chapter) => {
-    if (chapter.content) {
+    if (chapter.content && chapter.path) {
       chapter.content = processChapterContent(
         chapter.content,
         defnMap,
         macros,
-        macroPattern
+        macroPattern,
+        chapter.path
       );
     }
   });
