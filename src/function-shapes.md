@@ -92,9 +92,132 @@ The _corresponding generalized lifetime projection_ $\glproj(n)$ of a node $n = 
 A generalized lifetime $\glft$ _outlives_ a generalized lifetime $\glft'$ in the signature of $\funcinst{f}$ iff:
 
 - $\glft = \glft'$, or
-- $gr$ is a region $r$ and $gr'$ is a region $r'$ and $r$ outlives $r'$ in $\funcinst{f}$, or
-- $gr$ a type $\tau$ and $gr'$ is a type $\tau'$ and $\tau'$ is an associated type of $\tau$.
-- $gr$ a type $\tau$ and $gr'$ is a region $r'$ and the constraint $\tau : r'$ holds; i.e. this constraint exists syntactically or $\tau$ outlives some region $r$ where $r$ outlives $r'$
+- $\glft$ is a region $r$ and $\glft'$ is a region $r'$ and $r$ outlives $r'$ in $\funcinst{f}$, or
+- $\glft$ is a type $\tau$ and $\glft'$ is a type $\tau'$ and $\tau = \tau'$, or
+- $\glft$ is a type $\tau$ and $\glft'$ is a region $r'$ and the constraint $\tau : r'$ holds; i.e. this constraint exists syntactically or $\tau$ outlives some region $r$ where $r$ outlives $r'$
+
+Note that $\text{RegionsIn}(\tau)$ represents _all_ regions that could occur in
+$\tau$. More generally, $\text{RegionsIn}(\tau)$ outlives $\text{RegionsIn}(\tau')$ when
+all regions in $\tau$ outlive all corresponding regions in $\tau'$. The current
+implementation handles the case where $\tau = \tau'$ (reflexivity); other cases
+may be added in the future.
+
+##### Trait-bound region extraction
+
+When extracting generalized lifetimes from a function signature, regions from
+trait bounds of type parameters are included as separate lifetime projections.
+For a type parameter $\tau$ with bound $\tau : \text{Foo}\langle r \rangle$, the
+generalized lifetimes for $\tau$ include both $\text{RegionsIn}(\tau)$ and
+$\text{Region}(r)$. This allows the signature shape to track individual
+trait-bound regions and establish fine-grained outlives relationships.
+
+Trait-bound regions inherit invariance from their associated type parameter:
+if $\tau$ appears in an invariant position (e.g. under a mutable reference),
+its trait-bound regions are also considered invariant.
+
+#### Implementation: `generalized_outlives`
+
+The outlives relation for generalized lifetimes is implemented by the
+`generalized_outlives` function in `abstraction/function.rs`. It determines
+whether `sup` outlives `sub` by computing reachability in a directed graph whose
+nodes are generalized lifetimes and whose edges are derived from the parameter
+environment and function signature.
+
+##### Pre-computed data
+
+Before the search begins, two data structures are built:
+
+1. **Trait bound regions** (`TraitBoundRegions`): For each type parameter or
+   alias type $\tau$ appearing as the `Self` type of a trait bound in the param
+   env (e.g. $\tau : \text{Foo}\langle r_1, r_2\rangle$), the regions appearing in the
+   non-self arguments of the trait bound are collected. This produces a map
+   $\tau \mapsto \{r_1, \ldots, r_n\}$. These regions are used to create
+   additional lifetime projections for the function signature (see
+   [Trait-bound region extraction](#trait-bound-region-extraction)), but do
+   **not** produce edges in the outlives graph. The bound
+   $\tau : \text{Foo}\langle r \rangle$ does not imply $\tau : r$ (not all
+   regions in $\tau$ need outlive $r$), nor does it imply that $r$ is a region
+   "in" $\tau$.
+
+2. **Implied type-outlives bounds**: For reference types $\texttt{\&}r~\tau$ or
+   $\texttt{\&}r~\texttt{mut}~\tau$ occurring in the function's input types,
+   well-formedness implies $\tau : r$. These implied bounds are collected
+   recursively through ADTs and tuples, and recorded for type parameters and
+   non-normalizable alias types.
+
+##### Graph edges
+
+The graph has three kinds of edges:
+
+1. **Region $\Rightarrow$ Region**: From the free-region map, which encodes
+   explicit outlives bounds like $r : r'$. These edges are checked _after_ the
+   BFS completes (see below).
+
+2. **$\text{RegionsIn}(\tau) \Rightarrow \text{Region}(r)$**: If any of the
+   following hold:
+   - There is an explicit $\tau : r$ type-outlives clause in the param env.
+   - An implied bound $\tau : r$ was derived from a reference type in the
+     signature (e.g. from $\texttt{\&}r~\tau$).
+   - $r$ appears directly in $\tau$ itself (e.g. if $\tau$ is $A\langle r \rangle$ after
+     substitution of a type parameter).
+
+3. **$\text{RegionsIn}(\tau) \Rightarrow \text{RegionsIn}(\tau)$**: Reflexivity —
+   since $\text{RegionsIn}(\tau)$ represents all regions in $\tau$, it trivially
+   outlives itself. This is handled by the equality check in the BFS.
+
+Trait bounds like $\tau : \text{Foo}\langle r \rangle$ do **not** produce edges
+in either direction: they do not imply $\tau : r$ (so no
+$\text{RegionsIn}(\tau) \Rightarrow \text{Region}(r)$), nor that $r$ is a
+region "in" $\tau$ (so no $\text{Region}(r) \Rightarrow
+\text{RegionsIn}(\tau)$).
+
+There is also no general $\text{Region}(r) \Rightarrow \text{RegionsIn}(\tau)$
+edge: just because $r$ outlives some region in $\tau$ does not mean $r$ outlives
+_all_ regions in $\tau$ (unless $r$ is $\texttt{'static}$).
+
+##### BFS reachability
+
+The function performs a breadth-first search starting from `sup`:
+
+- At each node, if the current node equals `sub`, return `true`.
+- For a $\text{Region}(r)$ node: no outgoing edges in the BFS (Region →
+  Region edges are handled after the BFS via the free-region map).
+- For a $\text{RegionsIn}(\tau)$ node: follow edges of kind 2 — enqueue
+  $\text{Region}(r)$ for each $r$ reachable from $\tau$ via explicit
+  type-outlives clauses, implied bounds, or regions appearing in $\tau$
+  itself.
+
+After the BFS exhausts the queue, if $\text{sub}$ was not reached directly, a final
+check handles **Region → Region** edges: if $\text{sub}$ is a $\text{Region}(r_{\text{sub}})$,
+the function checks whether any visited $\text{Region}(r)$ satisfies $r$ outlives
+$r_{\text{sub}}$ according to the free-region map (or if $r$ is $\texttt{'static}$).
+This deferred handling avoids expanding the full free-region relation during the
+BFS itself.
+
+##### Example
+
+Consider a function with signature:
+
+```rust
+fn f<'a, 'b, T: Foo<'a>>(x: &'b T) -> &'a U
+where T: 'a, 'b: 'a
+```
+
+The pre-computed data contains:
+- Trait bound regions: $T \mapsto \{\texttt{'a}\}$ (from $T : \text{Foo}\langle\texttt{'a}\rangle$)
+- Implied type-outlives: $T \mapsto \{\texttt{'b}\}$ (from $\texttt{\&'b}~T$)
+
+To check whether $\text{RegionsIn}(T)$ outlives $\texttt{'a}$:
+1. Start BFS at $\text{RegionsIn}(T)$.
+2. From $\text{RegionsIn}(T)$, follow edges to $\text{Region}(\texttt{'a})$
+   (explicit $T : \texttt{'a}$ clause in the param env)
+   and $\text{Region}(\texttt{'b})$ (implied bound from $\texttt{\&'b}~T$).
+3. $\text{Region}(\texttt{'a})$ matches the target — return `true`.
+
+Note that the trait bound $T : \text{Foo}\langle\texttt{'a}\rangle$ does **not**
+contribute to this result — the $\text{RegionsIn}(T) \Rightarrow
+\text{Region}(\texttt{'a})$ edge comes from the explicit $T : \texttt{'a}$
+clause, not from the trait bound.
 
 The _signature shape_ $\sigshape{\funcinst{f}}$ for a function instantiation $\funcinst{f}$ is defined as follows:
 
