@@ -42,30 +42,44 @@ def intercalate (sep : Doc) : List Doc → Doc
   | [d] => d
   | d :: ds => seq [d, sep, intercalate sep ds]
 
-/-- Translate Unicode symbols to LaTeX commands. -/
+/-- Unicode-to-LaTeX replacement pairs. Each pair is
+    `(unicode, textMode, mathMode)`. -/
+private def latexReplacements :
+    List (String × String × String) :=
+  [ ("`", "'", "'")
+  , (" ", " ", "~")
+  , ("&", "\\&", "\\&")
+  , ("ℕ", "$\\mathbb{N}$", "\\mathbb{N}")
+  , ("∅", "$\\emptyset$", "\\emptyset")
+  , ("⊥", "$\\bot$", "\\bot")
+  , ("⊤", "$\\top$", "\\top")
+  , ("→", "$\\to$", "\\to")
+  , ("←", "$\\leftarrow$", "\\leftarrow")
+  , ("≤", "$\\leq$", "\\leq")
+  , ("≥", "$\\geq$", "\\geq")
+  , ("∈", "$\\in$", "\\in")
+  , ("∀", "$\\forall$", "\\forall")
+  , ("∃", "$\\exists$", "\\exists")
+  , ("¬", "$\\neg$", "\\neg")
+  , ("∧", "$\\land$", "\\land")
+  , ("∨", "$\\lor$", "\\lor")
+  , ("τ̄", "$\\bar{\\tau}$", "\\bar{\\tau}")
+  , ("τ", "$\\tau$", "\\tau")
+  , ("⟨", "$\\langle$", "\\langle")
+  , ("⟩", "$\\rangle$", "\\rangle")
+  ]
+
+/-- Translate Unicode symbols to LaTeX commands (text mode). -/
 def escapeLatex : String → String :=
-  let replacements :=
-    [ ("&", "\\&")
-    , ("∅", "$\\emptyset$")
-    , ("⊥", "$\\bot$")
-    , ("⊤", "$\\top$")
-    , ("→", "$\\to$")
-    , ("←", "$\\leftarrow$")
-    , ("≤", "$\\leq$")
-    , ("≥", "$\\geq$")
-    , ("∈", "$\\in$")
-    , ("∀", "$\\forall$")
-    , ("∃", "$\\exists$")
-    , ("¬", "$\\neg$")
-    , ("∧", "$\\land$")
-    , ("∨", "$\\lor$")
-    , ("τ̄", "$\\bar{\\tau}$")
-    , ("τ", "$\\tau$")
-    , ("⟨", "$\\langle$")
-    , ("⟩", "$\\rangle$")
-    ]
-  fun s => replacements.foldl (fun acc (from_, to) =>
-    acc.replace from_ to) s
+  fun s => latexReplacements.foldl
+    (fun acc (from_, to, _) => acc.replace from_ to) s
+
+/-- Translate Unicode symbols to LaTeX commands (math mode,
+    no `$...$` wrappers). -/
+def escapeLatexMath : String → String :=
+  fun s => latexReplacements.foldl
+    (fun acc (from_, _, toMath) =>
+      acc.replace from_ toMath) s
 
 /-- Render a document to LaTeX. -/
 partial def toLaTeX : Doc → String
@@ -82,6 +96,25 @@ partial def toLaTeX : Doc → String
        {String.intercalate "\n" body}\n\
        \\end\{itemize}"
   | raw latex _ _ => latex
+
+/-- Render a document to LaTeX math mode (no `$` wrappers,
+    `\textit` instead of `\textit`, etc). -/
+partial def toLatexMath : Doc → String
+  | text s => escapeLatexMath s
+  | bold d => s!"\\mathbf\{{d.toLatexMath}}"
+  | italic d => d.toLatexMath
+  | code s => s!"\\texttt\{{s}}"
+  | seq ds => String.join (ds.map toLatexMath)
+  | line => "\n"
+  | itemize items =>
+    String.join (items.map toLatexMath)
+  | raw latex _ _ => latex
+
+/-- Render a Lean type name to LaTeX math mode. -/
+def typeToLatexMath : String → String
+  | "Nat" => "\\mathbb{N}"
+  | "String" => "\\text{String}"
+  | other => "\\text{" ++ escapeLatexMath other ++ "}"
 
 /-- Render a document to Typst. -/
 partial def toTypst : Doc → String

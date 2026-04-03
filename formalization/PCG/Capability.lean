@@ -5,23 +5,17 @@ defEnum Capability (.italic (.text "c"))
    place at a particular program point."
 where
   | none
-    "No capability; the place cannot be accessed."
+    "No capabiility"
     (.bold (.text "∅"))
-    (.text "None")
   | exclusive
-    "Can be read, written, or mutably borrowed."
+    "Exclusive "
     (.bold (.text "E"))
-    (.seq [.bold (.text "E"), .text "xclusive"])
   | read
-    "Can be read from; shared borrows can also be created."
+    "Read"
     (.bold (.text "R"))
-    (.seq [.bold (.text "R"), .text "ead"])
   | write
-    "The place can be written to."
+    "Write"
     (.bold (.text "W"))
-    (.seq [.bold (.text "W"), .text "rite"])
   | shallowExclusive
-    "Intermediate state when converting a raw pointer to a Box."
+    "Shallow exclusive"
     (.bold (.text "e"))
-    (.seq
-      [.text "Shallow", .bold (.text "E"), .text "xclusive"])

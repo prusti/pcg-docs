@@ -8,12 +8,25 @@ declare_syntax_cat enumVariantArg
 /-- An argument in a `defEnum` variant: `(name : Type)`. -/
 syntax "(" ident ":" term ")" : enumVariantArg
 
+declare_syntax_cat displayPart
+
+/-- A literal `Doc` fragment in a display template. -/
+syntax term : displayPart
+
+/-- An argument reference with its display symbol:
+    `#argName (symbolDoc)`. -/
+syntax "#" ident "(" term ")" : displayPart
+
+/-- An argument reference with auto-looked-up symbol from
+    the argument type's `enumDef` or `structDef`. -/
+syntax "#" ident : displayPart
+
 declare_syntax_cat enumVariant
 
 /-- A variant in a `defEnum` declaration:
-    `| name (arg : Ty)* "doc" (symbolDoc) (displayName)`. -/
-syntax "| " ident enumVariantArg* str "(" term ")" "(" term ")"
-    : enumVariant
+    `| name (arg : Ty)* "doc" (displayPart, ...)`. -/
+syntax "| " ident enumVariantArg* str
+    "(" displayPart,+ ")" : enumVariant
 
 /-- Define an enum type with cross-language export and presentation
     metadata.
@@ -94,22 +107,73 @@ private def parseVariantArg
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in
+/-- Parse a `displayPart` into a quoted `DisplayPart` term.
+    `argTypes` maps argument names to their Lean type names
+    for auto-lookup of symbolDoc. `selfName` is the enum
+    being defined (for self-referential types). `selfSym`
+    is the self-type's symbolDoc syntax. -/
+private def parseDisplayPart
+    (argTypes : List (String × String))
+    (selfName : String)
+    (selfSym : Lean.TSyntax `term)
+    (stx : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM
+        (Lean.TSyntax `term) := do
+  match stx with
+  | `(displayPart| # $n:ident ($sym:term)) =>
+    let ns : Lean.TSyntax `term :=
+      Lean.quote (toString n.getId)
+    `(DisplayPart.arg $ns ($sym : Doc))
+  | `(displayPart| # $n:ident) => do
+    let argName := toString n.getId
+    let typeName := argTypes.find?
+      (·.1 == argName) |>.map (·.2)
+    match typeName with
+    | none =>
+      throwError
+        s!"defEnum: unknown argument '{argName}'"
+    | some tn =>
+      let env ← getEnv
+      let tnName := Name.mkSimple tn
+      let ns : TSyntax `term := quote argName
+      if tn == selfName then
+        `(DisplayPart.arg $ns ($selfSym : Doc))
+      else if env.find? (tnName ++ `enumDef)
+          |>.isSome then
+        let ref := mkIdent
+          (tnName ++ `enumDef ++ `symbolDoc)
+        `(DisplayPart.arg $ns $ref)
+      else if env.find? (tnName ++ `structDef)
+          |>.isSome then
+        let ref := mkIdent
+          (tnName ++ `structDef ++ `symbolDoc)
+        `(DisplayPart.arg $ns $ref)
+      else
+        throwError
+          s!"defEnum: no enumDef or structDef \
+             found for type '{tn}'"
+  | `(displayPart| $t:term) =>
+    `(DisplayPart.lit ($t : Doc))
+  | _ => Lean.Elab.throwUnsupportedSyntax
+
+open Lean Elab Command in
 elab_rules : command
   | `(defEnum $name:ident ($symDoc:term) $doc:str where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
             | $vn:ident $args:enumVariantArg*
-              $vd:str ($vlDoc:term) ($dn:term)) =>
-        pure (vn, args, vd, vlDoc, dn)
+              $vd:str ($dps:displayPart,*)) =>
+        pure (vn, args, vd, dps)
       | _ => throwError "invalid enum variant"
-    let ctors ← varData.mapM fun (vn, args, _, _, _) => do
-      let binders ← args.mapM fun a => do
-        let (argName, argType) ← parseVariantArg a
-        let prefixed := mkIdent
-          (Name.mkSimple s!"_{argName.getId}")
-        pure (mkExplicitBinder prefixed argType)
-      pure (mkCtorSyntax vn binders)
+    let ctors ← varData.mapM
+      fun (vn, args, _, _) => do
+        let binders ← args.mapM fun a => do
+          let (argName, argType) ← parseVariantArg a
+          let prefixed := mkIdent
+            (Name.mkSimple s!"_{argName.getId}")
+          pure (mkExplicitBinder prefixed argType)
+        pure (mkCtorSyntax vn binders)
     let inductiveCmd ← `(command|
       inductive $name where $[$ctors]*)
     elabCommand inductiveCmd
@@ -121,8 +185,9 @@ elab_rules : command
         deriving instance $d:ident for $name)
       elabCommand deriveCmd
     let varDefs ←
-      varData.mapM fun (vn, args, vd, vlDoc, dn) => do
-        let ns : TSyntax `term := quote (toString vn.getId)
+      varData.mapM fun (vn, args, vd, dps) => do
+        let ns : TSyntax `term :=
+          quote (toString vn.getId)
         let argDefs ← args.mapM fun a => do
           let (argName, argType) ← parseVariantArg a
           let an : TSyntax `term :=
@@ -135,9 +200,19 @@ elab_rules : command
           let tn : TSyntax `term := quote typeStr
           `({ name := $an, typeName := $tn : ArgDef })
         let argList ← `([$[$argDefs],*])
+        let argTypes ← args.toList.mapM
+          fun (a : Lean.TSyntax `enumVariantArg) => do
+          let (an, at_) ← parseVariantArg a.raw
+          let tn := if at_.isIdent
+            then toString at_.getId
+            else at_.reprint.getD (toString at_)
+          pure (toString an.getId, tn)
+        let selfN := toString name.getId
+        let dpDefs ← dps.getElems.mapM
+          (parseDisplayPart argTypes selfN symDoc)
+        let dpList ← `([$[$dpDefs],*])
         `({ name := $ns, doc := $vd,
-            symbolDoc := ($vlDoc : Doc),
-            displayName := ($dn : Doc),
+            display := $dpList,
             args := $argList
             : VariantDef })
     let ns : TSyntax `term := quote (toString name.getId)
@@ -147,11 +222,9 @@ elab_rules : command
         symbolDoc := ($symDoc : Doc), doc := $doc,
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)
-    let defCmd ← `(command|
-      def $defName : EnumDef := $enumDefVal)
-    elabCommand defCmd
+    elabCommand (← `(command|
+      def $defName : EnumDef := $enumDefVal))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod
-    let initCmd ← `(command|
-      initialize registerEnumDef $defName $modName)
-    elabCommand initCmd
+    elabCommand (← `(command|
+      initialize registerEnumDef $defName $modName))

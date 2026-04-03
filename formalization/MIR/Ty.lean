@@ -8,8 +8,7 @@ where
   | name "The constructor name." : String
 
 defStruct AliasTyName (.text "A")
-  "An associated type name, used in alias types \
-   like `τ::T⟨τ̄⟩`."
+  "An associated type name."
 where
   | name "The associated type name." : String
 
@@ -17,33 +16,33 @@ defEnum Mutability (.italic (.text "m"))
   "Mutability of a reference."
 where
   | shared
-    "Shared reference (`&T`)."
-    (.text "shared")
+    "Shared"
     (.text "shared")
   | mutable
-    "Mutable reference (`&mut T`)."
+    "Mutable"
     (.text "mut")
-    (.text "mutable")
 
 defEnum Ty (.italic (.text "τ"))
   "A type in the MIR. See definitions/types.md."
 where
   | param (index : Nat)
     "A type parameter."
-    (.text "param")
-    (.text "param")
-  | alias (base : Ty) (name : AliasTyName) (args : List Ty)
-    "An alias type `τ::T⟨τ̄⟩`."
-    (.text "alias")
-    (.text "alias")
+    (.text "param ",
+     #index (.italic (.text "i")))
+  | alias (base : Ty) (name : AliasTyName)
+      (args : List Ty)
+    "An alias type."
+    (#base, .text "::", #name,
+     .text "⟨", #args (.text "τ̄"), .text "⟩")
   | ctor (name : TyCtorName) (args : List Ty)
-    "A type constructor application `T⟨τ̄⟩`."
-    (.text "ctor")
-    (.text "ctor")
-  | ref (region : Region) (mutability : Mutability) (pointee : Ty)
-    "A reference type `&r m τ`."
-    (.text "ref")
-    (.text "ref")
+    "A type constructor application."
+    (#name, .text "⟨",
+     #args (.text "τ̄"), .text "⟩")
+  | ref (region : Region) (mutability : Mutability)
+      (pointee : Ty)
+    "A reference type."
+    (.text "&", #region, .text " ",
+     #mutability, .text " ", #pointee)
   deriving Repr
 
 /-- A generalized type is either a type or a region.

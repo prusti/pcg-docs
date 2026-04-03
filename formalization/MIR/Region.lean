@@ -10,7 +10,8 @@ defStruct EarlyBoundRegion (.text "eb")
   "An early-bound region, identified by its index \
    in the function's generic parameter list."
 where
-  | index "The index in the generic parameter list." : Nat
+  | index "The index in the generic parameter list."
+      : Nat
 
 defEnum Region (.italic (.text "r"))
   "A region (lifetime) in the MIR. \
@@ -18,13 +19,10 @@ defEnum Region (.italic (.text "r"))
 where
   | vid (v : RegionVid)
     "A region variable identifier."
-    (.text "vid")
-    (.text "vid")
+    (.text "vid(", #v, .text ")")
   | static
     "The 'static lifetime."
     (.code "'static")
-    (.code "'static")
   | earlyBound (eb : EarlyBoundRegion)
     "An early-bound region from generic parameters."
-    (.text "earlyBound")
-    (.text "earlyBound")
+    (.text "early(", #eb, .text ")")

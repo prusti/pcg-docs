@@ -8,19 +8,29 @@ structure ArgDef where
   typeName : String
   deriving Repr
 
+/-- A part of a variant's display template. Either a literal
+    `Doc` fragment or a reference to an argument with its own
+    display symbol. -/
+inductive DisplayPart where
+  /-- Literal text / formatting. -/
+  | lit (d : Doc)
+  /-- Argument reference with its display symbol.
+      E.g. `arg "region" (.italic (.text "r"))` renders the
+      `region` argument as *r*. -/
+  | arg (name : String) (symbolDoc : Doc)
+  deriving Repr
+
 /-- A single variant in an exportable enum definition. -/
 structure VariantDef where
   /-- The variant name (e.g. `"exclusive"`). -/
   name : String
   /-- Documentation for this variant. -/
   doc : String
-  /-- Formatted symbol for document exports
-      (e.g. `bold (text "E")`). -/
-  symbolDoc : Doc
-  /-- Human-readable display name for document exports
-      (e.g. `seq [bold (text "E"), text "xclusive"]`). -/
-  displayName : Doc
-  /-- Arguments of this variant (empty for nullary variants). -/
+  /-- Display template: a list of literal fragments and
+      argument references that together form the
+      mathematical notation for this variant. -/
+  display : List DisplayPart
+  /-- Arguments of this variant (empty for nullary). -/
   args : List ArgDef
   deriving Repr
 
@@ -37,35 +47,30 @@ structure EnumDef where
   variants : List VariantDef
   deriving Repr
 
+namespace DisplayPart
+
+/-- Render a display part using argument symbols. -/
+def toDoc : DisplayPart → Doc
+  | .lit d => d
+  | .arg _ sym => sym
+
+/-- Render a display part to LaTeX math mode. -/
+def toLatexMath : DisplayPart → String
+  | .lit d => d.toLatexMath
+  | .arg _ sym => sym.toLatexMath
+
+end DisplayPart
+
 namespace VariantDef
 
-/-- Append rendered arguments to a base `Doc`.
-    Returns `base` unchanged when `args` is empty;
-    otherwise produces `base(arg₁, arg₂, …)`. -/
-private def withArgs
-    (base : Doc)
-    (renderArg : ArgDef → Doc)
-    (args : List ArgDef)
-    : Doc :=
-  if args.isEmpty then base
-  else
-    .seq [base, .text "(",
-          Doc.intercalate (.text ", ")
-            (args.map renderArg),
-          .text ")"]
+/-- Render the variant's display template as a `Doc`
+    (using the symbolic form of each argument). -/
+def displayDoc (v : VariantDef) : Doc :=
+  .seq (v.display.map DisplayPart.toDoc)
 
-/-- Render the variant symbol with arguments for short definitions.
-    Nullary: `E`. With args: `vid(v)`. -/
-def symbolWithArgs (v : VariantDef) : Doc :=
-  withArgs v.symbolDoc
-    (fun a => .text a.name) v.args
-
-/-- Render the variant display name with typed arguments for long
-    definitions. Nullary: `Exclusive`. With args:
-    `vid(v : RegionVid)`. -/
-def displayWithArgs (v : VariantDef) : Doc :=
-  withArgs v.displayName
-    (fun a => .text s!"{a.name} : {a.typeName}") v.args
+/-- Render the variant's display template to LaTeX math. -/
+def displayLatexMath (v : VariantDef) : String :=
+  String.join (v.display.map DisplayPart.toLatexMath)
 
 end VariantDef
 
@@ -75,41 +80,27 @@ namespace EnumDef
 def shortDef (d : EnumDef) : Doc :=
   let lhs := d.symbolDoc
   let rhs := Doc.intercalate (.text " | ")
-    (d.variants.map fun v => v.symbolWithArgs)
+    (d.variants.map fun v => v.displayDoc)
   .seq [lhs, .text " ::= ", rhs]
 
-/-- Long formal definition with descriptions:
-    ```
-    A capability c is one of:
-    - **E**xclusive: Can be read, written, or mutably borrowed.
-    - ...
-    ``` -/
+/-- Long formal definition with descriptions. -/
 def longDef (d : EnumDef) : Doc :=
   let header := Doc.seq
     [.text d.doc, .text " ", d.symbolDoc,
      .text " is one of:"]
   let items := d.variants.map fun v =>
-    Doc.seq [v.displayWithArgs, .text s!": {v.doc}"]
+    Doc.seq [v.displayDoc, .text s!": {v.doc}"]
   .seq [header, .line, .itemize items]
 
 /-- Render the enum as a LaTeX `definition` environment with
-    an aligned `array`:
-    ```
-    \begin{definition}[Region]
-    A region ...
-    \[ r ::= \begin{array}[t]{rll}
-         & \text{vid}(v) & \text{(A region variable ...)} \\
-       \mid & \texttt{'static} & \text{(The ...)} \\
-    \end{array} \]
-    \end{definition}
-    ``` -/
+    an aligned `array` using the display templates. -/
 def formalDefLatex (d : EnumDef) : String :=
   let lb := "{"
   let rb := "}"
-  let sym := d.symbolDoc.toLaTeX
+  let sym := d.symbolDoc.toLatexMath
   let rows := d.variants.zipIdx.map fun (v, i) =>
     let sep := if i == 0 then "  " else "\\mid"
-    let variant := v.symbolWithArgs.toLaTeX
+    let variant := v.displayLatexMath
     let desc := Doc.escapeLatex v.doc
     s!"  {sep} & {variant} & \
        \\text{lb}({desc}){rb} \\\\"

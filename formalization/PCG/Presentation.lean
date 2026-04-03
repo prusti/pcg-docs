@@ -3,6 +3,20 @@ import MIR.Ty
 import Shared.OrderDef
 import Shared.Registry
 
+/-- Build a lookup function that maps enum constructor names
+    to their LaTeX display form, using displayName from all
+    registered enums. -/
+private def mkCtorDisplay
+    (enums : List RegisteredEnum)
+    : String → Option String :=
+  fun ctorName =>
+    let found := enums.flatMap fun e =>
+      e.enumDef.variants.filterMap fun v =>
+        if v.name == ctorName then
+          some v.displayLatexMath
+        else none
+    found.head?
+
 /-- Build the presentation sections for a single crate prefix
     as raw LaTeX strings. -/
 private def crateLatex
@@ -11,6 +25,8 @@ private def crateLatex
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
+    (ctorDisplay : String → Option String)
+    (allVariants : List VariantDef)
     : String :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
@@ -38,7 +54,8 @@ private def crateLatex
     def_ :: orderParts
   let fnParts := crateFns.map fun f =>
     s!"\\subsection{lb}{f.fnDef.name}{rb}\n\
-       {f.fnDef.formalDefLatex}\n"
+       {f.fnDef.formalDefLatex ctorDisplay
+         allVariants}\n"
   sectionHeader ++
     "\n".intercalate
       (structParts ++ enumParts ++ fnParts)
@@ -59,13 +76,17 @@ def buildPresentationLatex
   ).foldl (init := [])
     fun acc p =>
       if acc.contains p then acc else acc ++ [p]
+  let ctorDisplay := mkCtorDisplay enums
+  let allVariants := enums.flatMap
+    (·.enumDef.variants)
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
+      ctorDisplay allVariants
   "\n".intercalate body
 
 /-- LaTeX packages needed by the presentation. -/
 def latexPackages : List String :=
-  ["tikz", "amsmath", "amsthm",
+  ["tikz", "amsmath", "amssymb", "amsthm",
    "algorithm", "algpseudocode"]
 
 /-- Extra LaTeX preamble (theorem definitions, etc). -/

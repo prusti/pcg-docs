@@ -26,7 +26,14 @@ namespace OrderDef
 private def lookupSymbol (e : EnumDef) (name : String)
     : String :=
   match e.variants.find? (·.name == name) with
-  | some v => v.symbolDoc.toPlainText
+  | some v => v.displayDoc.toPlainText
+  | none => name
+
+/-- Look up the LaTeX math-mode symbol for a variant. -/
+private def lookupSymbolMath
+    (e : EnumDef) (name : String) : String :=
+  match e.variants.find? (·.name == name) with
+  | some v => v.displayLatexMath
   | none => name
 
 /-- Compute the level (longest path to bottom) of each element. -/
@@ -58,9 +65,9 @@ def hasseDiagram (o : OrderDef) (e : EnumDef) : Doc :=
   let tikzNodes := grouped.flatMap fun (lvl, names) =>
     let n := names.length
     (List.range names.length |>.zip names).map fun (i, name) =>
-      let sym := lookupSymbol e name
+      let sym := lookupSymbolMath e name
       let x : Int := (2 * i : Int) - (n - 1 : Int)
-      s!"  \\node ({name}) at ({x}, {lvl}) {lb}{Doc.escapeLatex sym}{rb};"
+      s!"  \\node ({name}) at ({x}, {lvl}) {lb}${sym}${rb};"
   let tikzEdges := o.facts.map fun f =>
     s!"  \\draw ({f.greater}) -- ({f.lesser});"
   let tikzLines := [

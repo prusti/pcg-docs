@@ -1,5 +1,6 @@
 import Shared.Doc
 import Shared.StructDef
+import Shared.EnumDef
 
 /-- A pattern in a function body match arm. -/
 inductive BodyPat where
@@ -120,15 +121,22 @@ structure FnDef where
 
 namespace BodyPat
 
-/-- Render a pattern to LaTeX math mode. -/
-partial def toLatex : BodyPat → String
+/-- Render a pattern to LaTeX math mode.
+    `ctorDisplay` maps constructor names to their
+    mathematical LaTeX representation. -/
+partial def toLatex
+    (ctorDisplay : String → Option String)
+    : BodyPat → String
   | .wild => "\\_"
-  | .var n => Doc.escapeLatex n
+  | .var n => Doc.escapeLatexMath n
   | .ctor n args =>
-    let argStr := String.intercalate ", "
-      (args.map toLatex)
-    if args.isEmpty then s!"\\text{lb}{n}{rb}"
-    else s!"\\text{lb}{n}{rb}({argStr})"
+    match ctorDisplay n with
+    | some display => display
+    | none =>
+      let argStr := String.intercalate ", "
+        (args.map (toLatex ctorDisplay))
+      if args.isEmpty then s!"\\text{lb}{n}{rb}"
+      else s!"\\text{lb}{n}{rb}({argStr})"
   where lb := "{" ; rb := "}"
 
 /-- Render a pattern to Rust. -/
@@ -151,23 +159,37 @@ end BodyPat
 
 namespace BodyExpr
 
-/-- Render an expression to LaTeX math mode. -/
-partial def toLatex (fnName : String)
+/-- Render an expression to LaTeX math mode.
+    `varDisplay` maps variable names to their LaTeX symbol
+    (from the matched variant's display template).
+    `ctorDisplay` maps constructor names to display form. -/
+partial def toLatex
+    (fnName : String)
+    (varDisplay : String → Option String :=
+      fun _ => none)
+    (ctorDisplay : String → Option String :=
+      fun _ => none)
     : BodyExpr → String
   | .emptyList => "\\emptyset"
-  | .var n => Doc.escapeLatex n
+  | .var n => match varDisplay n with
+    | some sym => sym
+    | none => Doc.escapeLatexMath n
   | .dot recv method =>
-    s!"\\text{lb}{method}{rb}({recv.toLatex fnName})"
+    let r := recv.toLatex fnName varDisplay ctorDisplay
+    s!"\\text{lb}{method}{rb}({r})"
   | .cons head tail =>
-    s!"\\{lb}{head.toLatex fnName}\\{rb} \\cup \
-       {tail.toLatex fnName}"
+    let h := head.toLatex fnName varDisplay ctorDisplay
+    let t := tail.toLatex fnName varDisplay ctorDisplay
+    s!"\\{lb}{h}\\{rb} \\cup {t}"
   | .append lhs rhs =>
-    s!"{lhs.toLatex fnName} \\cup \
-       {rhs.toLatex fnName}"
+    let l := lhs.toLatex fnName varDisplay ctorDisplay
+    let r := rhs.toLatex fnName varDisplay ctorDisplay
+    s!"{l} \\cup {r}"
   | .flatMap list param body =>
-    s!"\\bigcup_{lb}{Doc.escapeLatex param} \
-       \\in {list.toLatex fnName}{rb} \
-       {body.toLatex fnName}"
+    let l := list.toLatex fnName varDisplay ctorDisplay
+    let b := body.toLatex fnName varDisplay ctorDisplay
+    s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
+       \\in {l}{rb} {b}"
   where lb := "{" ; rb := "}"
 
 /-- Render an expression to Rust. -/
@@ -213,10 +235,12 @@ def shortSig (f : FnDef) : Doc :=
 def algorithmDoc (f : FnDef) : Doc :=
   let header := Doc.seq
     [ .text f.doc, .text " ", f.shortSig ]
+  let noDisplay : String → Option String := fun _ => none
   let cases := f.body.map fun arm =>
     let patStr := String.intercalate ", "
-      (arm.pat.map BodyPat.toLatex)
-    let rhsStr := arm.rhs.toLatex f.name
+      (arm.pat.map (BodyPat.toLatex noDisplay))
+    let rhsStr := arm.rhs.toLatex f.name noDisplay
+      noDisplay
     Doc.raw
       s!"\\textbf{lb}case{rb} ${patStr}$: \
          return ${rhsStr}$"
@@ -235,25 +259,57 @@ def algorithmDoc (f : FnDef) : Doc :=
   where lb := "{" ; rb := "}"
 
 /-- Render the function as a LaTeX `algorithm` environment
-    with algorithmic pseudocode. -/
-def formalDefLatex (f : FnDef) : String :=
+    with algorithmic pseudocode.
+    `ctorDisplay` maps constructor names to their
+    mathematical LaTeX form.
+    `variants` provides the display templates for building
+    variable-to-symbol mappings from matched patterns. -/
+def formalDefLatex
+    (f : FnDef)
+    (ctorDisplay : String → Option String :=
+      fun _ => none)
+    (variants : List VariantDef := [])
+    : String :=
   let lb := "{"
   let rb := "}"
   let paramSig := ", ".intercalate
     (f.params.map fun p =>
       s!"{Doc.escapeLatex p.name} : \
-         \\text{lb}{Doc.escapeLatex p.typeName}{rb}")
+         {Doc.escapeLatex p.typeName}")
   let retTy := Doc.escapeLatex f.returnType
   let cases := f.body.map fun arm =>
+    -- Build varDisplay from the pattern's constructor
+    let ctorName := arm.pat.head?.bind fun p =>
+      match p with
+      | .ctor n _ => some n
+      | _ => none
+    let varDisplay : String → Option String :=
+      fun varName =>
+        match ctorName with
+        | none => none
+        | some cn =>
+          let variant := variants.find?
+            (·.name == cn)
+          match variant with
+          | none => none
+          | some v =>
+            v.display.findSome? fun dp =>
+              match dp with
+              | .arg n sym =>
+                if n == varName then
+                  some sym.toLatexMath
+                else none
+              | _ => none
     let patStr := ", ".intercalate
-      (arm.pat.map BodyPat.toLatex)
+      (arm.pat.map (BodyPat.toLatex ctorDisplay))
     let rhsStr := arm.rhs.toLatex f.name
+      varDisplay ctorDisplay
     s!"    \\State \\textbf{lb}case{rb} \
        ${patStr}$: \\Return ${rhsStr}$"
   s!"\\begin{lb}algorithm{rb}\n\
      \\caption{lb}{Doc.escapeLatex f.name}\
      ({paramSig}) \
-     $\\to$ \\text{lb}{retTy}{rb}{rb}\n\
+     $\\to$ {retTy}{rb}\n\
      \\begin{lb}algorithmic{rb}[1]\n\
      {"\n".intercalate cases}\n\
      \\end{lb}algorithmic{rb}\n\

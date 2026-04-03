@@ -30,8 +30,8 @@ def formalDefLatex (s : StructDef) : String :=
   let lb := "{"
   let rb := "}"
   let fieldRows := s.fields.map fun f =>
-    s!"  {Doc.escapeLatex f.name} &: \
-       \\text{lb}{Doc.escapeLatex f.typeName}{rb} & \
+    s!"  {Doc.escapeLatexMath f.name} &: \
+       {Doc.typeToLatexMath f.typeName} & \
        \\text{lb}({Doc.escapeLatex f.doc}){rb} \\\\"
   let body := if fieldRows.isEmpty then ""
     else
