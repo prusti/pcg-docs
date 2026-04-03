@@ -60,7 +60,7 @@ def hasseDiagram (o : OrderDef) (e : EnumDef) : Doc :=
     (List.range names.length |>.zip names).map fun (i, name) =>
       let sym := lookupSymbol e name
       let x : Int := (2 * i : Int) - (n - 1 : Int)
-      s!"  \\node ({name}) at ({x}, {lvl}) {lb}${Doc.escapeLatex sym}${rb};"
+      s!"  \\node ({name}) at ({x}, {lvl}) {lb}{Doc.escapeLatex sym}{rb};"
   let tikzEdges := o.facts.map fun f =>
     s!"  \\draw ({f.greater}) -- ({f.lesser});"
   let tikzLines := [

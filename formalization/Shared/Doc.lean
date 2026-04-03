@@ -45,19 +45,19 @@ def intercalate (sep : Doc) : List Doc → Doc
 /-- Translate Unicode symbols to LaTeX commands. -/
 def escapeLatex : String → String :=
   let replacements :=
-    [ ("∅", "\\emptyset")
-    , ("⊥", "\\bot")
-    , ("⊤", "\\top")
-    , ("→", "\\to")
-    , ("←", "\\leftarrow")
-    , ("≤", "\\leq")
-    , ("≥", "\\geq")
-    , ("∈", "\\in")
-    , ("∀", "\\forall")
-    , ("∃", "\\exists")
-    , ("¬", "\\neg")
-    , ("∧", "\\land")
-    , ("∨", "\\lor")
+    [ ("∅", "$\\emptyset$")
+    , ("⊥", "$\\bot$")
+    , ("⊤", "$\\top$")
+    , ("→", "$\\to$")
+    , ("←", "$\\leftarrow$")
+    , ("≤", "$\\leq$")
+    , ("≥", "$\\geq$")
+    , ("∈", "$\\in$")
+    , ("∀", "$\\forall$")
+    , ("∃", "$\\exists$")
+    , ("¬", "$\\neg$")
+    , ("∧", "$\\land$")
+    , ("∨", "$\\lor$")
     ]
   fun s => replacements.foldl (fun acc (from_, to) =>
     acc.replace from_ to) s
