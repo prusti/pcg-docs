@@ -22,12 +22,6 @@ structure OrderDef where
 
 namespace OrderDef
 
-/-- Capitalise the first character of a string. -/
-private def capitalise (s : String) : String :=
-  match s.toList with
-  | [] => s
-  | c :: cs => String.ofList (c.toUpper :: cs)
-
 /-- Look up the symbol for a variant name from an `EnumDef`. -/
 private def lookupSymbol (e : EnumDef) (name : String) : String :=
   match e.variants.find? (·.name == name) with
@@ -58,7 +52,6 @@ def hasseDiagram (o : OrderDef) (e : EnumDef) : Doc :=
   let grouped : List (Nat × List String) :=
     (List.range (maxLvl + 1)).map fun l =>
       (l, levels.filter (·.2 == l) |>.map (·.1))
-  -- tikz rendering
   let lb := "{"
   let rb := "}"
   let tikzNodes := grouped.flatMap fun (lvl, names) =>
@@ -76,7 +69,6 @@ def hasseDiagram (o : OrderDef) (e : EnumDef) : Doc :=
     s!"\\end{lb}tikzpicture{rb}"
   ]
   let tikz := String.intercalate "\n" tikzLines
-  -- ASCII rendering for typst/html
   let ascii := grouped.reverse.map fun (_, names) =>
     let syms := names.map (lookupSymbol e)
     String.intercalate "   " syms
@@ -87,17 +79,63 @@ def hasseDiagram (o : OrderDef) (e : EnumDef) : Doc :=
   let typstStr := s!"{asciiStr}\n({edgesStr})"
   .raw tikz typstStr typstStr
 
-/-- Generate `RustItem.implPartialOrd` entries from this order. -/
+/-- The `std::cmp::Ordering` path. -/
+private def ordPath (variant : String) : RustPath :=
+  ⟨["std", "cmp", "Ordering", variant]⟩
+
+/-- Build a `Some(std::cmp::Ordering::X)` expression. -/
+private def ordExpr (variant : String) : RustExpr :=
+  .call (.path (ordPath variant)) []
+
+/-- Build a match arm comparing two enum variants. -/
+private def cmpArm
+    (a b : String) (result : RustExpr) : RustMatchArm :=
+  .mk (.tuple [.selfVariant a, .selfVariant b]) result
+
+/-- Generate a `PartialOrd` impl from this order. -/
 def toRustPartialOrd (o : OrderDef) : RustItem :=
-  let entries := o.elements.flatMap fun a =>
+  let selfTy := RustTy.self_
+  let selfRef := RustTy.refTo selfTy
+  let retTy := RustTy.generic ⟨["Option"]⟩
+    [.path (⟨["std", "cmp", "Ordering"]⟩)]
+  let equalExpr := RustExpr.some_ (.path (ordPath "Equal"))
+  let eqCheck : RustExpr :=
+    .«if»
+      (.binOp .eq (.path (RustPath.simple "self"))
+        (.path (RustPath.simple "other")))
+      (.block [.expr (.«return» (some equalExpr))] none)
+      none
+  let arms := o.elements.flatMap fun a =>
     o.elements.filterMap fun b =>
-      if a == b then none
+      if a == b then Option.none
       else
+        let ca := capitalise a
+        let cb := capitalise b
         let aLeB := o.closure.any fun (x, y) => x == a && y == b
         let bLeA := o.closure.any fun (x, y) => x == b && y == a
-        if aLeB then some ⟨capitalise a, capitalise b, .less⟩
-        else if bLeA then some ⟨capitalise a, capitalise b, .greater⟩
-        else some ⟨capitalise a, capitalise b, .incomparable⟩
-  .implPartialOrd o.enumName entries
+        if aLeB then
+          some (cmpArm ca cb (RustExpr.some_ (.path (ordPath "Less"))))
+        else if bLeA then
+          some (cmpArm ca cb (RustExpr.some_ (.path (ordPath "Greater"))))
+        else
+          some (cmpArm ca cb RustExpr.none_)
+  let wildArm : RustMatchArm :=
+    .mk (.tuple [.wild, .wild]) RustExpr.none_
+  let matchExpr : RustExpr :=
+    .«match»
+      (.tuple [.path (RustPath.simple "self"), .path (RustPath.simple "other")])
+      (arms ++ [wildArm])
+  let body : RustExpr :=
+    .block [.expr eqCheck] (some matchExpr)
+  let partialCmpFn : RustFn :=
+    { vis := .priv
+      name := "partial_cmp"
+      params :=
+        [ .selfRef
+        , .named (.ident "other") selfRef ]
+      retTy := some retTy
+      body := body }
+  .impl_
+    (some ⟨["PartialOrd"]⟩) ⟨[o.enumName]⟩ [partialCmpFn]
 
 end OrderDef
