@@ -4,7 +4,6 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   test:
@@ -52,4 +51,47 @@ jobs:
 
     - name: Type check
       run: npx tsc --noEmit
+
+  lean:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install elan
+      run: |
+        curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+        echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+    - name: Cache Lake packages
+      uses: actions/cache@v3
+      with:
+        path: formalization/.lake
+        key: ${{ runner.os }}-lean-${{ hashFiles('formalization/lean-toolchain', 'formalization/lakefile.lean') }}
+
+    - name: Build Lean formalization
+      working-directory: formalization
+      run: lake build
+
+    - name: Export Rust crate
+      working-directory: formalization
+      run: lake exe rust_export
+
+    - name: Export presentation
+      working-directory: formalization
+      run: lake exe presentation_export
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Check generated Rust crate compiles
+      working-directory: formalization/generated/rust
+      run: cargo check
+
+    - name: Install LaTeX
+      run: sudo apt-get update && sudo apt-get install -y texlive-latex-base texlive-pictures
+
+    - name: Check generated LaTeX compiles
+      working-directory: formalization/generated
+      run: pdflatex -interaction=nonstopmode -halt-on-error presentation.tex
 
