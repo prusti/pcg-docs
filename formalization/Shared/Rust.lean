@@ -1,5 +1,7 @@
 import Shared.RustSyntax
 import Shared.EnumDef
+import Shared.StructDef
+import Shared.Registry
 
 /-- Capitalise the first character of a string. -/
 def capitalise (s : String) : String :=
@@ -201,11 +203,19 @@ end RustItem
 
 namespace RustModule
 
-/-- Render a module to a complete Rust source file. -/
-def render (m : RustModule) : String :=
+/-- Render a module to a complete Rust source file.
+    `siblings` lists other module names in the same crate,
+    generating `use crate::<sibling>::*;` imports. -/
+def render (m : RustModule)
+    (siblings : List String := []) : String :=
   let header := s!"//! {m.doc}\n"
+  let uses := siblings.filter (· != m.name) |>.map
+    fun s => s!"#[allow(unused_imports)]\nuse crate::{s}::*;"
+  let usesStr := if uses.isEmpty then ""
+    else String.intercalate "\n" uses ++ "\n"
   let body := m.items.map RustItem.render
-  s!"{header}\n{String.intercalate "\n\n" body}\n"
+  s!"{header}\n{usesStr}\
+     {String.intercalate "\n\n" body}\n"
 
 /-- Render the `mod` declaration for `lib.rs`. -/
 def modDecl (m : RustModule) : String :=
@@ -251,8 +261,9 @@ def libRs (c : RustCrate) : String :=
 def files (c : RustCrate) : List (String × String) :=
   let cargoFile := ("Cargo.toml", c.cargoToml)
   let libFile := ("src/lib.rs", c.libRs)
+  let siblings := c.modules.map (·.name)
   let modFiles := c.modules.map fun m =>
-    (s!"src/{m.name}.rs", m.render)
+    (s!"src/{m.name}.rs", m.render siblings)
   cargoFile :: libFile :: modFiles
 
 end RustCrate
@@ -270,21 +281,125 @@ end RustWorkspace
 
 /-- Standard derives for auto-generated Rust types. -/
 def defaultRustDerives : List String :=
-  ["Debug", "Clone", "Copy", "PartialEq", "Eq", "Hash"]
+  ["Debug", "Clone", "PartialEq", "Eq", "Hash"]
+
+/-- Map a Lean type name to a Rust type name. -/
+partial def leanToRustType (s : String) : String :=
+  match s with
+  | "Nat" => "usize"
+  | "String" => "String"
+  | "Bool" => "bool"
+  | other =>
+    if other.startsWith "List " then
+      let inner := leanToRustType (other.drop 5).toString
+      s!"Vec<{inner}>"
+    else if other.startsWith "Option " then
+      let inner := leanToRustType (other.drop 7).toString
+      s!"Option<{inner}>"
+    else other
 
 namespace EnumDef
 
+/-- Wrap a Rust type in `Box<>` if it references the parent
+    enum name (directly or inside `Vec<>`). -/
+private def boxIfRecursive
+    (enumName : String) (ty : String) : String :=
+  let rustTy := leanToRustType ty
+  if rustTy == enumName then s!"Box<{rustTy}>"
+  else rustTy
+
 /-- Convert an `EnumDef` to a `RustItem.enum`.
-    Variant arguments become tuple fields. -/
+    Variant arguments become tuple fields. Self-referential
+    fields are wrapped in `Box<>`. -/
 def toRustItem (d : EnumDef) : RustItem :=
   .enum d.doc [.derive defaultRustDerives] .pub d.name
     (d.variants.map fun v =>
       { doc := v.doc
         name := capitalise v.name
-        fields := v.args.map (·.typeName) })
+        fields := v.args.map
+          fun a => boxIfRecursive d.name a.typeName })
 
 /-- Generate Rust source code for this enum. -/
 def toRust (d : EnumDef) : String :=
   d.toRustItem.render
 
 end EnumDef
+
+namespace StructDef
+
+/-- Convert a `StructDef` to a `RustItem.tupleStruct`. -/
+def toRustItem (s : StructDef) : RustItem :=
+  .tupleStruct s.doc [.derive defaultRustDerives] .pub s.name
+    (s.fields.map fun f => (.pub, leanToRustType f.typeName))
+
+end StructDef
+
+/-- Derive the Rust crate name from a Lean module prefix
+    (e.g. `MIR` → `"mir-types"`, `PCG` → `"pcg-types"`). -/
+def crateNameOf (prefix_ : String) : String :=
+  s!"{prefix_.toLower}-types"
+
+/-- Derive the Rust module name from a Lean module's last
+    component (e.g. `MIR.Region` → `"region"`). -/
+def rustModuleNameOf (mod : Lean.Name) : String :=
+  match mod with
+  | .str _ s => s.toLower
+  | _ => "unknown"
+
+/-- Group registered enums by Lean module prefix. -/
+def groupEnumsByCrate
+    (enums : List RegisteredEnum)
+    : List (String × List RegisteredEnum) :=
+  let prefixes := enums.map
+    fun e => (e.leanModule.getRoot.toString, e)
+  let groups := prefixes.foldl (init := [])
+    fun acc (p, e) =>
+      match acc.find? (·.1 == p) with
+      | some _ => acc.map fun (k, vs) =>
+          if k == p then (k, vs ++ [e]) else (k, vs)
+      | none => acc ++ [(p, [e])]
+  groups
+
+/-- Group registered structs by Lean module prefix. -/
+def groupStructsByCrate
+    (structs : List RegisteredStruct)
+    : List (String × List RegisteredStruct) :=
+  let prefixes := structs.map
+    fun s => (s.leanModule.getRoot.toString, s)
+  let groups := prefixes.foldl (init := [])
+    fun acc (p, s) =>
+      match acc.find? (·.1 == p) with
+      | some _ => acc.map fun (k, vs) =>
+          if k == p then (k, vs ++ [s]) else (k, vs)
+      | none => acc ++ [(p, [s])]
+  groups
+
+/-- Build Rust modules from registered enums and structs
+    sharing a crate prefix. -/
+def buildModules
+    (enums : List RegisteredEnum)
+    (structs : List RegisteredStruct)
+    (extraItems : List (String × RustItem))
+    : List RustModule :=
+  let allModNames :=
+    (enums.map fun e => rustModuleNameOf e.leanModule) ++
+    (structs.map fun s => rustModuleNameOf s.leanModule)
+  let uniqueModNames := allModNames.foldl (init := [])
+    fun acc m => if acc.contains m then acc else acc ++ [m]
+  uniqueModNames.map fun modName =>
+    let modEnums := enums.filter
+      (rustModuleNameOf ·.leanModule == modName)
+    let modStructs := structs.filter
+      (rustModuleNameOf ·.leanModule == modName)
+    let modExtras := extraItems.filter
+      (·.1 == modName) |>.map (·.2)
+    let items :=
+      modStructs.map (·.structDef.toRustItem) ++
+      modEnums.map (·.enumDef.toRustItem) ++
+      modExtras
+    let doc := match modEnums.head? with
+      | some e => e.enumDef.doc
+      | none => match modStructs.head? with
+        | some s => s.structDef.doc
+        | none => modName
+    { name := modName, doc := doc, items := items }

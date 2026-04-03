@@ -1,4 +1,4 @@
-import Shared.EnumDef
+import Shared.Registry
 import Lean
 
 open Lean in
@@ -19,7 +19,8 @@ syntax "| " ident enumVariantArg* str "(" term ")" "(" term ")"
     metadata.
 
     Generates:
-    1. A Lean `inductive` type with `DecidableEq` and `Repr`
+    1. A Lean `inductive` type with the specified derived instances
+       (defaults to `DecidableEq` and `Repr`)
     2. A `.enumDef : EnumDef` for export and document generation
 
     Variants may carry arguments:
@@ -32,9 +33,16 @@ syntax "| " ident enumVariantArg* str "(" term ")" "(" term ")"
       | static "The 'static lifetime."
           (.text "static") (.text "static")
     ```
-    produces `inductive Region` and `Region.enumDef`. -/
+
+    A custom `deriving` clause overrides the default:
+    ```
+    defEnum Ty (.italic (.text "τ")) "A MIR type."
+    where
+      | param (index : Nat) "..." (.text "param") (.text "param")
+      deriving Repr
+    ``` -/
 syntax "defEnum " ident "(" term ")" str " where"
-    enumVariant* : command
+    enumVariant* ("deriving " ident,+)? : command
 
 private def mkNullNode' : Lean.Syntax :=
   Lean.Syntax.node .none `null #[]
@@ -88,7 +96,7 @@ private def parseVariantArg
 open Lean Elab Command in
 elab_rules : command
   | `(defEnum $name:ident ($symDoc:term) $doc:str where
-       $vs:enumVariant*) => do
+       $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
             | $vn:ident $args:enumVariantArg*
@@ -103,9 +111,15 @@ elab_rules : command
         pure (mkExplicitBinder prefixed argType)
       pure (mkCtorSyntax vn binders)
     let inductiveCmd ← `(command|
-      inductive $name where $[$ctors]*
-        deriving DecidableEq, Repr)
+      inductive $name where $[$ctors]*)
     elabCommand inductiveCmd
+    let deriveNames : Array Ident := match derivs with
+      | some ds => ds
+      | none => #[mkIdent `DecidableEq, mkIdent `Repr]
+    for d in deriveNames do
+      let deriveCmd ← `(command|
+        deriving instance $d:ident for $name)
+      elabCommand deriveCmd
     let varDefs ←
       varData.mapM fun (vn, args, vd, vlDoc, dn) => do
         let ns : TSyntax `term := quote (toString vn.getId)
@@ -136,3 +150,8 @@ elab_rules : command
     let defCmd ← `(command|
       def $defName : EnumDef := $enumDefVal)
     elabCommand defCmd
+    let mod ← getMainModule
+    let modName : TSyntax `term := quote mod
+    let initCmd ← `(command|
+      initialize registerEnumDef $defName $modName)
+    elabCommand initCmd

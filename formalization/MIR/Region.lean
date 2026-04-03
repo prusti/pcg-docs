@@ -1,16 +1,16 @@
 import Shared.DefEnum
+import Shared.DefStruct
 
-/-- A region variable identifier, representing a unique region
-    inferred by the borrow checker. -/
-structure RegionVid where
-  id : Nat
-  deriving DecidableEq, Repr
+defStruct RegionVid (.text "vid")
+  "A region variable identifier."
+where
+  | id "The region variable id." : Nat
 
-/-- An early-bound region, identified by its index in the
-    function's generic parameter list. -/
-structure EarlyBoundRegion where
-  index : Nat
-  deriving DecidableEq, Repr
+defStruct EarlyBoundRegion (.text "eb")
+  "An early-bound region, identified by its index \
+   in the function's generic parameter list."
+where
+  | index "The index in the generic parameter list." : Nat
 
 defEnum Region (.italic (.text "r"))
   "A region (lifetime) in the MIR. \

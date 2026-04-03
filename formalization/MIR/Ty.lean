@@ -1,34 +1,48 @@
 import MIR.Region
 
-/-- A type constructor name, representing an ADT or primitive type. -/
-structure TyCtorName where
-  name : String
-  deriving DecidableEq, Repr
+defStruct TyCtorName (.text "T")
+  "A type constructor name, representing an ADT or \
+   primitive type."
+where
+  | name "The constructor name." : String
 
-/-- An associated type name, used in alias types like `τ::T⟨τ̄⟩`. -/
-structure AliasTyName where
-  name : String
-  deriving DecidableEq, Repr
+defStruct AliasTyName (.text "A")
+  "An associated type name, used in alias types \
+   like `τ::T⟨τ̄⟩`."
+where
+  | name "The associated type name." : String
 
-/-- Mutability of a reference: either shared (`&T`) or mutable (`&mut T`). -/
-inductive Mutability where
+defEnum Mutability (.italic (.text "m"))
+  "Mutability of a reference."
+where
   | shared
+    "Shared reference (`&T`)."
+    (.text "shared")
+    (.text "shared")
   | mutable
-  deriving DecidableEq, Repr
+    "Mutable reference (`&mut T`)."
+    (.text "mut")
+    (.text "mutable")
 
-/-- A type in the MIR.
-
-    Corresponds to `definitions/types.md`:
-    - `param i`: A type parameter
-    - `alias τ T τ̄`: An alias type `τ::T⟨τ̄⟩`
-    - `ctor T τ̄`: A type constructor application `T⟨τ̄⟩`
-    - `ref r m τ`: A reference type `&r m τ` (not in types.md directly,
-      but used pervasively in the formalization, e.g. in definitions.md) -/
-inductive Ty where
+defEnum Ty (.italic (.text "τ"))
+  "A type in the MIR. See definitions/types.md."
+where
   | param (index : Nat)
+    "A type parameter."
+    (.text "param")
+    (.text "param")
   | alias (base : Ty) (name : AliasTyName) (args : List Ty)
+    "An alias type `τ::T⟨τ̄⟩`."
+    (.text "alias")
+    (.text "alias")
   | ctor (name : TyCtorName) (args : List Ty)
+    "A type constructor application `T⟨τ̄⟩`."
+    (.text "ctor")
+    (.text "ctor")
   | ref (region : Region) (mutability : Mutability) (pointee : Ty)
+    "A reference type `&r m τ`."
+    (.text "ref")
+    (.text "ref")
   deriving Repr
 
 /-- A generalized type is either a type or a region.

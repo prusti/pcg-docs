@@ -1,66 +1,47 @@
 import PCG.Capability.Order
-import MIR.Region
+import MIR.Ty
 import Shared.Rust
 import Shared.OrderDef
 
+/-- Extra Rust items that cannot be auto-generated from
+    `defEnum` / `defStruct` (e.g. trait impls). Keyed by
+    `(cratePrefix, rustModuleName)`. -/
+def extraItems : List (String × String × RustItem) :=
+  [ ("PCG", "capability",
+     Capability.orderDef.toRustPartialOrd) ]
 
-/-- Build a tuple struct item from a doc string, name, and
-    list of `(visibility, type)` fields. -/
-private def mkTupleStruct
-    (doc : String) (name : String)
-    (fields : List (RustVis × String))
-    : RustItem :=
-  .tupleStruct doc [.derive defaultRustDerives]
-    .pub name fields
-
-/-- The MIR types crate. -/
-def mirCrate : RustCrate :=
-  let regVid := mkTupleStruct
-    "A region variable identifier." "RegionVid"
-    [(.pub, "usize")]
-  let earlyBound := mkTupleStruct
-    "An early-bound region index." "EarlyBoundRegion"
-    [(.pub, "usize")]
-  { name := "mir-types"
+/-- Build a `RustCrate` from the registry for a given Lean
+    module prefix (e.g. `"MIR"` or `"PCG"`). -/
+def buildCrate
+    (prefix_ : String)
+    (enums : List RegisteredEnum)
+    (structs : List RegisteredStruct)
+    (deps : List RustCrateDep := [])
+    (reexports : List String := [])
+    : RustCrate :=
+  let crateEnums := enums.filter
+    (·.leanModule.getRoot.toString == prefix_)
+  let crateStructs := structs.filter
+    (·.leanModule.getRoot.toString == prefix_)
+  let extras := extraItems.filterMap fun (p, m, item) =>
+    if p == prefix_ then some (m, item) else none
+  { name := crateNameOf prefix_
     version := "0.1.0"
-    description :=
-      "Auto-generated MIR types for the PCG formalization."
+    description := s!"Auto-generated {prefix_} types \
+      for the PCG formalization."
     edition := "2021"
+    deps := deps
+    reexports := reexports
+    modules := buildModules crateEnums crateStructs
+      extras }
 
-    modules :=
-      [ { name := "region"
-          doc := Region.enumDef.doc
-          items :=
-            [ regVid
-            , earlyBound
-            , Region.enumDef.toRustItem ] } ] }
-
-/-- The PCG types crate (depends on `mir-types`). -/
-def pcgCrate : RustCrate :=
-  { name := "pcg-types"
-    version := "0.1.0"
-    description :=
-      "Auto-generated PCG types for the PCG formalization."
-    edition := "2021"
-
-    deps := [{ name := "mir-types"
-               path := "../mir-types" }]
-    reexports := ["mir_types"]
-    modules :=
-      [ { name := "capability"
-          doc := Capability.enumDef.doc
-          items :=
-            [ Capability.enumDef.toRustItem
-            , Capability.orderDef.toRustPartialOrd
-            ] } ] }
-
-/-- The workspace containing both crates. -/
+/-- The workspace containing all generated crates. -/
 def workspace : RustWorkspace :=
   { members := ["mir-types", "pcg-types"] }
 
 /-- Write a file, creating parent directories as needed. -/
-private def writeFile (path : String) (contents : String)
-    : IO Unit := do
+private def writeFile
+    (path : String) (contents : String) : IO Unit := do
   let dir := System.FilePath.mk path |>.parent
     |>.getD (System.FilePath.mk ".")
   IO.FS.createDirAll dir
@@ -69,8 +50,14 @@ private def writeFile (path : String) (contents : String)
 
 def main (args : List String) : IO Unit := do
   let outDir := args.head? |>.getD "generated/rust"
+  let enums ← getRegisteredEnums
+  let structs ← getRegisteredStructs
+  let mirCrate := buildCrate "MIR" enums structs
+  let pcgCrate := buildCrate "PCG" enums structs
+    (deps := [{ name := "mir-types"
+                path := "../mir-types" }])
+    (reexports := ["mir_types"])
   writeFile s!"{outDir}/Cargo.toml" workspace.cargoToml
-  let crates := [mirCrate, pcgCrate]
-  for c in crates do
+  for c in [mirCrate, pcgCrate] do
     for (path, contents) in c.files do
       writeFile s!"{outDir}/{c.name}/{path}" contents
