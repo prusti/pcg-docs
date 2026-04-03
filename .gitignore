@@ -11,3 +11,6 @@ dist
 
 coverage
 preprocessors/*.js
+
+# Lean formalization
+formalization/.lake
