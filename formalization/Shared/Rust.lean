@@ -13,6 +13,21 @@ structure RustVariant where
   name : String
   deriving Repr
 
+/-- Result of comparing two enum variants. -/
+inductive RustOrdering where
+  | less
+  | greater
+  | equal
+  | incomparable
+  deriving DecidableEq, Repr
+
+/-- A comparison entry for `PartialOrd`: `(lhs, rhs, result)`. -/
+structure RustOrdEntry where
+  lhs : String
+  rhs : String
+  result : RustOrdering
+  deriving Repr
+
 /-- A top-level Rust item. -/
 inductive RustItem where
   /-- An enum definition. -/
@@ -21,6 +36,10 @@ inductive RustItem where
     (derives : List RustDerive)
     (name : String)
     (variants : List RustVariant)
+  /-- A `PartialOrd` impl for an enum. -/
+  | implPartialOrd
+    (typeName : String)
+    (entries : List RustOrdEntry)
   deriving Repr
 
 /-- A Rust module containing items. -/
@@ -47,6 +66,17 @@ structure RustCrate where
   modules : List RustModule
   deriving Repr
 
+namespace RustOrdering
+
+/-- Render as a Rust expression. -/
+def toRust : RustOrdering → String
+  | .less => "Some(std::cmp::Ordering::Less)"
+  | .greater => "Some(std::cmp::Ordering::Greater)"
+  | .equal => "Some(std::cmp::Ordering::Equal)"
+  | .incomparable => "None"
+
+end RustOrdering
+
 namespace RustItem
 
 /-- Render a `RustItem` to Rust source code. -/
@@ -58,11 +88,31 @@ def render : RustItem → String
         s!"#[derive({String.intercalate ", " names})]\n"
     let variantLines := variants.map fun v =>
       s!"    /// {v.doc}\n    {v.name},"
-    s!"/// {doc}\n\
-       {deriveLine}\
-       pub enum {name} \{\n\
-       {String.intercalate "\n" variantLines}\n\
-       }"
+    let lines := [
+      s!"/// {doc}",
+      s!"{deriveLine}pub enum {name} " ++ "{",
+      String.intercalate "\n" variantLines,
+      "}"
+    ]
+    String.intercalate "\n" lines
+  | .implPartialOrd typeName entries =>
+    let arms := entries.filter (·.result != .equal)
+      |>.map fun e =>
+        s!"            (Self::{e.lhs}, Self::{e.rhs}) => {e.result.toRust},"
+    let lines := [
+      s!"impl PartialOrd for {typeName} " ++ "{",
+      "    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {",
+      "        if self == other {",
+      "            return Some(std::cmp::Ordering::Equal);",
+      "        }",
+      "        match (self, other) {",
+      String.intercalate "\n" arms,
+      "            _ => None,",
+      "        }",
+      "    }",
+      "}"
+    ]
+    String.intercalate "\n" lines
 
 end RustItem
 
@@ -84,11 +134,14 @@ namespace RustCrate
 
 /-- Render the `Cargo.toml` for this crate. -/
 def cargoToml (c : RustCrate) : String :=
-  s!"[package]\n\
-     name = \"{c.name}\"\n\
-     version = \"{c.version}\"\n\
-     edition = \"{c.edition}\"\n\
-     description = \"{c.description}\"\n"
+  let lines := [
+    "[package]",
+    s!"name = \"{c.name}\"",
+    s!"version = \"{c.version}\"",
+    s!"edition = \"{c.edition}\"",
+    s!"description = \"{c.description}\""
+  ]
+  String.intercalate "\n" lines ++ "\n"
 
 /-- Render `lib.rs` with module declarations. -/
 def libRs (c : RustCrate) : String :=

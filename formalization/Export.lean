@@ -1,5 +1,6 @@
-import PCG.Capability
+import PCG.Capability.Order
 import Shared.Rust
+import Shared.OrderDef
 
 /-- The generated Rust crate containing all PCG definitions. -/
 def pcgCrate : RustCrate :=
@@ -10,7 +11,9 @@ def pcgCrate : RustCrate :=
     modules :=
       [ { name := "capability"
           doc := Capability.enumDef.doc
-          items := [Capability.enumDef.toRustItem] } ] }
+          items := [ Capability.enumDef.toRustItem
+                   , OrderDef.toRustPartialOrd Capability.orderDef
+                   ] } ] }
 
 def main (args : List String) : IO Unit := do
   let outDir := args.head? |>.getD "generated/rust"

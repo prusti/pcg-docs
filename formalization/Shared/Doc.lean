@@ -17,6 +17,9 @@ inductive Doc where
   | line
   /-- A bulleted list. -/
   | itemize (items : List Doc)
+  /-- Backend-specific raw content. Each backend picks its own
+      string; backends without a match render the fallback. -/
+  | raw (latex : String) (typst : String) (html : String)
   deriving Repr
 
 namespace Doc
@@ -28,7 +31,7 @@ def intercalate (sep : Doc) : List Doc → Doc
   | d :: ds => seq [d, sep, intercalate sep ds]
 
 /-- Translate Unicode symbols to LaTeX commands. -/
-private def escapeLatex : String → String :=
+def escapeLatex : String → String :=
   let replacements :=
     [ ("∅", "\\emptyset")
     , ("⊥", "\\bot")
@@ -61,6 +64,7 @@ partial def toLaTeX : Doc → String
     s!"\\begin\{itemize}\n\
        {String.intercalate "\n" body}\n\
        \\end\{itemize}"
+  | raw latex _ _ => latex
 
 /-- Render a document to Typst. -/
 partial def toTypst : Doc → String
@@ -74,6 +78,7 @@ partial def toTypst : Doc → String
     let body := items.map fun d =>
       s!"- {d.toTypst}"
     String.intercalate "\n" body
+  | raw _ typst _ => typst
 
 /-- Render a document to HTML. -/
 partial def toHTML : Doc → String
@@ -87,5 +92,6 @@ partial def toHTML : Doc → String
     let body := items.map fun d =>
       s!"<li>{d.toHTML}</li>"
     s!"<ul>\n{String.intercalate "\n" body}\n</ul>"
+  | raw _ _ html => html
 
 end Doc
