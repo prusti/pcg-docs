@@ -32,6 +32,8 @@ inductive RustPat where
   | path (p : RustPath)
   /-- Reference pattern: `&x`. -/
   | ref (inner : RustPat)
+  /-- Or pattern: `A | B | C`. -/
+  | or (pats : List RustPat)
   deriving Repr
 
 mutual
@@ -103,12 +105,14 @@ structure RustFn where
   retTy : Option RustTy
   body : RustExpr
 
-/-- An enum variant (unit variants only). -/
+/-- An enum variant, optionally with tuple fields. -/
 structure RustVariant where
   /-- Doc comment. -/
   doc : String
   /-- Variant name (PascalCase). -/
   name : String
+  /-- Tuple field types (empty for unit variants). -/
+  fields : List String
   deriving Repr
 
 /-- An outer attribute. -/
@@ -125,6 +129,10 @@ inductive RustItem where
   | enum (doc : String) (attrs : List RustAttr)
       (vis : RustVis) (name : String)
       (variants : List RustVariant)
+  /-- A tuple struct: `pub struct Foo(pub T1, pub T2);`. -/
+  | tupleStruct (doc : String) (attrs : List RustAttr)
+      (vis : RustVis) (name : String)
+      (fields : List (RustVis × String))
   /-- An impl block (optionally for a trait). -/
   | impl_ (trait_ : Option RustPath) (ty : RustPath)
       (methods : List RustFn)
@@ -140,6 +148,14 @@ structure RustModule where
   /-- Items in this module. -/
   items : List RustItem
 
+/-- A dependency of a Rust crate. -/
+structure RustCrateDep where
+  /-- Dependency crate name. -/
+  name : String
+  /-- Relative path to the dependency crate. -/
+  path : String
+  deriving Repr
+
 /-- A Rust crate with Cargo metadata and modules. -/
 structure RustCrate where
   /-- Crate name (kebab-case). -/
@@ -152,6 +168,18 @@ structure RustCrate where
   edition : String
   /-- The modules in the crate. -/
   modules : List RustModule
+  /-- Path dependencies. -/
+  deps : List RustCrateDep := []
+  /-- Crate-level attributes (e.g. `deny(clippy::all)`). -/
+  crateAttrs : List String := []
+  /-- Dependency crate names to re-export via `pub use`. -/
+  reexports : List String := []
+
+/-- A Cargo workspace containing multiple crates. -/
+structure RustWorkspace where
+  /-- Crate directory names (relative to workspace root). -/
+  members : List String
+  deriving Repr
 
 namespace RustPath
 

@@ -53,6 +53,8 @@ def render : RustPat → String
     s!"({String.intercalate ", " inner})"
   | .path p => p.render
   | .ref inner => s!"&{inner.render}"
+  | .or pats =>
+    String.intercalate " | " (pats.map RustPat.render)
 
 end RustPat
 
@@ -128,7 +130,11 @@ mutual
 
   /-- Render a statement. -/
   partial def renderStmt : (d : Nat) → RustStmt → String
-    | d, .expr e => s!"{renderExpr d e};"
+    | d, .expr e =>
+      let semi := match e with
+        | .«if» .. | .«match» .. => ""
+        | _ => ";"
+      s!"{renderExpr d e}{semi}"
     | d, .«let» pat ty val =>
       let tyStr := match ty with
         | some t => s!": {t.render}"
@@ -156,17 +162,30 @@ end RustFn
 
 namespace RustItem
 
+/-- Render an enum variant line. -/
+private def renderVariant (v : RustVariant) : String :=
+  let fields := if v.fields.isEmpty then ""
+    else s!"({String.intercalate ", " v.fields})"
+  s!"{ind 1}/// {v.doc}\n{ind 1}{v.name}{fields},"
+
 /-- Render a top-level Rust item. -/
 def render : RustItem → String
   | .enum doc attrs vis name variants =>
     let attrLines := attrs.map (·.render ++ "\n")
-    let variantLines := variants.map fun v =>
-      s!"{ind 1}/// {v.doc}\n{ind 1}{v.name},"
+    let variantLines := variants.map renderVariant
     s!"/// {doc}\n\
        {String.join attrLines}\
        {vis.render}enum {name} \{\n\
        {String.intercalate "\n" variantLines}\n\
        }"
+  | .tupleStruct doc attrs vis name fields =>
+    let attrLines := attrs.map (·.render ++ "\n")
+    let fieldStrs := fields.map fun (v, ty) =>
+      s!"{v.render}{ty}"
+    let body := String.intercalate ", " fieldStrs
+    s!"/// {doc}\n\
+       {String.join attrLines}\
+       {vis.render}struct {name}({body});"
   | .impl_ trait_ ty methods =>
     let traitStr := match trait_ with
       | some t => s!"{t.render} for "
@@ -198,19 +217,35 @@ namespace RustCrate
 
 /-- Render the `Cargo.toml` for this crate. -/
 def cargoToml (c : RustCrate) : String :=
-  let lines := [
+  let pkg := [
     "[package]",
     s!"name = \"{c.name}\"",
     s!"version = \"{c.version}\"",
     s!"edition = \"{c.edition}\"",
     s!"description = \"{c.description}\""
   ]
-  String.intercalate "\n" lines ++ "\n"
+  let depSection := if c.deps.isEmpty then []
+    else
+      let lb := "{"
+      let rb := "}"
+      let depLines := c.deps.map fun d =>
+        s!"{d.name} = {lb} path = \"{d.path}\" {rb}"
+      ["", "[dependencies]"] ++ depLines
+  String.intercalate "\n" (pkg ++ depSection) ++ "\n"
 
-/-- Render `lib.rs` with module declarations. -/
+/-- Render `lib.rs` with crate attributes, module declarations,
+    and re-exports. -/
 def libRs (c : RustCrate) : String :=
+  let attrs := c.crateAttrs.map fun a => s!"#![{a}]"
   let mods := c.modules.map (·.modDecl)
-  String.intercalate "\n" mods ++ "\n"
+  let reexports := c.reexports.map fun r =>
+    s!"pub use {r};"
+  let sections := [attrs, mods, reexports].filter
+    (!·.isEmpty)
+  String.intercalate "\n\n"
+    (sections.map fun s =>
+      String.intercalate "\n" s)
+    ++ "\n"
 
 /-- All files in the crate as `(relative_path, contents)` pairs. -/
 def files (c : RustCrate) : List (String × String) :=
@@ -222,17 +257,31 @@ def files (c : RustCrate) : List (String × String) :=
 
 end RustCrate
 
-namespace EnumDef
+namespace RustWorkspace
 
-/-- Standard derives for a simple Rust enum. -/
-private def defaultDerives : List String :=
+/-- Render the workspace `Cargo.toml`. -/
+def cargoToml (w : RustWorkspace) : String :=
+  let members := w.members.map fun m => s!"    \"{m}\","
+  s!"[workspace]\nresolver = \"2\"\n\
+     members = [\n\
+     {String.intercalate "\n" members}\n]\n"
+
+end RustWorkspace
+
+/-- Standard derives for auto-generated Rust types. -/
+def defaultRustDerives : List String :=
   ["Debug", "Clone", "Copy", "PartialEq", "Eq", "Hash"]
 
-/-- Convert an `EnumDef` to a `RustItem.enum`. -/
+namespace EnumDef
+
+/-- Convert an `EnumDef` to a `RustItem.enum`.
+    Variant arguments become tuple fields. -/
 def toRustItem (d : EnumDef) : RustItem :=
-  .enum d.doc [.derive defaultDerives] .pub d.name
+  .enum d.doc [.derive defaultRustDerives] .pub d.name
     (d.variants.map fun v =>
-      { doc := v.doc, name := capitalise v.name })
+      { doc := v.doc
+        name := capitalise v.name
+        fields := v.args.map (·.typeName) })
 
 /-- Generate Rust source code for this enum. -/
 def toRust (d : EnumDef) : String :=

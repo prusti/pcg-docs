@@ -88,10 +88,20 @@ private def ordPath (variant : String) : RustPath :=
 private def ordExpr (variant : String) : RustExpr :=
   .call (.path (ordPath variant)) []
 
-/-- Build a match arm comparing two enum variants. -/
-private def cmpArm
-    (a b : String) (result : RustExpr) : RustMatchArm :=
-  .mk (.tuple [.selfVariant a, .selfVariant b]) result
+/-- Classify a pair `(a, b)` as `Less`, `Greater`, or
+    incomparable based on the transitive closure. -/
+private inductive CmpResult where
+  | less | greater | incomparable
+
+/-- Build a merged match arm from a list of `(a, b)` pairs
+    that share the same ordering result. -/
+private def mergedArm
+    (pairs : List (String × String))
+    (result : RustExpr)
+    : RustMatchArm :=
+  let pats := pairs.map fun (a, b) =>
+    RustPat.tuple [.selfVariant a, .selfVariant b]
+  .mk (.or pats) result
 
 /-- Generate a `PartialOrd` impl from this order. -/
 def toRustPartialOrd (o : OrderDef) : RustItem :=
@@ -99,32 +109,51 @@ def toRustPartialOrd (o : OrderDef) : RustItem :=
   let selfRef := RustTy.refTo selfTy
   let retTy := RustTy.generic ⟨["Option"]⟩
     [.path (⟨["std", "cmp", "Ordering"]⟩)]
-  let equalExpr := RustExpr.some_ (.path (ordPath "Equal"))
+  let equalExpr :=
+    RustExpr.some_ (.path (ordPath "Equal"))
   let eqCheck : RustExpr :=
     .«if»
       (.binOp .eq (.path (RustPath.simple "self"))
         (.path (RustPath.simple "other")))
-      (.block [.expr (.«return» (some equalExpr))] none)
+      (.block [.expr (.«return» (some equalExpr))]
+        none)
       none
-  let arms := o.elements.flatMap fun a =>
+  let classify (a b : String) : CmpResult :=
+    let aLeB := o.closure.any
+      fun (x, y) => x == a && y == b
+    let bLeA := o.closure.any
+      fun (x, y) => x == b && y == a
+    if aLeB then .less
+    else if bLeA then .greater
+    else .incomparable
+  let pairs := o.elements.flatMap fun a =>
     o.elements.filterMap fun b =>
       if a == b then Option.none
-      else
-        let ca := capitalise a
-        let cb := capitalise b
-        let aLeB := o.closure.any fun (x, y) => x == a && y == b
-        let bLeA := o.closure.any fun (x, y) => x == b && y == a
-        if aLeB then
-          some (cmpArm ca cb (RustExpr.some_ (.path (ordPath "Less"))))
-        else if bLeA then
-          some (cmpArm ca cb (RustExpr.some_ (.path (ordPath "Greater"))))
-        else
-          some (cmpArm ca cb RustExpr.none_)
+      else some (a, b, classify a b)
+  let lessPairs := pairs.filterMap fun (a, b, r) =>
+    match r with
+    | .less => some (capitalise a, capitalise b)
+    | _ => none
+  let greaterPairs := pairs.filterMap fun (a, b, r) =>
+    match r with
+    | .greater => some (capitalise a, capitalise b)
+    | _ => none
+  let lessExpr :=
+    RustExpr.some_ (.path (ordPath "Less"))
+  let greaterExpr :=
+    RustExpr.some_ (.path (ordPath "Greater"))
+  let arms :=
+    (if lessPairs.isEmpty then []
+     else [mergedArm lessPairs lessExpr])
+    ++
+    (if greaterPairs.isEmpty then []
+     else [mergedArm greaterPairs greaterExpr])
   let wildArm : RustMatchArm :=
     .mk (.tuple [.wild, .wild]) RustExpr.none_
   let matchExpr : RustExpr :=
     .«match»
-      (.tuple [.path (RustPath.simple "self"), .path (RustPath.simple "other")])
+      (.tuple [.path (RustPath.simple "self"),
+               .path (RustPath.simple "other")])
       (arms ++ [wildArm])
   let body : RustExpr :=
     .block [.expr eqCheck] (some matchExpr)
@@ -137,6 +166,7 @@ def toRustPartialOrd (o : OrderDef) : RustItem :=
       retTy := some retTy
       body := body }
   .impl_
-    (some ⟨["PartialOrd"]⟩) ⟨[o.enumName]⟩ [partialCmpFn]
+    (some ⟨["PartialOrd"]⟩) ⟨[o.enumName]⟩
+    [partialCmpFn]
 
 end OrderDef
