@@ -9,7 +9,17 @@ def main (args : List String) : IO Unit := do
   let structs ← getRegisteredStructs
   let orders ← getRegisteredOrders
   let fns ← getRegisteredFns
-  let doc := buildPresentation enums structs orders fns
-  let content := doc.toStandaloneLatex latexPackages
+  let body := buildPresentationLatex
+    enums structs orders fns
+  let pkgLines := latexPackages.map fun p =>
+    s!"\\usepackage\{{p}}"
+  let lb := "{"
+  let rb := "}"
+  let content := s!"\\documentclass{lb}article{rb}\n\
+    {"\n".intercalate pkgLines}\n\
+    {latexPreamble}\n\
+    \\begin{lb}document{rb}\n\n\
+    {body}\n\n\
+    \\end{lb}document{rb}\n"
   IO.FS.writeFile ⟨outPath⟩ content
   IO.println s!"  wrote {outPath}"

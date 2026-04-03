@@ -3,25 +3,15 @@ import MIR.Ty
 import Shared.OrderDef
 import Shared.Registry
 
-/-- Render an enum definition section: its long (descriptive) and
-    short (formal grammar) forms. -/
-private def enumSection (e : EnumDef) : Doc :=
-  .seq [e.longDef, .line, .line, e.shortDef]
-
-/-- Join document fragments with double line breaks. -/
-private def sections (ds : List Doc) : Doc :=
-  Doc.intercalate (.seq [.line, .line]) ds
-
 /-- Build the presentation sections for a single crate prefix
-    (e.g. `"PCG"` or `"MIR"`), including all registered enums,
-    structs, and orderings. -/
-private def crateSection
+    as raw LaTeX strings. -/
+private def crateLatex
     (prefix_ : String)
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
-    : List Doc :=
+    : String :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateStructs := structs.filter
@@ -30,45 +20,54 @@ private def crateSection
     (·.leanModule.getRoot.toString == prefix_)
   let crateFns := fns.filter
     (·.leanModule.getRoot.toString == prefix_)
-  let header := [Doc.bold (.text prefix_)]
-  let structDocs := crateStructs.map fun s =>
-    .seq [ .bold (.text s.structDef.name)
-         , .line, .line
-         , .text s.structDef.doc ]
-  let enumDocs := crateEnums.flatMap fun e =>
-    let base :=
-      [ .bold (.text e.enumDef.name)
-      , enumSection e.enumDef ]
-    let orderDocs := crateOrders.filter
-      (·.enumName == e.enumDef.name)
-      |>.map fun o =>
-        .seq [ .bold (.text "Ordering")
-             , .line, .line
-             , o.orderDef.hasseDiagram e.enumDef ]
-    base ++ orderDocs
-  let fnDocs := crateFns.map fun f =>
-    .seq [ .bold (.text f.fnDef.name)
-         , .line, .line
-         , f.fnDef.algorithmDoc ]
-  header ++ structDocs ++ enumDocs ++ fnDocs
+  let sectionHeader := s!"\\section{lb}{prefix_}{rb}\n"
+  let structParts := crateStructs.map fun s =>
+    s!"\\subsection{lb}{s.structDef.name}{rb}\n\
+       {s.structDef.formalDefLatex}\n"
+  let enumParts := crateEnums.flatMap fun e =>
+    let def_ :=
+      s!"\\subsection{lb}{e.enumDef.name}{rb}\n\
+         {e.enumDef.formalDefLatex}\n"
+    let orderParts := crateOrders.filter
+      (·.enumName == e.enumDef.name) |>.map fun o =>
+        let lb := "{"
+        let rb := "}"
+        s!"\\subsubsection{lb}Ordering{rb}\n\
+           {o.orderDef.hasseDiagram e.enumDef
+             |>.toLaTeX}\n"
+    def_ :: orderParts
+  let fnParts := crateFns.map fun f =>
+    s!"\\subsection{lb}{f.fnDef.name}{rb}\n\
+       {f.fnDef.formalDefLatex}\n"
+  sectionHeader ++
+    "\n".intercalate
+      (structParts ++ enumParts ++ fnParts)
+  where lb := "{" ; rb := "}"
 
-/-- Build the full presentation from all registered definitions.
-    Grouped by crate prefix (PCG, MIR). -/
-def buildPresentation
+/-- Build the full presentation LaTeX body from all
+    registered definitions. -/
+def buildPresentationLatex
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
-    : Doc :=
+    : String :=
   let prefixes := (
     enums.map (·.leanModule.getRoot.toString) ++
     structs.map (·.leanModule.getRoot.toString) ++
     fns.map (·.leanModule.getRoot.toString)
   ).foldl (init := [])
-    fun acc p => if acc.contains p then acc else acc ++ [p]
-  let allSections := prefixes.flatMap
-    fun p => crateSection p enums structs orders fns
-  sections allSections
+    fun acc p =>
+      if acc.contains p then acc else acc ++ [p]
+  let body := prefixes.map
+    fun p => crateLatex p enums structs orders fns
+  "\n".intercalate body
 
 /-- LaTeX packages needed by the presentation. -/
-def latexPackages : List String := ["tikz", "amsmath"]
+def latexPackages : List String :=
+  ["tikz", "amsmath", "amsthm",
+   "algorithm", "algpseudocode"]
+
+/-- Extra LaTeX preamble (theorem definitions, etc). -/
+def latexPreamble : String :=
+  "\\newtheorem{definition}{Definition}\n"

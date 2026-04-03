@@ -92,4 +92,34 @@ def longDef (d : EnumDef) : Doc :=
     Doc.seq [v.displayWithArgs, .text s!": {v.doc}"]
   .seq [header, .line, .itemize items]
 
+/-- Render the enum as a LaTeX `definition` environment with
+    an aligned `array`:
+    ```
+    \begin{definition}[Region]
+    A region ...
+    \[ r ::= \begin{array}[t]{rll}
+         & \text{vid}(v) & \text{(A region variable ...)} \\
+       \mid & \texttt{'static} & \text{(The ...)} \\
+    \end{array} \]
+    \end{definition}
+    ``` -/
+def formalDefLatex (d : EnumDef) : String :=
+  let lb := "{"
+  let rb := "}"
+  let sym := d.symbolDoc.toLaTeX
+  let rows := d.variants.zipIdx.map fun (v, i) =>
+    let sep := if i == 0 then "  " else "\\mid"
+    let variant := v.symbolWithArgs.toLaTeX
+    let desc := Doc.escapeLatex v.doc
+    s!"  {sep} & {variant} & \
+       \\text{lb}({desc}){rb} \\\\"
+  let arrayBody := "\n".intercalate rows
+  s!"\\begin{lb}definition{rb}[{d.name}]\n\
+     {Doc.escapeLatex d.doc}\n\
+     \\[ {sym} ::= \\begin{lb}array{rb}[t]\
+     {lb}rll{rb}\n\
+     {arrayBody}\n\
+     \\end{lb}array{rb} \\]\n\
+     \\end{lb}definition{rb}"
+
 end EnumDef

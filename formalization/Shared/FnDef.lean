@@ -234,4 +234,29 @@ def algorithmDoc (f : FnDef) : Doc :=
            "" "</ul>" ]
   where lb := "{" ; rb := "}"
 
+/-- Render the function as a LaTeX `algorithm` environment
+    with algorithmic pseudocode. -/
+def formalDefLatex (f : FnDef) : String :=
+  let lb := "{"
+  let rb := "}"
+  let paramSig := ", ".intercalate
+    (f.params.map fun p =>
+      s!"{Doc.escapeLatex p.name} : \
+         \\text{lb}{Doc.escapeLatex p.typeName}{rb}")
+  let retTy := Doc.escapeLatex f.returnType
+  let cases := f.body.map fun arm =>
+    let patStr := ", ".intercalate
+      (arm.pat.map BodyPat.toLatex)
+    let rhsStr := arm.rhs.toLatex f.name
+    s!"    \\State \\textbf{lb}case{rb} \
+       ${patStr}$: \\Return ${rhsStr}$"
+  s!"\\begin{lb}algorithm{rb}\n\
+     \\caption{lb}{Doc.escapeLatex f.name}\
+     ({paramSig}) \
+     $\\to$ \\text{lb}{retTy}{rb}{rb}\n\
+     \\begin{lb}algorithmic{rb}[1]\n\
+     {"\n".intercalate cases}\n\
+     \\end{lb}algorithmic{rb}\n\
+     \\end{lb}algorithm{rb}"
+
 end FnDef
