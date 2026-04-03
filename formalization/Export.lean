@@ -1,24 +1,23 @@
 import PCG.Capability
 import Shared.Rust
 
-def main : IO Unit := do
-  let d := Capability.enumDef
+/-- The generated Rust crate containing all PCG definitions. -/
+def pcgCrate : RustCrate :=
+  { name := "pcg-types"
+    version := "0.1.0"
+    description := "Auto-generated types for the PCG formalization."
+    edition := "2021"
+    modules :=
+      [ { name := "capability"
+          doc := Capability.enumDef.doc
+          items := [Capability.enumDef.toRustItem] } ] }
 
-  IO.println "=== Short definition (LaTeX) ==="
-  IO.println d.shortDef.toLaTeX
-  IO.println ""
-
-  IO.println "=== Short definition (Typst) ==="
-  IO.println d.shortDef.toTypst
-  IO.println ""
-
-  IO.println "=== Short definition (HTML) ==="
-  IO.println d.shortDef.toHTML
-  IO.println ""
-
-  IO.println "=== Long definition (LaTeX) ==="
-  IO.println d.longDef.toLaTeX
-  IO.println ""
-
-  IO.println "=== Rust ==="
-  IO.println d.toRust
+def main (args : List String) : IO Unit := do
+  let outDir := args.head? |>.getD "generated/rust"
+  for (path, contents) in pcgCrate.files do
+    let fullPath := s!"{outDir}/{path}"
+    let dir := System.FilePath.mk fullPath |>.parent
+      |>.getD (System.FilePath.mk ".")
+    IO.FS.createDirAll dir
+    IO.FS.writeFile ⟨fullPath⟩ contents
+    IO.println s!"  wrote {fullPath}"

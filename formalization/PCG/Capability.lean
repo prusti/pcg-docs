@@ -4,6 +4,9 @@ defEnum Capability "c"
   "A capability describes the actions permitted on a \
    place at a particular program point."
 where
+  | none
+    "No capability; the place cannot be accessed."
+    "∅"
   | exclusive
     "Can be read, written, or mutably borrowed."
     "E"

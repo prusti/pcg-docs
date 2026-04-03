@@ -27,9 +27,29 @@ def intercalate (sep : Doc) : List Doc → Doc
   | [d] => d
   | d :: ds => seq [d, sep, intercalate sep ds]
 
+/-- Translate Unicode symbols to LaTeX commands. -/
+private def escapeLatex : String → String :=
+  let replacements :=
+    [ ("∅", "\\emptyset")
+    , ("⊥", "\\bot")
+    , ("⊤", "\\top")
+    , ("→", "\\to")
+    , ("←", "\\leftarrow")
+    , ("≤", "\\leq")
+    , ("≥", "\\geq")
+    , ("∈", "\\in")
+    , ("∀", "\\forall")
+    , ("∃", "\\exists")
+    , ("¬", "\\neg")
+    , ("∧", "\\land")
+    , ("∨", "\\lor")
+    ]
+  fun s => replacements.foldl (fun acc (from_, to) =>
+    acc.replace from_ to) s
+
 /-- Render a document to LaTeX. -/
 partial def toLaTeX : Doc → String
-  | text s => s
+  | text s => escapeLatex s
   | bold d => s!"\\textbf\{{d.toLaTeX}}"
   | italic d => s!"\\textit\{{d.toLaTeX}}"
   | code s => s!"\\texttt\{{s}}"

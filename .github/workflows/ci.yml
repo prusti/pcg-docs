@@ -74,3 +74,14 @@ jobs:
       working-directory: formalization
       run: lake build
 
+    - name: Export Rust crate
+      working-directory: formalization
+      run: lake exe pcg_export
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Check generated Rust crate compiles
+      working-directory: formalization/generated/rust
+      run: cargo check
+

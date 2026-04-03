@@ -14,3 +14,4 @@ preprocessors/*.js
 
 # Lean formalization
 formalization/.lake
+formalization/generated
