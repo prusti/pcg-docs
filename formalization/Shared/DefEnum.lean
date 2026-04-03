@@ -3,11 +3,17 @@ import Lean
 
 open Lean in
 
+declare_syntax_cat enumVariantArg
+
+/-- An argument in a `defEnum` variant: `(name : Type)`. -/
+syntax "(" ident ":" term ")" : enumVariantArg
+
 declare_syntax_cat enumVariant
 
 /-- A variant in a `defEnum` declaration:
-    `| name "doc" (symbolDoc) (displayName)`. -/
-syntax "| " ident str "(" term ")" "(" term ")" : enumVariant
+    `| name (arg : Ty)* "doc" (symbolDoc) (displayName)`. -/
+syntax "| " ident enumVariantArg* str "(" term ")" "(" term ")"
+    : enumVariant
 
 /-- Define an enum type with cross-language export and presentation
     metadata.
@@ -16,19 +22,17 @@ syntax "| " ident str "(" term ")" "(" term ")" : enumVariant
     1. A Lean `inductive` type with `DecidableEq` and `Repr`
     2. A `.enumDef : EnumDef` for export and document generation
 
-    Example:
+    Variants may carry arguments:
     ```
-    defEnum Capability (.italic (.text "c"))
-      "A capability describes..."
+    defEnum Region (.italic (.text "r"))
+      "A region (lifetime) in the MIR."
     where
-      | exclusive "Can be read, written, or mutably borrowed."
-          (.bold (.text "E"))
-          (.seq [.bold (.text "E"), .text "xclusive"])
-      | read "Can be read from."
-          (.bold (.text "R"))
-          (.seq [.bold (.text "R"), .text "ead"])
+      | vid (v : RegionVid) "A region variable identifier."
+          (.text "vid") (.text "vid")
+      | static "The 'static lifetime."
+          (.text "static") (.text "static")
     ```
-    produces `inductive Capability` and `Capability.enumDef`. -/
+    produces `inductive Region` and `Region.enumDef`. -/
 syntax "defEnum " ident "(" term ")" str " where"
     enumVariant* : command
 
@@ -40,21 +44,46 @@ private def mkEmptyDeclModifiers : Lean.Syntax :=
     #[mkNullNode', mkNullNode', mkNullNode',
       mkNullNode', mkNullNode', mkNullNode', mkNullNode']
 
-private def mkEmptyOptDeclSig : Lean.Syntax :=
+/-- Build an `explicitBinder` syntax node: `(name : type)`. -/
+private def mkExplicitBinder
+    (name : Lean.Ident) (type : Lean.Syntax) : Lean.Syntax :=
+  Lean.Syntax.node .none ``Lean.Parser.Term.explicitBinder
+    #[Lean.mkAtom "(",
+      Lean.Syntax.node .none `null #[name],
+      Lean.Syntax.node .none `null #[Lean.mkAtom ":", type],
+      Lean.Syntax.node .none `null #[],
+      Lean.mkAtom ")"]
+
+/-- Build an `optDeclSig` syntax node from an array of binders. -/
+private def mkOptDeclSig
+    (binders : Array Lean.Syntax) : Lean.Syntax :=
   Lean.Syntax.node .none ``Lean.Parser.Command.optDeclSig
-    #[mkNullNode', mkNullNode']
+    #[Lean.Syntax.node .none `null binders,
+      Lean.Syntax.node .none `null #[]]
 
 /-- Build a `Lean.Parser.Command.ctor` syntax node for a
-    nullary constructor with the given name. -/
+    constructor with the given name and binders. -/
 private def mkCtorSyntax
     (vn : Lean.Ident)
+    (binders : Array Lean.Syntax)
     : Lean.TSyntax ``Lean.Parser.Command.ctor :=
   ⟨Lean.Syntax.node .none ``Lean.Parser.Command.ctor
     #[mkNullNode',
       Lean.mkAtom "|",
       mkEmptyDeclModifiers,
       vn,
-      mkEmptyOptDeclSig]⟩
+      mkOptDeclSig binders]⟩
+
+/-- Extract the argument name and type term from an
+    `enumVariantArg` syntax node. -/
+private def parseVariantArg
+    (stx : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM
+        (Lean.Ident × Lean.Syntax) := do
+  match stx with
+  | `(enumVariantArg| ($n:ident : $t:term)) =>
+    pure (n, t)
+  | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in
 elab_rules : command
@@ -62,22 +91,40 @@ elab_rules : command
        $vs:enumVariant*) => do
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
-            | $vn:ident $vd:str ($vlDoc:term)
-              ($dn:term)) =>
-        pure (vn, vd, vlDoc, dn)
+            | $vn:ident $args:enumVariantArg*
+              $vd:str ($vlDoc:term) ($dn:term)) =>
+        pure (vn, args, vd, vlDoc, dn)
       | _ => throwError "invalid enum variant"
-    let varNames := varData.map fun (vn, _, _, _) => vn
-    let ctors := varNames.map mkCtorSyntax
+    let ctors ← varData.mapM fun (vn, args, _, _, _) => do
+      let binders ← args.mapM fun a => do
+        let (argName, argType) ← parseVariantArg a
+        let prefixed := mkIdent
+          (Name.mkSimple s!"_{argName.getId}")
+        pure (mkExplicitBinder prefixed argType)
+      pure (mkCtorSyntax vn binders)
     let inductiveCmd ← `(command|
       inductive $name where $[$ctors]*
         deriving DecidableEq, Repr)
     elabCommand inductiveCmd
     let varDefs ←
-      varData.mapM fun (vn, vd, vlDoc, dn) => do
+      varData.mapM fun (vn, args, vd, vlDoc, dn) => do
         let ns : TSyntax `term := quote (toString vn.getId)
+        let argDefs ← args.mapM fun a => do
+          let (argName, argType) ← parseVariantArg a
+          let an : TSyntax `term :=
+            quote (toString argName.getId)
+          let typeStr :=
+            if argType.isIdent
+            then toString argType.getId
+            else argType.reprint.getD
+              (toString argType)
+          let tn : TSyntax `term := quote typeStr
+          `({ name := $an, typeName := $tn : ArgDef })
+        let argList ← `([$[$argDefs],*])
         `({ name := $ns, doc := $vd,
             symbolDoc := ($vlDoc : Doc),
-            displayName := ($dn : Doc)
+            displayName := ($dn : Doc),
+            args := $argList
             : VariantDef })
     let ns : TSyntax `term := quote (toString name.getId)
     let varList ← `([$[$varDefs],*])

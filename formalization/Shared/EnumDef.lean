@@ -1,5 +1,13 @@
 import Shared.Doc
 
+/-- An argument of an enum variant (e.g. `v : RegionVid`). -/
+structure ArgDef where
+  /-- The argument name (e.g. `"v"`). -/
+  name : String
+  /-- The argument type name (e.g. `"RegionVid"`). -/
+  typeName : String
+  deriving Repr
+
 /-- A single variant in an exportable enum definition. -/
 structure VariantDef where
   /-- The variant name (e.g. `"exclusive"`). -/
@@ -12,6 +20,8 @@ structure VariantDef where
   /-- Human-readable display name for document exports
       (e.g. `seq [bold (text "E"), text "xclusive"]`). -/
   displayName : Doc
+  /-- Arguments of this variant (empty for nullary variants). -/
+  args : List ArgDef
   deriving Repr
 
 /-- An exportable enum definition with metadata for cross-language
@@ -27,13 +37,45 @@ structure EnumDef where
   variants : List VariantDef
   deriving Repr
 
+namespace VariantDef
+
+/-- Append rendered arguments to a base `Doc`.
+    Returns `base` unchanged when `args` is empty;
+    otherwise produces `base(arg₁, arg₂, …)`. -/
+private def withArgs
+    (base : Doc)
+    (renderArg : ArgDef → Doc)
+    (args : List ArgDef)
+    : Doc :=
+  if args.isEmpty then base
+  else
+    .seq [base, .text "(",
+          Doc.intercalate (.text ", ")
+            (args.map renderArg),
+          .text ")"]
+
+/-- Render the variant symbol with arguments for short definitions.
+    Nullary: `E`. With args: `vid(v)`. -/
+def symbolWithArgs (v : VariantDef) : Doc :=
+  withArgs v.symbolDoc
+    (fun a => .text a.name) v.args
+
+/-- Render the variant display name with typed arguments for long
+    definitions. Nullary: `Exclusive`. With args:
+    `vid(v : RegionVid)`. -/
+def displayWithArgs (v : VariantDef) : Doc :=
+  withArgs v.displayName
+    (fun a => .text s!"{a.name} : {a.typeName}") v.args
+
+end VariantDef
+
 namespace EnumDef
 
 /-- Short formal definition: `c ::= E | W | R | e` -/
 def shortDef (d : EnumDef) : Doc :=
   let lhs := d.symbolDoc
   let rhs := Doc.intercalate (.text " | ")
-    (d.variants.map fun v => v.symbolDoc)
+    (d.variants.map fun v => v.symbolWithArgs)
   .seq [lhs, .text " ::= ", rhs]
 
 /-- Long formal definition with descriptions:
@@ -47,7 +89,7 @@ def longDef (d : EnumDef) : Doc :=
     [.text d.doc, .text " ", d.symbolDoc,
      .text " is one of:"]
   let items := d.variants.map fun v =>
-    Doc.seq [v.displayName, .text s!": {v.doc}"]
+    Doc.seq [v.displayWithArgs, .text s!": {v.doc}"]
   .seq [header, .line, .itemize items]
 
 end EnumDef

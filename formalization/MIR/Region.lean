@@ -1,3 +1,5 @@
+import Shared.DefEnum
+
 /-- A region variable identifier, representing a unique region
     inferred by the borrow checker. -/
 structure RegionVid where
@@ -10,14 +12,19 @@ structure EarlyBoundRegion where
   index : Nat
   deriving DecidableEq, Repr
 
-/-- A region (lifetime) in the MIR.
-
-    Corresponds to the definition in `definitions/regions.md`:
-    - `vid`: A `RegionVid` (region variable identifier)
-    - `static`: The `'static` lifetime
-    - `earlyBound`: An early-bound region from generic parameters -/
-inductive Region where
+defEnum Region (.italic (.text "r"))
+  "A region (lifetime) in the MIR. \
+   See definitions/regions.md."
+where
   | vid (v : RegionVid)
+    "A region variable identifier."
+    (.text "vid")
+    (.text "vid")
   | static
+    "The 'static lifetime."
+    (.code "'static")
+    (.code "'static")
   | earlyBound (eb : EarlyBoundRegion)
-  deriving DecidableEq, Repr
+    "An early-bound region from generic parameters."
+    (.text "earlyBound")
+    (.text "earlyBound")
