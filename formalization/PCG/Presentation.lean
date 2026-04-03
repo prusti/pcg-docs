@@ -20,12 +20,15 @@ private def crateSection
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
+    (fns : List RegisteredFn)
     : List Doc :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateStructs := structs.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateOrders := orders.filter
+    (·.leanModule.getRoot.toString == prefix_)
+  let crateFns := fns.filter
     (·.leanModule.getRoot.toString == prefix_)
   let header := [Doc.bold (.text prefix_)]
   let structDocs := crateStructs.map fun s =>
@@ -43,7 +46,11 @@ private def crateSection
              , .line, .line
              , o.orderDef.hasseDiagram e.enumDef ]
     base ++ orderDocs
-  header ++ structDocs ++ enumDocs
+  let fnDocs := crateFns.map fun f =>
+    .seq [ .bold (.text f.fnDef.name)
+         , .line, .line
+         , f.fnDef.algorithmDoc ]
+  header ++ structDocs ++ enumDocs ++ fnDocs
 
 /-- Build the full presentation from all registered definitions.
     Grouped by crate prefix (PCG, MIR). -/
@@ -51,15 +58,17 @@ def buildPresentation
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
+    (fns : List RegisteredFn)
     : Doc :=
   let prefixes := (
     enums.map (·.leanModule.getRoot.toString) ++
-    structs.map (·.leanModule.getRoot.toString)
+    structs.map (·.leanModule.getRoot.toString) ++
+    fns.map (·.leanModule.getRoot.toString)
   ).foldl (init := [])
     fun acc p => if acc.contains p then acc else acc ++ [p]
   let allSections := prefixes.flatMap
-    fun p => crateSection p enums structs orders
+    fun p => crateSection p enums structs orders fns
   sections allSections
 
 /-- LaTeX packages needed by the presentation. -/
-def latexPackages : List String := ["tikz"]
+def latexPackages : List String := ["tikz", "amsmath"]

@@ -16,12 +16,15 @@ def buildCrate
     (prefix_ : String)
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
+    (fns : List RegisteredFn)
     (deps : List RustCrateDep := [])
     (reexports : List String := [])
     : RustCrate :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateStructs := structs.filter
+    (·.leanModule.getRoot.toString == prefix_)
+  let crateFns := fns.filter
     (·.leanModule.getRoot.toString == prefix_)
   let extras := extraItems.filterMap fun (p, m, item) =>
     if p == prefix_ then some (m, item) else none
@@ -33,11 +36,11 @@ def buildCrate
     deps := deps
     reexports := reexports
     modules := buildModules crateEnums crateStructs
-      extras }
+      crateFns extras }
 
 /-- The workspace containing all generated crates. -/
 def workspace : RustWorkspace :=
-  { members := ["mir-types", "pcg-types"] }
+  { members := ["formal-mir", "formal-pcg"] }
 
 /-- Write a file, creating parent directories as needed. -/
 private def writeFile
@@ -52,11 +55,12 @@ def main (args : List String) : IO Unit := do
   let outDir := args.head? |>.getD "generated/rust"
   let enums ← getRegisteredEnums
   let structs ← getRegisteredStructs
-  let mirCrate := buildCrate "MIR" enums structs
-  let pcgCrate := buildCrate "PCG" enums structs
-    (deps := [{ name := "mir-types"
-                path := "../mir-types" }])
-    (reexports := ["mir_types"])
+  let fns ← getRegisteredFns
+  let mirCrate := buildCrate "MIR" enums structs fns
+  let pcgCrate := buildCrate "PCG" enums structs fns
+    (deps := [{ name := "formal-mir"
+                path := "../formal-mir" }])
+    (reexports := ["formal_mir"])
   writeFile s!"{outDir}/Cargo.toml" workspace.cargoToml
   for c in [mirCrate, pcgCrate] do
     for (path, contents) in c.files do

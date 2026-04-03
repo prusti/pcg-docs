@@ -1,4 +1,5 @@
 import MIR.Region
+import Shared.DefFn
 
 defStruct TyCtorName (.text "T")
   "A type constructor name, representing an ADT or \
@@ -74,14 +75,15 @@ abbrev ParamEnv := List Constraint
 
 namespace Ty
 
-/-- Regions occurring directly in a type (recursing into the
-    reference and type-argument structure). -/
-def regions : Ty → List Region
+defFn regions (.text "regions")
+  "Regions occurring directly in a type."
+  (τ "The type to extract regions from." : Ty)
+  : List Region where
   | .param _ => []
   | .alias base _ args =>
-    base.regions ++ (args.flatMap fun a => a.regions)
-  | .ctor _ args => args.flatMap fun a => a.regions
-  | .ref r _ pointee => r :: pointee.regions
+      base·regions ++ (args·flatMap fun a => a·regions)
+  | .ctor _ args => args·flatMap fun a => a·regions
+  | .ref r _ pointee => r :: pointee·regions
 
 /-- `Contains fields τ τ'` holds when `τ` contains `τ'`.
 

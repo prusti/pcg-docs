@@ -8,7 +8,8 @@ def main (args : List String) : IO Unit := do
   let enums ← getRegisteredEnums
   let structs ← getRegisteredStructs
   let orders ← getRegisteredOrders
-  let doc := buildPresentation enums structs orders
+  let fns ← getRegisteredFns
+  let doc := buildPresentation enums structs orders fns
   let content := doc.toStandaloneLatex latexPackages
   IO.FS.writeFile ⟨outPath⟩ content
   IO.println s!"  wrote {outPath}"

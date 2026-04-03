@@ -1,6 +1,7 @@
 import Shared.RustSyntax
 import Shared.EnumDef
 import Shared.StructDef
+import Shared.FnDef
 import Shared.OrderDef
 import Shared.Registry
 
@@ -284,6 +285,12 @@ end RustWorkspace
 def defaultRustDerives : List String :=
   ["Debug", "Clone", "PartialEq", "Eq", "Hash"]
 
+/-- Map a Lean identifier to a Rust-safe identifier. -/
+def leanToRustIdent : String → String
+  | "τ" => "ty"
+  | "σ" => "sigma"
+  | other => other
+
 /-- Map a Lean type name to a Rust type name. -/
 partial def leanToRustType (s : String) : String :=
   match s with
@@ -326,6 +333,40 @@ def toRust (d : EnumDef) : String :=
 
 end EnumDef
 
+namespace FnDef
+
+/-- Convert a `FnDef` to a `RustItem.fn_` with a match
+    body derived from the function's match arms. -/
+def toRustItem (f : FnDef) : RustItem :=
+  let params := f.params.map fun p =>
+    RustParam.named (.ident (leanToRustIdent p.name))
+      (.ref false (.named (leanToRustType p.typeName)))
+  let retTy := RustTy.named (leanToRustType f.returnType)
+  let bodyStr := if f.body.isEmpty then "todo!()"
+    else
+      let paramName := match f.params.head? with
+        | some p => leanToRustIdent p.name
+        | none => "_x"
+      let enumName := match f.params.head? with
+        | some p => p.typeName
+        | none => "Self"
+      let arms := f.body.map fun arm =>
+        let pat := " ".intercalate
+          (arm.pat.map (·.toRust enumName))
+        let rhs := arm.rhs.toRust f.name
+        s!"        {pat} => {rhs},"
+      s!"match {paramName} {lb}\n\
+         {"\n".intercalate arms}\n    {rb}"
+  .fn_
+    { vis := .pub
+      name := f.name
+      params := params
+      retTy := some retTy
+      body := .block [] (some (.path ⟨[bodyStr]⟩)) }
+  where lb := "{" ; rb := "}"
+
+end FnDef
+
 namespace StructDef
 
 /-- Convert a `StructDef` to a `RustItem.tupleStruct`. -/
@@ -336,9 +377,9 @@ def toRustItem (s : StructDef) : RustItem :=
 end StructDef
 
 /-- Derive the Rust crate name from a Lean module prefix
-    (e.g. `MIR` → `"mir-types"`, `PCG` → `"pcg-types"`). -/
+    (e.g. `MIR` → `"formal-mir"`, `PCG` → `"formal-pcg"`). -/
 def crateNameOf (prefix_ : String) : String :=
-  s!"{prefix_.toLower}-types"
+  s!"formal-{prefix_.toLower}"
 
 /-- Derive the Rust module name from a Lean module's last
     component (e.g. `MIR.Region` → `"region"`). -/
@@ -375,16 +416,18 @@ def groupStructsByCrate
       | none => acc ++ [(p, [s])]
   groups
 
-/-- Build Rust modules from registered enums and structs
-    sharing a crate prefix. -/
+/-- Build Rust modules from registered enums, structs, and
+    functions sharing a crate prefix. -/
 def buildModules
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
+    (fns : List RegisteredFn)
     (extraItems : List (String × RustItem))
     : List RustModule :=
   let allModNames :=
     (enums.map fun e => rustModuleNameOf e.leanModule) ++
-    (structs.map fun s => rustModuleNameOf s.leanModule)
+    (structs.map fun s => rustModuleNameOf s.leanModule) ++
+    (fns.map fun f => rustModuleNameOf f.leanModule)
   let uniqueModNames := allModNames.foldl (init := [])
     fun acc m => if acc.contains m then acc else acc ++ [m]
   uniqueModNames.map fun modName =>
@@ -392,11 +435,14 @@ def buildModules
       (rustModuleNameOf ·.leanModule == modName)
     let modStructs := structs.filter
       (rustModuleNameOf ·.leanModule == modName)
+    let modFns := fns.filter
+      (rustModuleNameOf ·.leanModule == modName)
     let modExtras := extraItems.filter
       (·.1 == modName) |>.map (·.2)
     let items :=
       modStructs.map (·.structDef.toRustItem) ++
       modEnums.map (·.enumDef.toRustItem) ++
+      modFns.map (·.fnDef.toRustItem) ++
       modExtras
     let doc := match modEnums.head? with
       | some e => e.enumDef.doc

@@ -1,6 +1,7 @@
 import Shared.EnumDef
 import Shared.StructDef
 import Shared.OrderDef
+import Shared.FnDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where
@@ -67,3 +68,24 @@ def registerOrderDef
 /-- Retrieve all registered order definitions. -/
 def getRegisteredOrders : IO (List RegisteredOrder) :=
   orderRegistry.get
+
+/-- A registered function definition with its source module. -/
+structure RegisteredFn where
+  /-- The function definition. -/
+  fnDef : FnDef
+  /-- The Lean module where this function was defined. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of all `defFn`-defined functions. -/
+initialize fnRegistry : IO.Ref (List RegisteredFn) ←
+  IO.mkRef []
+
+/-- Register a function definition. -/
+def registerFnDef
+    (f : FnDef) (mod : Lean.Name) : IO Unit :=
+  fnRegistry.modify (· ++ [⟨f, mod⟩])
+
+/-- Retrieve all registered function definitions. -/
+def getRegisteredFns : IO (List RegisteredFn) :=
+  fnRegistry.get
