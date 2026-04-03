@@ -2,7 +2,7 @@
 
 ## Mutable Borrows
 
-Consider the stmt `p = &mut q`, at a program point $l$, where $p$ has type $\&r_0 ~\mathtt{mut}~\tau$, and $q$ has type $\tau$, and $\tau$ is a type containing lifetimes $r_1, \ldots r_n$.
+Consider the stmt `p = &mut q`, at a program point $l$, where $p$ has type $\&r_0 ~\mathtt{mut}~\ty$, and $q$ has type $\ty$, and $\ty$ is a type containing lifetimes $r_1, \ldots r_n$.
 
 At the end of the `PreOperands` phase, the PCG is guaranteed to be in a state where, for each $r_i \in \{r_1, \ldots, r_n\}$ the lifetime projection $q \downarrow r_i$ is in the graph. During the `Operands` phase, each lifetime projection $q \downarrow r_i$ is *labelled* with the current program point to become $q \downarrow r_i ~\mathtt{at}~l$. At the end of the `PreMain` phase, for each $r_i \in \{r_0, \ldots, r_n\}$, the lifetime projection $p\downarrow r_i$ is guaranteed *not* to be in the graph. During the `Main` phase, these projections are added.
 

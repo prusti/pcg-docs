@@ -56,7 +56,7 @@ each $b_s \rightarrow b_t \in \overline{d}$, either:
 The representation of validity conditions in our implementations corresponds
 closely to the following description:
 
-Validity conditions $\pc \in \pcs~$ is a map $\Bb \rightarrow \powerset{\Bb}$
+Validity conditions $\defn{pc}{\pc} \in \defn{pcs}{\pcs}~$ is a map $\defn{Bb}{\Bb} \rightarrow \powerset{\Bb}$
 describing control-flow conditions. For each block $\block \in \dom{\pc}$,
 $\pc[b]$ is a subset of the *real* successors of $\block$.
 

@@ -21,7 +21,7 @@ TODO: Doesn't liveness imply initialization?
 
 </div>
 
-- $\blockedloopplaces$: the subset of $P_{live}$ that are [directly
+- $\defn{blockedloopplaces}{\blockedloopplaces}$: the subset of $P_{live}$ that are [directly
   borrowed](definitions.html#borrow-liveness) by a borrow [live](definitions.html#borrow-liveness) at $l_h$
 
 - $P_{blockers}$: the subset of $P_{live}$ that contain lifetime projections

@@ -18,7 +18,7 @@ $$
     b && \textbf{(MIR Basic Block Index)} \\
     l & ::= b[i] & \textbf{(MIR Location)} \\
     p && \textbf{(MIR Place)} \\
-    \label & ::= & \textbf{(Label)} \\
+    \defn{label}{\label} & ::= & \textbf{(Label)} \\
     &\mid ~\texttt{start}~b &  \\
     &\mid ~\texttt{loop}~b &  \\
     &\mid ~\texttt{prepare}~l &  \\
@@ -26,10 +26,10 @@ $$
     &\mid ~\texttt{before-ref-assignment}~l &  \\
     &\mid ~\texttt{mid}~l &  \\
     &\mid ~\texttt{after}~l &  \\
-    \maybelabelled & ::=  & \textbf{(Maybe-Labelled Place)} \\
+    \defn{maybelabelled}{\maybelabelled} & ::=  & \textbf{(Maybe-Labelled Place)} \\
     & \mid p & \text{(Current Place)} \\
     & \mid p~\mathtt{at}~\label & \text{(Labelled Place)} \\
-    \pcgplace & ::=  & \textbf{(PCG Place)} \\
+    \defn{pcgplace}{\pcgplace} & ::=  & \textbf{(PCG Place)} \\
     & \mid \maybelabelled & \text{(Maybe-Labelled Place)} \\
     & \mid \remote{\local} & \text{(Remote Place)} \\
     \lifetimeproj & ::=  & \textbf{(Lifetime Projection)} \\

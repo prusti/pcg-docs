@@ -5,9 +5,15 @@ multilingual = false
 src = "src"
 title = "PCG Documentation"
 
+[preprocessor.defn]
+command = "node preprocessors/defn.js"
+after = ["links"]
+before = ["katex"]
+
 [preprocessor.katex]
 after = ["links"]
 macros = "macros.txt"
+trust = true
 
 [preprocessor.hypergraph]
 command = "node preprocessors/hypergraph.js"

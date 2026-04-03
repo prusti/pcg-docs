@@ -1,75 +1,10 @@
 #!/usr/bin/env node
 
-import * as process from 'process';
 import * as yaml from 'js-yaml';
+import { Chapter, forEachChapter, runPreprocessor } from './mdbook';
 
-interface Chapter {
-    name?: string;
-    content?: string;
-    sub_items?: Array<{ Chapter?: Chapter }>;
-}
-
-interface Section {
-    Chapter?: Chapter;
-}
-
-interface Book {
-    sections?: Section[];
-}
-
-if (process.argv.length > 2 && process.argv[2] === 'supports') {
-    if (process.argv[3] === 'html') {
-        process.exit(0);
-    } else {
-        process.exit(1);
-    }
-}
-
-let chunks: string[] = [];
-process.stdin.setEncoding('utf-8');
-
-process.stdin.on('data', (chunk: string) => {
-    chunks.push(chunk);
-});
-
-process.stdin.on('end', () => {
-    const input = chunks.join('');
-
-    if (!input || input.trim() === '') {
-        process.exit(0);
-    }
-
-    try {
-        const [context, book] = JSON.parse(input) as [any, Book];
-
-        if (book && book.sections && Array.isArray(book.sections)) {
-            book.sections.forEach((section) => {
-                if (section.Chapter) {
-                    processChapter(section.Chapter);
-                }
-            });
-        }
-
-        process.stdout.write(JSON.stringify(book));
-    } catch (error) {
-        const err = error as Error;
-        process.stderr.write('Error processing book: ' + err.message + '\n');
-        try {
-            const book = JSON.parse(input) as Book;
-            if (book && book.sections && Array.isArray(book.sections)) {
-                book.sections.forEach((section) => {
-                    if (section.Chapter) {
-                        processChapter(section.Chapter);
-                    }
-                });
-            }
-            process.stdout.write(JSON.stringify(book));
-        } catch (e2) {
-            const err2 = e2 as Error;
-            process.stderr.write('Failed to parse alternative format: ' + err2.message + '\n');
-            process.exit(1);
-        }
-    }
+runPreprocessor((_context, book) => {
+    forEachChapter(book.sections ?? [], processChapter);
 });
 
 function processChapter(chapter: Chapter): void {
@@ -124,13 +59,5 @@ function processChapter(chapter: Chapter): void {
     }
 
     chapter.content = newContent;
-
-    if (chapter.sub_items) {
-        chapter.sub_items.forEach((item) => {
-            if (item.Chapter) {
-                processChapter(item.Chapter);
-            }
-        });
-    }
 }
 
