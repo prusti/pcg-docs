@@ -22,10 +22,11 @@ structure OrderDef where
 
 namespace OrderDef
 
-/-- Look up the symbol for a variant name from an `EnumDef`. -/
-private def lookupSymbol (e : EnumDef) (name : String) : String :=
+/-- Look up the plain-text symbol for a variant name. -/
+private def lookupSymbol (e : EnumDef) (name : String)
+    : String :=
   match e.variants.find? (·.name == name) with
-  | some v => v.symbol
+  | some v => v.symbolDoc.toPlainText
   | none => name
 
 /-- Compute the level (longest path to bottom) of each element. -/

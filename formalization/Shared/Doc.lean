@@ -24,6 +24,18 @@ inductive Doc where
 
 namespace Doc
 
+/-- Extract the plain text content, stripping all formatting. -/
+partial def toPlainText : Doc → String
+  | text s => s
+  | bold d => d.toPlainText
+  | italic d => d.toPlainText
+  | code s => s
+  | seq ds => String.join (ds.map toPlainText)
+  | line => "\n"
+  | itemize items =>
+    String.join (items.map fun d => s!"- {d.toPlainText}\n")
+  | raw _ _ _ => ""
+
 /-- Join a list of documents with a separator. -/
 def intercalate (sep : Doc) : List Doc → Doc
   | [] => seq []
@@ -93,5 +105,20 @@ partial def toHTML : Doc → String
       s!"<li>{d.toHTML}</li>"
     s!"<ul>\n{String.intercalate "\n" body}\n</ul>"
   | raw _ _ html => html
+
+/-- Wrap LaTeX body in a minimal standalone document. -/
+def toStandaloneLatex (d : Doc) (packages : List String := [])
+    : String :=
+  let pkgLines := packages.map fun p =>
+    s!"\\usepackage\{{p}}"
+  let preamble := String.intercalate "\n" pkgLines
+  let body := d.toLaTeX
+  let lb := "{"
+  let rb := "}"
+  s!"\\documentclass{lb}article{rb}\n\
+     {preamble}\n\
+     \\begin{lb}document{rb}\n\n\
+     {body}\n\n\
+     \\end{lb}document{rb}\n"
 
 end Doc

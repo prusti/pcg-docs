@@ -1,21 +1,27 @@
 import Shared.DefEnum
 
-defEnum Capability "c"
+defEnum Capability (.italic (.text "c"))
   "A capability describes the actions permitted on a \
    place at a particular program point."
 where
   | none
     "No capability; the place cannot be accessed."
-    "∅"
+    (.bold (.text "∅"))
+    (.text "None")
   | exclusive
     "Can be read, written, or mutably borrowed."
-    "E"
+    (.bold (.text "E"))
+    (.seq [.bold (.text "E"), .text "xclusive"])
   | read
     "Can be read from; shared borrows can also be created."
-    "R"
+    (.bold (.text "R"))
+    (.seq [.bold (.text "R"), .text "ead"])
   | write
     "The place can be written to."
-    "W"
+    (.bold (.text "W"))
+    (.seq [.bold (.text "W"), .text "rite"])
   | shallowExclusive
     "Intermediate state when converting a raw pointer to a Box."
-    "e"
+    (.bold (.text "e"))
+    (.seq
+      [.text "Shallow", .bold (.text "E"), .text "xclusive"])

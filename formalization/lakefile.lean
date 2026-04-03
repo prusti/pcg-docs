@@ -18,5 +18,8 @@ lean_lib MIR where
 lean_lib PCG where
   srcDir := "."
 
-lean_exe pcg_export where
-  root := `Export
+lean_exe rust_export where
+  root := `RustExport
+
+lean_exe presentation_export where
+  root := `PresentationExport

@@ -6,8 +6,12 @@ structure VariantDef where
   name : String
   /-- Documentation for this variant. -/
   doc : String
-  /-- Short symbol used in formal notation (e.g. `"E"`). -/
-  symbol : String
+  /-- Formatted symbol for document exports
+      (e.g. `bold (text "E")`). -/
+  symbolDoc : Doc
+  /-- Human-readable display name for document exports
+      (e.g. `seq [bold (text "E"), text "xclusive"]`). -/
+  displayName : Doc
   deriving Repr
 
 /-- An exportable enum definition with metadata for cross-language
@@ -15,8 +19,8 @@ structure VariantDef where
 structure EnumDef where
   /-- The enum name (e.g. `"Capability"`). -/
   name : String
-  /-- Symbol for the type in formal notation (e.g. `"c"`). -/
-  symbol : String
+  /-- Formatted type symbol for document exports. -/
+  symbolDoc : Doc
   /-- Top-level documentation. -/
   doc : String
   /-- The variants of the enum. -/
@@ -27,25 +31,23 @@ namespace EnumDef
 
 /-- Short formal definition: `c ::= E | W | R | e` -/
 def shortDef (d : EnumDef) : Doc :=
-  let lhs := Doc.italic (.text d.symbol)
+  let lhs := d.symbolDoc
   let rhs := Doc.intercalate (.text " | ")
-    (d.variants.map fun v => .bold (.text v.symbol))
+    (d.variants.map fun v => v.symbolDoc)
   .seq [lhs, .text " ::= ", rhs]
 
 /-- Long formal definition with descriptions:
     ```
     A capability c is one of:
-    - E (exclusive): Can be read, written, or mutably borrowed.
+    - **E**xclusive: Can be read, written, or mutably borrowed.
     - ...
     ``` -/
 def longDef (d : EnumDef) : Doc :=
   let header := Doc.seq
-    [.text d.doc, .text " ", .italic (.text d.symbol),
+    [.text d.doc, .text " ", d.symbolDoc,
      .text " is one of:"]
   let items := d.variants.map fun v =>
-    Doc.seq
-      [.bold (.text v.symbol),
-       .text s!" ({v.name}): {v.doc}"]
+    Doc.seq [v.displayName, .text s!": {v.doc}"]
   .seq [header, .line, .itemize items]
 
 end EnumDef

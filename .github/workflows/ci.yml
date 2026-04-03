@@ -76,7 +76,11 @@ jobs:
 
     - name: Export Rust crate
       working-directory: formalization
-      run: lake exe pcg_export
+      run: lake exe rust_export
+
+    - name: Export presentation
+      working-directory: formalization
+      run: lake exe presentation_export
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
