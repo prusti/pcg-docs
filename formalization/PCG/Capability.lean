@@ -1,6 +1,6 @@
 import Shared.DefEnum
 
-defEnum Capability
+defEnum Capability "c"
   "A capability describes the actions permitted on a \
    place at a particular program point."
 where

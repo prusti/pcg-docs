@@ -1,18 +1,22 @@
+import Shared.Doc
+
 /-- A single variant in an exportable enum definition. -/
 structure VariantDef where
   /-- The variant name (e.g. `"exclusive"`). -/
   name : String
   /-- Documentation for this variant. -/
   doc : String
-  /-- Short LaTeX symbol (e.g. `"E"`). -/
-  latex : String
+  /-- Short symbol used in formal notation (e.g. `"E"`). -/
+  symbol : String
   deriving Repr
 
 /-- An exportable enum definition with metadata for cross-language
-    code generation. -/
+    code generation and presentation. -/
 structure EnumDef where
   /-- The enum name (e.g. `"Capability"`). -/
   name : String
+  /-- Symbol for the type in formal notation (e.g. `"c"`). -/
+  symbol : String
   /-- Top-level documentation. -/
   doc : String
   /-- The variants of the enum. -/
@@ -21,34 +25,27 @@ structure EnumDef where
 
 namespace EnumDef
 
-/-- Capitalise the first character of a string. -/
-private def capitalise (s : String) : String :=
-  match s.toList with
-  | [] => s
-  | c :: cs => String.ofList (c.toUpper :: cs)
+/-- Short formal definition: `c ::= E | W | R | e` -/
+def shortDef (d : EnumDef) : Doc :=
+  let lhs := Doc.italic (.text d.symbol)
+  let rhs := Doc.intercalate (.text " | ")
+    (d.variants.map fun v => .bold (.text v.symbol))
+  .seq [lhs, .text " ::= ", rhs]
 
-/-- Wrap a documentation string as a Rust doc comment. -/
-private def rustDocLine (s : String) : String :=
-  s!"/// {s}"
-
-/-- Generate a Rust `enum` definition. -/
-def toRust (d : EnumDef) : String :=
-  let header := s!"{rustDocLine d.doc}\n\
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n\
-    pub enum {d.name} \{"
-  let variantLines := d.variants.map fun v =>
-    s!"    {rustDocLine v.doc}\n    {capitalise v.name},"
-  let body := String.intercalate "\n" variantLines
-  s!"{header}\n{body}\n}"
-
-/-- Generate LaTeX `\newcommand` definitions. -/
-def toLaTeX (d : EnumDef) : String :=
-  let pfx := d.name.toLower
-  let header := s!"% {d.name}: {d.doc}"
-  let lines := d.variants.map fun v =>
-    let cmdName := pfx ++ capitalise v.name
-    let cmd := s!"\\newcommand\{\\{cmdName}}\{\\texttt\{{v.latex}}}"
-    s!"% {v.doc}\n{cmd}"
-  s!"{header}\n{String.intercalate "\n" lines}"
+/-- Long formal definition with descriptions:
+    ```
+    A capability c is one of:
+    - E (exclusive): Can be read, written, or mutably borrowed.
+    - ...
+    ``` -/
+def longDef (d : EnumDef) : Doc :=
+  let header := Doc.seq
+    [.text d.doc, .text " ", .italic (.text d.symbol),
+     .text " is one of:"]
+  let items := d.variants.map fun v =>
+    Doc.seq
+      [.bold (.text v.symbol),
+       .text s!" ({v.name}): {v.doc}"]
+  .seq [header, .line, .itemize items]
 
 end EnumDef

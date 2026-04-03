@@ -5,23 +5,27 @@ open Lean in
 
 declare_syntax_cat enumVariant
 
-/-- A variant in a `defEnum` declaration: `| name "doc" "latex"`. -/
+/-- A variant in a `defEnum` declaration:
+    `| name "doc" "symbol"`. -/
 syntax "| " ident str str : enumVariant
 
-/-- Define an enum type with cross-language export metadata.
+/-- Define an enum type with cross-language export and presentation
+    metadata.
 
     Generates:
     1. A Lean `inductive` type with `DecidableEq` and `Repr`
-    2. A `.enumDef : EnumDef` for Rust/LaTeX export
+    2. A `.enumDef : EnumDef` for export and document generation
 
     Example:
     ```
-    defEnum Capability "A capability describes..." where
+    defEnum Capability "c"
+      "A capability describes..."
+    where
       | exclusive "Can be read, written, or mutably borrowed." "E"
       | read      "Can be read from."                          "R"
     ```
     produces `inductive Capability` and `Capability.enumDef`. -/
-syntax "defEnum " ident str " where" enumVariant* : command
+syntax "defEnum " ident str str " where" enumVariant* : command
 
 private def mkNullNode' : Lean.Syntax :=
   Lean.Syntax.node .none `null #[]
@@ -49,7 +53,8 @@ private def mkCtorSyntax
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defEnum $name:ident $doc:str where $vs:enumVariant*) => do
+  | `(defEnum $name:ident $sym:str $doc:str where
+       $vs:enumVariant*) => do
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant| | $vn:ident $vd:str $vl:str) =>
         pure (vn, vd, vl)
@@ -62,12 +67,13 @@ elab_rules : command
     elabCommand inductiveCmd
     let varDefs ← varData.mapM fun (vn, vd, vl) => do
       let ns : TSyntax `term := quote (toString vn.getId)
-      `({ name := $ns, doc := $vd, latex := $vl : VariantDef })
+      `({ name := $ns, doc := $vd, symbol := $vl
+          : VariantDef })
     let ns : TSyntax `term := quote (toString name.getId)
     let varList ← `([$[$varDefs],*])
     let enumDefVal ← `(term|
-      { name := $ns, doc := $doc, variants := $varList
-        : EnumDef })
+      { name := $ns, symbol := $sym, doc := $doc,
+        variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)
     let defCmd ← `(command|
       def $defName : EnumDef := $enumDefVal)
