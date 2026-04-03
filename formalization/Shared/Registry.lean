@@ -1,5 +1,6 @@
 import Shared.EnumDef
 import Shared.StructDef
+import Shared.OrderDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where
@@ -42,3 +43,27 @@ def getRegisteredEnums : IO (List RegisteredEnum) :=
 /-- Retrieve all registered struct definitions. -/
 def getRegisteredStructs : IO (List RegisteredStruct) :=
   structRegistry.get
+
+/-- A registered order definition with its source module. -/
+structure RegisteredOrder where
+  /-- The order definition. -/
+  orderDef : OrderDef
+  /-- The enum name this order is defined on. -/
+  enumName : String
+  /-- The Lean module where this order was defined. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of all `defOrder`-defined orderings. -/
+initialize orderRegistry : IO.Ref (List RegisteredOrder) ←
+  IO.mkRef []
+
+/-- Register an order definition. -/
+def registerOrderDef
+    (o : OrderDef) (mod : Lean.Name) : IO Unit :=
+  orderRegistry.modify
+    (· ++ [⟨o, o.enumName, mod⟩])
+
+/-- Retrieve all registered order definitions. -/
+def getRegisteredOrders : IO (List RegisteredOrder) :=
+  orderRegistry.get

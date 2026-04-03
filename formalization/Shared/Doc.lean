@@ -45,7 +45,8 @@ def intercalate (sep : Doc) : List Doc → Doc
 /-- Translate Unicode symbols to LaTeX commands. -/
 def escapeLatex : String → String :=
   let replacements :=
-    [ ("∅", "$\\emptyset$")
+    [ ("&", "\\&")
+    , ("∅", "$\\emptyset$")
     , ("⊥", "$\\bot$")
     , ("⊤", "$\\top$")
     , ("→", "$\\to$")
@@ -58,6 +59,10 @@ def escapeLatex : String → String :=
     , ("¬", "$\\neg$")
     , ("∧", "$\\land$")
     , ("∨", "$\\lor$")
+    , ("τ̄", "$\\bar{\\tau}$")
+    , ("τ", "$\\tau$")
+    , ("⟨", "$\\langle$")
+    , ("⟩", "$\\rangle$")
     ]
   fun s => replacements.foldl (fun acc (from_, to) =>
     acc.replace from_ to) s

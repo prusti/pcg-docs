@@ -1,4 +1,4 @@
-import Shared.OrderDef
+import Shared.Registry
 import Lean
 
 open Lean Elab Command Term in
@@ -161,3 +161,7 @@ elab_rules : command
           elements := $elemList
           facts := $factList'
           closure := $closureList }))
+    let mod ← getMainModule
+    let modName : TSyntax `term := quote mod
+    elabCommand (← `(command|
+      initialize registerOrderDef $orderDefId $modName))
