@@ -28,13 +28,14 @@ namespace RustTy
 
 /-- Render a type expression. -/
 def render : RustTy → String
-  | .path p => p.render
+  | .builtin b => b.render
   | .ref true inner => s!"&mut {inner.render}"
   | .ref false inner => s!"&{inner.render}"
-  | .generic base args =>
-    let argStrs := args.map RustTy.render
-    s!"{base.render}<{String.intercalate ", " argStrs}>"
-  | .unit => "()"
+  | .adt ctor args =>
+    if args.isEmpty then ctor.render
+    else
+      let argStrs := args.map RustTy.render
+      s!"{ctor.render}<{String.intercalate ", " argStrs}>"
 
 end RustTy
 
@@ -151,11 +152,12 @@ mutual
         | .«if» .. | .«match» .. => ""
         | _ => ";"
       s!"{renderExpr d e}{semi}"
-    | d, .«let» pat ty val =>
+    | d, .«let» pat ty val mutable =>
+      let mutStr := if mutable then "mut " else ""
       let tyStr := match ty with
         | some t => s!": {t.render}"
         | none => ""
-      s!"let {pat.render}{tyStr} = {renderExpr d val};"
+      s!"let {mutStr}{pat.render}{tyStr} = {renderExpr d val};"
 end
 
 namespace RustFn
@@ -176,23 +178,23 @@ def render (d : Nat) (f : RustFn) : String :=
 
 end RustFn
 
-/-- Generate `From<Box<T>>` impls for struct field types
-    so that `new(boxed.clone(), ...)` works via `.into()`.
-    Only for named types that might appear boxed. -/
-private def fromBoxImpls
+/-- Render `From<Box<T>>` impl strings for struct field
+    types that might appear boxed in enum variants. -/
+private def fromBoxImplStrs
     (fields : List (RustVis × String × String))
-    : String :=
-  let impls := fields.filterMap fun (_, _, ty) =>
+    : List String :=
+  fields.filterMap fun (_, _, ty) =>
     if ty.startsWith "Vec<" || ty.startsWith "Option<"
       || ty == "usize" || ty == "String"
       || ty == "bool" || ty == "()" then none
     else
       let lb := "{"
       let rb := "}"
-      some s!"\nimpl From<Box<{ty}>> for {ty} {lb}\
-        \n    fn from(b: Box<{ty}>) -> Self {lb}\
-        \n        *b\n    {rb}\n{rb}"
-  String.join impls
+      some s!"impl From<Box<{ty}>> for {ty} {lb}\n\
+        {ind 1}fn from(b: Box<{ty}>) -> Self {lb}\n\
+        {ind 2}*b\n\
+        {ind 1}{rb}\n\
+        {rb}"
 
 namespace RustItem
 
@@ -241,8 +243,11 @@ def render : RustItem → String
        {String.intercalate "\n" assigns}\n\
        {ind 2}}\n\
        {ind 1}}\n\
-       }\n\
-       {fromBoxImpls fields}"
+       }\
+       {let extras := fromBoxImplStrs fields
+        if extras.isEmpty then ""
+        else "\n\n" ++ String.intercalate "\n\n"
+          extras}"
   | .impl_ trait_ ty methods =>
     let traitStr := match trait_ with
       | some t => s!"{t.render} for "
@@ -370,7 +375,7 @@ namespace EnumDef
 private def argToRust
     (enumName : String) (a : ArgDef) : String :=
   let ft := FType.parse a.typeName
-  let rustTy := ft.toRust
+  let rustTy := ft.toRustStr
   if ft.isRecursiveIn enumName then s!"Box<{rustTy}>"
   else rustTy
 
@@ -390,86 +395,116 @@ def toRust (d : EnumDef) : String :=
 
 end EnumDef
 
+/-- State monad for generating fresh identifiers. -/
+abbrev FreshM := StateM Nat
+
+/-- Generate a fresh identifier like `_v0`, `_v1`, … -/
+def fresh : FreshM String := do
+  let n ← get
+  set (n + 1)
+  pure s!"_v{n}"
+
+/-- Generate a fresh `RustExpr.ident`. -/
+def freshIdent : FreshM RustExpr := do
+  return .ident (← fresh)
+
+/-- Generate a fresh `RustPat.ident`. -/
+def freshPat : FreshM RustPat := do
+  return .ident (← fresh)
+
 namespace BodyExpr
 
-/-- Convert a `BodyExpr` to a typed `RustExpr`.
-    `retStruct` is the name of the return type's
-    struct (for filling in anonymous `⟨⟩` constructors). -/
+/-- Convert a `BodyExpr` to a typed `RustExpr` in the
+    `FreshM` monad (for generating fresh variable names). -/
 partial def toRustExpr
     (fnName : String)
     (retType : FType := .prim .unit)
-    : BodyExpr → RustExpr
-  | .var n => .ident (leanToRustIdent n)
-  | .emptyList => .emptyVec
-  | .none_ => .none_
-  | .some_ e => .some_ (e.toRustExpr fnName retType)
-  | .mkStruct sName _fieldNames args =>
+    : BodyExpr → FreshM RustExpr
+  | .var n => pure (.ident (leanToRustIdent n))
+  | .emptyList => pure .emptyVec
+  | .none_ => pure .none_
+  | .some_ e => return .some_ (← e.toRustExpr fnName retType)
+  | .mkStruct sName _fieldNames args => do
     let rustName := if sName.isEmpty then
-      retType.stripOption.toRust
+      retType.stripOption.toRustStr
     else sName
     if rustName.isEmpty || rustName == "()" then
-      .tuple (args.map fun a => a.toRustExpr fnName retType)
+      return .tuple (← args.mapM fun a =>
+        a.toRustExpr fnName retType)
     else
-      .call (.path ⟨[rustName, "new"]⟩)
-        (args.map fun a =>
-          let e := a.toRustExpr fnName retType
+      return .call (.path ⟨[rustName, "new"]⟩)
+        (← args.mapM fun a => do
           match a with
-          | .var _ => .clone e
+          | .var _ =>
+            return .clone (← a.toRustExpr fnName retType)
           | .some_ inner =>
-            .some_ (.clone (inner.toRustExpr fnName retType))
-          | _ => e)
-  | .cons h t =>
+            return .some_
+              (.clone (← inner.toRustExpr fnName retType))
+          | _ => a.toRustExpr fnName retType)
+  | .cons h t => do
     let hExpr := RustExpr.clone
-      (h.toRustExpr fnName retType)
-    let tExpr := t.toRustExpr fnName retType
-    let r := RustExpr.ident "__r"
-    .block
-      [ .expr (.raw "let mut __r = vec![]")
-      , .expr (.methodCall r "push" [hExpr])
-      , .expr (.methodCall r "extend" [tExpr]) ]
-      (some r)
-  | .append l r =>
-    let lExpr := l.toRustExpr fnName retType
-    let rExpr := r.toRustExpr fnName retType
-    let rv := RustExpr.ident "__r"
-    .block
-      [ .«let» (.ident "__r") none lExpr
-      , .expr (.raw "let mut __r = __r")
-      , .expr (.methodCall rv "extend" [rExpr]) ]
-      (some rv)
-  | .dot recv method =>
-    .call (.ident method)
-      [.borrow (recv.toRustExpr fnName retType)]
-  | .flatMap list param body =>
-    .raw s!"{renderExpr 0
-      (.methodCall (list.toRustExpr fnName retType)
-        "iter" [])}.flat_map(|{param}| \
-      {renderExpr 0
-        (body.toRustExpr fnName retType)}\
-      ).collect::<Vec<_>>()"
-  | .field recv name =>
-    .field (recv.toRustExpr fnName retType) name
-  | .index list idx =>
-    .methodCall
-      (.methodCall (list.toRustExpr fnName retType)
-        "get" [.deref (idx.toRustExpr fnName retType)])
+      (← h.toRustExpr fnName retType)
+    let tExpr ← t.toRustExpr fnName retType
+    let v ← fresh
+    return .block
+      [ .«let» (.ident v) none .emptyVec
+          (mutable := true)
+      , .expr (.methodCall (.ident v) "push" [hExpr])
+      , .expr (.methodCall (.ident v) "extend"
+          [tExpr]) ]
+      (some (.ident v))
+  | .append l r => do
+    let lExpr ← l.toRustExpr fnName retType
+    let rExpr ← r.toRustExpr fnName retType
+    let v ← fresh
+    return .block
+      [ .«let» (.ident v) none lExpr
+          (mutable := true)
+      , .expr (.methodCall (.ident v) "extend"
+          [rExpr]) ]
+      (some (.ident v))
+  | .dot recv method => do
+    return .call (.ident method)
+      [.borrow (← recv.toRustExpr fnName retType)]
+  | .flatMap list param body => do
+    let listE ← list.toRustExpr fnName retType
+    let bodyE ← body.toRustExpr fnName retType
+    pure (.raw s!"{renderExpr 0
+      (.methodCall listE "iter" [])}.flat_map(\
+      |{param}| {renderExpr 0 bodyE}\
+      ).collect::<Vec<_>>()")
+  | .field recv name => do
+    return .field (← recv.toRustExpr fnName retType)
+      name
+  | .index list idx => do
+    return .methodCall
+      (.methodCall (← list.toRustExpr fnName retType)
+        "get"
+        [.deref (← idx.toRustExpr fnName retType)])
       "cloned" []
-  | .call fn args =>
-    .call (.ident fn)
-      (args.map fun a => a.toRustExpr fnName retType)
-  | .foldlM fn init list =>
+  | .call fn args => do
+    return .call (.ident fn)
+      (← args.mapM fun a => a.toRustExpr fnName retType)
+  | .foldlM fn init list => do
     let rustFn := if fn.endsWith "Step" then
       (fn.take (fn.length - 4)).toString
     else fn
-    .methodCall
-      (.methodCall (list.toRustExpr fnName retType)
+    return .methodCall
+      (.methodCall (← list.toRustExpr fnName retType)
         "iter" [])
       "try_fold"
-      [ init.toRustExpr fnName retType
+      [ ← init.toRustExpr fnName retType
       , .closure ["acc", "x"]
           (.call (.ident rustFn)
             [.borrow (.field (.ident "acc") "ty")
             , .ident "x"])]
+
+/-- Run `toRustExpr` with a fresh counter starting at 0. -/
+def toRust
+    (fnName : String)
+    (retType : FType := .prim .unit)
+    (e : BodyExpr) : RustExpr :=
+  (e.toRustExpr fnName retType).run' 0
 
 end BodyExpr
 
@@ -480,11 +515,11 @@ namespace FnDef
 def toRustItem (f : FnDef) : RustItem :=
   let params := f.params.map fun p =>
     RustParam.named (.ident (leanToRustIdent p.name))
-      (.ref false (.named (p.ty.toRust)))
-  let retTy := RustTy.named (f.returnType.toRust)
+      (.ref false p.ty.toRust)
+  let retTy := f.returnType.toRust
   -- Extract inner struct name from return type
   let retType := f.returnType
-  let re (b : BodyExpr) := b.toRustExpr f.name retType
+  let re (b : BodyExpr) := b.toRust f.name retType
   let body : RustExpr := match f.body with
     | .matchArms arms =>
       if arms.isEmpty then .todo
@@ -502,8 +537,7 @@ def toRustItem (f : FnDef) : RustItem :=
           let patStr := if pats.length == 1
             then pats.head!
             else s!"({", ".intercalate pats})"
-          RustMatchArm.mk (.ident patStr)
-            (arm.rhs.toRustExpr f.name retType)
+          RustMatchArm.mk (.ident patStr) (re arm.rhs)
         let wildArm := RustMatchArm.mk .wild .todo
         .block []
           (some (.«match» scrutinee
@@ -513,12 +547,11 @@ def toRustItem (f : FnDef) : RustItem :=
         match s with
         | .let_ n v => RustStmt.«let»
             (.ident (leanToRustIdent n)) none
-            (.borrow (v.toRustExpr f.name retType))
+            (.borrow (re v))
         | .letBind n v => RustStmt.«let»
             (.ident (leanToRustIdent n)) none
-            (.try_ (v.toRustExpr f.name retType))
-      .block rustStmts
-        (some (ret.toRustExpr f.name retType))
+            (.try_ (re v))
+      .block rustStmts (some (re ret))
   .fn_
     { vis := .pub
       name := f.name
@@ -535,7 +568,7 @@ def toRustItem (s : StructDef) : RustItem :=
   .struct_ s.doc [.derive defaultRustDerives] .pub
     s.name
     (s.fields.map fun f =>
-      (.pub, f.name, f.ty.toRust))
+      (.pub, f.name, f.ty.toRust.render))
 
 end StructDef
 
@@ -637,8 +670,8 @@ private def mergedArm
 def toRustPartialOrd (o : OrderDef) : RustItem :=
   let selfTy := RustTy.self_
   let selfRef := RustTy.refTo selfTy
-  let retTy := RustTy.generic ⟨["Option"]⟩
-    [.path (⟨["std", "cmp", "Ordering"]⟩)]
+  let retTy := RustTy.adt ⟨["Option"]⟩
+    [.adt ⟨["std", "cmp", "Ordering"]⟩ []]
   let equalExpr :=
     RustExpr.some_ (.path (ordPath "Equal"))
   let eqCheck : RustExpr :=

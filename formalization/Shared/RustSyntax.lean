@@ -3,16 +3,27 @@ structure RustPath where
   segments : List String
   deriving Repr
 
+/-- A Rust built-in (primitive) type. -/
+inductive RustBuiltinTy where
+  | unit    -- ()
+  | bool    -- bool
+  | usize   -- usize
+  | u8 | u16 | u32 | u64 | u128
+  | i8 | i16 | i32 | i64 | i128
+  | f32 | f64
+  | str     -- str (unsized)
+  | string  -- String
+  deriving Repr
+
 /-- A Rust type expression. -/
 inductive RustTy where
-  /-- Named type: `Self`, `u32`, `Ordering`. -/
-  | path (p : RustPath)
+  /-- A built-in primitive type. -/
+  | builtin (ty : RustBuiltinTy)
   /-- Reference: `&T` or `&mut T`. -/
   | ref (mutable : Bool) (inner : RustTy)
-  /-- Generic type: `Option<T>`. -/
-  | generic (base : RustPath) (args : List RustTy)
-  /-- Unit type `()`. -/
-  | unit
+  /-- An ADT (struct/enum) type, possibly with type
+      arguments: `Foo`, `Option<T>`, `Vec<T>`. -/
+  | adt (constructor : RustPath) (args : List RustTy)
   deriving Repr
 
 /-- A unary operator. -/
@@ -94,9 +105,9 @@ mutual
   inductive RustStmt where
     /-- Expression statement: `expr;`. -/
     | expr (e : RustExpr)
-    /-- Let binding: `let pat: ty = val;`. -/
+    /-- Let binding: `let [mut] pat: ty = val;`. -/
     | «let» (pat : RustPat) (ty : Option RustTy)
-        (val : RustExpr)
+        (val : RustExpr) (mutable : Bool := false)
 end
 
 /-- A function parameter. -/
@@ -216,17 +227,34 @@ def self_ : RustPath := simple "Self"
 
 end RustPath
 
+namespace RustBuiltinTy
+
+/-- Render a built-in type to its Rust name. -/
+def render : RustBuiltinTy → String
+  | .unit => "()"
+  | .bool => "bool"
+  | .usize => "usize"
+  | .u8 => "u8" | .u16 => "u16"
+  | .u32 => "u32" | .u64 => "u64" | .u128 => "u128"
+  | .i8 => "i8" | .i16 => "i16"
+  | .i32 => "i32" | .i64 => "i64" | .i128 => "i128"
+  | .f32 => "f32" | .f64 => "f64"
+  | .str => "str" | .string => "String"
+
+end RustBuiltinTy
+
 namespace RustTy
 
 /-- The `Self` type. -/
-def self_ : RustTy := .path RustPath.self_
+def self_ : RustTy := .adt RustPath.self_ []
 
-/-- A named type. -/
-def named (s : String) : RustTy := .path (RustPath.simple s)
+/-- A named type (no type arguments). -/
+def named (s : String) : RustTy :=
+  .adt (RustPath.simple s) []
 
 /-- `Option<T>`. -/
 def option (t : RustTy) : RustTy :=
-  .generic ⟨["Option"]⟩ [t]
+  .adt ⟨["Option"]⟩ [t]
 
 /-- `&T`. -/
 def refTo (t : RustTy) : RustTy := .ref false t

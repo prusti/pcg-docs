@@ -1,4 +1,5 @@
 import Shared.Doc
+import Shared.RustSyntax
 
 /-- A primitive type. -/
 inductive FPrim where
@@ -31,12 +32,19 @@ def toLean : FPrim → String
   | .bool => "Bool"
   | .unit => "Unit"
 
-/-- Render a primitive to Rust. -/
-def toRust : FPrim → String
+/-- Render a primitive to a Rust type string. -/
+def toRustStr : FPrim → String
   | .nat => "usize"
   | .string => "String"
   | .bool => "bool"
   | .unit => "()"
+
+/-- Convert to a `RustBuiltinTy`. -/
+def toRust : FPrim → RustBuiltinTy
+  | .nat => .usize
+  | .string => .string
+  | .bool => .bool
+  | .unit => .unit
 
 /-- Render a primitive to LaTeX (text mode). -/
 def toLatex : FPrim → String
@@ -63,12 +71,19 @@ def toLean : FType → String
   | .option t => s!"Option {t.toLean}"
   | .list t => s!"List {t.toLean}"
 
-/-- Render a type to Rust. -/
-def toRust : FType → String
-  | .prim p => p.toRust
+/-- Render a type to a Rust type string. -/
+def toRustStr : FType → String
+  | .prim p => p.toRustStr
   | .named n => n
-  | .option t => s!"Option<{t.toRust}>"
-  | .list t => s!"Vec<{t.toRust}>"
+  | .option t => s!"Option<{t.toRustStr}>"
+  | .list t => s!"Vec<{t.toRustStr}>"
+
+/-- Convert to a typed `RustTy`. -/
+def toRust : FType → RustTy
+  | .prim p => .builtin p.toRust
+  | .named n => .named n
+  | .option t => .option t.toRust
+  | .list t => .adt ⟨["Vec"]⟩ [t.toRust]
 
 /-- Render a type to LaTeX (text mode). -/
 def toLatex : FType → String
