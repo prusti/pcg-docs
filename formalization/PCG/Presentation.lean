@@ -1,5 +1,5 @@
 import PCG.Capability.Order
-import MIR.Ty
+import MIR
 import Shared.OrderDef
 import Shared.Registry
 
@@ -17,8 +17,45 @@ private def mkCtorDisplay
         else none
     found.head?
 
-/-- Build the presentation sections for a single crate prefix
-    as raw LaTeX strings. -/
+/-- Get the module name (last component of a Lean name). -/
+private def moduleName (n : Lean.Name) : String :=
+  match n with
+  | .str _ s => s
+  | _ => "Unknown"
+
+/-- Build the LaTeX for a single module (subsection) within
+    a crate. -/
+private def moduleLatex
+    (modName : String)
+    (enums : List RegisteredEnum)
+    (structs : List RegisteredStruct)
+    (orders : List RegisteredOrder)
+    (fns : List RegisteredFn)
+    (ctorDisplay : String → Option String)
+    (allVariants : List VariantDef)
+    : String :=
+  let lb := "{"
+  let rb := "}"
+  let header := s!"\\subsection{lb}{modName}{rb}\n"
+  let structParts := structs.map fun s =>
+    s!"{s.structDef.formalDefLatex}\n"
+  let enumParts := enums.flatMap fun e =>
+    let def_ := s!"{e.enumDef.formalDefLatex}\n"
+    let orderParts := orders.filter
+      (·.enumName == e.enumDef.name) |>.map fun o =>
+        s!"\\subsubsection{lb}Ordering{rb}\n\
+           {o.orderDef.hasseDiagram e.enumDef
+             |>.toLaTeX}\n"
+    def_ :: orderParts
+  let fnParts := fns.map fun f =>
+    s!"{f.fnDef.formalDefLatex ctorDisplay
+         allVariants}\n"
+  header ++
+    "\n".intercalate
+      (structParts ++ enumParts ++ fnParts)
+
+/-- Build the presentation sections for a single crate
+    prefix, grouped by module (subsection). -/
 private def crateLatex
     (prefix_ : String)
     (enums : List RegisteredEnum)
@@ -36,30 +73,30 @@ private def crateLatex
     (·.leanModule.getRoot.toString == prefix_)
   let crateFns := fns.filter
     (·.leanModule.getRoot.toString == prefix_)
-  let sectionHeader := s!"\\section{lb}{prefix_}{rb}\n"
-  let structParts := crateStructs.map fun s =>
-    s!"\\subsection{lb}{s.structDef.name}{rb}\n\
-       {s.structDef.formalDefLatex}\n"
-  let enumParts := crateEnums.flatMap fun e =>
-    let def_ :=
-      s!"\\subsection{lb}{e.enumDef.name}{rb}\n\
-         {e.enumDef.formalDefLatex}\n"
-    let orderParts := crateOrders.filter
-      (·.enumName == e.enumDef.name) |>.map fun o =>
-        let lb := "{"
-        let rb := "}"
-        s!"\\subsubsection{lb}Ordering{rb}\n\
-           {o.orderDef.hasseDiagram e.enumDef
-             |>.toLaTeX}\n"
-    def_ :: orderParts
-  let fnParts := crateFns.map fun f =>
-    s!"\\subsection{lb}{f.fnDef.name}{rb}\n\
-       {f.fnDef.formalDefLatex ctorDisplay
-         allVariants}\n"
-  sectionHeader ++
-    "\n".intercalate
-      (structParts ++ enumParts ++ fnParts)
-  where lb := "{" ; rb := "}"
+  -- Collect unique module names (preserving order)
+  let allModNames := (
+    crateStructs.map (moduleName ·.leanModule) ++
+    crateEnums.map (moduleName ·.leanModule) ++
+    crateFns.map (moduleName ·.leanModule)
+  ).foldl (init := [])
+    fun acc m =>
+      if acc.contains m then acc else acc ++ [m]
+  let lb := "{"
+  let rb := "}"
+  let sectionHeader :=
+    s!"\\section{lb}{prefix_}{rb}\n"
+  let modules := allModNames.map fun mn =>
+    let modEnums := crateEnums.filter
+      (moduleName ·.leanModule == mn)
+    let modStructs := crateStructs.filter
+      (moduleName ·.leanModule == mn)
+    let modOrders := crateOrders.filter
+      (moduleName ·.leanModule == mn)
+    let modFns := crateFns.filter
+      (moduleName ·.leanModule == mn)
+    moduleLatex mn modEnums modStructs modOrders
+      modFns ctorDisplay allVariants
+  sectionHeader ++ "\n".intercalate modules
 
 /-- Build the full presentation LaTeX body from all
     registered definitions. -/

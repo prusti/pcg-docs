@@ -1,5 +1,5 @@
 import PCG.Capability.Order
-import MIR.Ty
+import MIR
 import Shared.Rust
 import Shared.OrderDef
 
