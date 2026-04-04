@@ -16,28 +16,7 @@ def capitalise (s : String) : String :=
 private def ind (n : Nat) : String :=
   String.ofList (List.replicate (n * 4) ' ')
 
-namespace RustPath
 
-/-- Render a path: `std::cmp::Ordering::Less`. -/
-def render (p : RustPath) : String :=
-  String.intercalate "::" p.segments
-
-end RustPath
-
-namespace RustTy
-
-/-- Render a type expression. -/
-def render : RustTy → String
-  | .builtin b => b.render
-  | .ref true inner => s!"&mut {inner.render}"
-  | .ref false inner => s!"&{inner.render}"
-  | .adt ctor args =>
-    if args.isEmpty then ctor.render
-    else
-      let argStrs := args.map RustTy.render
-      s!"{ctor.render}<{String.intercalate ", " argStrs}>"
-
-end RustTy
 
 namespace RustBinOp
 
@@ -138,6 +117,13 @@ mutual
     | .closure params body =>
       let ps := String.intercalate ", " params
       s!"|{ps}| {renderExpr d body}"
+    | .structInit path fields =>
+      let i := ind (d + 1)
+      let fieldStrs := fields.map fun (n, e) =>
+        s!"{i}{n}: {renderExpr (d + 1) e},"
+      s!"{path.render} \{\n\
+         {String.intercalate "\n" fieldStrs}\n\
+         {ind d}}"
     | .raw s => s
 
   /-- Render a match arm. -/
@@ -178,87 +164,111 @@ def render (d : Nat) (f : RustFn) : String :=
 
 end RustFn
 
-/-- Render `From<Box<T>>` impl strings for struct field
-    types that might appear boxed in enum variants. -/
-private def fromBoxImplStrs
-    (fields : List (RustVis × String × String))
-    : List String :=
-  fields.filterMap fun (_, _, ty) =>
-    if ty.startsWith "Vec<" || ty.startsWith "Option<"
-      || ty == "usize" || ty == "String"
-      || ty == "bool" || ty == "()" then none
-    else
-      let lb := "{"
-      let rb := "}"
-      some s!"impl From<Box<{ty}>> for {ty} {lb}\n\
-        {ind 1}fn from(b: Box<{ty}>) -> Self {lb}\n\
-        {ind 2}*b\n\
-        {ind 1}{rb}\n\
-        {rb}"
-
-namespace RustItem
+/-- Generate `From<Box<T>>` impl items for types that
+    might appear boxed in enum variants. Only for simple
+    ADTs (no type args) defined in our crate. -/
+def fromBoxImpls (tys : List RustTy) : List RustItem :=
+  tys.filterMap fun ty =>
+    match ty with
+    | .adt path [] =>
+      some (.impl_ {
+        trait_ := some ⟨[s!"From<Box<{ty.render}>>"]⟩
+        ty := path
+        methods :=
+          [{ vis := .priv
+             name := "from"
+             params := [.named (.ident "b")
+               (.adt ⟨["Box"]⟩ [ty])]
+             retTy := some .self_
+             body := .block []
+               (some (.unaryOp .deref
+                 (.ident "b"))) }] })
+    | _ => none
 
 /-- Render an enum variant line. -/
 private def renderVariant (v : RustVariant) : String :=
   let fields := if v.fields.isEmpty then ""
-    else s!"({String.intercalate ", " v.fields})"
+    else s!"({String.intercalate ", "
+      (v.fields.map RustTy.render)})"
   s!"{ind 1}/// {v.doc}\n{ind 1}{v.name}{fields},"
 
-/-- Render a top-level Rust item. -/
-def render : RustItem → String
-  | .enum doc attrs vis name variants =>
-    let attrLines := attrs.map (·.render ++ "\n")
-    let variantLines := variants.map renderVariant
-    s!"/// {doc}\n\
-       {String.join attrLines}\
-       {vis.render}enum {name} \{\n\
-       {String.intercalate "\n" variantLines}\n\
-       }"
-  | .tupleStruct doc attrs vis name fields =>
-    let attrLines := attrs.map (·.render ++ "\n")
-    let fieldStrs := fields.map fun (v, ty) =>
-      s!"{v.render}{ty}"
-    let body := String.intercalate ", " fieldStrs
-    s!"/// {doc}\n\
-       {String.join attrLines}\
-       {vis.render}struct {name}({body});"
-  | .struct_ doc attrs vis name fields =>
-    let attrLines := attrs.map (·.render ++ "\n")
-    let fieldLines := fields.map fun (v, n, ty) =>
-      s!"{ind 1}{v.render}{n}: {ty},"
-    let params := fields.map fun (_, n, ty) =>
-      s!"{n}: impl Into<{ty}>"
-    let assigns := fields.map fun (_, n, _) =>
-      s!"{ind 2}{n}: {n}.into(),"
-    s!"/// {doc}\n\
-       {String.join attrLines}\
-       {vis.render}struct {name} \{\n\
-       {String.intercalate "\n" fieldLines}\n\
-       }\n\n\
-       impl {name} \{\n\
-       {ind 1}pub fn new(\
-       {String.intercalate ", " params}\
-       ) -> Self \{\n\
-       {ind 2}Self \{\n\
-       {String.intercalate "\n" assigns}\n\
-       {ind 2}}\n\
-       {ind 1}}\n\
-       }\
-       {let extras := fromBoxImplStrs fields
-        if extras.isEmpty then ""
-        else "\n\n" ++ String.intercalate "\n\n"
-          extras}"
-  | .impl_ trait_ ty methods =>
-    let traitStr := match trait_ with
-      | some t => s!"{t.render} for "
-      | none => ""
-    let methodStrs := methods.map fun f =>
-      s!"{ind 1}{RustFn.render 1 f}"
-    s!"impl {traitStr}{ty.render} \{\n\
-       {String.intercalate "\n\n" methodStrs}\n\
-       }"
-  | .fn_ f => RustFn.render 0 f
+namespace RustEnum
+def render (e : RustEnum) : String :=
+  let attrLines := e.attrs.map (·.render ++ "\n")
+  let variantLines := e.variants.map renderVariant
+  s!"/// {e.doc}\n\
+     {String.join attrLines}\
+     {e.vis.render}enum {e.name} \{\n\
+     {String.intercalate "\n" variantLines}\n\
+     }"
+end RustEnum
 
+namespace RustStruct
+
+/-- Render the struct definition only. -/
+def render (s : RustStruct) : String :=
+  let attrLines := s.attrs.map (·.render ++ "\n")
+  match s.fields with
+  | .unnamed fields =>
+    let fieldStrs := fields.map fun (v, ty) =>
+      s!"{v.render}{ty.render}"
+    let body := String.intercalate ", " fieldStrs
+    s!"/// {s.doc}\n\
+       {String.join attrLines}\
+       {s.vis.render}struct {s.name}({body});"
+  | .named fields =>
+    let fieldLines := fields.map fun (v, n, ty) =>
+      s!"{ind 1}{v.render}{n}: {ty.render},"
+    s!"/// {s.doc}\n\
+       {String.join attrLines}\
+       {s.vis.render}struct {s.name} \{\n\
+       {String.intercalate "\n" fieldLines}\n\
+       }"
+
+/-- Build an inherent `impl` with a `new()` constructor
+    for a named-field struct. -/
+def newImpl (s : RustStruct) : Option RustImpl :=
+  match s.fields with
+  | .unnamed _ => none
+  | .named fields =>
+    let params := fields.map fun (_, n, ty) =>
+      RustParam.named (.ident n) (.implInto ty)
+    let init := RustExpr.structInit .self_
+      (fields.map fun (_, n, _) =>
+        (n, RustExpr.methodCall (.path ⟨[n]⟩) "into" []))
+    let body := RustExpr.block [] (some init)
+    some {
+      trait_ := none
+      ty := ⟨[s.name]⟩
+      methods := [{
+        vis := .pub
+        name := "new"
+        params := params
+        retTy := some .self_
+        body := body
+      }]
+    }
+
+end RustStruct
+
+namespace RustImpl
+def render (i : RustImpl) : String :=
+  let traitStr := match i.trait_ with
+    | some t => s!"{t.render} for "
+    | none => ""
+  let methodStrs := i.methods.map fun f =>
+    s!"{ind 1}{RustFn.render 1 f}"
+  s!"impl {traitStr}{i.ty.render} \{\n\
+     {String.intercalate "\n\n" methodStrs}\n\
+     }"
+end RustImpl
+
+namespace RustItem
+def render : RustItem → String
+  | .enum e => e.render
+  | .struct_ s => s.render
+  | .impl_ i => i.render
+  | .fn_ f => RustFn.render 0 f
 end RustItem
 
 namespace RustModule
@@ -345,13 +355,31 @@ end RustWorkspace
 def defaultRustDerives : List String :=
   ["Debug", "Clone", "PartialEq", "Eq", "Hash"]
 
-/-- Map a Lean identifier to a Rust-safe identifier. -/
-def leanToRustIdent : String → String
-  | "τ" => "ty"
-  | "τ₀" => "ty0"
-  | "σ" => "sigma"
-  | "π" => "pi"
-  | other => other
+/-- Convert a camelCase or PascalCase string to
+    snake_case. -/
+def toSnakeCase (s : String) : String := Id.run do
+  let mut result : String := ""
+  let mut prevLower := false
+  for c in s.toList do
+    if c.isUpper then
+      if prevLower then result := result.push '_'
+      result := result.push c.toLower
+      prevLower := false
+    else
+      result := result.push c
+      prevLower := c.isLower
+  return result
+
+/-- Map a Lean identifier to a Rust-safe snake_case
+    identifier. -/
+def leanToRustIdent (s : String) : String :=
+  let mapped := match s with
+    | "τ" => "ty"
+    | "τ₀" => "ty0"
+    | "σ" => "sigma"
+    | "π" => "pi"
+    | other => other
+  toSnakeCase mapped
 
 /-- Map a Lean type name to a Rust type name. -/
 partial def leanToRustType (s : String) : String :=
@@ -370,24 +398,29 @@ partial def leanToRustType (s : String) : String :=
 
 namespace EnumDef
 
-/-- Render an `ArgDef`'s type to Rust, wrapping in `Box`
-    if the type is self-referential. -/
-private def argToRust
-    (enumName : String) (a : ArgDef) : String :=
+/-- Convert an `ArgDef`'s type to `RustTy`, wrapping in
+    `Box` if self-referential. -/
+private def argToRustTy
+    (enumName : String) (a : ArgDef) : RustTy :=
   let ft := FType.parse a.typeName
-  let rustTy := ft.toRustStr
-  if ft.isRecursiveIn enumName then s!"Box<{rustTy}>"
+  let rustTy := ft.toRust
+  if ft.isRecursiveIn enumName then
+    .adt ⟨["Box"]⟩ [rustTy]
   else rustTy
 
 /-- Convert an `EnumDef` to a `RustItem.enum`.
     Variant arguments become tuple fields. Self-referential
     fields are wrapped in `Box<>`. -/
 def toRustItem (d : EnumDef) : RustItem :=
-  .enum d.doc [.derive defaultRustDerives] .pub d.name
-    (d.variants.map fun v =>
+  .enum {
+    doc := d.doc
+    attrs := [.derive defaultRustDerives]
+    vis := .pub
+    name := d.name
+    variants := d.variants.map fun v =>
       { doc := v.doc
         name := capitalise v.name
-        fields := v.args.map (argToRust d.name) })
+        fields := v.args.map (argToRustTy d.name) } }
 
 /-- Generate Rust source code for this enum. -/
 def toRust (d : EnumDef) : String :=
@@ -417,34 +450,30 @@ namespace BodyExpr
 /-- Convert a `BodyExpr` to a typed `RustExpr` in the
     `FreshM` monad (for generating fresh variable names). -/
 partial def toRustExpr
-    (fnName : String)
     (retType : FType := .prim .unit)
     : BodyExpr → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
   | .emptyList => pure .emptyVec
   | .none_ => pure .none_
-  | .some_ e => return .some_ (← e.toRustExpr fnName retType)
-  | .mkStruct sName _fieldNames args => do
-    let rustName := if sName.isEmpty then
-      retType.stripOption.toRustStr
-    else sName
-    if rustName.isEmpty || rustName == "()" then
+  | .some_ e => return .some_ (← e.toRustExpr retType)
+  | .mkStruct sName args => do
+    if sName.isEmpty then
       return .tuple (← args.mapM fun a =>
-        a.toRustExpr fnName retType)
+        a.toRustExpr retType)
     else
-      return .call (.path ⟨[rustName, "new"]⟩)
+      return .call (.path ⟨[sName, "new"]⟩)
         (← args.mapM fun a => do
           match a with
           | .var _ =>
-            return .clone (← a.toRustExpr fnName retType)
+            return .clone (← a.toRustExpr retType)
           | .some_ inner =>
             return .some_
-              (.clone (← inner.toRustExpr fnName retType))
-          | _ => a.toRustExpr fnName retType)
+              (.clone (← inner.toRustExpr retType))
+          | _ => a.toRustExpr retType)
   | .cons h t => do
     let hExpr := RustExpr.clone
-      (← h.toRustExpr fnName retType)
-    let tExpr ← t.toRustExpr fnName retType
+      (← h.toRustExpr retType)
+    let tExpr ← t.toRustExpr retType
     let v ← fresh
     return .block
       [ .«let» (.ident v) none .emptyVec
@@ -454,8 +483,8 @@ partial def toRustExpr
           [tExpr]) ]
       (some (.ident v))
   | .append l r => do
-    let lExpr ← l.toRustExpr fnName retType
-    let rExpr ← r.toRustExpr fnName retType
+    let lExpr ← l.toRustExpr retType
+    let rExpr ← r.toRustExpr retType
     let v ← fresh
     return .block
       [ .«let» (.ident v) none lExpr
@@ -464,36 +493,37 @@ partial def toRustExpr
           [rExpr]) ]
       (some (.ident v))
   | .dot recv method => do
-    return .call (.ident method)
-      [.borrow (← recv.toRustExpr fnName retType)]
+    return .call (.ident (toSnakeCase method))
+      [.borrow (← recv.toRustExpr retType)]
   | .flatMap list param body => do
-    let listE ← list.toRustExpr fnName retType
-    let bodyE ← body.toRustExpr fnName retType
+    let listE ← list.toRustExpr retType
+    let bodyE ← body.toRustExpr retType
     pure (.raw s!"{renderExpr 0
       (.methodCall listE "iter" [])}.flat_map(\
       |{param}| {renderExpr 0 bodyE}\
       ).collect::<Vec<_>>()")
   | .field recv name => do
-    return .field (← recv.toRustExpr fnName retType)
-      name
+    return .field (← recv.toRustExpr retType)
+      (toSnakeCase name)
   | .index list idx => do
     return .methodCall
-      (.methodCall (← list.toRustExpr fnName retType)
+      (.methodCall (← list.toRustExpr retType)
         "get"
-        [.deref (← idx.toRustExpr fnName retType)])
+        [.deref (← idx.toRustExpr retType)])
       "cloned" []
   | .call fn args => do
     return .call (.ident fn)
-      (← args.mapM fun a => a.toRustExpr fnName retType)
+      (← args.mapM fun a => a.toRustExpr retType)
   | .foldlM fn init list => do
-    let rustFn := if fn.endsWith "Step" then
-      (fn.take (fn.length - 4)).toString
-    else fn
+    let rustFn := toSnakeCase
+      (if fn.endsWith "Step" then
+        (fn.take (fn.length - 4)).toString
+      else fn)
     return .methodCall
-      (.methodCall (← list.toRustExpr fnName retType)
+      (.methodCall (← list.toRustExpr retType)
         "iter" [])
       "try_fold"
-      [ ← init.toRustExpr fnName retType
+      [ ← init.toRustExpr retType
       , .closure ["acc", "x"]
           (.call (.ident rustFn)
             [.borrow (.field (.ident "acc") "ty")
@@ -501,10 +531,9 @@ partial def toRustExpr
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust
-    (fnName : String)
     (retType : FType := .prim .unit)
     (e : BodyExpr) : RustExpr :=
-  (e.toRustExpr fnName retType).run' 0
+  (e.toRustExpr retType).run' 0
 
 end BodyExpr
 
@@ -519,7 +548,8 @@ def toRustItem (f : FnDef) : RustItem :=
   let retTy := f.returnType.toRust
   -- Extract inner struct name from return type
   let retType := f.returnType
-  let re (b : BodyExpr) := b.toRust f.name retType
+  let rustName := toSnakeCase f.name
+  let re (b : BodyExpr) := b.toRust retType
   let body : RustExpr := match f.body with
     | .matchArms arms =>
       if arms.isEmpty then .todo
@@ -554,7 +584,7 @@ def toRustItem (f : FnDef) : RustItem :=
       .block rustStmts (some (re ret))
   .fn_
     { vis := .pub
-      name := f.name
+      name := rustName
       params := params
       retTy := some retTy
       body := body }
@@ -563,12 +593,22 @@ end FnDef
 
 namespace StructDef
 
-/-- Convert a `StructDef` to a named-field Rust struct. -/
-def toRustItem (s : StructDef) : RustItem :=
-  .struct_ s.doc [.derive defaultRustDerives] .pub
-    s.name
-    (s.fields.map fun f =>
-      (.pub, f.name, f.ty.toRust.render))
+/-- Convert a `StructDef` to Rust items: the struct
+    itself plus `From<Box<T>>` impls for its field
+    types. -/
+def toRustItems (s : StructDef) : List RustItem :=
+  let fieldTys := s.fields.map fun f => f.ty.toRust
+  let rs : RustStruct := {
+    doc := s.doc
+    attrs := [.derive defaultRustDerives]
+    vis := .pub
+    name := s.name
+    fields := .named (s.fields.map fun f =>
+      (.pub, toSnakeCase f.name, f.ty.toRust)) }
+  let newImplItems := match rs.newImpl with
+    | some impl_ => [.impl_ impl_]
+    | none => []
+  .struct_ rs :: newImplItems ++ fromBoxImpls fieldTys
 
 end StructDef
 
@@ -636,7 +676,7 @@ def buildModules
     let modExtras := extraItems.filter
       (·.1 == modName) |>.map (·.2)
     let items :=
-      modStructs.map (·.structDef.toRustItem) ++
+      modStructs.flatMap (·.structDef.toRustItems) ++
       modEnums.map (·.enumDef.toRustItem) ++
       modFns.map (·.fnDef.toRustItem) ++
       modExtras
@@ -728,8 +768,9 @@ def toRustPartialOrd (o : OrderDef) : RustItem :=
         , .named (.ident "other") selfRef ]
       retTy := some retTy
       body := body }
-  .impl_
-    (some ⟨["PartialOrd"]⟩) ⟨[o.enumName]⟩
-    [partialCmpFn]
+  .impl_ {
+    trait_ := some ⟨["PartialOrd"]⟩
+    ty := ⟨[o.enumName]⟩
+    methods := [partialCmpFn] }
 
 end OrderDef

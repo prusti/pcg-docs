@@ -17,10 +17,8 @@ inductive BodyExpr where
   | none_
   | some_ (e : BodyExpr)
   /-- Struct constructor. `name` is the struct name
-      (empty for anonymous tuples). `fieldNames` are
-      the field names (for Rust named-field structs). -/
-  | mkStruct (name : String) (fieldNames : List String)
-      (args : List BodyExpr)
+      (empty for anonymous tuples). -/
+  | mkStruct (name : String) (args : List BodyExpr)
   | cons (head : BodyExpr) (tail : BodyExpr)
   | append (lhs : BodyExpr) (rhs : BodyExpr)
   | dot (recv : BodyExpr) (method : String)
@@ -98,10 +96,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .some_ e =>
     Syntax.mkApp (mkIdent ``BodyExpr.some_)
       #[quoteExpr e]
-  | .mkStruct name fieldNames args =>
+  | .mkStruct name args =>
     Syntax.mkApp (mkIdent ``BodyExpr.mkStruct)
-      #[quote name, quote fieldNames,
-        quote (args.map quoteExpr)]
+      #[quote name, quote (args.map quoteExpr)]
   | .cons h t =>
     Syntax.mkApp (mkIdent ``BodyExpr.cons)
       #[quoteExpr h, quoteExpr t]
@@ -178,7 +175,7 @@ partial def toLean : BodyExpr → String
   | .emptyList => "[]"
   | .none_ => "none"
   | .some_ e => s!"some {e.toLean}"
-  | .mkStruct _ _ args =>
+  | .mkStruct _ args =>
     s!"⟨{", ".intercalate (args.map toLean)}⟩"
   | .cons h t => s!"{h.toLean} :: {t.toLean}"
   | .append l r => s!"{l.toLean} ++ {r.toLean}"
@@ -263,7 +260,7 @@ partial def toLatex
   | .none_ => "\\text{None}"
   | .some_ e =>
     e.toLatex fnName varDisplay ctorDisplay
-  | .mkStruct _ _ args =>
+  | .mkStruct _ args =>
     let inner := ",~".intercalate
       (args.map (toLatex fnName varDisplay
         ctorDisplay))

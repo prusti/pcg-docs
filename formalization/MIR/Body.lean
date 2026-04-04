@@ -104,11 +104,11 @@ defFn projTy (.text "projTy")
   (π "The projection element." : ProjElem)
   : Option PlaceTy where
   | .ref _ _ pointee ; .deref =>
-      Some ⟨pointee, None⟩
+      Some PlaceTy⟨pointee, None⟩
   | _ ; .deref => None
-  | _ ; .field _ ty => Some ⟨ty, None⟩
-  | ty ; .index _ => Some ⟨ty, None⟩
-  | ty ; .downcast v => Some ⟨ty, Some v⟩
+  | _ ; .field _ ty => Some PlaceTy⟨ty, None⟩
+  | ty ; .index _ => Some PlaceTy⟨ty, None⟩
+  | ty ; .downcast v => Some PlaceTy⟨ty, Some v⟩
 
 /-- Wrapper for folding: extract the ty from PlaceTy. -/
 def projTyStep (pty : PlaceTy) (π : ProjElem)
@@ -124,4 +124,4 @@ defFn placeTy (.text "ty")
   let decls := body↦localDecls↦decls
   let baseIdx := place↦base↦index
   let τ₀ ← decls !! baseIdx
-  return place↦projection·foldlM projTyStep ⟨τ₀, None⟩
+  return place↦projection·foldlM projTyStep PlaceTy⟨τ₀, None⟩

@@ -24,6 +24,8 @@ inductive RustTy where
   /-- An ADT (struct/enum) type, possibly with type
       arguments: `Foo`, `Option<T>`, `Vec<T>`. -/
   | adt (constructor : RustPath) (args : List RustTy)
+  /-- `impl Into<T>` argument type. -/
+  | implInto (inner : RustTy)
   deriving Repr
 
 /-- A unary operator. -/
@@ -93,6 +95,9 @@ mutual
     | try_ (e : RustExpr)
     /-- Closure: `|params| body`. -/
     | closure (params : List String) (body : RustExpr)
+    /-- Struct literal: `Path { field: expr, ... }`. -/
+    | structInit (path : RustPath)
+        (fields : List (String × RustExpr))
     /-- Raw string (for macros like `vec![]`,
         `todo!()`). -/
     | raw (s : String)
@@ -141,7 +146,7 @@ structure RustVariant where
   /-- Variant name (PascalCase). -/
   name : String
   /-- Tuple field types (empty for unit variants). -/
-  fields : List String
+  fields : List RustTy
   deriving Repr
 
 /-- An outer attribute. -/
@@ -152,24 +157,47 @@ inductive RustAttr where
   | other (text : String)
   deriving Repr
 
+/-- A Rust enum definition. -/
+structure RustEnum where
+  doc : String
+  attrs : List RustAttr
+  vis : RustVis
+  name : String
+  variants : List RustVariant
+  deriving Repr
+
+/-- Struct fields: either positional (tuple struct) or
+    named (regular struct). -/
+inductive RustStructFields where
+  /-- Positional fields: `(pub T1, pub T2)`. -/
+  | unnamed (fields : List (RustVis × RustTy))
+  /-- Named fields: `{ pub name: T }`. -/
+  | named (fields : List (RustVis × String × RustTy))
+  deriving Repr
+
+/-- A Rust struct (tuple or named-field). -/
+structure RustStruct where
+  doc : String
+  attrs : List RustAttr
+  vis : RustVis
+  name : String
+  fields : RustStructFields
+  deriving Repr
+
+/-- A Rust impl block. -/
+structure RustImpl where
+  /-- The trait being implemented (`None` for inherent). -/
+  trait_ : Option RustPath
+  /-- The type being implemented. -/
+  ty : RustPath
+  /-- The methods in the impl block. -/
+  methods : List RustFn
+
 /-- A top-level Rust item. -/
 inductive RustItem where
-  /-- An enum definition. -/
-  | enum (doc : String) (attrs : List RustAttr)
-      (vis : RustVis) (name : String)
-      (variants : List RustVariant)
-  /-- A tuple struct: `pub struct Foo(pub T1, pub T2);`. -/
-  | tupleStruct (doc : String) (attrs : List RustAttr)
-      (vis : RustVis) (name : String)
-      (fields : List (RustVis × String))
-  /-- A named-field struct. -/
-  | struct_ (doc : String) (attrs : List RustAttr)
-      (vis : RustVis) (name : String)
-      (fields : List (RustVis × String × String))
-  /-- An impl block (optionally for a trait). -/
-  | impl_ (trait_ : Option RustPath) (ty : RustPath)
-      (methods : List RustFn)
-  /-- A standalone function. -/
+  | enum (e : RustEnum)
+  | struct_ (s : RustStruct)
+  | impl_ (i : RustImpl)
   | fn_ (f : RustFn)
 
 /-- A Rust module containing items. -/
@@ -219,6 +247,10 @@ instance : Inhabited RustExpr where
 
 namespace RustPath
 
+/-- Render a path: `std::cmp::Ordering::Less`. -/
+def render (p : RustPath) : String :=
+  String.intercalate "::" p.segments
+
 /-- Construct a single-segment path. -/
 def simple (s : String) : RustPath := ⟨[s]⟩
 
@@ -244,6 +276,18 @@ def render : RustBuiltinTy → String
 end RustBuiltinTy
 
 namespace RustTy
+
+/-- Render a type expression. -/
+def render : RustTy → String
+  | .builtin b => b.render
+  | .ref true inner => s!"&mut {inner.render}"
+  | .ref false inner => s!"&{inner.render}"
+  | .adt ctor args =>
+    if args.isEmpty then ctor.render
+    else
+      let argStrs := args.map RustTy.render
+      s!"{ctor.render}<{String.intercalate ", " argStrs}>"
+  | .implInto inner => s!"impl Into<{inner.render}>"
 
 /-- The `Self` type. -/
 def self_ : RustTy := .adt RustPath.self_ []

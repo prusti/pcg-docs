@@ -65,3 +65,14 @@ def main (args : List String) : IO Unit := do
   for c in [mirCrate, pcgCrate] do
     for (path, contents) in c.files do
       writeFile s!"{outDir}/{c.name}/{path}" contents
+  -- Format the generated Rust code
+  let fmtResult ← IO.Process.output {
+    cmd := "cargo"
+    args := #["fmt", "--all", "--manifest-path",
+      s!"{outDir}/Cargo.toml"]
+  }
+  if fmtResult.exitCode == 0 then
+    IO.println "  formatted with cargo fmt"
+  else
+    IO.eprintln s!"  cargo fmt failed: \
+      {fmtResult.stderr}"

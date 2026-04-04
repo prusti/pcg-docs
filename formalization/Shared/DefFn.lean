@@ -24,6 +24,8 @@ syntax fnExpr " ++ " fnExpr : fnExpr
 syntax "Some" fnExpr : fnExpr
 syntax "None" : fnExpr
 syntax "⟨" fnExpr,+ "⟩" : fnExpr
+-- Named struct constructor: Name⟨a, b⟩
+syntax ident "⟨" fnExpr,+ "⟩" : fnExpr
 -- Field access chain: expr ↦ name
 syntax fnExpr "↦" ident : fnExpr
 -- Indexing: expr !! expr (for list[idx]?)
@@ -93,7 +95,10 @@ private partial def parseExpr
   | `(fnExpr| None) => pure .none_
   | `(fnExpr| ⟨$args:fnExpr,*⟩) => do
     let as_ ← args.getElems.mapM parseExpr
-    pure (.mkStruct "" [] as_.toList)
+    pure (.mkStruct "" as_.toList)
+  | `(fnExpr| $n:ident ⟨$args:fnExpr,*⟩) => do
+    let as_ ← args.getElems.mapM parseExpr
+    pure (.mkStruct (toString n.getId) as_.toList)
   | `(fnExpr| $e:fnExpr ↦ $f:ident) =>
     pure (.field (← parseExpr e) (toString f.getId))
   | `(fnExpr| $e:fnExpr !! $i:fnExpr) =>

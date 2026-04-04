@@ -32,19 +32,15 @@ def toLean : FPrim → String
   | .bool => "Bool"
   | .unit => "Unit"
 
-/-- Render a primitive to a Rust type string. -/
-def toRustStr : FPrim → String
-  | .nat => "usize"
-  | .string => "String"
-  | .bool => "bool"
-  | .unit => "()"
-
 /-- Convert to a `RustBuiltinTy`. -/
 def toRust : FPrim → RustBuiltinTy
   | .nat => .usize
   | .string => .string
   | .bool => .bool
   | .unit => .unit
+
+/-- Render a primitive to a Rust type string. -/
+def toRustStr (p : FPrim) : String := p.toRust.render
 
 /-- Render a primitive to LaTeX (text mode). -/
 def toLatex : FPrim → String
@@ -71,19 +67,15 @@ def toLean : FType → String
   | .option t => s!"Option {t.toLean}"
   | .list t => s!"List {t.toLean}"
 
-/-- Render a type to a Rust type string. -/
-def toRustStr : FType → String
-  | .prim p => p.toRustStr
-  | .named n => n
-  | .option t => s!"Option<{t.toRustStr}>"
-  | .list t => s!"Vec<{t.toRustStr}>"
-
 /-- Convert to a typed `RustTy`. -/
 def toRust : FType → RustTy
   | .prim p => .builtin p.toRust
   | .named n => .named n
   | .option t => .option t.toRust
   | .list t => .adt ⟨["Vec"]⟩ [t.toRust]
+
+/-- Render a type to a Rust type string. -/
+def toRustStr (t : FType) : String := t.toRust.render
 
 /-- Render a type to LaTeX (text mode). -/
 def toLatex : FType → String
