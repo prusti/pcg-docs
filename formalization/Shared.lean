@@ -1,5 +1,6 @@
 import Shared.Doc
 import Shared.Order
+import Shared.FType
 import Shared.EnumDef
 import Shared.StructDef
 import Shared.FnDef

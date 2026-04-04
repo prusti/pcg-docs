@@ -93,7 +93,7 @@ private partial def parseExpr
   | `(fnExpr| None) => pure .none_
   | `(fnExpr| ⟨$args:fnExpr,*⟩) => do
     let as_ ← args.getElems.mapM parseExpr
-    pure (.mkStruct as_.toList)
+    pure (.mkStruct "" [] as_.toList)
   | `(fnExpr| $e:fnExpr ↦ $f:ident) =>
     pure (.field (← parseExpr e) (toString f.getId))
   | `(fnExpr| $e:fnExpr !! $i:fnExpr) =>
@@ -163,8 +163,8 @@ private def buildFnDef
       let typeStr :=
         if pt.isIdent then toString pt.getId
         else pt.reprint.getD (toString pt)
-      let tn : TSyntax `term := quote typeStr
-      `({ name := $ns, typeName := $tn,
+      let tyTerm ← `(FType.parse $(quote typeStr))
+      `({ name := $ns, ty := $tyTerm,
           doc := $pd : FieldDef })
   let ns : TSyntax `term :=
     quote (toString name.getId)
@@ -172,7 +172,7 @@ private def buildFnDef
     if retTy.raw.isIdent
     then toString retTy.raw.getId
     else retTy.raw.reprint.getD (toString retTy)
-  let retTn : TSyntax `term := quote retStr
+  let retTn ← `(FType.parse $(quote retStr))
   let paramList ← `([$[$paramDefs],*])
   let fnDefId := mkIdent (name.getId ++ `fnDef)
   elabCommand (← `(command|

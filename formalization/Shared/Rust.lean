@@ -2,6 +2,7 @@ import Shared.RustSyntax
 import Shared.EnumDef
 import Shared.StructDef
 import Shared.FnDef
+import Shared.FType
 import Shared.OrderDef
 import Shared.Registry
 
@@ -124,8 +125,15 @@ mutual
       let body := String.intercalate "\n" armStrs
       s!"match {renderExpr d scrutinee} \{\n\
          {body}\n{ind d}}"
+    | .ref_ false e => s!"&{renderExpr d e}"
+    | .ref_ true e => s!"&mut {renderExpr d e}"
     | .«return» none => "return"
     | .«return» (some e) => s!"return {renderExpr d e}"
+    | .try_ e => s!"{renderExpr d e}?"
+    | .closure params body =>
+      let ps := String.intercalate ", " params
+      s!"|{ps}| {renderExpr d body}"
+    | .raw s => s
 
   /-- Render a match arm. -/
   partial def renderMatchArm : (d : Nat) → RustMatchArm → String
@@ -190,6 +198,28 @@ def render : RustItem → String
     s!"/// {doc}\n\
        {String.join attrLines}\
        {vis.render}struct {name}({body});"
+  | .struct_ doc attrs vis name fields =>
+    let attrLines := attrs.map (·.render ++ "\n")
+    let fieldLines := fields.map fun (v, n, ty) =>
+      s!"{ind 1}{v.render}{n}: {ty},"
+    let params := fields.map fun (_, n, ty) =>
+      s!"{n}: {ty}"
+    let assigns := fields.map fun (_, n, _) =>
+      s!"{ind 2}{n},"
+    s!"/// {doc}\n\
+       {String.join attrLines}\
+       {vis.render}struct {name} \{\n\
+       {String.intercalate "\n" fieldLines}\n\
+       }\n\n\
+       impl {name} \{\n\
+       {ind 1}pub fn new(\
+       {String.intercalate ", " params}\
+       ) -> Self \{\n\
+       {ind 2}Self \{\n\
+       {String.intercalate "\n" assigns}\n\
+       {ind 2}}\n\
+       {ind 1}}\n\
+       }"
   | .impl_ trait_ ty methods =>
     let traitStr := match trait_ with
       | some t => s!"{t.render} for "
@@ -211,8 +241,10 @@ namespace RustModule
 def render (m : RustModule)
     (siblings : List String := []) : String :=
   let header := s!"//! {m.doc}\n"
-  let uses := siblings.filter (· != m.name) |>.map
-    fun s => s!"#[allow(unused_imports)]\nuse crate::{s}::*;"
+  let siblingImports := siblings.filter (· != m.name)
+  let uses := siblingImports.map fun s =>
+    s!"#[allow(unused_imports)]\n\
+       use crate::{s}::*;"
   let usesStr := if uses.isEmpty then ""
     else String.intercalate "\n" uses ++ "\n"
   let body := m.items.map RustItem.render
@@ -310,12 +342,13 @@ partial def leanToRustType (s : String) : String :=
 
 namespace EnumDef
 
-/-- Wrap a Rust type in `Box<>` if it references the parent
-    enum name (directly or inside `Vec<>`). -/
-private def boxIfRecursive
-    (enumName : String) (ty : String) : String :=
-  let rustTy := leanToRustType ty
-  if rustTy == enumName then s!"Box<{rustTy}>"
+/-- Render an `ArgDef`'s type to Rust, wrapping in `Box`
+    if the type is self-referential. -/
+private def argToRust
+    (enumName : String) (a : ArgDef) : String :=
+  let ft := FType.parse a.typeName
+  let rustTy := ft.toRust
+  if ft.isRecursiveIn enumName then s!"Box<{rustTy}>"
   else rustTy
 
 /-- Convert an `EnumDef` to a `RustItem.enum`.
@@ -326,8 +359,7 @@ def toRustItem (d : EnumDef) : RustItem :=
     (d.variants.map fun v =>
       { doc := v.doc
         name := capitalise v.name
-        fields := v.args.map
-          fun a => boxIfRecursive d.name a.typeName })
+        fields := v.args.map (argToRust d.name) })
 
 /-- Generate Rust source code for this enum. -/
 def toRust (d : EnumDef) : String :=
@@ -335,67 +367,158 @@ def toRust (d : EnumDef) : String :=
 
 end EnumDef
 
+namespace BodyExpr
+
+/-- Convert a `BodyExpr` to a typed `RustExpr`.
+    `retStruct` is the name of the return type's
+    struct (for filling in anonymous `⟨⟩` constructors). -/
+partial def toRustExpr
+    (fnName : String)
+    (retType : FType := .prim .unit)
+    : BodyExpr → RustExpr
+  | .var n => .path (.simple (leanToRustIdent n))
+  | .emptyList => .raw "vec![]"
+  | .none_ => .path ⟨["None"]⟩
+  | .some_ e =>
+    .call (.path ⟨["Some"]⟩) [e.toRustExpr fnName retType]
+  | .mkStruct sName _fieldNames args =>
+    let rustName := if sName.isEmpty then
+      retType.stripOption.toRust
+    else sName
+    if rustName.isEmpty || rustName == "()" then
+      .tuple (args.map fun a =>
+        a.toRustExpr fnName retType)
+    else
+      .call (.path ⟨[rustName, "new"]⟩)
+        (args.map fun a =>
+          -- (*x).clone() handles both &T and &Box<T>
+          .raw s!"(*{renderExpr 0
+            (a.toRustExpr fnName retType)}).clone()")
+  | .cons h t =>
+    let hExpr := .methodCall
+      (h.toRustExpr fnName retType) "clone" []
+    let tExpr := t.toRustExpr fnName retType
+    .block
+      [ .expr (.raw "let mut __r = vec![]")
+      , .expr (.methodCall (.path (.simple "__r"))
+          "push" [hExpr])
+      , .expr (.methodCall (.path (.simple "__r"))
+          "extend" [tExpr]) ]
+      (some (.path (.simple "__r")))
+  | .append l r =>
+    let lExpr := l.toRustExpr fnName retType
+    let rExpr := r.toRustExpr fnName retType
+    .block
+      [ .«let» (.ident "__r") none lExpr
+      , .expr (.raw "let mut __r = __r")
+      , .expr (.methodCall (.path (.simple "__r"))
+          "extend" [rExpr]) ]
+      (some (.path (.simple "__r")))
+  | .dot recv method =>
+    .call (.path (.simple method))
+      [.ref_ false (recv.toRustExpr fnName retType)]
+  | .flatMap list param body =>
+    .raw s!"{renderExpr 0
+      (.methodCall (list.toRustExpr fnName retType)
+        "iter" [])}.flat_map(|{param}| \
+      {renderExpr 0
+        (body.toRustExpr fnName retType)}\
+      ).collect::<Vec<_>>()"
+  | .field recv name =>
+    .ref_ false
+      (.field (recv.toRustExpr fnName retType) name)
+  | .index list idx =>
+    -- .get() returns Option<&T>; the caller's letBind
+    -- handles the ? operator
+    .methodCall
+      (.methodCall
+        (list.toRustExpr fnName retType)
+        "get" [idx.toRustExpr fnName retType])
+      "cloned" []
+  | .call fn args =>
+    .call (.path (.simple fn))
+      (args.map fun a =>
+        a.toRustExpr fnName retType)
+  | .foldlM fn init list =>
+    .methodCall
+      (.methodCall (list.toRustExpr fnName retType)
+        "iter" [])
+      "try_fold"
+      [ init.toRustExpr fnName retType
+      , .closure ["acc", "x"]
+          (.call (.path (.simple
+            (if fn.endsWith "Step" then
+              (fn.take (fn.length - 4)).toString
+            else fn)))
+            [.ref_ false
+              (.field (.path (.simple "acc")) "ty")
+            , .path (.simple "x")])]
+
+end BodyExpr
+
 namespace FnDef
 
-/-- Convert a `FnDef` to a `RustItem.fn_` with a match
-    body derived from the function's match arms. -/
+/-- Convert a `FnDef` to a `RustItem.fn_` using the
+    typed Rust AST. -/
 def toRustItem (f : FnDef) : RustItem :=
   let params := f.params.map fun p =>
     RustParam.named (.ident (leanToRustIdent p.name))
-      (.ref false (.named (leanToRustType p.typeName)))
-  let retTy := RustTy.named
-    (leanToRustType f.returnType)
-  let lb := "{"
-  let rb := "}"
-  let bodyStr := match f.body with
+      (.ref false (.named (p.ty.toRust)))
+  let retTy := RustTy.named (f.returnType.toRust)
+  -- Extract inner struct name from return type
+  let retType := f.returnType
+  let body : RustExpr := match f.body with
     | .matchArms arms =>
-      if arms.isEmpty || f.params.length > 1
-      then "todo!()"
+      if arms.isEmpty then .raw "todo!()"
       else
         let paramNames := f.params.map
           fun p => leanToRustIdent p.name
         let enumNames := f.params.map (·.typeName)
-        let scrutinee := if paramNames.length == 1
-          then paramNames.head!
-          else s!"({", ".intercalate paramNames})"
+        let scrutinee : RustExpr :=
+          if paramNames.length == 1 then
+            .path (.simple paramNames.head!)
+          else .tuple (paramNames.map
+            fun n => .path (.simple n))
         let rustArms := arms.map fun arm =>
           let pats := arm.pat.zip enumNames |>.map
             fun (p, en) => p.toRust en
-          let pat := if pats.length == 1
+          let patStr := if pats.length == 1
             then pats.head!
             else s!"({", ".intercalate pats})"
-          let rhs := arm.rhs.toRust f.name
-          s!"        {pat} => {rhs},"
-        s!"match {scrutinee} {lb}\n\
-           {"\n".intercalate rustArms}\n    {rb}"
+          RustMatchArm.mk (.ident patStr)
+            (arm.rhs.toRustExpr f.name retType)
+        let wildArm := RustMatchArm.mk .wild
+          (.raw "todo!()")
+        .block []
+          (some (.«match» scrutinee
+            (rustArms ++ [wildArm])))
     | .doBlock stmts ret =>
-      let stmtStrs := stmts.map fun s =>
+      let rustStmts := stmts.map fun s =>
         match s with
-        | .let_ n v =>
-          s!"    let {leanToRustIdent n} = \
-             {v.toRust f.name};"
-        | .letBind n v =>
-          s!"    let {leanToRustIdent n} = \
-             {v.toRust f.name}?;"
-      let retStr := s!"    {ret.toRust f.name}"
-      s!"{lb}\n\
-         {"\n".intercalate stmtStrs}\n\
-         {retStr}\n{rb}"
+        | .let_ n v => RustStmt.«let»
+            (.ident (leanToRustIdent n)) none
+            (v.toRustExpr f.name retType)
+        | .letBind n v => RustStmt.«let»
+            (.ident (leanToRustIdent n)) none
+            (.try_ (v.toRustExpr f.name retType))
+      .block rustStmts (some (ret.toRustExpr f.name retType))
   .fn_
     { vis := .pub
       name := f.name
       params := params
       retTy := some retTy
-      body := .block [] (some (.path ⟨[bodyStr]⟩)) }
+      body := body }
 
 end FnDef
 
 namespace StructDef
 
-/-- Convert a `StructDef` to a `RustItem.tupleStruct`. -/
+/-- Convert a `StructDef` to a named-field Rust struct. -/
 def toRustItem (s : StructDef) : RustItem :=
-  .tupleStruct s.doc [.derive defaultRustDerives] .pub s.name
-    (s.fields.map fun f => (.pub, leanToRustType f.typeName))
+  .struct_ s.doc [.derive defaultRustDerives] .pub
+    s.name
+    (s.fields.map fun f =>
+      (.pub, f.name, f.ty.toRust))
 
 end StructDef
 

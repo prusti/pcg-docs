@@ -67,6 +67,15 @@ mutual
         (arms : List RustMatchArm)
     /-- Return statement: `return expr`. -/
     | «return» (val : Option RustExpr)
+    /-- `&expr` (borrow). -/
+    | ref_ (mutable : Bool) (e : RustExpr)
+    /-- `expr?` (try operator). -/
+    | try_ (e : RustExpr)
+    /-- Closure: `|params| body`. -/
+    | closure (params : List String) (body : RustExpr)
+    /-- Raw string (for macros like `vec![]`,
+        `todo!()`). -/
+    | raw (s : String)
 
   /-- A match arm: `pat => expr`. -/
   inductive RustMatchArm where
@@ -133,6 +142,10 @@ inductive RustItem where
   | tupleStruct (doc : String) (attrs : List RustAttr)
       (vis : RustVis) (name : String)
       (fields : List (RustVis × String))
+  /-- A named-field struct. -/
+  | struct_ (doc : String) (attrs : List RustAttr)
+      (vis : RustVis) (name : String)
+      (fields : List (RustVis × String × String))
   /-- An impl block (optionally for a trait). -/
   | impl_ (trait_ : Option RustPath) (ty : RustPath)
       (methods : List RustFn)
@@ -180,6 +193,9 @@ structure RustWorkspace where
   /-- Crate directory names (relative to workspace root). -/
   members : List String
   deriving Repr
+
+instance : Inhabited RustExpr where
+  default := .raw ""
 
 namespace RustPath
 

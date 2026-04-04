@@ -99,17 +99,21 @@ where
   deriving Repr
 
 defFn projTy (.text "projTy")
-  "Project a place type through a single projection \
-   element."
-  (pty "The current place type." : PlaceTy)
+  "Project a type through a single projection element."
+  (τ "The current type." : Ty)
   (π "The projection element." : ProjElem)
   : Option PlaceTy where
-  | ⟨.ref _ _ τ, _⟩ ; .deref =>
-      Some ⟨τ, None⟩
+  | .ref _ _ pointee ; .deref =>
+      Some ⟨pointee, None⟩
   | _ ; .deref => None
   | _ ; .field _ ty => Some ⟨ty, None⟩
-  | ⟨ty, _⟩ ; .index _ => Some ⟨ty, None⟩
-  | ⟨ty, _⟩ ; .downcast v => Some ⟨ty, Some v⟩
+  | ty ; .index _ => Some ⟨ty, None⟩
+  | ty ; .downcast v => Some ⟨ty, Some v⟩
+
+/-- Wrapper for folding: extract the ty from PlaceTy. -/
+def projTyStep (pty : PlaceTy) (π : ProjElem)
+    : Option PlaceTy :=
+  projTy pty.ty π
 
 defFn placeTy (.text "ty")
   "Compute the type of a place: look up the base \
@@ -120,4 +124,4 @@ defFn placeTy (.text "ty")
   let decls := body↦localDecls↦decls
   let baseIdx := place↦base↦index
   let τ₀ ← decls !! baseIdx
-  return place↦projection·foldlM projTy ⟨τ₀, None⟩
+  return place↦projection·foldlM projTyStep ⟨τ₀, None⟩

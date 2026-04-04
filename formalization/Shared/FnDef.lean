@@ -1,6 +1,7 @@
 import Shared.Doc
 import Shared.StructDef
 import Shared.EnumDef
+import Shared.FType
 
 /-- A pattern in a function body. -/
 inductive BodyPat where
@@ -15,7 +16,11 @@ inductive BodyExpr where
   | emptyList
   | none_
   | some_ (e : BodyExpr)
-  | mkStruct (args : List BodyExpr)
+  /-- Struct constructor. `name` is the struct name
+      (empty for anonymous tuples). `fieldNames` are
+      the field names (for Rust named-field structs). -/
+  | mkStruct (name : String) (fieldNames : List String)
+      (args : List BodyExpr)
   | cons (head : BodyExpr) (tail : BodyExpr)
   | append (lhs : BodyExpr) (rhs : BodyExpr)
   | dot (recv : BodyExpr) (method : String)
@@ -61,7 +66,7 @@ structure FnDef where
   symbolDoc : Doc
   doc : String
   params : List FieldDef
-  returnType : String
+  returnType : FType
   body : FnBody
   deriving Repr
 
@@ -93,9 +98,10 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .some_ e =>
     Syntax.mkApp (mkIdent ``BodyExpr.some_)
       #[quoteExpr e]
-  | .mkStruct args =>
+  | .mkStruct name fieldNames args =>
     Syntax.mkApp (mkIdent ``BodyExpr.mkStruct)
-      #[quote (args.map quoteExpr)]
+      #[quote name, quote fieldNames,
+        quote (args.map quoteExpr)]
   | .cons h t =>
     Syntax.mkApp (mkIdent ``BodyExpr.cons)
       #[quoteExpr h, quoteExpr t]
@@ -142,16 +148,23 @@ partial def toLean : BodyPat → String
 partial def toRust (enumName : String)
     : BodyPat → String
   | .wild => "_"
-  | .var n => n
+  | .var n => n.replace "τ₀" "ty0"
+    |>.replace "τ" "ty" |>.replace "π" "pi"
   | .ctor "⟨⟩" args =>
+    -- Struct destructure: render children without
+    -- enum qualification.
     s!"({", ".intercalate
-      (args.map (toRust enumName))})"
+      (args.map (toRust ""))})"
   | .ctor n args =>
     let capName := String.ofList
       (n.toList.head!.toUpper :: n.toList.tail!)
     let argStr := ", ".intercalate
       (args.map (toRust enumName))
-    if args.isEmpty then
+    if enumName.isEmpty then
+      -- Inside a struct destructure: bare variant
+      if args.isEmpty then capName
+      else s!"{capName}({argStr})"
+    else if args.isEmpty then
       s!"{enumName}::{capName}"
     else
       s!"{enumName}::{capName}({argStr})"
@@ -165,7 +178,7 @@ partial def toLean : BodyExpr → String
   | .emptyList => "[]"
   | .none_ => "none"
   | .some_ e => s!"some {e.toLean}"
-  | .mkStruct args =>
+  | .mkStruct _ _ args =>
     s!"⟨{", ".intercalate (args.map toLean)}⟩"
   | .cons h t => s!"{h.toLean} :: {t.toLean}"
   | .append l r => s!"{l.toLean} ++ {r.toLean}"
@@ -250,7 +263,7 @@ partial def toLatex
   | .none_ => "\\text{None}"
   | .some_ e =>
     e.toLatex fnName varDisplay ctorDisplay
-  | .mkStruct args =>
+  | .mkStruct _ _ args =>
     let inner := ",~".intercalate
       (args.map (toLatex fnName varDisplay
         ctorDisplay))
@@ -315,54 +328,6 @@ end BodyStmt
 
 namespace BodyExpr
 
-/-- Sanitize a name for Rust (replace Unicode). -/
-private def rustName (n : String) : String :=
-  n.replace "τ₀" "ty0"
-   |>.replace "τ" "ty"
-   |>.replace "π" "pi"
-
-partial def toRust (fnName : String)
-    : BodyExpr → String
-  | .var n => rustName n
-  | .emptyList => "vec![]"
-  | .none_ => "None"
-  | .some_ e => s!"Some({e.toRust fnName})"
-  | .mkStruct args =>
-    s!"({", ".intercalate (args.map (toRust fnName))})"
-  | .cons h t =>
-    let lb := "{"
-    let rb := "}"
-    s!"{lb}\n            let mut r = \
-       vec![{h.toRust fnName}.clone()];\n\
-       \x20           r.extend({t.toRust fnName});\n\
-       \x20           r\n        {rb}"
-  | .append l r =>
-    let lb := "{"
-    let rb := "}"
-    s!"{lb}\n            let mut r = \
-       {l.toRust fnName};\n\
-       \x20           r.extend({r.toRust fnName});\n\
-       \x20           r\n        {rb}"
-  | .dot recv method =>
-    s!"{method}(*{recv.toRust fnName}.clone())"
-  | .flatMap list param body =>
-    s!"{list.toRust fnName}.iter().flat_map(\
-       |{param}| {body.toRust fnName}\
-       ).collect::<Vec<_>>()"
-  | .field recv name =>
-    s!"{recv.toRust fnName}.{name}"
-  | .index list idx =>
-    s!"{list.toRust fnName}.get(\
-       {idx.toRust fnName})"
-  | .call fn args =>
-    let argStr := ", ".intercalate
-      (args.map fun a => s!"&{a.toRust fnName}")
-    s!"{fn}({argStr})"
-  | .foldlM fn init list =>
-    s!"{list.toRust fnName}.iter().try_fold(\
-       {init.toRust fnName}, |acc, x| \
-       {fn}(&acc, x))"
-
 end BodyExpr
 
 -- ══════════════════════════════════════════════
@@ -376,7 +341,7 @@ def shortSig (f : FnDef) : Doc :=
     Doc.text s!"{p.name} : {p.typeName}"
   .seq [ f.symbolDoc, .text "(",
     Doc.intercalate (.text ", ") paramDocs,
-    .text s!") → {f.returnType}" ]
+    .text s!") → {f.returnType.toLean}" ]
 
 /-- Render the function as a LaTeX algorithm. -/
 def formalDefLatex
@@ -390,8 +355,8 @@ def formalDefLatex
   let paramSig := ", ".intercalate
     (f.params.map fun p =>
       s!"{Doc.escapeLatex p.name} : \
-         {Doc.escapeLatex p.typeName}")
-  let retTy := Doc.escapeLatex f.returnType
+         {p.ty.toLatex}")
+  let retTy := f.returnType.toLatex
   let bodyLines := match f.body with
     | .matchArms arms => arms.map fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>

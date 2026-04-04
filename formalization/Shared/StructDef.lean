@@ -1,14 +1,19 @@
 import Shared.Doc
+import Shared.FType
 
 /-- A field of an exportable struct definition. -/
 structure FieldDef where
   /-- The field name (e.g. `"id"`). -/
   name : String
-  /-- The field type name (e.g. `"Nat"`). -/
-  typeName : String
+  /-- The field type. -/
+  ty : FType
   /-- Documentation for this field. -/
   doc : String
   deriving Repr
+
+/-- Backward-compatible accessor. -/
+def FieldDef.typeName (f : FieldDef) : String :=
+  f.ty.toLean
 
 /-- An exportable struct definition with metadata for
     cross-language code generation. -/
@@ -31,7 +36,7 @@ def formalDefLatex (s : StructDef) : String :=
   let rb := "}"
   let fieldRows := s.fields.map fun f =>
     s!"  {Doc.escapeLatexMath f.name} &: \
-       {Doc.typeToLatexMath f.typeName} & \
+       {f.ty.toLatexMath} & \
        \\text{lb}({Doc.escapeLatex f.doc}){rb} \\\\"
   let body := if fieldRows.isEmpty then ""
     else
