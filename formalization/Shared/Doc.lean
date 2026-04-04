@@ -112,10 +112,13 @@ partial def toLatexMath : Doc → String
   | raw latex _ _ => latex
 
 /-- Render a Lean type name to LaTeX math mode. -/
-def typeToLatexMath : String → String
+def typeToLatexMath (s : String) : String :=
+  let s := s.trim
+  match s with
   | "Nat" => "\\mathbb{N}"
   | "String" => "\\text{String}"
-  | other => "\\text{" ++ escapeLatexMath other ++ "}"
+  | other =>
+    "\\text{" ++ escapeLatexMath other ++ "}"
 
 /-- Render a document to Typst. -/
 partial def toTypst : Doc → String
