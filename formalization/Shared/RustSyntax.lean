@@ -15,6 +15,13 @@ inductive RustTy where
   | unit
   deriving Repr
 
+/-- A unary operator. -/
+inductive RustUnaryOp where
+  | deref   -- *expr
+  | neg     -- -expr
+  | not     -- !expr
+  deriving Repr
+
 /-- A binary operator. -/
 inductive RustBinOp where
   | eq | ne | lt | le | gt | ge
@@ -52,6 +59,8 @@ mutual
         (method : String) (args : List RustExpr)
     /-- Field access: `x.field`. -/
     | field (recv : RustExpr) (name : String)
+    /-- Unary operation: `*expr`, `-expr`, `!expr`. -/
+    | unaryOp (op : RustUnaryOp) (e : RustExpr)
     /-- Binary operation: `a == b`. -/
     | binOp (op : RustBinOp) (lhs rhs : RustExpr)
     /-- Tuple expression: `(a, b)`. -/

@@ -92,6 +92,10 @@ mutual
     | .call func args =>
       let argStrs := args.map (renderExpr d)
       s!"{renderExpr d func}({String.intercalate ", " argStrs})"
+    | .unaryOp op e =>
+      let opStr := match op with
+        | .deref => "*" | .neg => "-" | .not => "!"
+      s!"{opStr}{renderExpr d e}"
     | .binOp op lhs rhs =>
       s!"{renderExpr d lhs} {op.render} {renderExpr d rhs}"
     | .tuple elems =>
@@ -172,6 +176,24 @@ def render (d : Nat) (f : RustFn) : String :=
 
 end RustFn
 
+/-- Generate `From<Box<T>>` impls for struct field types
+    so that `new(boxed.clone(), ...)` works via `.into()`.
+    Only for named types that might appear boxed. -/
+private def fromBoxImpls
+    (fields : List (RustVis × String × String))
+    : String :=
+  let impls := fields.filterMap fun (_, _, ty) =>
+    if ty.startsWith "Vec<" || ty.startsWith "Option<"
+      || ty == "usize" || ty == "String"
+      || ty == "bool" || ty == "()" then none
+    else
+      let lb := "{"
+      let rb := "}"
+      some s!"\nimpl From<Box<{ty}>> for {ty} {lb}\
+        \n    fn from(b: Box<{ty}>) -> Self {lb}\
+        \n        *b\n    {rb}\n{rb}"
+  String.join impls
+
 namespace RustItem
 
 /-- Render an enum variant line. -/
@@ -203,9 +225,9 @@ def render : RustItem → String
     let fieldLines := fields.map fun (v, n, ty) =>
       s!"{ind 1}{v.render}{n}: {ty},"
     let params := fields.map fun (_, n, ty) =>
-      s!"{n}: {ty}"
+      s!"{n}: impl Into<{ty}>"
     let assigns := fields.map fun (_, n, _) =>
-      s!"{ind 2}{n},"
+      s!"{ind 2}{n}: {n}.into(),"
     s!"/// {doc}\n\
        {String.join attrLines}\
        {vis.render}struct {name} \{\n\
@@ -219,7 +241,8 @@ def render : RustItem → String
        {String.intercalate "\n" assigns}\n\
        {ind 2}}\n\
        {ind 1}}\n\
-       }"
+       }\n\
+       {fromBoxImpls fields}"
   | .impl_ trait_ ty methods =>
     let traitStr := match trait_ with
       | some t => s!"{t.render} for "
@@ -391,9 +414,16 @@ partial def toRustExpr
     else
       .call (.path ⟨[rustName, "new"]⟩)
         (args.map fun a =>
-          -- (*x).clone() handles both &T and &Box<T>
-          .raw s!"(*{renderExpr 0
-            (a.toRustExpr fnName retType)}).clone()")
+          let e := a.toRustExpr fnName retType
+          match a with
+          | .var _ =>
+            .methodCall e "clone" []
+          | .some_ inner =>
+            .call (.path ⟨["Some"]⟩)
+              [.methodCall
+                (inner.toRustExpr fnName retType)
+                "clone" []]
+          | _ => e)
   | .cons h t =>
     let hExpr := .methodCall
       (h.toRustExpr fnName retType) "clone" []
@@ -425,15 +455,13 @@ partial def toRustExpr
         (body.toRustExpr fnName retType)}\
       ).collect::<Vec<_>>()"
   | .field recv name =>
-    .ref_ false
-      (.field (recv.toRustExpr fnName retType) name)
+    .field (recv.toRustExpr fnName retType) name
   | .index list idx =>
-    -- .get() returns Option<&T>; the caller's letBind
-    -- handles the ? operator
     .methodCall
       (.methodCall
         (list.toRustExpr fnName retType)
-        "get" [idx.toRustExpr fnName retType])
+        "get"
+        [.unaryOp .deref (idx.toRustExpr fnName retType)])
       "cloned" []
   | .call fn args =>
     .call (.path (.simple fn))
@@ -497,7 +525,7 @@ def toRustItem (f : FnDef) : RustItem :=
         match s with
         | .let_ n v => RustStmt.«let»
             (.ident (leanToRustIdent n)) none
-            (v.toRustExpr f.name retType)
+            (.ref_ false (v.toRustExpr f.name retType))
         | .letBind n v => RustStmt.«let»
             (.ident (leanToRustIdent n)) none
             (.try_ (v.toRustExpr f.name retType))
