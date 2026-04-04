@@ -114,8 +114,9 @@ defFn projTy (.text "projTy")
   | _ ; _ ; .deref :: _ => None
   | _ ; _ ; (.field _ ty) :: rest =>
       projTy ‹ty, None, rest›
-  | ty ; _ ; (.index _) :: rest =>
-      projTy ‹ty, None, rest›
+  | .array elem _ ; _ ; (.index _) :: rest =>
+      projTy ‹elem, None, rest›
+  | _ ; _ ; (.index _) :: _ => None
   | ty ; _ ; (.downcast v) :: rest =>
       projTy ‹ty, Some v, rest›
 
@@ -136,8 +137,9 @@ defFn ownedProjTy (.text "ownedProjTy")
   | _ ; .deref :: _ => None
   | _ ; (.field _ ty) :: rest =>
       ownedProjTy ‹ty, rest›
-  | ty ; (.index _) :: rest =>
-      ownedProjTy ‹ty, rest›
+  | .array elem _ ; (.index _) :: rest =>
+      ownedProjTy ‹elem, rest›
+  | _ ; (.index _) :: _ => None
   | ty ; (.downcast _) :: rest =>
       ownedProjTy ‹ty, rest›
 

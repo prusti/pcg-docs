@@ -45,7 +45,13 @@ where
      #mutability, .text " ", #pointee)
   | box (inner : Ty)
     "A box type."
-    (.text "Box<", #inner, .text ">")
+    (.raw "\\mathtt{Box}\\langle" "Box⟨" "Box&lt;",
+     #inner,
+     .raw "\\rangle" "⟩" "&gt;")
+  | array (elem : Ty) (len : Nat)
+    "A fixed-size array type."
+    (.text "[", #elem, .text "; ",
+     #len (.text "n"), .text "]")
   deriving Repr
 
 /-- A generalized type is either a type or a region.
@@ -87,6 +93,7 @@ defFn regions (.text "regions")
   | .ctor _ args => args·flatMap fun a => a·regions
   | .ref r _ pointee => r :: pointee·regions
   | .box inner => inner·regions
+  | .array elem _ => elem·regions
 
 /-- `Contains fields τ τ'` holds when `τ` contains `τ'`.
 
@@ -113,6 +120,9 @@ inductive Contains (fields : TyCtorName → List Ty) : Ty → Ty → Prop where
   | unbox {inner τ' : Ty} :
       Contains fields inner τ' →
       Contains fields (.box inner) τ'
+  | arrayElem {elem τ' : Ty} {len : Nat} :
+      Contains fields elem τ' →
+      Contains fields (.array elem len) τ'
 
 /-- `ContainsRegion fields τ r` holds when `τ` contains lifetime `r`.
 
@@ -148,6 +158,8 @@ def correspondingRegion : Ty → Region → Ty → Option Region
     else correspondingRegion pointee target pointee_c
   | .box inner, target, .box inner_c =>
     correspondingRegion inner target inner_c
+  | .array elem _ , target, .array elem_c _ =>
+    correspondingRegion elem target elem_c
   | .ctor name args, target, .ctor name_c args_c =>
     if name == name_c then
       findCorresponding args target args_c
