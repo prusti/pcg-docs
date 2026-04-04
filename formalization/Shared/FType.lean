@@ -74,6 +74,14 @@ def toRust : FType → RustTy
   | .option t => .option t.toRust
   | .list t => .adt ⟨["Vec"]⟩ [t.toRust]
 
+/-- Convert to a Rust parameter type. Lists become
+    slices (`&[T]`) for pattern-matching support. -/
+def toRustParam : FType → RustTy
+  | .prim p => .builtin p.toRust
+  | .named n => .named n
+  | .option t => .option t.toRust
+  | .list t => .slice t.toRust
+
 /-- Render a type to a Rust type string. -/
 def toRustStr (t : FType) : String := t.toRust.render
 

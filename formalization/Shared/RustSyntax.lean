@@ -26,6 +26,8 @@ inductive RustTy where
   | adt (constructor : RustPath) (args : List RustTy)
   /-- `impl Into<T>` argument type. -/
   | implInto (inner : RustTy)
+  /-- Slice type: `[T]`. -/
+  | slice (inner : RustTy)
   deriving Repr
 
 /-- A unary operator. -/
@@ -288,6 +290,7 @@ def render : RustTy → String
       let argStrs := args.map RustTy.render
       s!"{ctor.render}<{String.intercalate ", " argStrs}>"
   | .implInto inner => s!"impl Into<{inner.render}>"
+  | .slice inner => s!"[{inner.render}]"
 
 /-- The `Self` type. -/
 def self_ : RustTy := .adt RustPath.self_ []

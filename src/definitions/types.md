@@ -4,6 +4,7 @@ A _type_ $\defn{ty}{\ty}$ is either:
 - A type parameter of the form $\text{param}~i$
 - An alias type of the form $\ty::T\langle\overline{\ty}\rangle$
 - A _type constructor application_ of the form $T\langle\overline{\ty}\rangle$
+- A box type of the form $\text{Box}\langle\ty\rangle$
 
 ## Corresponding Regions
 

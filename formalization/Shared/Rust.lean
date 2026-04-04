@@ -455,7 +455,14 @@ partial def toRustExpr
   | .var n => pure (.ident (leanToRustIdent n))
   | .emptyList => pure .emptyVec
   | .none_ => pure .none_
-  | .some_ e => return .some_ (← e.toRustExpr retType)
+  | .some_ e => do
+    let inner ← e.toRustExpr retType
+    match e with
+    | .var n =>
+      if n == "true" || n == "false" then
+        return .some_ inner
+      else return .some_ (.clone inner)
+    | _ => return .some_ inner
   | .mkStruct sName args => do
     if sName.isEmpty then
       return .tuple (← args.mapM fun a =>
@@ -512,8 +519,9 @@ partial def toRustExpr
         [.deref (← idx.toRustExpr retType)])
       "cloned" []
   | .call fn args => do
-    return .call (.ident fn)
-      (← args.mapM fun a => a.toRustExpr retType)
+    return .call (.ident (toSnakeCase fn))
+      (← args.mapM fun a => do
+        return .borrow (← a.toRustExpr retType))
   | .foldlM fn init list => do
     let rustFn := toSnakeCase
       (if fn.endsWith "Step" then
@@ -544,7 +552,7 @@ namespace FnDef
 def toRustItem (f : FnDef) : RustItem :=
   let params := f.params.map fun p =>
     RustParam.named (.ident (leanToRustIdent p.name))
-      (.ref false p.ty.toRust)
+      (.ref false p.ty.toRustParam)
   let retTy := f.returnType.toRust
   -- Extract inner struct name from return type
   let retType := f.returnType
@@ -568,10 +576,8 @@ def toRustItem (f : FnDef) : RustItem :=
             then pats.head!
             else s!"({", ".intercalate pats})"
           RustMatchArm.mk (.ident patStr) (re arm.rhs)
-        let wildArm := RustMatchArm.mk .wild .todo
         .block []
-          (some (.«match» scrutinee
-            (rustArms ++ [wildArm])))
+          (some (.«match» scrutinee rustArms))
     | .doBlock stmts ret =>
       let rustStmts := stmts.map fun s =>
         match s with

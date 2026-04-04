@@ -99,29 +99,67 @@ where
   deriving Repr
 
 defFn projTy (.text "projTy")
-  "Project a type through a single projection element."
+  "Project a type through a list of projection \
+   elements. Returns the final PlaceTy after all \
+   projections."
   (τ "The current type." : Ty)
-  (π "The projection element." : ProjElem)
+  (v "The variant index." : Option VariantIdx)
+  (projs "The projection elements." : List ProjElem)
   : Option PlaceTy where
-  | .ref _ _ pointee ; .deref =>
-      Some PlaceTy⟨pointee, None⟩
-  | _ ; .deref => None
-  | _ ; .field _ ty => Some PlaceTy⟨ty, None⟩
-  | ty ; .index _ => Some PlaceTy⟨ty, None⟩
-  | ty ; .downcast v => Some PlaceTy⟨ty, Some v⟩
+  | ty ; v ; [] => Some PlaceTy⟨ty, v⟩
+  | .ref _ _ pointee ; _ ; .deref :: rest =>
+      projTy ‹pointee, None, rest›
+  | .box inner ; _ ; .deref :: rest =>
+      projTy ‹inner, None, rest›
+  | _ ; _ ; .deref :: _ => None
+  | _ ; _ ; (.field _ ty) :: rest =>
+      projTy ‹ty, None, rest›
+  | ty ; _ ; (.index _) :: rest =>
+      projTy ‹ty, None, rest›
+  | ty ; _ ; (.downcast v) :: rest =>
+      projTy ‹ty, Some v, rest›
 
-/-- Wrapper for folding: extract the ty from PlaceTy. -/
-def projTyStep (pty : PlaceTy) (π : ProjElem)
-    : Option PlaceTy :=
-  projTy pty.ty π
+defFn ownedProjTy (.text "ownedProjTy")
+  "Check whether a place is owned by walking its \
+   projection list. Returns Some false as soon as \
+   a dereference of a reference is encountered, \
+   Some true if all projections are traversed \
+   without dereferencing a reference, or None on \
+   a type error."
+  (τ "The current type." : Ty)
+  (projs "The projection elements." : List ProjElem)
+  : Option Bool where
+  | _ ; [] => Some true
+  | .ref _ _ _ ; .deref :: _ => Some false
+  | .box inner ; .deref :: rest =>
+      ownedProjTy ‹inner, rest›
+  | _ ; .deref :: _ => None
+  | _ ; (.field _ ty) :: rest =>
+      ownedProjTy ‹ty, rest›
+  | ty ; (.index _) :: rest =>
+      ownedProjTy ‹ty, rest›
+  | ty ; (.downcast _) :: rest =>
+      ownedProjTy ‹ty, rest›
+
+defFn isOwned (.text "isOwned")
+  "Returns true iff a place is owned, i.e. it does \
+   not project from the dereference of a \
+   reference-typed place. See definitions/places.md."
+  (body "The function body." : Body)
+  (place "The place to type-check." : Place)
+  : Option Bool begin
+  let decls := body↦localDecls↦decls
+  let baseIdx := place↦base↦index
+  let τ₀ ← decls !! baseIdx
+  return ownedProjTy ‹τ₀, place↦projection›
 
 defFn placeTy (.text "ty")
   "Compute the type of a place: look up the base \
-   local in Δ, then fold projTy over projections."
+   local in Δ, then project through projections."
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   : Option PlaceTy begin
   let decls := body↦localDecls↦decls
   let baseIdx := place↦base↦index
   let τ₀ ← decls !! baseIdx
-  return place↦projection·foldlM projTyStep PlaceTy⟨τ₀, None⟩
+  return projTy ‹τ₀, None, place↦projection›

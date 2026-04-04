@@ -43,6 +43,9 @@ where
     "A reference type."
     (.text "&", #region, .text " ",
      #mutability, .text " ", #pointee)
+  | box (inner : Ty)
+    "A box type."
+    (.text "Box<", #inner, .text ">")
   deriving Repr
 
 /-- A generalized type is either a type or a region.
@@ -83,6 +86,7 @@ defFn regions (.text "regions")
       base·regions ++ (args·flatMap fun a => a·regions)
   | .ctor _ args => args·flatMap fun a => a·regions
   | .ref r _ pointee => r :: pointee·regions
+  | .box inner => inner·regions
 
 /-- `Contains fields τ τ'` holds when `τ` contains `τ'`.
 
@@ -106,6 +110,9 @@ inductive Contains (fields : TyCtorName → List Ty) : Ty → Ty → Prop where
   | deref {r : Region} {pointee τ' : Ty} :
       Contains fields pointee τ' →
       Contains fields (.ref r .mutable pointee) τ'
+  | unbox {inner τ' : Ty} :
+      Contains fields inner τ' →
+      Contains fields (.box inner) τ'
 
 /-- `ContainsRegion fields τ r` holds when `τ` contains lifetime `r`.
 
@@ -139,6 +146,8 @@ def correspondingRegion : Ty → Region → Ty → Option Region
   | .ref r _ pointee, target, .ref r_c _ pointee_c =>
     if r == target then some r_c
     else correspondingRegion pointee target pointee_c
+  | .box inner, target, .box inner_c =>
+    correspondingRegion inner target inner_c
   | .ctor name args, target, .ctor name_c args_c =>
     if name == name_c then
       findCorresponding args target args_c

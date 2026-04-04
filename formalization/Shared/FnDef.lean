@@ -8,6 +8,10 @@ inductive BodyPat where
   | wild
   | var (name : String)
   | ctor (name : String) (args : List BodyPat)
+  /-- Empty list pattern: `[]`. -/
+  | nil
+  /-- List cons pattern: `h :: t`. -/
+  | cons (head : BodyPat) (tail : BodyPat)
   deriving Repr
 
 /-- An expression in the function body DSL. -/
@@ -81,6 +85,11 @@ partial def quotePat : BodyPat → TSyntax `term
     let qArgs := args.map quotePat
     Syntax.mkApp (mkIdent ``BodyPat.ctor)
       #[quote n, quote qArgs]
+  | .nil =>
+    Syntax.mkApp (mkIdent ``BodyPat.nil) #[]
+  | .cons h t =>
+    Syntax.mkApp (mkIdent ``BodyPat.cons)
+      #[quotePat h, quotePat t]
 
 open Lean in
 instance : Quote BodyPat where quote := quotePat
@@ -141,6 +150,8 @@ partial def toLean : BodyPat → String
   | .ctor n args =>
     if args.isEmpty then s!".{n}"
     else s!".{n} {" ".intercalate (args.map toLean)}"
+  | .nil => "[]"
+  | .cons h t => s!"{h.toLean} :: {t.toLean}"
 
 partial def toRust (enumName : String)
     : BodyPat → String
@@ -165,10 +176,33 @@ partial def toRust (enumName : String)
       s!"{enumName}::{capName}"
     else
       s!"{enumName}::{capName}({argStr})"
+  | .nil => "[]"
+  | .cons h tail =>
+    let elemName := if enumName.startsWith "List "
+      then enumName.drop 5 |>.toString
+      else enumName
+    let hStr := h.toRust elemName
+    let tailStr := match tail with
+      | .var rest =>
+        let rv := rest.replace "τ" "ty"
+          |>.replace "π" "pi"
+        s!", {rv} @ .."
+      | .wild => ", .."
+      | _ => s!", {tail.toRust elemName} @ .."
+    s!"[{hStr}{tailStr}]"
 
 end BodyPat
 
 namespace BodyExpr
+
+mutual
+/-- Render an expression as a Lean function argument,
+    parenthesizing compound expressions. -/
+partial def toLeanArg : BodyExpr → String
+  | .var n => n
+  | .none_ => "none"
+  | .emptyList => "[]"
+  | e => s!"({e.toLean})"
 
 partial def toLean : BodyExpr → String
   | .var n => n
@@ -188,10 +222,11 @@ partial def toLean : BodyExpr → String
   | .index list idx =>
     s!"{list.toLean}[{idx.toLean}]?"
   | .call fn args =>
-    let argStr := ", ".intercalate (args.map toLean)
+    let argStr := " ".intercalate (args.map toLeanArg)
     s!"{fn} {argStr}"
   | .foldlM fn init list =>
     s!"{list.toLean}.foldlM {fn} {init.toLean}"
+end
 
 end BodyExpr
 
@@ -241,6 +276,9 @@ partial def toLatex
       if args.isEmpty then
         s!"\\text\{{n}}"
       else s!"\\text\{{n}}({argStr})"
+  | .nil => "[]"
+  | .cons h t =>
+    s!"{h.toLatex ctorDisplay} :: {t.toLatex ctorDisplay}"
 
 end BodyPat
 

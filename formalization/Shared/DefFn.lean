@@ -11,6 +11,9 @@ syntax "_" : fnPat
 syntax ident : fnPat
 syntax "." ident fnPat* : fnPat
 syntax "⟨" fnPat,+ "⟩" : fnPat
+syntax "(" fnPat ")" : fnPat
+syntax "[" "]" : fnPat
+syntax fnPat " :: " fnPat : fnPat
 
 declare_syntax_cat fnExpr
 syntax "[" "]" : fnExpr
@@ -38,6 +41,8 @@ syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
 syntax "| " fnPat "; " fnPat " => " fnExpr : fnArm
+syntax "| " fnPat "; " fnPat "; " fnPat " => " fnExpr
+    : fnArm
 
 declare_syntax_cat fnStmt
 syntax "let " ident " := " fnExpr : fnStmt
@@ -69,6 +74,10 @@ private partial def parsePat
   | `(fnPat| ⟨$args:fnPat,*⟩) => do
     let a ← args.getElems.mapM parsePat
     pure (.ctor "⟨⟩" a.toList)
+  | `(fnPat| ($p:fnPat)) => parsePat p
+  | `(fnPat| [ ]) => pure .nil
+  | `(fnPat| $h:fnPat :: $t:fnPat) =>
+    pure (.cons (← parsePat h) (← parsePat t))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 private partial def parseExpr
@@ -203,6 +212,10 @@ elab_rules : command
        $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
     let parsed ← arms.mapM fun arm => match arm with
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+            => $rhs:fnExpr) => do
+        pure (#[← parsePat p1, ← parsePat p2,
+          ← parsePat p3], ← parseExpr rhs)
       | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
             $rhs:fnExpr) => do
         pure (#[← parsePat p1, ← parsePat p2],
@@ -217,7 +230,12 @@ elab_rules : command
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         s!"  | {patStr} => {rhsAst.toLean}"
-    let defStr := s!"def {name.getId} : {tyStr}\n\
+    let hasListPat := parsed.any fun (pats, _) =>
+      pats.any fun p => match p with
+        | .cons .. | .nil => true | _ => false
+    let defKw := if hasListPat then "partial def"
+      else "def"
+    let defStr := s!"{defKw} {name.getId} : {tyStr}\n\
       {"\n".intercalate armStrs}"
     let env ← getEnv
     match Parser.runParserCategory env `command
