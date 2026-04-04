@@ -288,7 +288,9 @@ def defaultRustDerives : List String :=
 /-- Map a Lean identifier to a Rust-safe identifier. -/
 def leanToRustIdent : String → String
   | "τ" => "ty"
+  | "τ₀" => "ty0"
   | "σ" => "sigma"
+  | "π" => "pi"
   | other => other
 
 /-- Map a Lean type name to a Rust type name. -/
@@ -341,29 +343,50 @@ def toRustItem (f : FnDef) : RustItem :=
   let params := f.params.map fun p =>
     RustParam.named (.ident (leanToRustIdent p.name))
       (.ref false (.named (leanToRustType p.typeName)))
-  let retTy := RustTy.named (leanToRustType f.returnType)
-  let bodyStr := if f.body.isEmpty then "todo!()"
-    else
-      let paramName := match f.params.head? with
-        | some p => leanToRustIdent p.name
-        | none => "_x"
-      let enumName := match f.params.head? with
-        | some p => p.typeName
-        | none => "Self"
-      let arms := f.body.map fun arm =>
-        let pat := " ".intercalate
-          (arm.pat.map (·.toRust enumName))
-        let rhs := arm.rhs.toRust f.name
-        s!"        {pat} => {rhs},"
-      s!"match {paramName} {lb}\n\
-         {"\n".intercalate arms}\n    {rb}"
+  let retTy := RustTy.named
+    (leanToRustType f.returnType)
+  let lb := "{"
+  let rb := "}"
+  let bodyStr := match f.body with
+    | .matchArms arms =>
+      if arms.isEmpty || f.params.length > 1
+      then "todo!()"
+      else
+        let paramNames := f.params.map
+          fun p => leanToRustIdent p.name
+        let enumNames := f.params.map (·.typeName)
+        let scrutinee := if paramNames.length == 1
+          then paramNames.head!
+          else s!"({", ".intercalate paramNames})"
+        let rustArms := arms.map fun arm =>
+          let pats := arm.pat.zip enumNames |>.map
+            fun (p, en) => p.toRust en
+          let pat := if pats.length == 1
+            then pats.head!
+            else s!"({", ".intercalate pats})"
+          let rhs := arm.rhs.toRust f.name
+          s!"        {pat} => {rhs},"
+        s!"match {scrutinee} {lb}\n\
+           {"\n".intercalate rustArms}\n    {rb}"
+    | .doBlock stmts ret =>
+      let stmtStrs := stmts.map fun s =>
+        match s with
+        | .let_ n v =>
+          s!"    let {leanToRustIdent n} = \
+             {v.toRust f.name};"
+        | .letBind n v =>
+          s!"    let {leanToRustIdent n} = \
+             {v.toRust f.name}?;"
+      let retStr := s!"    {ret.toRust f.name}"
+      s!"{lb}\n\
+         {"\n".intercalate stmtStrs}\n\
+         {retStr}\n{rb}"
   .fn_
     { vis := .pub
       name := f.name
       params := params
       retTy := some retTy
       body := .block [] (some (.path ⟨[bodyStr]⟩)) }
-  where lb := "{" ; rb := "}"
 
 end FnDef
 

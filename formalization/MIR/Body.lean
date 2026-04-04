@@ -1,4 +1,5 @@
 import MIR.Place
+import Shared.DefFn
 
 defStruct BasicBlockIdx (.text "bb")
   "An index into the list of basic blocks."
@@ -78,6 +79,7 @@ defStruct LocalDecls (.text "Δ")
 where
   | decls "The type of each local variable."
       : List Ty
+  deriving Repr
 
 defStruct Body (.text "body")
   "A MIR function body."
@@ -86,3 +88,36 @@ where
       : LocalDecls
   | basicBlocks "The basic blocks." : List BasicBlock
   deriving Repr
+
+defStruct PlaceTy (.text "pty")
+  "The type of a place: a type paired with an optional \
+   variant index (set after a downcast)."
+where
+  | ty "The type." : Ty
+  | variant "The variant index, if downcasted."
+      : Option VariantIdx
+  deriving Repr
+
+defFn projTy (.text "projTy")
+  "Project a place type through a single projection \
+   element."
+  (pty "The current place type." : PlaceTy)
+  (π "The projection element." : ProjElem)
+  : Option PlaceTy where
+  | ⟨.ref _ _ τ, _⟩ ; .deref =>
+      Some ⟨τ, None⟩
+  | _ ; .deref => None
+  | _ ; .field _ ty => Some ⟨ty, None⟩
+  | ⟨ty, _⟩ ; .index _ => Some ⟨ty, None⟩
+  | ⟨ty, _⟩ ; .downcast v => Some ⟨ty, Some v⟩
+
+defFn placeTy (.text "ty")
+  "Compute the type of a place: look up the base \
+   local in Δ, then fold projTy over projections."
+  (body "The function body." : Body)
+  (place "The place to type-check." : Place)
+  : Option PlaceTy begin
+  let decls := body↦localDecls↦decls
+  let baseIdx := place↦base↦index
+  let τ₀ ← decls !! baseIdx
+  return place↦projection·foldlM projTy ⟨τ₀, None⟩

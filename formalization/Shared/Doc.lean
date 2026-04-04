@@ -66,6 +66,7 @@ private def latexReplacements :
   , ("τ̄", "$\\bar{\\tau}$", "\\bar{\\tau}")
   , ("τ", "$\\tau$", "\\tau")
   , ("π", "$\\pi$", "\\pi")
+  , ("₀", "$_0$", "_0")
   , ("⟨", "$\\langle$", "\\langle")
   , ("⟩", "$\\rangle$", "\\rangle")
   ]
