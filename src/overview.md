@@ -155,10 +155,14 @@ Because a borrow created within a block exists only for executions that visit th
 
 ### Place Capabilities
 
-Place capabilities $\defn{Placecap}{\Placecap}$ is a partial map from places to capabilities.
-
 <div class="warning">
 
-We may want to change the domain to be maybe-labelled places instead.
+The design for how place capabilities are represented and computed is
+being updated. In the new design, capabilities are _computed_ from the
+initialisation state and borrow state rather than stored in an explicit
+map. See [Computing Place Capabilities](./computing-place-capabilities.md)
+for details.
 
 </div>
+
+Place capabilities $\defn{Placecap}{\Placecap}$ is a partial map from places to capabilities.

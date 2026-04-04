@@ -1,8 +1,8 @@
 # Summary
 
 - [Overview](./overview.md)
-    - [Capabilities](./overview/capabilities.md)
 - [Definitions](./definitions.md)
+    - [Capabilities](./definitions/capabilities.md)
     - [PCG Nodes](./definitions/pcg-nodes.md)
     - [PCG Hyperedges](./definitions/pcg-edges.md)
     - [Types](./definitions/types.md)
@@ -32,3 +32,6 @@
     - [Repack Operations](./operations/repack-ops.md)
     - [Borrow PCG Actions](./operations/borrow-pcg-actions.md)
 - [Coupling](./coupling.md)
+- [Owned State](./owned-state.md)
+- [Edge Capabilities](./edge-capabilities.md)
+- [Computing Place Capabilities](./computing-place-capabilities.md)
