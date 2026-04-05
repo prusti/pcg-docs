@@ -1,9 +1,9 @@
-import Core.RustSyntax
-import Core.EnumDef
-import Core.StructDef
-import Core.FnDef
-import Core.FType
-import Core.OrderDef
+import Core.Export.RustSyntax
+import Core.Dsl.Types.EnumDef
+import Core.Dsl.Types.StructDef
+import Core.Dsl.Types.FnDef
+import Core.Dsl.DslType
+import Core.Dsl.Types.OrderDef
 import Core.Registry
 import Core.Export.Lean
 

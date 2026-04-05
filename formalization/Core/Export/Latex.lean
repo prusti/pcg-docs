@@ -1,9 +1,9 @@
 import Core.Doc
-import Core.FType
-import Core.FnDef
-import Core.EnumDef
-import Core.StructDef
-import Core.OrderDef
+import Core.Dsl.DslType
+import Core.Dsl.Types.FnDef
+import Core.Dsl.Types.EnumDef
+import Core.Dsl.Types.StructDef
+import Core.Dsl.Types.OrderDef
 import Core.Export.Lean
 
 -- ══════════════════════════════════════════════

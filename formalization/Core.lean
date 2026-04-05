@@ -1,11 +1,11 @@
 import Core.Doc
 import Core.Order
-import Core.RustSyntax
-import Core.FType
-import Core.EnumDef
-import Core.StructDef
-import Core.FnDef
-import Core.OrderDef
+import Core.Export.RustSyntax
+import Core.Dsl.DslType
+import Core.Dsl.Types.EnumDef
+import Core.Dsl.Types.StructDef
+import Core.Dsl.Types.FnDef
+import Core.Dsl.Types.OrderDef
 import Core.Registry
 import Core.Export.Rust
 import Core.Export.Lean

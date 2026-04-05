@@ -1,6 +1,6 @@
 import PCG.Capability.Order
 import MIR
-import Core.OrderDef
+import Core.Dsl.Types.OrderDef
 import Core.Registry
 import Core.Export.Latex
 

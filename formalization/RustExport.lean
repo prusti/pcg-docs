@@ -1,7 +1,7 @@
 import PCG.Capability.Order
 import MIR
 import Core.Export.Rust
-import Core.OrderDef
+import Core.Dsl.Types.OrderDef
 
 /-- Extra Rust items that cannot be auto-generated from
     `defEnum` / `defStruct` (e.g. trait impls). Keyed by

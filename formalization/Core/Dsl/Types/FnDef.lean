@@ -1,6 +1,6 @@
 import Core.Doc
-import Core.StructDef
-import Core.FType
+import Core.Dsl.Types.StructDef
+import Core.Dsl.DslType
 
 /-- A pattern in a function body. -/
 inductive BodyPat where

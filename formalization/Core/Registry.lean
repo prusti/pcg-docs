@@ -1,7 +1,7 @@
-import Core.EnumDef
-import Core.StructDef
-import Core.OrderDef
-import Core.FnDef
+import Core.Dsl.Types.EnumDef
+import Core.Dsl.Types.StructDef
+import Core.Dsl.Types.OrderDef
+import Core.Dsl.Types.FnDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where

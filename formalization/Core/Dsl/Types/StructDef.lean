@@ -1,5 +1,5 @@
 import Core.Doc
-import Core.FType
+import Core.Dsl.DslType
 
 /-- A field of an exportable struct definition. -/
 structure FieldDef where

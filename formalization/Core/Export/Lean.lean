@@ -1,6 +1,6 @@
-import Core.FType
-import Core.FnDef
-import Core.StructDef
+import Core.Dsl.DslType
+import Core.Dsl.Types.FnDef
+import Core.Dsl.Types.StructDef
 
 -- ══════════════════════════════════════════════
 -- Lean rendering for FPrim / FType
