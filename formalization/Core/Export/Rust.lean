@@ -9,44 +9,49 @@ import Core.Registry
 import Core.Export.Lean
 
 -- ══════════════════════════════════════════════
--- FPrim / FType → Rust conversions
+-- DSLPrimTy / DSLType → Rust conversions
 -- ══════════════════════════════════════════════
 
-namespace FPrim
+namespace DSLPrimTy
 
 /-- Convert to a `RustBuiltinTy`. -/
-def toRust : FPrim → RustBuiltinTy
+def toRust : DSLPrimTy → RustBuiltinTy
   | .nat => .usize
   | .string => .string
   | .bool => .bool
   | .unit => .unit
+  | .u8 => .u8
+  | .u16 => .u16
+  | .u32 => .u32
+  | .u64 => .u64
+  | .usize => .usize
 
 /-- Render a primitive to a Rust type string. -/
-def toRustStr (p : FPrim) : String := p.toRust.render
+def toRustStr (p : DSLPrimTy) : String := p.toRust.render
 
-end FPrim
+end DSLPrimTy
 
-namespace FType
+namespace DSLType
 
 /-- Convert to a typed `RustTy`. -/
-def toRust : FType → RustTy
+def toRust : DSLType → RustTy
   | .prim p => .builtin p.toRust
-  | .named n => .named n
+  | .named n => .named n.name
   | .option t => .option t.toRust
   | .list t => .adt ⟨["Vec"]⟩ [t.toRust]
 
 /-- Convert to a Rust parameter type. Lists become
     slices (`&[T]`) for pattern-matching support. -/
-def toRustParam : FType → RustTy
+def toRustParam : DSLType → RustTy
   | .prim p => .builtin p.toRust
-  | .named n => .named n
+  | .named n => .named n.name
   | .option t => .option t.toRust
   | .list t => .slice t.toRust
 
 /-- Render a type to a Rust type string. -/
-def toRustStr (t : FType) : String := t.toRust.render
+def toRustStr (t : DSLType) : String := t.toRust.render
 
-end FType
+end DSLType
 
 -- ══════════════════════════════════════════════
 
@@ -455,7 +460,7 @@ namespace EnumDef
     `Box` if self-referential. -/
 private def argToRustTy
     (enumName : String) (a : ArgDef) : RustTy :=
-  let ft := FType.parse a.typeName
+  let ft := DSLType.parse a.typeName
   let rustTy := ft.toRust
   if ft.isRecursiveIn enumName then
     .adt ⟨["Box"]⟩ [rustTy]

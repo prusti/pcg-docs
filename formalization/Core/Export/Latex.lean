@@ -8,47 +8,57 @@ import Core.Dsl.Types.PropertyDef
 import Core.Export.Lean
 
 -- ══════════════════════════════════════════════
--- FPrim / FType LaTeX rendering
+-- DSLPrimTy / DSLType LaTeX rendering
 -- ══════════════════════════════════════════════
 
-namespace FPrim
+namespace DSLPrimTy
 
 /-- Render a primitive to LaTeX (text mode). -/
-def toLatex : FPrim → String
+def toLatex : DSLPrimTy → String
   | .nat => "$\\mathbb{N}$"
   | .string => "String"
   | .bool => "Bool"
   | .unit => "()"
+  | .u8 => "u8"
+  | .u16 => "u16"
+  | .u32 => "u32"
+  | .u64 => "u64"
+  | .usize => "usize"
 
 /-- Render a primitive to LaTeX math mode. -/
-def toLatexMath : FPrim → String
+def toLatexMath : DSLPrimTy → String
   | .nat => "\\mathbb{N}"
   | .string => "\\text{String}"
   | .bool => "\\text{Bool}"
   | .unit => "()"
+  | .u8 => "\\texttt{u8}"
+  | .u16 => "\\texttt{u16}"
+  | .u32 => "\\texttt{u32}"
+  | .u64 => "\\texttt{u64}"
+  | .usize => "\\texttt{usize}"
 
-end FPrim
+end DSLPrimTy
 
-namespace FType
+namespace DSLType
 
 /-- Render a type to LaTeX (text mode). -/
-def toLatex : FType → String
+def toLatex : DSLType → String
   | .prim p => p.toLatex
-  | .named n => Doc.escapeLatex n
+  | .named n => Doc.escapeLatex n.name
   | .option t => s!"Option {t.toLatex}"
   | .list t => s!"List {t.toLatex}"
 
 /-- Render a type to LaTeX math mode. -/
-def toLatexMath : FType → String
+def toLatexMath : DSLType → String
   | .prim p => p.toLatexMath
-  | .named n => Doc.escapeLatexMath n
+  | .named n => Doc.escapeLatexMath n.name
   | .option t =>
     s!"\\text{lb}Option{rb}~{t.toLatexMath}"
   | .list t =>
     s!"\\text{lb}List{rb}~{t.toLatexMath}"
   where lb := "{" ; rb := "}"
 
-end FType
+end DSLType
 
 -- ══════════════════════════════════════════════
 -- EnumDef LaTeX rendering

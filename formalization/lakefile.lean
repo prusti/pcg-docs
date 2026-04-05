@@ -8,6 +8,10 @@ package pcg where
     ⟨`linter.missingDocs, false⟩
   ]
 
+require LSpec from
+  git "https://github.com/argumentcomputer/LSpec"
+    @ "main"
+
 @[default_target]
 lean_lib Core where
   srcDir := "."
@@ -25,3 +29,10 @@ lean_exe rust_export where
 
 lean_exe presentation_export where
   root := `PresentationExport
+
+lean_lib Tests where
+  srcDir := "."
+
+@[test_driver]
+lean_exe tests where
+  root := `Tests

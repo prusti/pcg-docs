@@ -76,7 +76,7 @@ elab_rules : command
         let typeStr :=
           if ft.isIdent then toString ft.getId
           else ft.reprint.getD (toString ft)
-        let tyTerm ← `(FType.parse $(quote typeStr))
+        let tyTerm ← `(DSLType.parse $(quote typeStr))
         `({ name := $ns, ty := $tyTerm,
             doc := $fd : FieldDef })
     let ns : TSyntax `term :=

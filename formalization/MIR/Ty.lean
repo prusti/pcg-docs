@@ -16,7 +16,7 @@ defEnum Mutability (.italic (.text "m"))
   "Mutability of a reference."
 where
   | shared
-    "Core"
+    "Shared"
     (.text "shared")
   | mutable
     "Mutable"
@@ -52,6 +52,29 @@ where
     "A fixed-size array type."
     (.text "[", #elem, .text "; ",
      #len (.text "n"), .text "]")
+  deriving Repr
+
+defEnum Value (.italic (.text "v"))
+  "A concrete runtime value."
+where
+  | bool (val : Bool)
+    "A boolean value."
+    (#val (.text "b"))
+  | u8 (val : UInt8)
+    "An 8-bit unsigned integer."
+    (#val (.text "n"))
+  | u16 (val : UInt16)
+    "A 16-bit unsigned integer."
+    (#val (.text "n"))
+  | u32 (val : UInt32)
+    "A 32-bit unsigned integer."
+    (#val (.text "n"))
+  | u64 (val : UInt64)
+    "A 64-bit unsigned integer."
+    (#val (.text "n"))
+  | usize (val : USize)
+    "A pointer-sized unsigned integer."
+    (#val (.text "n"))
   deriving Repr
 
 /-- A generalized type is either a type or a region.

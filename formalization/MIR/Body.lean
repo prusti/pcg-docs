@@ -100,19 +100,18 @@ defFn projTy (.text "projTy")
   (v "The variant index." : Option VariantIdx)
   (projs "The projection elements." : List ProjElem)
   : Option PlaceTy where
-  | ty ; v ; [] => Some PlaceTy⟨ty, v⟩
-  | .ref _ _ pointee ; _ ; .deref :: rest =>
-      projTy ‹pointee, None, rest›
-  | .box inner ; _ ; .deref :: rest =>
-      projTy ‹inner, None, rest›
-  | _ ; _ ; .deref :: _ => None
-  | _ ; _ ; (.field _ ty) :: rest =>
-      projTy ‹ty, None, rest›
-  | .array elem _ ; _ ; (.index _) :: rest =>
-      projTy ‹elem, None, rest›
-  | _ ; _ ; (.index _) :: _ => None
-  | ty ; _ ; (.downcast v) :: rest =>
-      projTy ‹ty, Some v, rest›
+  | τ ; v ; [] => Some PlaceTy⟨τ, v⟩
+  | .ref _ _ pointee ; _ ; .deref :: π =>
+      projTy ‹pointee, None, π›
+  | .box inner ; _ ; .deref :: π =>
+      projTy ‹inner, None, π›
+  | _ ; _ ; (.field _ τ) :: π =>
+      projTy ‹τ, None, π›
+  | .array elem _ ; _ ; (.index _) :: π =>
+      projTy ‹elem, None, π›
+  | τ ; _ ; (.downcast v) :: π =>
+      projTy ‹τ, Some v, π›
+  | _ ; _ ; _ :: _ => None
 
 defFn ownedProjTy (.text "ownedProjTy")
   "Check whether a place is owned by walking its projection list. Returns Some
@@ -124,16 +123,15 @@ defFn ownedProjTy (.text "ownedProjTy")
   : Option Bool where
   | _ ; [] => Some true
   | .ref _ _ _ ; .deref :: _ => Some false
-  | .box inner ; .deref :: rest =>
-      ownedProjTy ‹inner, rest›
-  | _ ; .deref :: _ => None
-  | _ ; (.field _ ty) :: rest =>
-      ownedProjTy ‹ty, rest›
-  | .array elem _ ; (.index _) :: rest =>
-      ownedProjTy ‹elem, rest›
-  | _ ; (.index _) :: _ => None
-  | ty ; (.downcast _) :: rest =>
-      ownedProjTy ‹ty, rest›
+  | .box inner ; .deref :: π =>
+      ownedProjTy ‹inner, π›
+  | _ ; (.field _ τ) :: π =>
+      ownedProjTy ‹τ, π›
+  | .array elem _ ; (.index _) :: π =>
+      ownedProjTy ‹elem, π›
+  | τ ; (.downcast _) :: π =>
+      ownedProjTy ‹τ, π›
+  | _ ; _ :: _ => None
 
 
 defProperty validPlace (.text "valid")

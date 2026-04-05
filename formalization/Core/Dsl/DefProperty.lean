@@ -33,12 +33,12 @@ private def buildPropertyDef
       let typeStr :=
         if pt.isIdent then toString pt.getId
         else pt.reprint.getD (toString pt)
-      let tyTerm ← `(FType.parse $(quote typeStr))
+      let tyTerm ← `(DSLType.parse $(quote typeStr))
       `({ name := $ns, ty := $tyTerm,
           doc := $pd : FieldDef })
   let ns : TSyntax `term :=
     quote (toString name.getId)
-  let retTn ← `(FType.prim .bool)
+  let retTn ← `(DSLType.prim .bool)
   let paramList ← `([$[$paramDefs],*])
   let propDefId := mkIdent (name.getId ++ `propertyDef)
   elabCommand (← `(command|

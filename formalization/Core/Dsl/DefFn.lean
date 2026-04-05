@@ -193,7 +193,7 @@ def buildFnDef
       let typeStr :=
         if pt.isIdent then toString pt.getId
         else pt.reprint.getD (toString pt)
-      let tyTerm ← `(FType.parse $(quote typeStr))
+      let tyTerm ← `(DSLType.parse $(quote typeStr))
       `({ name := $ns, ty := $tyTerm,
           doc := $pd : FieldDef })
   let ns : TSyntax `term :=
@@ -202,7 +202,7 @@ def buildFnDef
     if retTy.raw.isIdent
     then toString retTy.raw.getId
     else retTy.raw.reprint.getD (toString retTy)
-  let retTn ← `(FType.parse $(quote retStr))
+  let retTn ← `(DSLType.parse $(quote retStr))
   let paramList ← `([$[$paramDefs],*])
   let precondList : TSyntax `term :=
     quote precondNames

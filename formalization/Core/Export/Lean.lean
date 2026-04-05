@@ -3,30 +3,35 @@ import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.StructDef
 
 -- ══════════════════════════════════════════════
--- Lean rendering for FPrim / FType
+-- Lean rendering for DSLPrimTy / DSLType
 -- ══════════════════════════════════════════════
 
-namespace FPrim
+namespace DSLPrimTy
 
 /-- Render a primitive to Lean syntax. -/
-def toLean : FPrim → String
+def toLean : DSLPrimTy → String
   | .nat => "Nat"
   | .string => "String"
   | .bool => "Bool"
   | .unit => "Unit"
+  | .u8 => "UInt8"
+  | .u16 => "UInt16"
+  | .u32 => "UInt32"
+  | .u64 => "UInt64"
+  | .usize => "USize"
 
-end FPrim
+end DSLPrimTy
 
-namespace FType
+namespace DSLType
 
 /-- Render a type to Lean syntax. -/
-def toLean : FType → String
+def toLean : DSLType → String
   | .prim p => p.toLean
-  | .named n => n
+  | .named n => n.name
   | .option t => s!"Option {t.toLean}"
   | .list t => s!"List {t.toLean}"
 
-end FType
+end DSLType
 
 -- ══════════════════════════════════════════════
 -- Lean rendering for StructDef

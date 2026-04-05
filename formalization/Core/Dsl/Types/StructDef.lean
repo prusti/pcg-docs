@@ -6,7 +6,7 @@ structure FieldDef where
   /-- The field name (e.g. `"id"`). -/
   name : String
   /-- The field type. -/
-  ty : FType
+  ty : DSLType
   /-- Documentation for this field. -/
   doc : String
   deriving Repr

@@ -73,7 +73,7 @@ structure FnDef where
   symbolDoc : Doc
   doc : String
   params : List FieldDef
-  returnType : FType
+  returnType : DSLType
   /-- Names of properties that must hold before calling
       this function. -/
   preconditions : List String := []
