@@ -254,7 +254,6 @@ defFn isOwned' (.plain "isOwned'")
       isOwned' ‹elem, π›
   | τ ; (.downcast _) :: π =>
       isOwned' ‹τ, π›
-  | _ ; _ :: _ => false
 
 defProperty validPlace (.plain "valid")
   "A place is valid for a body."

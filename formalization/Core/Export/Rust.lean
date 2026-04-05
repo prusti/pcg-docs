@@ -771,8 +771,11 @@ def toRustItem (f : FnDef)
             then pats.head!
             else .tuple pats
           RustMatchArm.mk pat (re arm.rhs)
+        let unreachableArm :=
+          RustMatchArm.mk .wild (.raw "unreachable!()")
         .block assertStmts
-          (some (.«match» scrutinee rustArms))
+          (some (.«match» scrutinee
+            (rustArms ++ [unreachableArm])))
     | .doBlock stmts ret =>
       let rustStmts := stmts.map fun s =>
         match s with
