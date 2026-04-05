@@ -87,9 +87,19 @@ elab_rules : command
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         s!"  | {patStr} => {rhsAst.toLean}"
+    let lastIsCatchAll := match parsed.back? with
+      | some (pats, _) => pats.all fun p =>
+          match p with | .wild | .var _ => true | _ => false
+      | none => false
+    let allArmStrs :=
+      if lastIsCatchAll then armStrs
+      else
+        let wildPat := ", ".intercalate
+          (paramData.toList.map fun _ => "_")
+        armStrs ++ [s!"  | {wildPat} => False"]
     let defKw := "def"
     let defStr := s!"{defKw} {name.getId} : {tyStr}\n\
-      {"\n".intercalate armStrs}"
+      {"\n".intercalate allArmStrs}"
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with

@@ -263,6 +263,16 @@ def toLean
       let rhsStr := arm.rhs.toLeanWith
         f.name precondNames
       s!"  | {patStr} => {rhsStr}"
+    let lastIsCatchAll := match arms.getLast? with
+      | some arm => arm.pat.all fun p =>
+          match p with | .wild | .var _ => true | _ => false
+      | none => false
+    let armStrs :=
+      if isProperty && !lastIsCatchAll then
+        let wildPat := ", ".intercalate
+          (f.params.map fun _ => "_")
+        armStrs ++ [s!"  | {wildPat} => False"]
+      else armStrs
     if f.preconditions.isEmpty then
       let tyStr := " → ".intercalate
         (f.params.map fun p => p.ty.toLean)

@@ -232,7 +232,6 @@ defProperty validProjTy (.plain "validProjTy")
       validProjTy ‹elem, π›
   | τ ; (.downcast _) :: π =>
       validProjTy ‹τ, π›
-  | _ ; _ :: _ => false
 
 defFn isOwned' (.plain "isOwned'")
   "Check whether a place is owned by walking its \
