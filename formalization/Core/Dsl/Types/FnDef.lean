@@ -359,10 +359,10 @@ namespace FnDef
 
 def shortSig (f : FnDef) : Doc :=
   let paramDocs := f.params.map fun p =>
-    .seq [.text s!"{p.name} : ", p.ty.toDoc .normal]
-  .seq [ f.symbolDoc, .text "(",
-    Doc.intercalate (.text ", ") paramDocs,
-    .text ") → ", f.returnType.toDoc .normal ]
+    .seq [.plain s!"{p.name} : ", p.ty.toDoc .normal]
+  .seq [ f.symbolDoc, .plain "(",
+    Doc.intercalate (.plain ", ") paramDocs,
+    .plain ") → ", f.returnType.toDoc .normal ]
 
 /-- Render the function as a LaTeX algorithm. -/
 def formalDefLatex
@@ -441,15 +441,15 @@ def algorithmDoc (f : FnDef) : Doc :=
   let noDisplay : String → Option String :=
     fun _ => none
   let header := Doc.seq
-    [ .text f.doc, .text " ", f.shortSig ]
+    [ .plain f.doc, .plain " ", f.shortSig ]
   let cases := match f.body with
     | .matchArms arms => arms.map fun arm =>
       let patStr := ", ".intercalate
         (arm.pat.map (BodyPat.toLatex noDisplay))
       let rhsStr := arm.rhs.toLatex f.name
         noDisplay noDisplay
-      Doc.text s!"case {patStr}: return {rhsStr}"
-    | .doBlock _ _ => [Doc.text "(imperative body)"]
+      Doc.plain s!"case {patStr}: return {rhsStr}"
+    | .doBlock _ _ => [Doc.plain "(imperative body)"]
   .seq [header, .line, .itemize cases]
 
 end FnDef

@@ -2,7 +2,7 @@ import MIR.Place
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 
-defStruct BasicBlockIdx (.text "bb")
+defStruct BasicBlockIdx (.plain "bb")
   "An index into the list of basic blocks."
 where
   | index "The basic block index." : Nat
@@ -12,18 +12,18 @@ defEnum Operand (.math (.var "o"))
 where
   | copy (place : Place)
     "Copy the value at a place."
-    (.doc (.text "copy "), #place)
+    (.doc (.plain "copy "), #place)
   | move (place : Place)
     "Move the value out of a place."
-    (.doc (.text "move "), #place)
+    (.doc (.plain "move "), #place)
   | const (val : Value)
     "A constant value."
-    (.doc (.text "const "), #val)
+    (.doc (.plain "const "), #val)
   deriving Repr, BEq, Hashable
 
 namespace Operand
 
-defFn operandPlace (.text "operandPlace")
+defFn operandPlace (.plain "operandPlace")
   "Extract the place from an operand, if any."
   (o "The operand." : Operand)
   : Option Place where
@@ -38,18 +38,18 @@ defEnum Rvalue (.math (.var "rv"))
 where
   | use (operand : Operand)
     "Use an operand directly."
-    (.doc (.text "use"), .sym .lparen,
+    (.doc (.plain "use"), .sym .lparen,
      #operand, .sym .rparen)
   | ref (region : Region) (mutability : Mutability)
       (place : Place)
     "Create a reference to a place."
-    (.doc (.code "&"), #region, .doc (.text " "),
-     #mutability, .doc (.text " "), #place)
+    (.doc (.code "&"), #region, .doc (.plain " "),
+     #mutability, .doc (.plain " "), #place)
   deriving Repr, BEq, Hashable
 
 namespace Rvalue
 
-defFn rvaluePlace (.text "rvaluePlace")
+defFn rvaluePlace (.plain "rvaluePlace")
   "Extract the place from an rvalue, if any."
   (rv "The rvalue." : Rvalue)
   : Option Place where
@@ -63,20 +63,20 @@ defEnum Statement (.math (.var "s"))
 where
   | assign (lhs : Place) (rhs : Rvalue)
     "Assign an rvalue to a place."
-    (#lhs, .doc (.text " := "), #rhs)
+    (#lhs, .doc (.plain " := "), #rhs)
   | storageLive (lcl : Local)
     "Mark a local's storage as live."
-    (.doc (.text "StorageLive"), .sym .lparen,
+    (.doc (.plain "StorageLive"), .sym .lparen,
      #lcl, .sym .rparen)
   | storageDead (lcl : Local)
     "Mark a local's storage as dead."
-    (.doc (.text "StorageDead"), .sym .lparen,
+    (.doc (.plain "StorageDead"), .sym .lparen,
      #lcl, .sym .rparen)
   deriving Repr, BEq, Hashable
 
 namespace Statement
 
-defFn statementPlaces (.text "statementPlaces")
+defFn statementPlaces (.plain "statementPlaces")
   "Extract all places referenced by a statement."
   (s "The statement." : Statement)
   : Set Place where
@@ -92,21 +92,21 @@ defEnum Terminator (.math (.var "t"))
 where
   | goto (target : BasicBlockIdx)
     "Unconditional jump."
-    (.doc (.text "goto "), #target)
+    (.doc (.plain "goto "), #target)
   | switchInt (operand : Operand)
     "Switch on an integer value."
-    (.doc (.text "switchInt"), .sym .lparen,
+    (.doc (.plain "switchInt"), .sym .lparen,
      #operand, .sym .rparen)
   | return_
     "Return from the function."
-    (.doc (.text "return"))
+    (.doc (.plain "return"))
   | unreachable
     "Marks unreachable code."
-    (.doc (.text "unreachable"))
+    (.doc (.plain "unreachable"))
   | drop (place : Place) (target : BasicBlockIdx)
     "Drop the value at a place."
-    (.doc (.text "drop"), .sym .lparen,
-     #place, .doc (.text ", "), #target,
+    (.doc (.plain "drop"), .sym .lparen,
+     #place, .doc (.plain ", "), #target,
      .sym .rparen)
   | call (callee : Operand) (args : List Operand)
       (targetPlace : Place)
@@ -114,13 +114,13 @@ where
     "Call a function."
     (#callee, .sym .lparen,
      #args (.var "\\bar{o}"),
-     .sym .rparen, .doc (.text " → "),
-     #targetPlace, .doc (.text ", "), #nextBlock)
+     .sym .rparen, .doc (.plain " → "),
+     #targetPlace, .doc (.plain ", "), #nextBlock)
   deriving Repr, BEq, Hashable
 
 namespace Terminator
 
-defFn terminatorPlaces (.text "terminatorPlaces")
+defFn terminatorPlaces (.plain "terminatorPlaces")
   "Extract all places referenced by a terminator."
   (t "The terminator." : Terminator)
   : Set Place where
@@ -145,7 +145,7 @@ where
 
 namespace BasicBlock
 
-defFn basicBlockPlaces (.text "basicBlockPlaces")
+defFn basicBlockPlaces (.plain "basicBlockPlaces")
   "All places referenced in a basic block."
   (bb "The basic block." : BasicBlock)
   : Set Place where
@@ -154,7 +154,7 @@ defFn basicBlockPlaces (.text "basicBlockPlaces")
 
 end BasicBlock
 
-defStruct Body (.text "body")
+defStruct Body (.plain "body")
   "A MIR function body."
 where
   | decls "The local variable declarations."
@@ -164,7 +164,7 @@ where
 
 namespace Body
 
-defFn bodyPlaces (.text "bodyPlaces")
+defFn bodyPlaces (.plain "bodyPlaces")
   "All places referenced in a function body."
   (body "The function body." : Body)
   : Set Place where
@@ -173,7 +173,7 @@ defFn bodyPlaces (.text "bodyPlaces")
 
 end Body
 
-defStruct PlaceTy (.text "pty")
+defStruct PlaceTy (.plain "pty")
   "The type of a place: a type paired with an optional \
    variant index (set after a downcast)."
 where
@@ -182,7 +182,7 @@ where
       : Option VariantIdx
   deriving Repr, BEq, Hashable
 
-defFn projTy (.text "projTy")
+defFn projTy (.plain "projTy")
   "Project a type through a list of projection \
    elements. Returns the final PlaceTy after all \
    projections."
@@ -203,23 +203,23 @@ defFn projTy (.text "projTy")
       projTy ‹τ, Some v, π›
   | _ ; _ ; _ :: _ => None
 
-defProperty validProjTy (.text "validProjTy")
+defProperty validProjTy (.plain "validProjTy")
   "A type is valid for a projection list iff \
    projTy returns Some."
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
   latex
-    (.seq [.text "A type ",
+    (.seq [.plain "A type ",
            .math (.var "\\tau"),
-           .text " is ",
-           .italic (.text "valid"),
-           .text " for a projection list ",
+           .plain " is ",
+           .italic (.plain "valid"),
+           .plain " for a projection list ",
            .math (.var "\\pi"),
-           .text " iff ",
+           .plain " iff ",
            .code "projTy(τ, \\_, π)",
-           .text " returns ",
+           .plain " returns ",
            .code "Some \\_",
-           .text "."])
+           .plain "."])
   where
   | _ ; [] => true
   | .ref _ _ pointee ; .deref :: π =>
@@ -234,7 +234,7 @@ defProperty validProjTy (.text "validProjTy")
       validProjTy ‹τ, π›
   | _ ; _ :: _ => false
 
-defFn isOwned' (.text "isOwned'")
+defFn isOwned' (.plain "isOwned'")
   "Check whether a place is owned by walking its \
    projection list. Returns false as soon as a \
    dereference of a reference is encountered, \
@@ -255,46 +255,46 @@ defFn isOwned' (.text "isOwned'")
       isOwned' ‹τ, π›
   | _ ; _ :: _ => false
 
-defProperty validPlace (.text "valid")
+defProperty validPlace (.plain "valid")
   "A place is valid for a body."
   (body "The function body." : Body)
   (place "The place." : Place)
   latex
-    (.seq [.text "A place ", .math (.var "p"),
-           .text " is ",
-           .italic (.text "valid"),
-           .text " for a body ",
+    (.seq [.plain "A place ", .math (.var "p"),
+           .plain " is ",
+           .italic (.plain "valid"),
+           .plain " for a body ",
            .math (.var "body"),
-           .text " iff its local index ",
+           .plain " iff its local index ",
            .code "p.base.index",
-           .text " is less than ",
+           .plain " is less than ",
            .code "|body.decls|",
-           .text " and ",
+           .plain " and ",
            .code "validProjTy(body.decls[p.base.index], p.projection)",
-           .text " holds."])
+           .plain " holds."])
   where
     | body ; p =>
         p↦base↦index < body↦decls·length ∧
         validProjTy ‹body↦decls ! p↦base↦index, p↦projection›
 
-defProperty validBody (.text "validBody")
+defProperty validBody (.plain "validBody")
   "A body is valid iff all places in it are valid."
   (body "The function body." : Body)
   latex
-    (.seq [.text "A body ",
+    (.seq [.plain "A body ",
            .math (.var "body"),
-           .text " is ",
-           .italic (.text "valid"),
-           .text " iff every place in ",
+           .plain " is ",
+           .italic (.plain "valid"),
+           .plain " iff every place in ",
            .code "bodyPlaces(body)",
-           .text " is valid for ",
+           .plain " is valid for ",
            .math (.var "body"),
-           .text "."])
+           .plain "."])
   where
     | body =>
         body·bodyPlaces·forAll fun p => validPlace ‹body, p›
 
-defFn placeTy (.text "ty")
+defFn placeTy (.plain "ty")
   "Compute the type of a place: look up the base \
    local in Δ, then project through projections."
   (body "The function body." : Body)
@@ -303,7 +303,7 @@ defFn placeTy (.text "ty")
   : Option PlaceTy begin
   return projTy ‹body↦decls ! place↦base↦index, None, place↦projection›
 
-defFn isOwned (.text "isOwned")
+defFn isOwned (.plain "isOwned")
   "Returns true iff a place is owned, i.e. it does \
    not project from the dereference of a \
    reference-typed place. See definitions/places.md."

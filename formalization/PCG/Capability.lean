@@ -6,16 +6,16 @@ defEnum Capability (.math (.var "c"))
 where
   | none
     "No capability"
-    (.doc (.bold (.text "∅")))
+    (.doc (.bold (.plain "∅")))
   | exclusive
     "Exclusive "
-    (.doc (.bold (.text "E")))
+    (.doc (.bold (.plain "E")))
   | read
     "Read"
-    (.doc (.bold (.text "R")))
+    (.doc (.bold (.plain "R")))
   | write
     "Write"
-    (.doc (.bold (.text "W")))
+    (.doc (.bold (.plain "W")))
   | shallowExclusive
     "Shallow exclusive"
-    (.doc (.bold (.text "e")))
+    (.doc (.bold (.plain "e")))

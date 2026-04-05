@@ -42,7 +42,7 @@ syntax "| " ident enumVariantArg* str
       "A region (lifetime) in the MIR."
     where
       | vid (v : RegionVid) "A region variable identifier."
-          (.doc (.text "vid"), .sym .lparen, #v, .sym .rparen)
+          (.doc (.plain "vid"), .sym .lparen, #v, .sym .rparen)
       | static "The 'static lifetime."
           (.doc (.code "'static"))
     ```
@@ -52,7 +52,7 @@ syntax "| " ident enumVariantArg* str
     defEnum Ty (.math (.var "τ")) "A MIR type."
     where
       | param (index : Nat) "..."
-          (.doc (.text "param "), #index (.var "i"))
+          (.doc (.plain "param "), #index (.var "i"))
       deriving Repr
     ``` -/
 syntax "defEnum " ident "(" term ")" str " where"

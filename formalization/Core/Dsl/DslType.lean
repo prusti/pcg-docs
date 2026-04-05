@@ -49,18 +49,18 @@ namespace DSLPrimTy
 def toDoc : DSLPrimTy → OutputMode → Doc
   | .nat, .normal => .raw "$\\mathbb{N}$" "ℕ" "ℕ"
   | .nat, .math => .math (.var "\\mathbb{N}")
-  | .string, _ => .text "String"
-  | .bool, _ => .text "Bool"
-  | .unit, _ => .text "()"
-  | .u8, .normal => .text "u8"
+  | .string, _ => .plain "String"
+  | .bool, _ => .plain "Bool"
+  | .unit, _ => .plain "()"
+  | .u8, .normal => .plain "u8"
   | .u8, .math => .code "u8"
-  | .u16, .normal => .text "u16"
+  | .u16, .normal => .plain "u16"
   | .u16, .math => .code "u16"
-  | .u32, .normal => .text "u32"
+  | .u32, .normal => .plain "u32"
   | .u32, .math => .code "u32"
-  | .u64, .normal => .text "u64"
+  | .u64, .normal => .plain "u64"
   | .u64, .math => .code "u64"
-  | .usize, .normal => .text "usize"
+  | .usize, .normal => .plain "usize"
   | .usize, .math => .code "usize"
 
 end DSLPrimTy
@@ -70,13 +70,13 @@ namespace DSLType
 /-- Render a type to a `Doc`. -/
 def toDoc : DSLType → OutputMode → Doc
   | .prim p, mode => p.toDoc mode
-  | .named n, _ => .text n.name
+  | .named n, _ => .plain n.name
   | .option t, mode =>
-    .seq [.text "Option ", t.toDoc mode]
+    .seq [.plain "Option ", t.toDoc mode]
   | .list t, mode =>
-    .seq [.text "List ", t.toDoc mode]
+    .seq [.plain "List ", t.toDoc mode]
   | .set t, mode =>
-    .seq [.text "Set ", t.toDoc mode]
+    .seq [.plain "Set ", t.toDoc mode]
 
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType

@@ -24,9 +24,9 @@ where
     (.doc (.code "*"))
   | field (idx : FieldIdx) (ty : Ty)
     "Access a field by index."
-    (.doc (.text "."),
+    (.doc (.plain "."),
      #idx,
-     .doc (.text " : "),
+     .doc (.plain " : "),
      #ty)
   | index (idx : Local)
     "Index into an array or slice."
@@ -35,7 +35,7 @@ where
      .sym .rbracket)
   | downcast (variant : VariantIdx)
     "Downcast an enum to a specific variant."
-    (.doc (.text "@"),
+    (.doc (.plain "@"),
      #variant)
   deriving Repr, BEq, Hashable
 

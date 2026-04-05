@@ -72,17 +72,17 @@ namespace EnumDef
 /-- Short formal definition: `c ::= E | W | R | e` -/
 def shortDef (d : EnumDef) : Doc :=
   let lhs := d.symbolDoc
-  let rhs := Doc.intercalate (.text " | ")
+  let rhs := Doc.intercalate (.plain " | ")
     (d.variants.map fun v => v.displayDoc)
-  .seq [lhs, .text " ::= ", rhs]
+  .seq [lhs, .plain " ::= ", rhs]
 
 /-- Long formal definition with descriptions. -/
 def longDef (d : EnumDef) : Doc :=
   let header := Doc.seq
-    [.text d.doc, .text " ", d.symbolDoc,
-     .text " is one of:"]
+    [.plain d.doc, .plain " ", d.symbolDoc,
+     .plain " is one of:"]
   let items := d.variants.map fun v =>
-    Doc.seq [v.displayDoc, .text s!": {v.doc}"]
+    Doc.seq [v.displayDoc, .plain s!": {v.doc}"]
   .seq [header, .line, .itemize items]
 
 end EnumDef

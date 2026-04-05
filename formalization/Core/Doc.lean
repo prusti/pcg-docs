@@ -20,7 +20,7 @@ mutual
   inductive MathDoc where
     /-- A math variable, rendered italic in math mode. -/
     | var (s : String)
-    /-- A `Doc` rendered in math context (`.text` becomes
+    /-- A `Doc` rendered in math context (`.plain` becomes
         `\text{}`, `.code` becomes `\mathtt{}`, etc). -/
     | doc (d : Doc)
     /-- A math symbol. -/
@@ -35,7 +35,7 @@ mutual
       HTML, or other backends. -/
   inductive Doc where
     /-- Plain text. -/
-    | text (s : String)
+    | plain (s : String)
     /-- Bold content. -/
     | bold (d : Doc)
     /-- Italic content. -/
@@ -136,7 +136,7 @@ mutual
   /-- Extract the plain text content, stripping all
       formatting. -/
   partial def toPlainText : Doc → String
-    | text s => s
+    | plain s => s
     | bold d => d.toPlainText
     | italic d => d.toPlainText
     | code s => s
@@ -159,7 +159,7 @@ end
 mutual
   /-- Render a document to LaTeX. -/
   partial def toLaTeX : Doc → String
-    | text s => escapeLatex s
+    | plain s => escapeLatex s
     | bold d => s!"\\textbf\{{d.toLaTeX}}"
     | italic d => s!"\\textit\{{d.toLaTeX}}"
     | code s => s!"\\texttt\{{escapeLatex s}}"
@@ -186,10 +186,10 @@ end
 
 mutual
   /-- Render a document to LaTeX math mode. In math mode,
-      `.text` wraps in `\text{}` for correct rendering of
+      `.plain` wraps in `\text{}` for correct rendering of
       words. -/
   partial def toLatexMath : Doc → String
-    | text s => s!"\\text\{{escapeLatex s}}"
+    | plain s => s!"\\text\{{escapeLatex s}}"
     | bold d => s!"\\mathbf\{{d.toLatexMath}}"
     | italic d => d.toLatexMath
     | code s => s!"\\texttt\{{escapeLatex s}}"
@@ -222,7 +222,7 @@ def typeToLatexMath (s : String) : String :=
 mutual
   /-- Render a document to Typst. -/
   partial def toTypst : Doc → String
-    | text s => s
+    | plain s => s
     | bold d => s!"*{d.toTypst}*"
     | italic d => s!"_{d.toTypst}_"
     | code s => s
@@ -246,7 +246,7 @@ end
 mutual
   /-- Render a document to HTML. -/
   partial def toHTML : Doc → String
-    | text s => s
+    | plain s => s
     | bold d => s!"<b>{d.toHTML}</b>"
     | italic d => s!"<i>{d.toHTML}</i>"
     | code s => s!"<code>{s}</code>"

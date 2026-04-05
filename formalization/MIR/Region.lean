@@ -1,12 +1,12 @@
 import Core.Dsl.DefEnum
 import Core.Dsl.DefStruct
 
-defStruct RegionVid (.text "vid")
+defStruct RegionVid (.plain "vid")
   "A region variable identifier."
 where
   | id "The region variable id." : Nat
 
-defStruct EarlyBoundRegion (.text "eb")
+defStruct EarlyBoundRegion (.plain "eb")
   "An early-bound region, identified by its index \
    in the function's generic parameter list."
 where
@@ -19,12 +19,12 @@ defEnum Region (.math (.var "r"))
 where
   | vid (v : RegionVid)
     "A region variable identifier."
-    (.doc (.text "vid"), .sym .lparen,
+    (.doc (.plain "vid"), .sym .lparen,
      #v, .sym .rparen)
   | static
     "The 'static lifetime."
     (.doc (.code "'static"))
   | earlyBound (eb : EarlyBoundRegion)
     "An early-bound region from generic parameters."
-    (.doc (.text "early"), .sym .lparen,
+    (.doc (.plain "early"), .sym .lparen,
      #eb, .sym .rparen)

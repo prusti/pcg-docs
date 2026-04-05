@@ -17,22 +17,22 @@ defEnum Mutability (.math (.var "m"))
 where
   | shared
     "Shared"
-    (.doc (.text "shared"))
+    (.doc (.plain "shared"))
   | mutable
     "Mutable"
-    (.doc (.text "mut"))
+    (.doc (.plain "mut"))
 
 defEnum Ty (.math (.var "τ"))
   "A type in the MIR. See definitions/types.md."
 where
   | param (index : Nat)
     "A type parameter."
-    (.doc (.text "param "),
+    (.doc (.plain "param "),
      #index (.var "i"))
   | alias (base : Ty) (name : AliasTyName)
       (args : List Ty)
     "An alias type."
-    (#base, .doc (.text "::"), #name,
+    (#base, .doc (.plain "::"), #name,
      .sym .langle,
      #args (.var "τ̄"),
      .sym .rangle)
@@ -44,8 +44,8 @@ where
   | ref (region : Region) (mutability : Mutability)
       (pointee : Ty)
     "A reference type."
-    (.doc (.text "&"), #region, .doc (.text " "),
-     #mutability, .doc (.text " "), #pointee)
+    (.doc (.plain "&"), #region, .doc (.plain " "),
+     #mutability, .doc (.plain " "), #pointee)
   | box (inner : Ty)
     "A box type."
     (.doc (.code "Box"),
@@ -54,8 +54,8 @@ where
      .sym .rangle)
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
-    (.doc (.text "["), #elem, .doc (.text "; "),
-     #len (.var "n"), .doc (.text "]"))
+    (.doc (.plain "["), #elem, .doc (.plain "; "),
+     #len (.var "n"), .doc (.plain "]"))
   deriving Repr, BEq, Hashable
 
 instance : Inhabited Ty where
@@ -66,22 +66,22 @@ defEnum Value (.math (.var "v"))
 where
   | bool (val : Bool)
     "A boolean value."
-    (.doc (.text "bool "), #val (.var "b"))
+    (.doc (.plain "bool "), #val (.var "b"))
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
-    (.doc (.text "u8 "), #val (.var "n"))
+    (.doc (.plain "u8 "), #val (.var "n"))
   | u16 (val : UInt16)
     "A 16-bit unsigned integer."
-    (.doc (.text "u16 "), #val (.var "n"))
+    (.doc (.plain "u16 "), #val (.var "n"))
   | u32 (val : UInt32)
     "A 32-bit unsigned integer."
-    (.doc (.text "u32 "), #val (.var "n"))
+    (.doc (.plain "u32 "), #val (.var "n"))
   | u64 (val : UInt64)
     "A 64-bit unsigned integer."
-    (.doc (.text "u64 "), #val (.var "n"))
+    (.doc (.plain "u64 "), #val (.var "n"))
   | usize (val : USize)
     "A pointer-sized unsigned integer."
-    (.doc (.text "usize "), #val (.var "n"))
+    (.doc (.plain "usize "), #val (.var "n"))
   deriving Repr, BEq, Hashable
 
 /-- A generalized type is either a type or a region.
@@ -113,7 +113,7 @@ abbrev ParamEnv := List Constraint
 
 namespace Ty
 
-defFn regions (.text "regions")
+defFn regions (.plain "regions")
   "Regions occurring directly in a type."
   (τ "The type to extract regions from." : Ty)
   : List Region where
