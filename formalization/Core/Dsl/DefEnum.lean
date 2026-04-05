@@ -38,7 +38,7 @@ syntax "| " ident enumVariantArg* str
 
     Variants may carry arguments:
     ```
-    defEnum Region (.italic (.text "r"))
+    defEnum Region (.math (.var "r"))
       "A region (lifetime) in the MIR."
     where
       | vid (v : RegionVid) "A region variable identifier."
@@ -49,7 +49,7 @@ syntax "| " ident enumVariantArg* str
 
     A custom `deriving` clause overrides the default:
     ```
-    defEnum Ty (.italic (.text "τ")) "A MIR type."
+    defEnum Ty (.math (.var "τ")) "A MIR type."
     where
       | param (index : Nat) "..." (.text "param") (.text "param")
       deriving Repr

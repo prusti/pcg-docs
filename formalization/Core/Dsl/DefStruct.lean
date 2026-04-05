@@ -17,7 +17,7 @@ syntax "| " ident str ":" term : structField
 
     Example:
     ```
-    defStruct RegionVid (.text "vid")
+    defStruct RegionVid (.math (.doc (.text "vid")))
       "A region variable identifier."
     where
       | id "The region variable id." : Nat

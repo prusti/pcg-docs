@@ -16,7 +16,7 @@ inductive DisplayPart where
   /-- Literal text / formatting. -/
   | lit (d : Doc)
   /-- Argument reference with its display symbol.
-      E.g. `arg "region" (.italic (.text "r"))` renders the
+      E.g. `arg "region" (.math (.var "r"))` renders the
       `region` argument as *r*. -/
   | arg (name : String) (symbolDoc : Doc)
   deriving Repr
@@ -83,5 +83,51 @@ def longDef (d : EnumDef) : Doc :=
   let items := d.variants.map fun v =>
     Doc.seq [v.displayDoc, .text s!": {v.doc}"]
   .seq [header, .line, .itemize items]
+
+end EnumDef
+
+-- ══════════════════════════════════════════════
+-- LaTeX rendering
+-- ══════════════════════════════════════════════
+
+namespace DisplayPart
+
+/-- Render a display part to LaTeX math mode. -/
+def toLatexMath : DisplayPart → String
+  | .lit d => d.toLatexMath
+  | .arg _ sym => sym.toLatexMath
+
+end DisplayPart
+
+namespace VariantDef
+
+/-- Render the variant's display template to LaTeX math. -/
+def displayLatexMath (v : VariantDef) : String :=
+  String.join (v.display.map DisplayPart.toLatexMath)
+
+end VariantDef
+
+namespace EnumDef
+
+/-- Render the enum as a LaTeX `definition` environment with
+    an aligned `array` using the display templates. -/
+def formalDefLatex (d : EnumDef) : String :=
+  let lb := "{"
+  let rb := "}"
+  let sym := d.symbolDoc.toLatexMath
+  let rows := d.variants.zipIdx.map fun (v, i) =>
+    let sep := if i == 0 then "  " else "\\mid"
+    let variant := v.displayLatexMath
+    let desc := Doc.escapeLatex v.doc
+    s!"  {sep} & {variant} & \
+       \\text{lb}({desc}){rb} \\\\"
+  let arrayBody := "\n".intercalate rows
+  s!"\\begin{lb}definition{rb}[{d.name.name}]\n\
+     {Doc.escapeLatex d.doc}\n\
+     \\[ {sym} ::= \\begin{lb}array{rb}[t]\
+     {lb}rll{rb}\n\
+     {arrayBody}\n\
+     \\end{lb}array{rb} \\]\n\
+     \\end{lb}definition{rb}"
 
 end EnumDef

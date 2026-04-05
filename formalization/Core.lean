@@ -10,7 +10,6 @@ import Core.Dsl.Types.PropertyDef
 import Core.Registry
 import Core.Export.Rust
 import Core.Export.Lean
-import Core.Export.Latex
 import Core.Dsl.DefEnum
 import Core.Dsl.DefStruct
 import Core.Dsl.DefFn

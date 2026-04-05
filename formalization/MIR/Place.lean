@@ -1,21 +1,21 @@
 import MIR.Ty
 
-defStruct Local (.italic (.text "l"))
+defStruct Local (.math (.var "l"))
   "A local variable in the MIR, identified by index."
 where
   | index "The local variable index." : Nat
 
-defStruct FieldIdx (.text "f")
+defStruct FieldIdx (.math (.var "f"))
   "A field index within a struct or tuple."
 where
   | index "The field index." : Nat
 
-defStruct VariantIdx (.text "V")
+defStruct VariantIdx (.math (.var "V"))
   "A variant index within an enum."
 where
   | index "The variant index." : Nat
 
-defEnum ProjElem (.italic (.text "π"))
+defEnum ProjElem (.math (.var "π"))
   "A projection element applied to a place. \
    See definitions/places.md."
 where
@@ -39,7 +39,7 @@ where
      #variant)
   deriving Repr
 
-defStruct Place (.italic (.text "p"))
+defStruct Place (.math (.var "p"))
   "A place in the MIR: a local with a projection. \
    See definitions/places.md."
 where

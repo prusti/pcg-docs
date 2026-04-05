@@ -1,3 +1,12 @@
+import Core.Doc
+
+/-- Output mode for rendering types. -/
+inductive OutputMode where
+  /-- Math mode (inside `\[ ... \]`). -/
+  | math
+  /-- Normal text mode. -/
+  | normal
+  deriving Repr, DecidableEq
 
 /-- A primitive type. -/
 inductive DSLPrimTy where
@@ -32,7 +41,38 @@ inductive DSLType where
   | list (inner : DSLType)
   deriving Repr, DecidableEq, Inhabited
 
+namespace DSLPrimTy
+
+/-- Render a primitive type to a `Doc`. -/
+def toDoc : DSLPrimTy → OutputMode → Doc
+  | .nat, .normal => .raw "$\\mathbb{N}$" "ℕ" "ℕ"
+  | .nat, .math => .math (.var "\\mathbb{N}")
+  | .string, _ => .text "String"
+  | .bool, _ => .text "Bool"
+  | .unit, _ => .text "()"
+  | .u8, .normal => .text "u8"
+  | .u8, .math => .code "u8"
+  | .u16, .normal => .text "u16"
+  | .u16, .math => .code "u16"
+  | .u32, .normal => .text "u32"
+  | .u32, .math => .code "u32"
+  | .u64, .normal => .text "u64"
+  | .u64, .math => .code "u64"
+  | .usize, .normal => .text "usize"
+  | .usize, .math => .code "usize"
+
+end DSLPrimTy
+
 namespace DSLType
+
+/-- Render a type to a `Doc`. -/
+def toDoc : DSLType → OutputMode → Doc
+  | .prim p, mode => p.toDoc mode
+  | .named n, _ => .text n.name
+  | .option t, mode =>
+    .seq [.text "Option ", t.toDoc mode]
+  | .list t, mode =>
+    .seq [.text "List ", t.toDoc mode]
 
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType

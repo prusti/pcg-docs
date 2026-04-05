@@ -1,5 +1,6 @@
 import Core.Doc
 import Core.Dsl.Types.StructDef
+import Core.Dsl.Types.EnumDef
 import Core.Dsl.DslType
 
 /-- A pattern in a function body. -/
@@ -195,3 +196,207 @@ partial def toRust (enumName : String)
     s!"[{hStr}{tailStr}]"
 
 end BodyPat
+
+-- ══════════════════════════════════════════════
+-- LaTeX rendering
+-- ══════════════════════════════════════════════
+
+namespace BodyPat
+
+partial def toLatex
+    (ctorDisplay : String → Option String)
+    : BodyPat → String
+  | .wild => "\\_"
+  | .var n => Doc.escapeLatexMath n
+  | .ctor "⟨⟩" args =>
+    s!"({",~".intercalate
+      (args.map (toLatex ctorDisplay))})"
+  | .ctor n args =>
+    match ctorDisplay n with
+    | some display => display
+    | none =>
+      let argStr := ",~".intercalate
+        (args.map (toLatex ctorDisplay))
+      if args.isEmpty then
+        s!"\\text\{{n}}"
+      else s!"\\text\{{n}}({argStr})"
+  | .nil => "[]"
+  | .cons h t =>
+    s!"{h.toLatex ctorDisplay} :: {t.toLatex ctorDisplay}"
+
+end BodyPat
+
+namespace BodyExpr
+
+partial def toLatex
+    (fnName : String)
+    (varDisplay : String → Option String :=
+      fun _ => none)
+    (ctorDisplay : String → Option String :=
+      fun _ => none)
+    : BodyExpr → String
+  | .var n => match varDisplay n with
+    | some sym => sym
+    | none => Doc.escapeLatexMath n
+  | .true_ => "\\text{true}"
+  | .false_ => "\\text{false}"
+  | .emptyList => "\\emptyset"
+  | .none_ => "\\text{None}"
+  | .some_ e =>
+    e.toLatex fnName varDisplay ctorDisplay
+  | .mkStruct _ args =>
+    let inner := ",~".intercalate
+      (args.map (toLatex fnName varDisplay
+        ctorDisplay))
+    s!"({inner})"
+  | .cons h t =>
+    let lb := "{"
+    let rb := "}"
+    s!"\\{lb}{h.toLatex fnName varDisplay
+      ctorDisplay}\\{rb} \\cup \
+      {t.toLatex fnName varDisplay ctorDisplay}"
+  | .append l r =>
+    s!"{l.toLatex fnName varDisplay ctorDisplay} \
+       \\cup \
+       {r.toLatex fnName varDisplay ctorDisplay}"
+  | .dot recv method =>
+    s!"\\text\{{method}}(\
+       {recv.toLatex fnName varDisplay ctorDisplay})"
+  | .flatMap list param body =>
+    let lb := "{"
+    let rb := "}"
+    s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
+       \\in {list.toLatex fnName varDisplay
+         ctorDisplay}{rb} \
+       {body.toLatex fnName varDisplay ctorDisplay}"
+  | .field recv name =>
+    s!"{recv.toLatex fnName varDisplay
+      ctorDisplay}.\\text\{{name}}"
+  | .index list idx =>
+    s!"{list.toLatex fnName varDisplay
+      ctorDisplay}[{idx.toLatex fnName varDisplay
+        ctorDisplay}]"
+  | .indexBang list idx =>
+    s!"{list.toLatex fnName varDisplay
+      ctorDisplay}[{idx.toLatex fnName varDisplay
+        ctorDisplay}]"
+  | .call fn args =>
+    let argStr := ",~".intercalate
+      (args.map (toLatex fnName varDisplay
+        ctorDisplay))
+    s!"\\text\{{fn}}({argStr})"
+  | .foldlM fn init list =>
+    s!"\\text\{{fn}}^*({init.toLatex fnName
+      varDisplay ctorDisplay},~\
+      {list.toLatex fnName varDisplay ctorDisplay})"
+  | .lt l r =>
+    s!"{l.toLatex fnName varDisplay ctorDisplay} \
+       < {r.toLatex fnName varDisplay ctorDisplay}"
+
+end BodyExpr
+
+namespace BodyStmt
+
+def toLatex (fnName : String)
+    (varDisplay ctorDisplay
+      : String → Option String) : BodyStmt → String
+  | .let_ n v =>
+    s!"\\text\{let } {Doc.escapeLatexMath n} := \
+       {v.toLatex fnName varDisplay ctorDisplay}"
+  | .letBind n v =>
+    s!"\\text\{let } {Doc.escapeLatexMath n} \
+       \\leftarrow \
+       {v.toLatex fnName varDisplay ctorDisplay}"
+
+end BodyStmt
+
+namespace FnDef
+
+def shortSig (f : FnDef) : Doc :=
+  let paramDocs := f.params.map fun p =>
+    .seq [.text s!"{p.name} : ", p.ty.toDoc .normal]
+  .seq [ f.symbolDoc, .text "(",
+    Doc.intercalate (.text ", ") paramDocs,
+    .text ") → ", f.returnType.toDoc .normal ]
+
+/-- Render the function as a LaTeX algorithm. -/
+def formalDefLatex
+    (f : FnDef)
+    (ctorDisplay : String → Option String :=
+      fun _ => none)
+    (variants : List VariantDef := [])
+    : String :=
+  let lb := "{"
+  let rb := "}"
+  let paramSig := ", ".intercalate
+    (f.params.map fun p =>
+      s!"{Doc.escapeLatex p.name} : \
+         {(p.ty.toDoc .normal).toLaTeX}")
+  let retTy := (f.returnType.toDoc .normal).toLaTeX
+  let bodyLines := match f.body with
+    | .matchArms arms => arms.map fun arm =>
+      let ctorName := arm.pat.head?.bind fun p =>
+        match p with | .ctor n _ => some n | _ => none
+      let varDisplay : String → Option String :=
+        fun varName =>
+          match ctorName with
+          | none => none
+          | some cn =>
+            let variant := variants.find? (·.name.name == cn)
+            match variant with
+            | none => none
+            | some v => v.display.findSome? fun dp =>
+              match dp with
+              | .arg n sym =>
+                if n == varName then
+                  some sym.toLatexMath
+                else none
+              | _ => none
+      let patStr := ",~".intercalate
+        (arm.pat.map (BodyPat.toLatex ctorDisplay))
+      let rhsStr := arm.rhs.toLatex f.name
+        varDisplay ctorDisplay
+      s!"    \\State \\textbf{lb}case{rb} \
+         ${patStr}$: \\Return ${rhsStr}$"
+    | .doBlock stmts ret =>
+      let noDisp : String → Option String :=
+        fun _ => none
+      let stmtLines := stmts.map fun s =>
+        s!"    \\State ${s.toLatex f.name
+          noDisp ctorDisplay}$"
+      let retLine :=
+        s!"    \\State \\Return \
+           ${ret.toLatex f.name noDisp ctorDisplay}$"
+      stmtLines ++ [retLine]
+  let precondLines := f.preconditions.map fun pn =>
+    let args := ", ".intercalate
+      (f.params.map fun p => Doc.escapeLatex p.name)
+    s!"    \\Require ${Doc.escapeLatexMath pn}\
+       ({args})$"
+  let allLines := precondLines ++ bodyLines
+  s!"\\begin{lb}algorithm{rb}\n\
+     \\caption{lb}{Doc.escapeLatex f.name}\
+     ({paramSig}) \
+     $\\to$ {retTy}{rb}\n\
+     \\begin{lb}algorithmic{rb}[1]\n\
+     {"\n".intercalate allLines}\n\
+     \\end{lb}algorithmic{rb}\n\
+     \\end{lb}algorithm{rb}"
+
+/-- Render for non-LaTeX (Doc-based). -/
+def algorithmDoc (f : FnDef) : Doc :=
+  let noDisplay : String → Option String :=
+    fun _ => none
+  let header := Doc.seq
+    [ .text f.doc, .text " ", f.shortSig ]
+  let cases := match f.body with
+    | .matchArms arms => arms.map fun arm =>
+      let patStr := ", ".intercalate
+        (arm.pat.map (BodyPat.toLatex noDisplay))
+      let rhsStr := arm.rhs.toLatex f.name
+        noDisplay noDisplay
+      Doc.text s!"case {patStr}: return {rhsStr}"
+    | .doBlock _ _ => [Doc.text "(imperative body)"]
+  .seq [header, .line, .itemize cases]
+
+end FnDef

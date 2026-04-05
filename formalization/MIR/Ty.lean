@@ -1,18 +1,18 @@
 import MIR.Region
 import Core.Dsl.DefFn
 
-defStruct TyCtorName (.text "T")
+defStruct TyCtorName (.math (.var "T"))
   "A type constructor name, representing an ADT or \
    primitive type."
 where
   | name "The constructor name." : String
 
-defStruct AliasTyName (.text "A")
+defStruct AliasTyName (.math (.var "A"))
   "An associated type name."
 where
   | name "The associated type name." : String
 
-defEnum Mutability (.italic (.text "m"))
+defEnum Mutability (.math (.var "m"))
   "Mutability of a reference."
 where
   | shared
@@ -22,22 +22,25 @@ where
     "Mutable"
     (.text "mut")
 
-defEnum Ty (.italic (.text "τ"))
+defEnum Ty (.math (.var "τ"))
   "A type in the MIR. See definitions/types.md."
 where
   | param (index : Nat)
     "A type parameter."
     (.text "param ",
-     #index (.italic (.text "i")))
+     #index (.math (.var "i")))
   | alias (base : Ty) (name : AliasTyName)
       (args : List Ty)
     "An alias type."
     (#base, .text "::", #name,
-     .text "⟨", #args (.text "τ̄"), .text "⟩")
+     .math (.sym .langle),
+     #args (.math (.var "τ̄")),
+     .math (.sym .rangle))
   | ctor (name : TyCtorName) (args : List Ty)
     "A type constructor application."
-    (#name, .text "⟨",
-     #args (.text "τ̄"), .text "⟩")
+    (#name, .math (.sym .langle),
+     #args (.math (.var "τ̄")),
+     .math (.sym .rangle))
   | ref (region : Region) (mutability : Mutability)
       (pointee : Ty)
     "A reference type."
@@ -45,36 +48,37 @@ where
      #mutability, .text " ", #pointee)
   | box (inner : Ty)
     "A box type."
-    (.raw "\\mathtt{Box}\\langle" "Box⟨" "Box&lt;",
+    (.math (.doc (.code "Box")),
+     .math (.sym .langle),
      #inner,
-     .raw "\\rangle" "⟩" "&gt;")
+     .math (.sym .rangle))
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
     (.text "[", #elem, .text "; ",
-     #len (.text "n"), .text "]")
+     #len (.math (.var "n")), .text "]")
   deriving Repr
 
-defEnum Value (.italic (.text "v"))
+defEnum Value (.math (.var "v"))
   "A concrete runtime value."
 where
   | bool (val : Bool)
     "A boolean value."
-    (.text "bool ", #val (.text "b"))
+    (.text "bool ", #val (.math (.var "b")))
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
-    (.text "u8 ", #val (.text "n"))
+    (.text "u8 ", #val (.math (.var "n")))
   | u16 (val : UInt16)
     "A 16-bit unsigned integer."
-    (.text "u16 ", #val (.text "n"))
+    (.text "u16 ", #val (.math (.var "n")))
   | u32 (val : UInt32)
     "A 32-bit unsigned integer."
-    (.text "u32 ", #val (.text "n"))
+    (.text "u32 ", #val (.math (.var "n")))
   | u64 (val : UInt64)
     "A 64-bit unsigned integer."
-    (.text "u64 ", #val (.text "n"))
+    (.text "u64 ", #val (.math (.var "n")))
   | usize (val : USize)
     "A pointer-sized unsigned integer."
-    (.text "usize ", #val (.text "n"))
+    (.text "usize ", #val (.math (.var "n")))
   deriving Repr
 
 /-- A generalized type is either a type or a region.
@@ -106,7 +110,7 @@ abbrev ParamEnv := List Constraint
 
 namespace Ty
 
-defFn regions (.text "regions")
+defFn regions (.math (.doc (.text "regions")))
   "Regions occurring directly in a type."
   (τ "The type to extract regions from." : Ty)
   : List Region where
@@ -123,7 +127,7 @@ defFn regions (.text "regions")
     From `definitions.md`:
     1. `τ = τ'`, or
     2. `τ` is an ADT containing a field `f : τ_f` and `τ_f` contains `τ'`
-    3. `τ = &'r mut τ_tgt` and `τ_tgt` contains `τ'`
+    3. `τ = &'r mut τ'` and `τ_tgt` contains `τ'`
 
     Since we do not have access to ADT field information at the type level,
     case 2 is modelled via the `fields` parameter, which supplies the

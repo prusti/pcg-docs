@@ -2,7 +2,6 @@ import PCG.Capability.Order
 import MIR
 import Core.Dsl.Types.OrderDef
 import Core.Registry
-import Core.Export.Latex
 
 /-- Build a lookup function that maps enum constructor names
     to their LaTeX display form, using displayName from all

@@ -11,3 +11,17 @@ structure PropertyDef where
   /-- The textual definition body for LaTeX rendering. -/
   definition : Doc
   deriving Repr
+
+namespace PropertyDef
+
+/-- Render the property as a LaTeX definition
+    environment. -/
+def formalDefLatex (p : PropertyDef) : String :=
+  let lb := "{"
+  let rb := "}"
+  let title := Doc.escapeLatex p.fnDef.name
+  s!"\\begin{lb}definition{rb}[{title}]\n\
+     {p.definition.toLaTeX}\n\
+     \\end{lb}definition{rb}"
+
+end PropertyDef

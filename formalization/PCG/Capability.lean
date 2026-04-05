@@ -1,21 +1,21 @@
 import Core.Dsl.DefEnum
 
-defEnum Capability (.italic (.text "c"))
+defEnum Capability (.math (.var "c"))
   "A capability describes the actions permitted on a \
    place at a particular program point."
 where
   | none
     "No capabiility"
-    (.bold (.text "∅"))
+    (.math (.doc (.bold (.text "∅"))))
   | exclusive
     "Exclusive "
-    (.bold (.text "E"))
+    (.math (.doc (.bold (.text "E"))))
   | read
     "Read"
-    (.bold (.text "R"))
+    (.math (.doc (.bold (.text "R"))))
   | write
     "Write"
-    (.bold (.text "W"))
+    (.math (.doc (.bold (.text "W"))))
   | shallowExclusive
     "Shallow exclusive"
-    (.bold (.text "e"))
+    (.math (.doc (.bold (.text "e"))))
