@@ -108,6 +108,8 @@ partial def toLean : BodyExpr → String
   | .foldlM fn init list =>
     s!"{list.toLean}.foldlM {fn} {init.toLean}"
   | .lt l r => s!"{l.toLean} < {r.toLean}"
+  | .setAll set param body =>
+    s!"∀ {param} ∈ {set.toLean}, {body.toLean}"
   | .emptySet => "(∅ : Set _)"
   | .setSingleton e =>
     s!"Set.singleton {e.toLeanArg}"

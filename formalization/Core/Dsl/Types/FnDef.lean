@@ -43,6 +43,10 @@ inductive BodyExpr where
       (list : BodyExpr)
   /-- Less-than comparison: `lhs < rhs`. -/
   | lt (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Universal quantifier over a set:
+      `∀ x ∈ s, body`. -/
+  | setAll (set : BodyExpr) (param : String)
+      (body : BodyExpr)
   /-- Empty set: `∅`. -/
   | emptySet
   /-- Set singleton: `{elem}`. -/
@@ -160,6 +164,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .lt l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.lt)
       #[quoteExpr l, quoteExpr r]
+  | .setAll set param body =>
+    Syntax.mkApp (mkIdent ``BodyExpr.setAll)
+      #[quoteExpr set, quote param, quoteExpr body]
   | .emptySet =>
     Syntax.mkApp (mkIdent ``BodyExpr.emptySet) #[]
   | .setSingleton e =>
@@ -316,6 +323,13 @@ partial def toLatex
   | .lt l r =>
     s!"{l.toLatex fnName varDisplay ctorDisplay} \
        < {r.toLatex fnName varDisplay ctorDisplay}"
+  | .setAll set param body =>
+    let lb := "{"
+    let rb := "}"
+    s!"\\forall {Doc.escapeLatexMath param} \
+       \\in {set.toLatex fnName varDisplay
+         ctorDisplay},~\
+       {body.toLatex fnName varDisplay ctorDisplay}"
   | .emptySet => "\\emptyset"
   | .setSingleton e =>
     let lb := "{"

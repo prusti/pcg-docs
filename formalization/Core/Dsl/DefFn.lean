@@ -52,6 +52,10 @@ syntax fnExpr " ∪ " fnExpr : fnExpr
 -- Set flat-map: expr ·setFlatMap fun ident => expr
 syntax fnExpr "·setFlatMap" "fun" ident "=>" fnExpr
     : fnExpr
+-- Universal quantifier over a set:
+-- expr ·forAll fun ident => expr
+syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
+    : fnExpr
 
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
@@ -152,6 +156,10 @@ partial def parseExpr
   | `(fnExpr| $e:fnExpr ·setFlatMap fun $p:ident =>
         $b:fnExpr) => do
     pure (.setFlatMap (← parseExpr e)
+      (toString p.getId) (← parseExpr b))
+  | `(fnExpr| $e:fnExpr ·forAll fun $p:ident =>
+        $b:fnExpr) => do
+    pure (.setAll (← parseExpr e)
       (toString p.getId) (← parseExpr b))
   | _ => Lean.Elab.throwUnsupportedSyntax
 

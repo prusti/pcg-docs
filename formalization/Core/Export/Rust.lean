@@ -613,6 +613,12 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
 
   | .lt l r => do
     pure (.binOp .lt (← l.toRustExpr) (← r.toRustExpr))
+  | .setAll set param body => do
+    let setE ← set.toRustExpr
+    let bodyE ← body.toRustExpr
+    pure (.methodCall
+      (.methodCall setE ⟨"iter"⟩ [])
+      ⟨"all"⟩ [.closure [⟨param⟩] bodyE])
   | .emptySet =>
     pure (.call (.path ⟨[⟨"HashSet"⟩, ⟨"new"⟩]⟩) [])
   | .setSingleton e => do

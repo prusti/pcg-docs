@@ -162,6 +162,17 @@ where
   | basicBlocks "The basic blocks." : List BasicBlock
   deriving Repr, BEq, Hashable
 
+namespace Body
+
+defFn bodyPlaces (.text "bodyPlaces")
+  "All places referenced in a function body."
+  (body "The function body." : Body)
+  : Set Place where
+  | ⟨_, bbs⟩ =>
+      bbs·setFlatMap fun bb => bb·basicBlockPlaces
+
+end Body
+
 defStruct PlaceTy (.text "pty")
   "The type of a place: a type paired with an optional \
    variant index (set after a downcast)."
@@ -220,7 +231,7 @@ defProperty validPlace (.text "valid")
   latex
     (.seq [.text "A place ", .math (.var "p"),
            .text " is ",
-           .math (.var "valid"),
+           .italic (.text "valid"),
            .text " for a body ",
            .math (.var "body"),
            .text " iff its local index ",
@@ -231,6 +242,23 @@ defProperty validPlace (.text "valid")
   where
     | body ; p =>
         p↦base↦index < body↦decls·length
+
+defProperty validBody (.text "validBody")
+  "A body is valid iff all places in it are valid."
+  (body "The function body." : Body)
+  latex
+    (.seq [.text "A body ",
+           .math (.var "body"),
+           .text " is ",
+           .italic (.text "valid"),
+           .text " iff every place in ",
+           .code "bodyPlaces(body)",
+           .text " is valid for ",
+           .math (.var "body"),
+           .text "."])
+  where
+    | body =>
+        body·bodyPlaces·forAll fun p => validPlace ‹body, p›
 
 defFn placeTy (.text "ty")
   "Compute the type of a place: look up the base \
