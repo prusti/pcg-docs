@@ -30,6 +30,7 @@ def toLean : DSLType → String
   | .named n => n.name
   | .option t => s!"Option {t.toLean}"
   | .list t => s!"List {t.toLean}"
+  | .set t => s!"Set {t.toLean}"
 
 end DSLType
 
@@ -75,6 +76,7 @@ partial def toLeanArg : BodyExpr → String
   | .false_ => "false"
   | .none_ => "none"
   | .emptyList => "[]"
+  | .emptySet => "(∅ : Set _)"
   | e => s!"({e.toLean})"
 
 partial def toLean : BodyExpr → String
@@ -88,6 +90,8 @@ partial def toLean : BodyExpr → String
     s!"⟨{", ".intercalate (args.map toLean)}⟩"
   | .cons h t => s!"{h.toLean} :: {t.toLean}"
   | .append l r => s!"{l.toLean} ++ {r.toLean}"
+  | .dot recv "toSet" =>
+    s!"{recv.toLean}.toSet"
   | .dot recv method =>
     s!"{recv.toLean}.{method}"
   | .flatMap list param body =>
@@ -104,6 +108,14 @@ partial def toLean : BodyExpr → String
   | .foldlM fn init list =>
     s!"{list.toLean}.foldlM {fn} {init.toLean}"
   | .lt l r => s!"{l.toLean} < {r.toLean}"
+  | .emptySet => "(∅ : Set _)"
+  | .setSingleton e =>
+    s!"Set.singleton {e.toLeanArg}"
+  | .setUnion l r =>
+    s!"{l.toLean} ++ {r.toLean}"
+  | .setFlatMap list param body =>
+    s!"Set.flatMapList {list.toLeanArg} fun {param} => \
+       {body.toLean}"
 end
 
 end BodyExpr

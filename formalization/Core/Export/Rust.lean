@@ -39,6 +39,7 @@ def toRust : DSLType → RustTy
   | .named n => .named n.name
   | .option t => .option t.toRust
   | .list t => .adt ⟨[⟨"Vec"⟩]⟩ [t.toRust]
+  | .set t => .adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust]
 
 /-- Convert to a Rust parameter type. Lists become
     slices (`&[T]`) for pattern-matching support. -/
@@ -47,6 +48,8 @@ def toRustParam : DSLType → RustTy
   | .named n => .named n.name
   | .option t => .option t.toRust
   | .list t => .slice t.toRust
+  | .set t =>
+    .ref false (.adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust])
 
 /-- Render a type to a Rust type string. -/
 def toRustStr (t : DSLType) : String := t.toRust.render
@@ -341,8 +344,11 @@ def render (m : RustModule)
   let uses := siblingImports.map fun s =>
     s!"#[allow(unused_imports)]\n\
        use crate::{s}::*;"
-  let usesStr := if uses.isEmpty then ""
-    else String.intercalate "\n" uses ++ "\n"
+  let extraUseLines := m.extraUses.map fun u =>
+    s!"use {u};"
+  let allUses := uses ++ extraUseLines
+  let usesStr := if allUses.isEmpty then ""
+    else String.intercalate "\n" allUses ++ "\n"
   let body := m.items.map RustItem.render
   s!"{header}\n{usesStr}\
      {String.intercalate "\n\n" body}\n"
@@ -448,6 +454,7 @@ def needsRustBoxIn : DSLType → DSLType → Bool
   | .named n, enumTy => enumTy == .named n
   | .option t, enumTy => t.needsRustBoxIn enumTy
   | .list _, _ => false  -- Vec handles indirection
+  | .set _, _ => false   -- HashSet handles indirection
   | .prim _, _ => false
 
 end DSLType
@@ -563,6 +570,11 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       return .methodCall
         (.methodCall rustRecv ⟨"into_iter"⟩ [])
         ⟨"collect"⟩ [] (typeArgs := [vecWild])
+    | "toSet" =>
+      let hsWild := RustTy.adt ⟨[⟨"HashSet"⟩]⟩ [.infer]
+      return .methodCall
+        (.methodCall rustRecv ⟨"into_iter"⟩ [])
+        ⟨"collect"⟩ [] (typeArgs := [hsWild])
     | _ =>
       return .call (.identStr (toSnakeCase method))
         [.borrow rustRecv]
@@ -601,6 +613,38 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
 
   | .lt l r => do
     pure (.binOp .lt (← l.toRustExpr) (← r.toRustExpr))
+  | .emptySet =>
+    pure (.call (.path ⟨[⟨"HashSet"⟩, ⟨"new"⟩]⟩) [])
+  | .setSingleton e => do
+    let eExpr := RustExpr.clone (← e.toRustExpr)
+    let v ← fresh
+    return .block
+      [ .«let» (.ident v) none
+          (.call (.path ⟨[⟨"HashSet"⟩, ⟨"new"⟩]⟩) [])
+          (mutable := true)
+      , .expr (.methodCall (.ident v) ⟨"insert"⟩
+          [eExpr]) ]
+      (some (.ident v))
+  | .setUnion l r => do
+    let lExpr ← l.toRustExpr
+    let rExpr ← r.toRustExpr
+    let v ← fresh
+    return .block
+      [ .«let» (.ident v) none lExpr
+          (mutable := true)
+      , .expr (.methodCall (.ident v) ⟨"extend"⟩
+          [rExpr]) ]
+      (some (.ident v))
+  | .setFlatMap list param body => do
+    let listE ← list.toRustExpr
+    let bodyE ← body.toRustExpr
+    let hsWild := RustTy.adt ⟨[⟨"HashSet"⟩]⟩ [.infer]
+    pure (.methodCall
+      (.methodCall
+        (.methodCall listE ⟨"iter"⟩ [])
+        ⟨"flat_map"⟩ [.closure [⟨param⟩] bodyE])
+      ⟨"collect"⟩ []
+      (typeArgs := [hsWild]))
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=
@@ -772,7 +816,16 @@ def buildModules
       | none => match modStructs.head? with
         | some s => s.structDef.doc
         | none => modName
-    { name := ⟨modName⟩, doc := doc, items := items }
+    let usesSet := modFns.any
+      fun f => f.fnDef.returnType matches .set ..
+    let usesSetProp := modProps.any
+      fun p => p.propertyDef.fnDef.returnType matches
+        .set ..
+    let extraUses := if usesSet || usesSetProp
+      then ["std::collections::HashSet"]
+      else []
+    { name := ⟨modName⟩, doc := doc, items := items,
+      extraUses := extraUses }
 
 namespace OrderDef
 

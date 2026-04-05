@@ -19,7 +19,7 @@ where
   | const (val : Value)
     "A constant value."
     (.doc (.text "const "), #val)
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 namespace Operand
 
@@ -45,7 +45,7 @@ where
     "Create a reference to a place."
     (.doc (.code "&"), #region, .doc (.text " "),
      #mutability, .doc (.text " "), #place)
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 namespace Rvalue
 
@@ -72,18 +72,18 @@ where
     "Mark a local's storage as dead."
     (.doc (.text "StorageDead"), .sym .lparen,
      #lcl, .sym .rparen)
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 namespace Statement
 
 defFn statementPlaces (.text "statementPlaces")
   "Extract all places referenced by a statement."
   (s "The statement." : Statement)
-  : List Place where
+  : Set Place where
   | .assign lhs rhs =>
-      lhs :: (rhs·rvaluePlace)·toList
-  | .storageLive _ => []
-  | .storageDead _ => []
+      ⦃lhs⦄ ∪ (rhs·rvaluePlace)·toSet
+  | .storageLive _ => ∅
+  | .storageDead _ => ∅
 
 end Statement
 
@@ -116,21 +116,21 @@ where
      #args (.var "\\bar{o}"),
      .sym .rparen, .doc (.text " → "),
      #targetPlace, .doc (.text ", "), #nextBlock)
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 namespace Terminator
 
 defFn terminatorPlaces (.text "terminatorPlaces")
   "Extract all places referenced by a terminator."
   (t "The terminator." : Terminator)
-  : List Place where
-  | .goto _ => []
-  | .switchInt o => o·operandPlace·toList
-  | .return_ => []
-  | .unreachable => []
-  | .drop p _ => p :: []
+  : Set Place where
+  | .goto _ => ∅
+  | .switchInt o => o·operandPlace·toSet
+  | .return_ => ∅
+  | .unreachable => ∅
+  | .drop p _ => ⦃p⦄
   | .call callee args dest _ =>
-      dest :: callee·operandPlace·toList ++ (args·flatMap fun a => a·operandPlace·toList)
+      ⦃dest⦄ ∪ callee·operandPlace·toSet ∪ (args·setFlatMap fun a => a·operandPlace·toSet)
 
 end Terminator
 
@@ -141,16 +141,16 @@ where
   | statements "The statements in the block."
       : List Statement
   | terminator "The block's terminator." : Terminator
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 namespace BasicBlock
 
 defFn basicBlockPlaces (.text "basicBlockPlaces")
   "All places referenced in a basic block."
   (bb "The basic block." : BasicBlock)
-  : List Place where
+  : Set Place where
   | ⟨stmts, t⟩ =>
-      (stmts·flatMap fun s => s·statementPlaces) ++ t·terminatorPlaces
+      (stmts·setFlatMap fun s => s·statementPlaces) ∪ t·terminatorPlaces
 
 end BasicBlock
 
@@ -160,7 +160,7 @@ where
   | decls "The local variable declarations."
       : List Ty
   | basicBlocks "The basic blocks." : List BasicBlock
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 defStruct PlaceTy (.text "pty")
   "The type of a place: a type paired with an optional \
@@ -169,7 +169,7 @@ where
   | ty "The type." : Ty
   | variant "The variant index, if downcasted."
       : Option VariantIdx
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 defFn projTy (.text "projTy")
   "Project a type through a list of projection \

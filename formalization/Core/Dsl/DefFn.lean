@@ -1,5 +1,6 @@
 import Core.Registry
 import Core.Export.Lean
+import Core.Set
 import Lean
 
 open Lean in
@@ -42,6 +43,15 @@ syntax ident "‹" fnExpr,* "›" : fnExpr
 syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 -- Less-than: expr < expr
 syntax fnExpr " < " fnExpr : fnExpr
+-- Empty set: ∅
+syntax "∅" : fnExpr
+-- Set singleton: ⦃ expr ���
+syntax "⦃" fnExpr "⦄" : fnExpr
+-- Set union: expr ∪ expr
+syntax fnExpr " ∪ " fnExpr : fnExpr
+-- Set flat-map: expr ·setFlatMap fun ident => expr
+syntax fnExpr "·setFlatMap" "fun" ident "=>" fnExpr
+    : fnExpr
 
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
@@ -134,6 +144,15 @@ partial def parseExpr
       (← parseExpr init) (← parseExpr e))
   | `(fnExpr| $l:fnExpr < $r:fnExpr) =>
     pure (.lt (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| ∅) => pure .emptySet
+  | `(fnExpr| ⦃ $e:fnExpr ⦄) =>
+    pure (.setSingleton (← parseExpr e))
+  | `(fnExpr| $l:fnExpr ∪ $r:fnExpr) =>
+    pure (.setUnion (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $e:fnExpr ·setFlatMap fun $p:ident =>
+        $b:fnExpr) => do
+    pure (.setFlatMap (← parseExpr e)
+      (toString p.getId) (← parseExpr b))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 def parseStmt
@@ -160,20 +179,27 @@ def parseFnParam
 -- Core elaboration helpers
 -- ══════════════════════════════════════════════
 
+/-- Normalise a Lean type string for def generation.
+    Maps DSL-only types (e.g. `Set T`) to their Lean
+    equivalents (e.g. `List T`). -/
+private def normaliseLeanType (s : String) : String :=
+  (DSLType.parse s).toLean
+
 def buildFnType
     (paramData : Array (Lean.Ident × Lean.TSyntax `str
       × Lean.Syntax))
     (retTy : Lean.TSyntax `term)
     : Lean.Elab.Command.CommandElabM String := do
   let paramTypeStrs := paramData.map fun (_, _, pt) =>
-    if pt.isIdent then toString pt.getId
-    else pt.reprint.getD (toString pt)
+    let raw := if pt.isIdent then toString pt.getId
+      else pt.reprint.getD (toString pt)
+    normaliseLeanType raw
   let retRepr :=
     if retTy.raw.isIdent
     then toString retTy.raw.getId
     else retTy.raw.reprint.getD (toString retTy)
   pure (" → ".intercalate paramTypeStrs.toList
-    ++ s!" → {retRepr}")
+    ++ s!" → {normaliseLeanType retRepr}")
 
 open Lean Elab Command in
 def buildFnDef
@@ -283,13 +309,14 @@ elab_rules : command
             let tyStr :=
               if pt.isIdent then toString pt.getId
               else pt.reprint.getD (toString pt)
-            s!"({pn.getId} : {tyStr})")
+            s!"({pn.getId} : {normaliseLeanType tyStr})")
         let precBinds := precondParamBinds
           precondNames paramNames
-        let retRepr :=
+        let retRaw :=
           if retTy.raw.isIdent
           then toString retTy.raw.getId
           else retTy.raw.reprint.getD (toString retTy)
+        let retRepr := normaliseLeanType retRaw
         let matchArgs := ", ".intercalate paramNames
         pure s!"{defKw} {name.getId} \
           {paramBinds} {precBinds} : {retRepr} :=\n\
@@ -331,10 +358,11 @@ elab_rules : command
     let parsedStmts ← stmts.mapM parseStmt
     let parsedRet ← parseExpr ret
     -- Generate Lean def via string parsing
-    let retRepr :=
+    let retRaw :=
       if retTy.raw.isIdent
       then toString retTy.raw.getId
       else retTy.raw.reprint.getD (toString retTy)
+    let retRepr := normaliseLeanType retRaw
     let stmtStrs := parsedStmts.toList.map
       BodyStmt.toLean
     let retStr := s!"  {parsedRet.toLean}"
@@ -346,7 +374,7 @@ elab_rules : command
         let tyStr :=
           if pt.isIdent then toString pt.getId
           else pt.reprint.getD (toString pt)
-        s!"({pn.getId} : {tyStr})")
+        s!"({pn.getId} : {normaliseLeanType tyStr})")
     let precBinds := precondParamBinds
       precondNames paramNames
     let allBinds :=

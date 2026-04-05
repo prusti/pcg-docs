@@ -5,7 +5,7 @@ defEnum Capability (.math (.var "c"))
    place at a particular program point."
 where
   | none
-    "No capabiility"
+    "No capability"
     (.doc (.bold (.text "∅")))
   | exclusive
     "Exclusive "

@@ -37,7 +37,7 @@ where
     "Downcast an enum to a specific variant."
     (.doc (.text "@"),
      #variant)
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 defStruct Place (.math (.var "p"))
   "A place in the MIR: a local with a projection. \
@@ -46,4 +46,4 @@ where
   | base "The base local variable." : Local
   | projection "The list of projection elements."
       : List ProjElem
-  deriving Repr
+  deriving Repr, BEq, Hashable

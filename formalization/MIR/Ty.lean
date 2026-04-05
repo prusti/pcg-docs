@@ -56,7 +56,7 @@ where
     "A fixed-size array type."
     (.doc (.text "["), #elem, .doc (.text "; "),
      #len (.var "n"), .doc (.text "]"))
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 defEnum Value (.math (.var "v"))
   "A concrete runtime value."
@@ -79,7 +79,7 @@ where
   | usize (val : USize)
     "A pointer-sized unsigned integer."
     (.doc (.text "usize "), #val (.var "n"))
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 /-- A generalized type is either a type or a region.
 
@@ -88,7 +88,7 @@ where
 inductive GenTy where
   | ty (τ : Ty)
   | region (r : Region)
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 /-- A single constraint in a parameter environment.
 
@@ -100,7 +100,7 @@ inductive Constraint where
   | regionOutlives (r₁ r₂ : Region)
   | tyOutlives (τ : Ty) (r : Region)
   | tyImplsTrait (τ : Ty) (traitName : String)
-  deriving Repr
+  deriving Repr, BEq, Hashable
 
 /-- A parameter environment: a list of constraints.
 

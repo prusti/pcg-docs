@@ -181,7 +181,8 @@ elab_rules : command
     elabCommand inductiveCmd
     let deriveNames : Array Ident := match derivs with
       | some ds => ds
-      | none => #[mkIdent `DecidableEq, mkIdent `Repr]
+      | none => #[mkIdent `DecidableEq, mkIdent `Repr,
+                   mkIdent `Hashable]
     for d in deriveNames do
       let deriveCmd ← `(command|
         deriving instance $d:ident for $name)

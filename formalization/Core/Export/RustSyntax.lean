@@ -231,6 +231,9 @@ structure RustModule where
   doc : String
   /-- Items in this module. -/
   items : List RustItem
+  /-- Extra `use` declarations (e.g.
+      `"std::collections::HashSet"`). -/
+  extraUses : List String := []
 
 /-- A dependency of a Rust crate. -/
 structure RustCrateDep where

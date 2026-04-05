@@ -43,6 +43,15 @@ inductive BodyExpr where
       (list : BodyExpr)
   /-- Less-than comparison: `lhs < rhs`. -/
   | lt (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Empty set: `∅`. -/
+  | emptySet
+  /-- Set singleton: `{elem}`. -/
+  | setSingleton (elem : BodyExpr)
+  /-- Set union: `lhs ∪ rhs`. -/
+  | setUnion (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Set flat-map: `⋃_{param ∈ list} body`. -/
+  | setFlatMap (list : BodyExpr) (param : String)
+      (body : BodyExpr)
   deriving Repr
 
 /-- A statement in a do-block. -/
@@ -151,6 +160,17 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .lt l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.lt)
       #[quoteExpr l, quoteExpr r]
+  | .emptySet =>
+    Syntax.mkApp (mkIdent ``BodyExpr.emptySet) #[]
+  | .setSingleton e =>
+    Syntax.mkApp (mkIdent ``BodyExpr.setSingleton)
+      #[quoteExpr e]
+  | .setUnion l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.setUnion)
+      #[quoteExpr l, quoteExpr r]
+  | .setFlatMap list param body =>
+    Syntax.mkApp (mkIdent ``BodyExpr.setFlatMap)
+      #[quoteExpr list, quote param, quoteExpr body]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr
@@ -248,7 +268,7 @@ partial def toLatex
     | none => Doc.escapeLatexMath n
   | .true_ => "\\text{true}"
   | .false_ => "\\text{false}"
-  | .emptyList => "\\emptyset"
+  | .emptyList => "[]"
   | .none_ => "\\text{None}"
   | .some_ e =>
     e.toLatex fnName varDisplay ctorDisplay
@@ -258,25 +278,21 @@ partial def toLatex
         ctorDisplay))
     s!"({inner})"
   | .cons h t =>
-    let lb := "{"
-    let rb := "}"
-    s!"\\{lb}{h.toLatex fnName varDisplay
-      ctorDisplay}\\{rb} \\cup \
+    s!"{h.toLatex fnName varDisplay
+      ctorDisplay} :: \
       {t.toLatex fnName varDisplay ctorDisplay}"
   | .append l r =>
     s!"{l.toLatex fnName varDisplay ctorDisplay} \
-       \\cup \
+       \\mathbin\{\\texttt\{++}} \
        {r.toLatex fnName varDisplay ctorDisplay}"
   | .dot recv method =>
     s!"\\text\{{method}}(\
        {recv.toLatex fnName varDisplay ctorDisplay})"
   | .flatMap list param body =>
-    let lb := "{"
-    let rb := "}"
-    s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
-       \\in {list.toLatex fnName varDisplay
-         ctorDisplay}{rb} \
-       {body.toLatex fnName varDisplay ctorDisplay}"
+    s!"{list.toLatex fnName varDisplay
+       ctorDisplay}.\\text\{flatMap}(\\lambda \
+       {Doc.escapeLatexMath param}.~\
+       {body.toLatex fnName varDisplay ctorDisplay})"
   | .field recv name =>
     s!"{recv.toLatex fnName varDisplay
       ctorDisplay}.\\text\{{name}}"
@@ -300,6 +316,23 @@ partial def toLatex
   | .lt l r =>
     s!"{l.toLatex fnName varDisplay ctorDisplay} \
        < {r.toLatex fnName varDisplay ctorDisplay}"
+  | .emptySet => "\\emptyset"
+  | .setSingleton e =>
+    let lb := "{"
+    let rb := "}"
+    s!"\\{lb}{e.toLatex fnName varDisplay
+      ctorDisplay}\\{rb}"
+  | .setUnion l r =>
+    s!"{l.toLatex fnName varDisplay ctorDisplay} \
+       \\cup \
+       {r.toLatex fnName varDisplay ctorDisplay}"
+  | .setFlatMap list param body =>
+    let lb := "{"
+    let rb := "}"
+    s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
+       \\in {list.toLatex fnName varDisplay
+         ctorDisplay}{rb} \
+       {body.toLatex fnName varDisplay ctorDisplay}"
 
 end BodyExpr
 

@@ -39,6 +39,8 @@ inductive DSLType where
   | option (inner : DSLType)
   /-- `List T`. -/
   | list (inner : DSLType)
+  /-- `Set T` (rendered as `HashSet` in Rust). -/
+  | set (inner : DSLType)
   deriving Repr, DecidableEq, Inhabited
 
 namespace DSLPrimTy
@@ -73,6 +75,8 @@ def toDoc : DSLType → OutputMode → Doc
     .seq [.text "Option ", t.toDoc mode]
   | .list t, mode =>
     .seq [.text "List ", t.toDoc mode]
+  | .set t, mode =>
+    .seq [.text "Set ", t.toDoc mode]
 
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType
@@ -112,6 +116,8 @@ partial def parse (s : String) : DSLType :=
       .option (parse (s.drop 7).toString)
     else if s.startsWith "List " then
       .list (parse (s.drop 5).toString)
+    else if s.startsWith "Set " then
+      .set (parse (s.drop 4).toString)
     else .named ⟨s⟩
 
 end DSLType

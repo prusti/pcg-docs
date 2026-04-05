@@ -64,7 +64,8 @@ elab_rules : command
     let deriveNames : Array Ident := match derivs with
       | some ds => ds
       | none =>
-        #[mkIdent `DecidableEq, mkIdent `Repr]
+        #[mkIdent `DecidableEq, mkIdent `Repr,
+          mkIdent `Hashable]
     for d in deriveNames do
       elabCommand (← `(command|
         deriving instance $d:ident for $name))
