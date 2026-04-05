@@ -38,6 +38,9 @@ lean_exe rust_export where
 lean_exe presentation_export where
   root := `PresentationExport
 
+lean_exe lean_export where
+  root := `LeanExport
+
 lean_lib Tests where
   srcDir := "."
 
