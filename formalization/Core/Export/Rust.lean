@@ -76,6 +76,7 @@ namespace RustBinOp
 def render : RustBinOp → String
   | .eq => "==" | .ne => "!=" | .lt => "<"
   | .le => "<=" | .gt => ">" | .ge => ">="
+  | .and => "&&" | .or => "||"
 
 end RustBinOp
 
@@ -425,7 +426,9 @@ def toSnakeCase (s : String) : String := Id.run do
   let mut result : String := ""
   let mut prevLower := false
   for c in s.toList do
-    if c.isUpper then
+    if c == '\'' then
+      result := result ++ "_prime"
+    else if c.isUpper then
       if prevLower then result := result.push '_'
       result := result.push c.toLower
       prevLower := false
@@ -652,6 +655,9 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       ⟨"collect"⟩ []
       (typeArgs := [hsWild]))
 
+  | .and l r => do
+    pure (.binOp .and (← l.toRustExpr) (← r.toRustExpr))
+
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=
   e.toRustExpr.run' 0
@@ -674,10 +680,11 @@ def toRustItem (f : FnDef)
   let re (b : BodyExpr) := b.toRust
   let paramNames := f.params.map
     fun p => leanToRustIdent p.name
-  let assertStmts := f.preconditions.map fun pn =>
-    let args := paramNames.map RustExpr.ident
+  let assertStmts := f.preconditions.map fun pc =>
+    let args := pc.args.map fun a =>
+      RustExpr.ident (leanToRustIdent a)
     RustStmt.assert_
-      (.call (.identStr (toSnakeCase pn)) args)
+      (.call (.identStr (toSnakeCase pc.name)) args)
   let body : RustExpr := match f.body with
     | .matchArms arms =>
       if arms.isEmpty then .todo

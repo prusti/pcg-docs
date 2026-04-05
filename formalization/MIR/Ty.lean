@@ -58,6 +58,9 @@ where
      #len (.var "n"), .doc (.text "]"))
   deriving Repr, BEq, Hashable
 
+instance : Inhabited Ty where
+  default := .param 0
+
 defEnum Value (.math (.var "v"))
   "A concrete runtime value."
 where

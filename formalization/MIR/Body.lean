@@ -203,26 +203,6 @@ defFn projTy (.text "projTy")
       projTy ‹τ, Some v, π›
   | _ ; _ ; _ :: _ => None
 
-defFn ownedProjTy (.text "ownedProjTy")
-  "Check whether a place is owned by walking its projection list. Returns Some
-  false as soon as a dereference of a reference is encountered, Some true if all
-  projections are traversed without dereferencing a reference, or None on a
-  type error."
-  (τ "The current type." : Ty)
-  (projs "The projection elements." : List ProjElem)
-  : Option Bool where
-  | _ ; [] => Some true
-  | .ref _ _ _ ; .deref :: _ => Some false
-  | .box inner ; .deref :: π =>
-      ownedProjTy ‹inner, π›
-  | _ ; (.field _ τ) :: π =>
-      ownedProjTy ‹τ, π›
-  | .array elem _ ; (.index _) :: π =>
-      ownedProjTy ‹elem, π›
-  | τ ; (.downcast _) :: π =>
-      ownedProjTy ‹τ, π›
-  | _ ; _ :: _ => None
-
 defProperty validProjTy (.text "validProjTy")
   "A type is valid for a projection list iff \
    projTy returns Some."
@@ -254,6 +234,27 @@ defProperty validProjTy (.text "validProjTy")
       validProjTy ‹τ, π›
   | _ ; _ :: _ => false
 
+defFn isOwned' (.text "isOwned'")
+  "Check whether a place is owned by walking its \
+   projection list. Returns false as soon as a \
+   dereference of a reference is encountered, \
+   true if all projections are traversed without \
+   dereferencing a reference."
+  (τ "The current type." : Ty)
+  (projs "The projection elements." : List ProjElem)
+  : Bool where
+  | _ ; [] => true
+  | .ref _ _ _ ; .deref :: _ => false
+  | .box inner ; .deref :: π =>
+      isOwned' ‹inner, π›
+  | _ ; (.field _ τ) :: π =>
+      isOwned' ‹τ, π›
+  | .array elem _ ; (.index _) :: π =>
+      isOwned' ‹elem, π›
+  | τ ; (.downcast _) :: π =>
+      isOwned' ‹τ, π›
+  | _ ; _ :: _ => false
+
 defProperty validPlace (.text "valid")
   "A place is valid for a body."
   (body "The function body." : Body)
@@ -268,10 +269,13 @@ defProperty validPlace (.text "valid")
            .code "p.base.index",
            .text " is less than ",
            .code "|body.decls|",
-           .text "."])
+           .text " and ",
+           .code "validProjTy(body.decls[p.base.index], p.projection)",
+           .text " holds."])
   where
     | body ; p =>
-        p↦base↦index < body↦decls·length
+        p↦base↦index < body↦decls·length ∧
+        validProjTy ‹body↦decls ! p↦base↦index, p↦projection›
 
 defProperty validBody (.text "validBody")
   "A body is valid iff all places in it are valid."
@@ -295,7 +299,7 @@ defFn placeTy (.text "ty")
    local in Δ, then project through projections."
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
-  requires validPlace
+  requires validPlace(body, place)
   : Option PlaceTy begin
   return projTy ‹body↦decls ! place↦base↦index, None, place↦projection›
 
@@ -305,6 +309,7 @@ defFn isOwned (.text "isOwned")
    reference-typed place. See definitions/places.md."
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
-  requires validPlace
-  : Option Bool begin
-  return ownedProjTy ‹body↦decls ! place↦base↦index, place↦projection›
+  requires validPlace(body, place)
+  : Bool where
+  | body ; place =>
+      isOwned' ‹body↦decls ! place↦base↦index, place↦projection›

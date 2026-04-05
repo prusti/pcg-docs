@@ -56,6 +56,8 @@ inductive BodyExpr where
   /-- Set flat-map: `⋃_{param ∈ list} body`. -/
   | setFlatMap (list : BodyExpr) (param : String)
       (body : BodyExpr)
+  /-- Logical conjunction: `lhs ∧ rhs`. -/
+  | and (lhs : BodyExpr) (rhs : BodyExpr)
   deriving Repr
 
 /-- A statement in a do-block. -/
@@ -81,6 +83,14 @@ inductive FnBody where
   | doBlock (stmts : List BodyStmt) (ret : BodyExpr)
   deriving Repr
 
+/-- A precondition applied to specific arguments. -/
+structure Precondition where
+  /-- The property name. -/
+  name : String
+  /-- The argument names to apply the property to. -/
+  args : List String
+  deriving Repr
+
 /-- An exportable function definition. -/
 structure FnDef where
   name : String
@@ -88,9 +98,9 @@ structure FnDef where
   doc : String
   params : List FieldDef
   returnType : DSLType
-  /-- Names of properties that must hold before calling
+  /-- Preconditions that must hold before calling
       this function. -/
-  preconditions : List String := []
+  preconditions : List Precondition := []
   body : FnBody
   deriving Repr
 
@@ -178,6 +188,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .setFlatMap list param body =>
     Syntax.mkApp (mkIdent ``BodyExpr.setFlatMap)
       #[quoteExpr list, quote param, quoteExpr body]
+  | .and l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.and)
+      #[quoteExpr l, quoteExpr r]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr
@@ -319,6 +332,7 @@ partial def toLatex
     let rb := "}"
     s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
        \\in {go list}{rb} {go body}"
+  | .and l r => s!"{go l} \\land {go r}"
 
 end BodyExpr
 
@@ -409,10 +423,10 @@ def formalDefLatex
            ${ret.toLatex f.name noDisp ctorDisplay
              isProperty}$"
       stmtLines ++ [retLine]
-  let precondLines := f.preconditions.map fun pn =>
+  let precondLines := f.preconditions.map fun pc =>
     let args := ", ".intercalate
-      (f.params.map fun p => Doc.escapeLatex p.name)
-    s!"    \\Require ${Doc.escapeLatexMath pn}\
+      (pc.args.map Doc.escapeLatex)
+    s!"    \\Require ${Doc.escapeLatexMath pc.name}\
        ({args})$"
   let allLines := precondLines ++ bodyLines
   s!"\\begin{lb}algorithm{rb}\n\

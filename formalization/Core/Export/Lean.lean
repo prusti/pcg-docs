@@ -101,7 +101,7 @@ partial def toLean : BodyExpr → String
   | .index list idx =>
     s!"{list.toLean}[{idx.toLean}]?"
   | .indexBang list idx =>
-    s!"{list.toLean}[{idx.toLean}]"
+    s!"{list.toLean}[{idx.toLean}]!"
   | .call fn args =>
     let argStr := " ".intercalate (args.map toLeanArg)
     s!"{fn} {argStr}"
@@ -118,6 +118,7 @@ partial def toLean : BodyExpr → String
   | .setFlatMap list param body =>
     s!"Set.flatMapList {list.toLeanArg} fun {param} => \
        {body.toLean}"
+  | .and l r => s!"{l.toLean} ∧ {r.toLean}"
 end
 
 end BodyExpr
