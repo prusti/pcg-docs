@@ -175,7 +175,9 @@ def fromBoxImpls (tys : List RustTy) : List RustItem :=
     match ty with
     | .adt path [] =>
       some (.impl_ {
-        trait_ := some ⟨[s!"From<Box<{ty.render}>>"]⟩
+        trait_ := some {
+          path := .simple "From"
+          typeArgs := [.adt ⟨["Box"]⟩ [ty]] }
         ty := path
         methods :=
           [{ vis := .priv
@@ -781,7 +783,7 @@ def toRustPartialOrd (o : OrderDef) : RustItem :=
       retTy := some retTy
       body := body }
   .impl_ {
-    trait_ := some ⟨["PartialOrd"]⟩
+    trait_ := some { path := .simple "PartialOrd" }
     ty := ⟨[o.enumName]⟩
     methods := [partialCmpFn] }
 

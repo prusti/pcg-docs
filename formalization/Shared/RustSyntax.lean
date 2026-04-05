@@ -30,7 +30,7 @@ inductive RustTy where
   | slice (inner : RustTy)
   /-- Inferred type: `_`. -/
   | infer
-  deriving Repr
+  deriving Repr, Nonempty
 
 /-- A unary operator. -/
 inductive RustUnaryOp where
@@ -190,10 +190,17 @@ structure RustStruct where
   fields : RustStructFields
   deriving Repr
 
+/-- A Rust trait reference, e.g. `From<Box<T>>`. -/
+structure RustTrait where
+  /-- The trait path, e.g. `std::convert::From`. -/
+  path : RustPath
+  /-- Type arguments, e.g. `[Box<T>]`. -/
+  typeArgs : List RustTy := []
+
 /-- A Rust impl block. -/
 structure RustImpl where
   /-- The trait being implemented (`None` for inherent). -/
-  trait_ : Option RustPath
+  trait_ : Option RustTrait
   /-- The type being implemented. -/
   ty : RustPath
   /-- The methods in the impl block. -/
@@ -352,6 +359,64 @@ def todo : RustExpr := .raw "todo!()"
 def ident (s : String) : RustExpr :=
   .path (.simple s)
 
+/-- The definition behind a Rust type. -/
+inductive RustTyDef where
+  /-- A primitive / built-in type. -/
+  | prim (ty : RustBuiltinTy)
+  /-- A struct definition. -/
+  | struct_ (s : RustStruct)
+  /-- An enum definition. -/
+  | enum_ (e : RustEnum)
+  /-- A function, with its return type. -/
+  | fn_ (retTy : RustTy)
+
+namespace RustTyDef
+
+/-- The `RustTy` corresponding to this definition. -/
+def rustTy : RustTyDef → RustTy
+  | .prim ty => .builtin ty
+  | .struct_ s => .adt (.simple s.name) []
+  | .enum_ e => .adt (.simple e.name) []
+  | .fn_ _ => .infer
+
+/-- The return type, for function definitions. -/
+def retTy : RustTyDef → RustTy
+  | .fn_ ty => ty
+  | _ => .infer
+
+end RustTyDef
+
+/-- A partial mapping from paths to their definitions. -/
+def SymbolTable := RustPath → RustTyDef
+
+/-- Compute the Rust type of an expression, consulting
+    the symbol table to resolve paths. -/
+partial def rustTy (sym : SymbolTable)
+    : RustExpr → RustTy
+  | .litStr _ => .builtin .string
+  | .litBool _ => .builtin .bool
+  | .binOp _ _ _ => .builtin .bool
+  | .tuple elems =>
+    .adt ⟨[]⟩ (elems.map (rustTy sym))
+  | .ref_ mutable e => .ref mutable (e.rustTy sym)
+  | .block _ (some e) => e.rustTy sym
+  | .«if» _ then_ _ => then_.rustTy sym
+  | .«match» _ (arm :: _) =>
+    match arm with | .mk _ body => body.rustTy sym
+  | .try_ e =>
+    match e.rustTy sym with
+    | .adt ⟨["Result"]⟩ (ok :: _) => ok
+    | ty => ty
+  | .structInit p _ => .adt p []
+  | .path p => (sym p).rustTy
+  | .call (.path p) _ => (sym p).retTy
+  | .call _ _ => .infer
+  | .methodCall _ _ _ typeArgs =>
+    match typeArgs with
+    | [ty] => ty
+    | _ => .infer
+  | _ => .infer
+
 end RustExpr
 
 namespace RustPat
@@ -361,3 +426,14 @@ def selfVariant (v : String) : RustPat :=
   .path ⟨["Self", v]⟩
 
 end RustPat
+
+namespace RustTrait
+
+/-- Render a trait reference, e.g. `From<Box<T>>`. -/
+def render (t : RustTrait) : String :=
+  if t.typeArgs.isEmpty then t.path.render
+  else
+    let argStrs := t.typeArgs.map RustTy.render
+    s!"{t.path.render}<{String.intercalate ", " argStrs}>"
+
+end RustTrait

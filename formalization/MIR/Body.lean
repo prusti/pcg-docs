@@ -161,5 +161,5 @@ defFn placeTy (.text "ty")
   : Option PlaceTy begin
   let decls := body↦localDecls↦decls
   let baseIdx := place↦base↦index
-  let τ₀ ← decls !! baseIdx
+  let τ₀ ← decls !! place↦base↦index
   return projTy ‹τ₀, None, place↦projection›
