@@ -269,84 +269,56 @@ partial def toLatex
       fun _ => none)
     (ctorDisplay : String → Option String :=
       fun _ => none)
-    : BodyExpr → String
+    (isProperty : Bool := false)
+    : BodyExpr → String :=
+  let go := toLatex fnName varDisplay ctorDisplay
+    isProperty
+  fun
   | .var n => match varDisplay n with
     | some sym => sym
     | none => Doc.escapeLatexMath n
-  | .true_ => "\\text{true}"
-  | .false_ => "\\text{false}"
+  | .true_ =>
+    if isProperty then "\\top" else "\\text{true}"
+  | .false_ =>
+    if isProperty then "\\bot" else "\\text{false}"
   | .emptyList => "[]"
   | .none_ => "\\text{None}"
-  | .some_ e =>
-    e.toLatex fnName varDisplay ctorDisplay
+  | .some_ e => go e
   | .mkStruct _ args =>
-    let inner := ",~".intercalate
-      (args.map (toLatex fnName varDisplay
-        ctorDisplay))
-    s!"({inner})"
-  | .cons h t =>
-    s!"{h.toLatex fnName varDisplay
-      ctorDisplay} :: \
-      {t.toLatex fnName varDisplay ctorDisplay}"
+    s!"({",~".intercalate (args.map go)})"
+  | .cons h t => s!"{go h} :: {go t}"
   | .append l r =>
-    s!"{l.toLatex fnName varDisplay ctorDisplay} \
-       \\mathbin\{\\texttt\{++}} \
-       {r.toLatex fnName varDisplay ctorDisplay}"
+    s!"{go l} \\mathbin\{\\texttt\{++}} {go r}"
   | .dot recv method =>
-    s!"\\text\{{method}}(\
-       {recv.toLatex fnName varDisplay ctorDisplay})"
+    s!"\\text\{{method}}({go recv})"
   | .flatMap list param body =>
-    s!"{list.toLatex fnName varDisplay
-       ctorDisplay}.\\text\{flatMap}(\\lambda \
-       {Doc.escapeLatexMath param}.~\
-       {body.toLatex fnName varDisplay ctorDisplay})"
+    s!"{go list}.\\text\{flatMap}(\\lambda \
+       {Doc.escapeLatexMath param}.~{go body})"
   | .field recv name =>
-    s!"{recv.toLatex fnName varDisplay
-      ctorDisplay}.\\text\{{name}}"
+    s!"{go recv}.\\text\{{name}}"
   | .index list idx =>
-    s!"{list.toLatex fnName varDisplay
-      ctorDisplay}[{idx.toLatex fnName varDisplay
-        ctorDisplay}]"
+    s!"{go list}[{go idx}]"
   | .indexBang list idx =>
-    s!"{list.toLatex fnName varDisplay
-      ctorDisplay}[{idx.toLatex fnName varDisplay
-        ctorDisplay}]"
+    s!"{go list}[{go idx}]"
   | .call fn args =>
-    let argStr := ",~".intercalate
-      (args.map (toLatex fnName varDisplay
-        ctorDisplay))
-    s!"\\text\{{fn}}({argStr})"
+    s!"\\text\{{fn}}({",~".intercalate (args.map go)})"
   | .foldlM fn init list =>
-    s!"\\text\{{fn}}^*({init.toLatex fnName
-      varDisplay ctorDisplay},~\
-      {list.toLatex fnName varDisplay ctorDisplay})"
-  | .lt l r =>
-    s!"{l.toLatex fnName varDisplay ctorDisplay} \
-       < {r.toLatex fnName varDisplay ctorDisplay}"
+    s!"\\text\{{fn}}^*({go init},~{go list})"
+  | .lt l r => s!"{go l} < {go r}"
   | .setAll set param body =>
-    let lb := "{"
-    let rb := "}"
     s!"\\forall {Doc.escapeLatexMath param} \
-       \\in {set.toLatex fnName varDisplay
-         ctorDisplay},~\
-       {body.toLatex fnName varDisplay ctorDisplay}"
+       \\in {go set},~{go body}"
   | .emptySet => "\\emptyset"
   | .setSingleton e =>
     let lb := "{"
     let rb := "}"
-    s!"\\{lb}{e.toLatex fnName varDisplay
-      ctorDisplay}\\{rb}"
-  | .setUnion l r =>
-    s!"{l.toLatex fnName varDisplay ctorDisplay} \
-       \\cup \
-       {r.toLatex fnName varDisplay ctorDisplay}"
+    s!"\\{lb}{go e}\\{rb}"
+  | .setUnion l r => s!"{go l} \\cup {go r}"
   | .setFlatMap list param body =>
     let lb := "{"
     let rb := "}"
     s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
-       \\in {list.toLatex fnName varDisplay
-         ctorDisplay}{rb} \
-       {body.toLatex fnName varDisplay ctorDisplay}"
+       \\in {go list}{rb} {go body}"
 
 end BodyExpr
 
@@ -354,14 +326,18 @@ namespace BodyStmt
 
 def toLatex (fnName : String)
     (varDisplay ctorDisplay
-      : String → Option String) : BodyStmt → String
+      : String → Option String)
+    (isProperty : Bool := false)
+    : BodyStmt → String
   | .let_ n v =>
     s!"\\text\{let } {Doc.escapeLatexMath n} := \
-       {v.toLatex fnName varDisplay ctorDisplay}"
+       {v.toLatex fnName varDisplay ctorDisplay
+         isProperty}"
   | .letBind n v =>
     s!"\\text\{let } {Doc.escapeLatexMath n} \
        \\leftarrow \
-       {v.toLatex fnName varDisplay ctorDisplay}"
+       {v.toLatex fnName varDisplay ctorDisplay
+         isProperty}"
 
 end BodyStmt
 
@@ -380,6 +356,7 @@ def formalDefLatex
     (ctorDisplay : String → Option String :=
       fun _ => none)
     (variants : List VariantDef := [])
+    (isProperty : Bool := false)
     : String :=
   let lb := "{"
   let rb := "}"
@@ -387,7 +364,14 @@ def formalDefLatex
     (f.params.map fun p =>
       s!"{Doc.escapeLatex p.name} : \
          {(p.ty.toDoc .normal).toLaTeX}")
-  let retTy := (f.returnType.toDoc .normal).toLaTeX
+  let caption :=
+    if isProperty then
+      s!"Property {Doc.escapeLatex f.name}\
+         ({paramSig})"
+    else
+      let retTy := (f.returnType.toDoc .normal).toLaTeX
+      s!"{Doc.escapeLatex f.name}\
+         ({paramSig}) $\\to$ {retTy}"
   let bodyLines := match f.body with
     | .matchArms arms => arms.map fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>
@@ -397,7 +381,8 @@ def formalDefLatex
           match ctorName with
           | none => none
           | some cn =>
-            let variant := variants.find? (·.name.name == cn)
+            let variant := variants.find?
+              (·.name.name == cn)
             match variant with
             | none => none
             | some v => v.display.findSome? fun dp =>
@@ -410,18 +395,19 @@ def formalDefLatex
       let patStr := ",~".intercalate
         (arm.pat.map (BodyPat.toLatex ctorDisplay))
       let rhsStr := arm.rhs.toLatex f.name
-        varDisplay ctorDisplay
+        varDisplay ctorDisplay isProperty
       s!"    \\State \\textbf{lb}case{rb} \
-         ${patStr}$: \\Return ${rhsStr}$"
+         ${patStr}$: ${rhsStr}$"
     | .doBlock stmts ret =>
       let noDisp : String → Option String :=
         fun _ => none
       let stmtLines := stmts.map fun s =>
         s!"    \\State ${s.toLatex f.name
-          noDisp ctorDisplay}$"
+          noDisp ctorDisplay isProperty}$"
       let retLine :=
-        s!"    \\State \\Return \
-           ${ret.toLatex f.name noDisp ctorDisplay}$"
+        s!"    \\State \
+           ${ret.toLatex f.name noDisp ctorDisplay
+             isProperty}$"
       stmtLines ++ [retLine]
   let precondLines := f.preconditions.map fun pn =>
     let args := ", ".intercalate
@@ -430,9 +416,7 @@ def formalDefLatex
        ({args})$"
   let allLines := precondLines ++ bodyLines
   s!"\\begin{lb}algorithm{rb}\n\
-     \\caption{lb}{Doc.escapeLatex f.name}\
-     ({paramSig}) \
-     $\\to$ {retTy}{rb}\n\
+     \\caption{lb}{caption}{rb}\n\
      \\begin{lb}algorithmic{rb}[1]\n\
      {"\n".intercalate allLines}\n\
      \\end{lb}algorithmic{rb}\n\

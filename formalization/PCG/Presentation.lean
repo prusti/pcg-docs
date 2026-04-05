@@ -52,7 +52,8 @@ private def moduleLatex
     s!"{f.fnDef.formalDefLatex ctorDisplay
          allVariants}\n"
   let propParts := properties.map fun p =>
-    s!"{p.propertyDef.formalDefLatex}\n"
+    s!"{p.propertyDef.formalDefLatex ctorDisplay
+         allVariants}\n"
   header ++
     "\n".intercalate
       (structParts ++ enumParts ++ fnParts ++

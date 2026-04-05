@@ -223,12 +223,24 @@ defFn ownedProjTy (.text "ownedProjTy")
       ownedProjTy ‹τ, π›
   | _ ; _ :: _ => None
 
-defFn validProjTy (.text "validProjTy")
-  "Check whether a type is valid for a projection \
-   list, i.e. whether projTy would return Some."
+defProperty validProjTy (.text "validProjTy")
+  "A type is valid for a projection list iff \
+   projTy returns Some."
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
-  : Bool where
+  latex
+    (.seq [.text "A type ",
+           .math (.var "\\tau"),
+           .text " is ",
+           .italic (.text "valid"),
+           .text " for a projection list ",
+           .math (.var "\\pi"),
+           .text " iff ",
+           .code "projTy(τ, \\_, π)",
+           .text " returns ",
+           .code "Some \\_",
+           .text "."])
+  where
   | _ ; [] => true
   | .ref _ _ pointee ; .deref :: π =>
       validProjTy ‹pointee, π›

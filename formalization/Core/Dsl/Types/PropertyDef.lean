@@ -15,13 +15,22 @@ structure PropertyDef where
 namespace PropertyDef
 
 /-- Render the property as a LaTeX definition
-    environment. -/
-def formalDefLatex (p : PropertyDef) : String :=
+    environment followed by an algorithm block. -/
+def formalDefLatex
+    (p : PropertyDef)
+    (ctorDisplay : String → Option String :=
+      fun _ => none)
+    (variants : List VariantDef := [])
+    : String :=
   let lb := "{"
   let rb := "}"
   let title := Doc.escapeLatex p.fnDef.name
-  s!"\\begin{lb}definition{rb}[{title}]\n\
-     {p.definition.toLaTeX}\n\
-     \\end{lb}definition{rb}"
+  let defBlock :=
+    s!"\\begin{lb}definition{rb}[{title}]\n\
+       {p.definition.toLaTeX}\n\
+       \\end{lb}definition{rb}"
+  let algoBlock := p.fnDef.formalDefLatex
+    ctorDisplay variants (isProperty := true)
+  s!"{defBlock}\n\n{algoBlock}"
 
 end PropertyDef
