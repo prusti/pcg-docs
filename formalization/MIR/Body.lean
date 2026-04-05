@@ -2,7 +2,7 @@ import MIR.Place
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 
-defStruct BasicBlockIdx (.math (.doc (.text "bb")))
+defStruct BasicBlockIdx (.text "bb")
   "An index into the list of basic blocks."
 where
   | index "The basic block index." : Nat
@@ -23,7 +23,7 @@ where
 
 namespace Operand
 
-defFn operandPlace (.math (.doc (.text "operandPlace")))
+defFn operandPlace (.text "operandPlace")
   "Extract the place from an operand, if any."
   (o "The operand." : Operand)
   : Option Place where
@@ -49,7 +49,7 @@ where
 
 namespace Rvalue
 
-defFn rvaluePlace (.math (.doc (.text "rvaluePlace")))
+defFn rvaluePlace (.text "rvaluePlace")
   "Extract the place from an rvalue, if any."
   (rv "The rvalue." : Rvalue)
   : Option Place where
@@ -76,7 +76,7 @@ where
 
 namespace Statement
 
-defFn statementPlaces (.math (.doc (.text "statementPlaces")))
+defFn statementPlaces (.text "statementPlaces")
   "Extract all places referenced by a statement."
   (s "The statement." : Statement)
   : List Place where
@@ -120,7 +120,7 @@ where
 
 namespace Terminator
 
-defFn terminatorPlaces (.math (.doc (.text "terminatorPlaces")))
+defFn terminatorPlaces (.text "terminatorPlaces")
   "Extract all places referenced by a terminator."
   (t "The terminator." : Terminator)
   : List Place where
@@ -145,7 +145,7 @@ where
 
 namespace BasicBlock
 
-defFn basicBlockPlaces (.math (.doc (.text "basicBlockPlaces")))
+defFn basicBlockPlaces (.text "basicBlockPlaces")
   "All places referenced in a basic block."
   (bb "The basic block." : BasicBlock)
   : List Place where
@@ -154,7 +154,7 @@ defFn basicBlockPlaces (.math (.doc (.text "basicBlockPlaces")))
 
 end BasicBlock
 
-defStruct Body (.math (.doc (.text "body")))
+defStruct Body (.text "body")
   "A MIR function body."
 where
   | decls "The local variable declarations."
@@ -162,7 +162,7 @@ where
   | basicBlocks "The basic blocks." : List BasicBlock
   deriving Repr
 
-defStruct PlaceTy (.math (.doc (.text "pty")))
+defStruct PlaceTy (.text "pty")
   "The type of a place: a type paired with an optional \
    variant index (set after a downcast)."
 where
@@ -171,7 +171,7 @@ where
       : Option VariantIdx
   deriving Repr
 
-defFn projTy (.math (.doc (.text "projTy")))
+defFn projTy (.text "projTy")
   "Project a type through a list of projection \
    elements. Returns the final PlaceTy after all \
    projections."
@@ -192,7 +192,7 @@ defFn projTy (.math (.doc (.text "projTy")))
       projTy ‹τ, Some v, π›
   | _ ; _ ; _ :: _ => None
 
-defFn ownedProjTy (.math (.doc (.text "ownedProjTy")))
+defFn ownedProjTy (.text "ownedProjTy")
   "Check whether a place is owned by walking its projection list. Returns Some
   false as soon as a dereference of a reference is encountered, Some true if all
   projections are traversed without dereferencing a reference, or None on a
@@ -213,7 +213,7 @@ defFn ownedProjTy (.math (.doc (.text "ownedProjTy")))
   | _ ; _ :: _ => None
 
 
-defProperty validPlace (.math (.doc (.text "valid")))
+defProperty validPlace (.text "valid")
   "A place is valid for a body."
   (body "The function body." : Body)
   (place "The place." : Place)
@@ -224,15 +224,15 @@ defProperty validPlace (.math (.doc (.text "valid")))
            .text " for a body ",
            .math (.var "body"),
            .text " iff its local index ",
-           .math (.doc (.code "p.base.index")),
+           .code "p.base.index",
            .text " is less than ",
-           .math (.doc (.code "|body.decls|")),
+           .code "|body.decls|",
            .text "."])
   where
     | body ; p =>
         p↦base↦index < body↦decls·length
 
-defFn placeTy (.math (.doc (.text "ty")))
+defFn placeTy (.text "ty")
   "Compute the type of a place: look up the base \
    local in Δ, then project through projections."
   (body "The function body." : Body)
@@ -241,7 +241,7 @@ defFn placeTy (.math (.doc (.text "ty")))
   : Option PlaceTy begin
   return projTy ‹body↦decls ! place↦base↦index, None, place↦projection›
 
-defFn isOwned (.math (.doc (.text "isOwned")))
+defFn isOwned (.text "isOwned")
   "Returns true iff a place is owned, i.e. it does \
    not project from the dereference of a \
    reference-typed place. See definitions/places.md."

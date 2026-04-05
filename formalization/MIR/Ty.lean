@@ -110,7 +110,7 @@ abbrev ParamEnv := List Constraint
 
 namespace Ty
 
-defFn regions (.math (.doc (.text "regions")))
+defFn regions (.text "regions")
   "Regions occurring directly in a type."
   (τ "The type to extract regions from." : Ty)
   : List Region where
