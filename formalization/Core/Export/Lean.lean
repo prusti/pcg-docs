@@ -96,6 +96,7 @@ partial def toLean : BodyExpr → String
     s!"{fn} {argStr}"
   | .foldlM fn init list =>
     s!"{list.toLean}.foldlM {fn} {init.toLean}"
+  | .lt l r => s!"{l.toLean} < {r.toLean}"
 end
 
 end BodyExpr

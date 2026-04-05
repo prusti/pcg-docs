@@ -17,6 +17,7 @@ def buildCrate
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (fns : List RegisteredFn)
+    (properties : List RegisteredProperty)
     (deps : List RustCrateDep := [])
     (reexports : List String := [])
     : RustCrate :=
@@ -25,6 +26,8 @@ def buildCrate
   let crateStructs := structs.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateFns := fns.filter
+    (·.leanModule.getRoot.toString == prefix_)
+  let crateProps := properties.filter
     (·.leanModule.getRoot.toString == prefix_)
   let extras := extraItems.filterMap fun (p, m, item) =>
     if p == prefix_ then some (m, item) else none
@@ -36,7 +39,7 @@ def buildCrate
     deps := deps
     reexports := reexports
     modules := buildModules crateEnums crateStructs
-      crateFns extras }
+      crateFns crateProps extras }
 
 /-- The workspace containing all generated crates. -/
 def workspace : RustWorkspace :=
@@ -56,8 +59,11 @@ def main (args : List String) : IO Unit := do
   let enums ← getRegisteredEnums
   let structs ← getRegisteredStructs
   let fns ← getRegisteredFns
+  let props ← getRegisteredProperties
   let mirCrate := buildCrate "MIR" enums structs fns
+    props
   let pcgCrate := buildCrate "PCG" enums structs fns
+    props
     (deps := [{ name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])

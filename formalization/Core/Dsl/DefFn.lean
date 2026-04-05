@@ -20,8 +20,8 @@ declare_syntax_cat fnExpr
 syntax "[" "]" : fnExpr
 syntax ident : fnExpr
 syntax "(" fnExpr ")" : fnExpr
-syntax ident "·" ident : fnExpr
-syntax ident "·flatMap" "fun" ident "=>" fnExpr
+syntax fnExpr "·" ident : fnExpr
+syntax fnExpr "·flatMap" "fun" ident "=>" fnExpr
     : fnExpr
 syntax fnExpr " :: " fnExpr : fnExpr
 syntax fnExpr " ++ " fnExpr : fnExpr
@@ -38,6 +38,8 @@ syntax fnExpr "!!" fnExpr : fnExpr
 syntax ident "‹" fnExpr,* "›" : fnExpr
 -- FoldlM: expr "·foldlM" ident expr
 syntax fnExpr "·foldlM" ident fnExpr : fnExpr
+-- Less-than: expr < expr
+syntax fnExpr " < " fnExpr : fnExpr
 
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
@@ -62,7 +64,7 @@ syntax "defFn " ident "(" term ")" str
 -- Parsing helpers
 -- ══════════════════════════════════════════════
 
-private partial def parsePat
+partial def parsePat
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM BodyPat := do
   match stx with
@@ -81,7 +83,7 @@ private partial def parsePat
     pure (.cons (← parsePat h) (← parsePat t))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
-private partial def parseExpr
+partial def parseExpr
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM BodyExpr := do
   match stx with
@@ -93,12 +95,12 @@ private partial def parseExpr
     | "false" => pure .false_
     | _ => pure (.var name)
   | `(fnExpr| ($e:fnExpr)) => parseExpr e
-  | `(fnExpr| $r:ident · $m:ident) =>
-    pure (.dot (.var (toString r.getId))
+  | `(fnExpr| $r:fnExpr · $m:ident) =>
+    pure (.dot (← parseExpr r)
       (toString m.getId))
-  | `(fnExpr| $r:ident ·flatMap fun $p:ident =>
+  | `(fnExpr| $r:fnExpr ·flatMap fun $p:ident =>
         $b:fnExpr) => do
-    pure (.flatMap (.var (toString r.getId))
+    pure (.flatMap (← parseExpr r)
       (toString p.getId) (← parseExpr b))
   | `(fnExpr| $h:fnExpr :: $t:fnExpr) =>
     pure (.cons (← parseExpr h) (← parseExpr t))
@@ -124,9 +126,11 @@ private partial def parseExpr
         $init:fnExpr) =>
     pure (.foldlM (toString fn.getId)
       (← parseExpr init) (← parseExpr e))
+  | `(fnExpr| $l:fnExpr < $r:fnExpr) =>
+    pure (.lt (← parseExpr l) (← parseExpr r))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
-private def parseStmt
+def parseStmt
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM BodyStmt := do
   match stx with
@@ -136,7 +140,7 @@ private def parseStmt
     pure (.letBind (toString n.getId) (← parseExpr e))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
-private def parseFnParam
+def parseFnParam
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM
         (Lean.Ident × Lean.TSyntax `str
@@ -150,7 +154,7 @@ private def parseFnParam
 -- Core elaboration helpers
 -- ══════════════════════════════════════════════
 
-private def buildFnType
+def buildFnType
     (paramData : Array (Lean.Ident × Lean.TSyntax `str
       × Lean.Syntax))
     (retTy : Lean.TSyntax `term)
@@ -166,7 +170,7 @@ private def buildFnType
     ++ s!" → {retRepr}")
 
 open Lean Elab Command in
-private def buildFnDef
+def buildFnDef
     (name : Ident)
     (symDoc : TSyntax `term)
     (doc : TSyntax `str)

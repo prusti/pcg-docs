@@ -4,6 +4,7 @@ import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.OrderDef
+import Core.Dsl.Types.PropertyDef
 import Core.Export.Lean
 
 -- ══════════════════════════════════════════════
@@ -209,6 +210,9 @@ partial def toLatex
     s!"\\text\{{fn}}^*({init.toLatex fnName
       varDisplay ctorDisplay},~\
       {list.toLatex fnName varDisplay ctorDisplay})"
+  | .lt l r =>
+    s!"{l.toLatex fnName varDisplay ctorDisplay} \
+       < {r.toLatex fnName varDisplay ctorDisplay}"
 
 end BodyExpr
 
@@ -388,3 +392,17 @@ def hasseDiagram (o : OrderDef) (e : EnumDef) : Doc :=
   .raw tikz typstStr typstStr
 
 end OrderDef
+
+namespace PropertyDef
+
+/-- Render the property as a LaTeX definition
+    environment. -/
+def formalDefLatex (p : PropertyDef) : String :=
+  let lb := "{"
+  let rb := "}"
+  let title := Doc.escapeLatex p.fnDef.name
+  s!"\\begin{lb}definition{rb}[{title}]\n\
+     {p.definition.toLaTeX}\n\
+     \\end{lb}definition{rb}"
+
+end PropertyDef

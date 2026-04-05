@@ -2,6 +2,7 @@ import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.OrderDef
 import Core.Dsl.Types.FnDef
+import Core.Dsl.Types.PropertyDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where
@@ -89,3 +90,28 @@ def registerFnDef
 /-- Retrieve all registered function definitions. -/
 def getRegisteredFns : IO (List RegisteredFn) :=
   fnRegistry.get
+
+/-- A registered property definition with its source
+    module. -/
+structure RegisteredProperty where
+  /-- The property definition. -/
+  propertyDef : PropertyDef
+  /-- The Lean module where this property was defined. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of all `defProperty`-defined
+    predicates. -/
+initialize propertyRegistry :
+    IO.Ref (List RegisteredProperty) ←
+  IO.mkRef []
+
+/-- Register a property definition. -/
+def registerPropertyDef
+    (p : PropertyDef) (mod : Lean.Name) : IO Unit :=
+  propertyRegistry.modify (· ++ [⟨p, mod⟩])
+
+/-- Retrieve all registered property definitions. -/
+def getRegisteredProperties :
+    IO (List RegisteredProperty) :=
+  propertyRegistry.get

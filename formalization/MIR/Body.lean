@@ -1,5 +1,6 @@
 import MIR.Place
 import Core.Dsl.DefFn
+import Core.Dsl.DefProperty
 
 defStruct BasicBlockIdx (.text "bb")
   "An index into the list of basic blocks."
@@ -163,3 +164,22 @@ defFn placeTy (.text "ty")
   let baseIdx := place↦base↦index
   let τ₀ ← decls !! place↦base↦index
   return projTy ‹τ₀, None, place↦projection›
+
+defProperty validPlace (.text "valid")
+  "A place is valid for a body."
+  (body "The function body." : Body)
+  (place "The place." : Place)
+  latex
+    (.seq [.text "A place ", .italic (.text "p"),
+           .text " is ",
+           .italic (.text "valid"),
+           .text " for a body ",
+           .italic (.text "body"),
+           .text " iff its local index ",
+           .code "p.base.index",
+           .text " is less than ",
+           .code "|body.localDecls.decls|",
+           .text "."])
+  where
+    | body ; ⟨⟨i⟩, _⟩ =>
+        i < body↦localDecls↦decls·length

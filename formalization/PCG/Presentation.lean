@@ -32,6 +32,7 @@ private def moduleLatex
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
+    (properties : List RegisteredProperty)
     (ctorDisplay : String → Option String)
     (allVariants : List VariantDef)
     : String :=
@@ -51,9 +52,12 @@ private def moduleLatex
   let fnParts := fns.map fun f =>
     s!"{f.fnDef.formalDefLatex ctorDisplay
          allVariants}\n"
+  let propParts := properties.map fun p =>
+    s!"{p.propertyDef.formalDefLatex}\n"
   header ++
     "\n".intercalate
-      (structParts ++ enumParts ++ fnParts)
+      (structParts ++ enumParts ++ fnParts ++
+       propParts)
 
 /-- Build the presentation sections for a single crate
     prefix, grouped by module (subsection). -/
@@ -63,6 +67,7 @@ private def crateLatex
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
+    (properties : List RegisteredProperty)
     (ctorDisplay : String → Option String)
     (allVariants : List VariantDef)
     : String :=
@@ -74,11 +79,14 @@ private def crateLatex
     (·.leanModule.getRoot.toString == prefix_)
   let crateFns := fns.filter
     (·.leanModule.getRoot.toString == prefix_)
+  let crateProps := properties.filter
+    (·.leanModule.getRoot.toString == prefix_)
   -- Collect unique module names (preserving order)
   let allModNames := (
     crateStructs.map (moduleName ·.leanModule) ++
     crateEnums.map (moduleName ·.leanModule) ++
-    crateFns.map (moduleName ·.leanModule)
+    crateFns.map (moduleName ·.leanModule) ++
+    crateProps.map (moduleName ·.leanModule)
   ).foldl (init := [])
     fun acc m =>
       if acc.contains m then acc else acc ++ [m]
@@ -95,8 +103,10 @@ private def crateLatex
       (moduleName ·.leanModule == mn)
     let modFns := crateFns.filter
       (moduleName ·.leanModule == mn)
+    let modProps := crateProps.filter
+      (moduleName ·.leanModule == mn)
     moduleLatex mn modEnums modStructs modOrders
-      modFns ctorDisplay allVariants
+      modFns modProps ctorDisplay allVariants
   sectionHeader ++ "\n".intercalate modules
 
 /-- Build the full presentation LaTeX body from all
@@ -106,11 +116,13 @@ def buildPresentationLatex
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
+    (properties : List RegisteredProperty)
     : String :=
   let prefixes := (
     enums.map (·.leanModule.getRoot.toString) ++
     structs.map (·.leanModule.getRoot.toString) ++
-    fns.map (·.leanModule.getRoot.toString)
+    fns.map (·.leanModule.getRoot.toString) ++
+    properties.map (·.leanModule.getRoot.toString)
   ).foldl (init := [])
     fun acc p =>
       if acc.contains p then acc else acc ++ [p]
@@ -119,7 +131,7 @@ def buildPresentationLatex
     (·.enumDef.variants)
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
-      ctorDisplay allVariants
+      properties ctorDisplay allVariants
   "\n".intercalate body
 
 /-- LaTeX packages needed by the presentation. -/

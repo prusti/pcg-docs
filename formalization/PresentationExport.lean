@@ -9,8 +9,9 @@ def main (args : List String) : IO Unit := do
   let structs ← getRegisteredStructs
   let orders ← getRegisteredOrders
   let fns ← getRegisteredFns
+  let props ← getRegisteredProperties
   let body := buildPresentationLatex
-    enums structs orders fns
+    enums structs orders fns props
   let pkgLines := latexPackages.map fun p =>
     s!"\\usepackage\{{p}}"
   let lb := "{"

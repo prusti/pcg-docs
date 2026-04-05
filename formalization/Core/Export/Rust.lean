@@ -4,6 +4,7 @@ import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.FnDef
 import Core.Dsl.DslType
 import Core.Dsl.Types.OrderDef
+import Core.Dsl.Types.PropertyDef
 import Core.Registry
 import Core.Export.Lean
 
@@ -547,8 +548,13 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
           [rExpr]) ]
       (some (.ident v))
   | .dot recv method => do
-    return .call (.ident (toSnakeCase method))
-      [.borrow (← recv.toRustExpr)]
+    let rustRecv ← recv.toRustExpr
+    match method with
+    | "length" =>
+      return .methodCall rustRecv "len" []
+    | _ =>
+      return .call (.ident (toSnakeCase method))
+        [.borrow rustRecv]
   | .flatMap list param body => do
     let listE ← list.toRustExpr
     let bodyE ← body.toRustExpr
@@ -579,6 +585,9 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
           (.call (.ident rustFn)
             [.borrow (.field (.ident "acc") "ty")
             , .ident "x"])]
+
+  | .lt l r => do
+    pure (.binOp .lt (← l.toRustExpr) (← r.toRustExpr))
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=
@@ -697,18 +706,21 @@ def groupStructsByCrate
       | none => acc ++ [(p, [s])]
   groups
 
-/-- Build Rust modules from registered enums, structs, and
-    functions sharing a crate prefix. -/
+/-- Build Rust modules from registered enums, structs,
+    functions, and properties sharing a crate prefix. -/
 def buildModules
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (fns : List RegisteredFn)
+    (properties : List RegisteredProperty)
     (extraItems : List (String × RustItem))
     : List RustModule :=
   let allModNames :=
     (enums.map fun e => rustModuleNameOf e.leanModule) ++
     (structs.map fun s => rustModuleNameOf s.leanModule) ++
-    (fns.map fun f => rustModuleNameOf f.leanModule)
+    (fns.map fun f => rustModuleNameOf f.leanModule) ++
+    (properties.map fun p =>
+      rustModuleNameOf p.leanModule)
   let uniqueModNames := allModNames.foldl (init := [])
     fun acc m => if acc.contains m then acc else acc ++ [m]
   uniqueModNames.map fun modName =>
@@ -718,12 +730,15 @@ def buildModules
       (rustModuleNameOf ·.leanModule == modName)
     let modFns := fns.filter
       (rustModuleNameOf ·.leanModule == modName)
+    let modProps := properties.filter
+      (rustModuleNameOf ·.leanModule == modName)
     let modExtras := extraItems.filter
       (·.1 == modName) |>.map (·.2)
     let items :=
       modStructs.flatMap (·.structDef.toRustItems) ++
       modEnums.map (·.enumDef.toRustItem) ++
       modFns.map (·.fnDef.toRustItem) ++
+      modProps.map (·.propertyDef.fnDef.toRustItem) ++
       modExtras
     let doc := match modEnums.head? with
       | some e => e.enumDef.doc

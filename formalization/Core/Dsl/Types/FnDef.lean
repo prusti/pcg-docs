@@ -38,6 +38,8 @@ inductive BodyExpr where
   /-- Monadic fold: `list.foldlM fn init`. -/
   | foldlM (fn : String) (init : BodyExpr)
       (list : BodyExpr)
+  /-- Less-than comparison: `lhs < rhs`. -/
+  | lt (lhs : BodyExpr) (rhs : BodyExpr)
   deriving Repr
 
 /-- A statement in a do-block. -/
@@ -137,6 +139,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .foldlM fn init list =>
     Syntax.mkApp (mkIdent ``BodyExpr.foldlM)
       #[quote fn, quoteExpr init, quoteExpr list]
+  | .lt l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.lt)
+      #[quoteExpr l, quoteExpr r]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr

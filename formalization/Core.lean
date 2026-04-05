@@ -6,6 +6,7 @@ import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.OrderDef
+import Core.Dsl.Types.PropertyDef
 import Core.Registry
 import Core.Export.Rust
 import Core.Export.Lean
@@ -14,3 +15,4 @@ import Core.Dsl.DefEnum
 import Core.Dsl.DefStruct
 import Core.Dsl.DefFn
 import Core.Dsl.DefOrder
+import Core.Dsl.DefProperty
