@@ -34,15 +34,6 @@ inductive DSLType where
 
 namespace DSLType
 
-/-- Whether this type needs `Box` wrapping in Rust
-    when it's self-referential (appears inside its own
-    enum definition). -/
-def isRecursiveIn (typeName : String) : DSLType → Bool
-  | .named n => n.name == typeName
-  | .option t => t.isRecursiveIn typeName
-  | .list _ => false  -- Vec handles indirection
-  | .prim _ => false
-
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType
   | .option t => t

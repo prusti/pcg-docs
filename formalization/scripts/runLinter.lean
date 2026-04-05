@@ -12,6 +12,55 @@ def excludedLinters : List Name := [
 def isDerivedRepr (n : Name) : Bool :=
   n.toString.startsWith "instRepr"
 
+/-- Whether a name is a compiler-generated auxiliary
+    (match equational lemmas, sizeof specs, etc.). -/
+private def isAuxDecl : Name → Bool
+  | .str _ s =>
+    s.startsWith "eq_" ||
+    s.startsWith "match_" ||
+    s.startsWith "proof_" ||
+    s.endsWith "sizeOf_spec" ||
+    s.endsWith "_sunfold" ||
+    s == "splitter" ||
+    s == "recOn" || s == "casesOn" ||
+    s == "noConfusion" || s == "noConfusionType" ||
+    s == "toCtorIdx" || s == "ctorIdx" ||
+    s == "elim" || s == "brecOn" || s == "below" ||
+    s == "ndrec" || s == "ndrecOn" ||
+    s == "binductionOn" || s == "rec" ||
+    s == "_unsafe_rec" || s == "_unary"
+  | .num p _ => isAuxDecl p
+  | _ => false
+
+/-- Check for unused private declarations in a module.
+    A private declaration is unused if no other declaration
+    in the package references it. -/
+def unusedPrivateLint
+    (env : Environment) (decls : Array Name)
+    : CoreM (Std.HashMap Name MessageData) := do
+  -- Collect the set of all constants referenced by
+  -- non-private declarations (and other private ones)
+  let mut referenced : NameSet := {}
+  for d in decls do
+    if let some ci := env.find? d then
+      for c in ci.getUsedConstantsAsSet do
+        -- Exclude self-references
+        if c != d then
+          referenced := referenced.insert c
+  -- Find private declarations not referenced by anyone
+  let mut results : Std.HashMap Name MessageData := {}
+  for d in decls do
+    if !isPrivateName d then continue
+    if d.hasMacroScopes then continue
+    if ← isProjectionFn d then continue
+    if env.isConstructor d then continue
+    -- Skip compiler-generated auxiliaries
+    if isAuxDecl d then continue
+    if !referenced.contains d then
+      results := results.insert d
+        m!"private declaration is never referenced"
+  return results
+
 /-- Run all default linters except excluded ones on
     the given modules. -/
 unsafe def main (args : List String) : IO Unit := do
@@ -48,14 +97,29 @@ unsafe def main (args : List String) : IO Unit := do
               else acc.insert n msg
           (linter, hm')
         else (linter, hm)
-      let failed := results.any (!·.2.isEmpty)
+      -- Run custom unused-private lint
+      let unusedPrivateResults ←
+        unusedPrivateLint (← getEnv) decls
+      let unusedPrivateLinter : NamedLinter :=
+        { name := `unusedPrivate
+          declName := `unusedPrivate
+          test := fun _ => pure none
+          noErrorsFound :=
+            "No unused private declarations."
+          errorsFound :=
+            "UNUSED PRIVATE DECLARATIONS:" }
+      let allResults := if unusedPrivateResults.isEmpty
+        then results
+        else results.push
+          (unusedPrivateLinter, unusedPrivateResults)
+      let failed := allResults.any (!·.2.isEmpty)
       if failed then
         anyFailed := true
-        let fmtResults ← formatLinterResults results
+        let fmtResults ← formatLinterResults allResults
           decls (groupByFilename := true)
           (useErrorFormat := true)
           s!"in {mod}" (runSlowLinters := true)
-          .medium linters.size
+          .medium (linters.size + 1)
         IO.print (← fmtResults.toString)
       else
         IO.println s!"-- Linting passed for {mod}."

@@ -1,6 +1,12 @@
+/-- A Rust identifier. -/
+structure RustIdent where
+  /-- The identifier text. -/
+  val : String
+  deriving Repr, BEq, Inhabited
+
 /-- A Rust path like `std::cmp::Ordering::Less` or `Self`. -/
 structure RustPath where
-  segments : List String
+  segments : List RustIdent
   deriving Repr
 
 /-- A Rust built-in (primitive) type. -/
@@ -47,7 +53,7 @@ inductive RustBinOp where
 /-- A Rust pattern. -/
 inductive RustPat where
   /-- Variable binding: `x`. -/
-  | ident (name : String)
+  | ident (name : RustIdent)
   /-- Wildcard: `_`. -/
   | wild
   /-- Tuple pattern: `(a, b)`. -/
@@ -74,10 +80,10 @@ mutual
     /-- Method call: `x.method(a, b)` or with turbofish
         `x.method::<T>(a, b)`. -/
     | methodCall (recv : RustExpr)
-        (method : String) (args : List RustExpr)
+        (method : RustIdent) (args : List RustExpr)
         (typeArgs : List RustTy := [])
     /-- Field access: `x.field`. -/
-    | field (recv : RustExpr) (name : String)
+    | field (recv : RustExpr) (name : RustIdent)
     /-- Unary operation: `*expr`, `-expr`, `!expr`. -/
     | unaryOp (op : RustUnaryOp) (e : RustExpr)
     /-- Binary operation: `a == b`. -/
@@ -100,10 +106,10 @@ mutual
     /-- `expr?` (try operator). -/
     | try_ (e : RustExpr)
     /-- Closure: `|params| body`. -/
-    | closure (params : List String) (body : RustExpr)
+    | closure (params : List RustIdent) (body : RustExpr)
     /-- Struct literal: `Path { field: expr, ... }`. -/
     | structInit (path : RustPath)
-        (fields : List (String × RustExpr))
+        (fields : List (RustIdent × RustExpr))
     /-- Index expression: `expr[idx]`. -/
     | index (recv : RustExpr) (idx : RustExpr)
     /-- Raw string (for macros like `vec![]`,
@@ -144,7 +150,7 @@ inductive RustVis where
 /-- A function definition. -/
 structure RustFn where
   vis : RustVis
-  name : String
+  name : RustIdent
   params : List RustParam
   retTy : Option RustTy
   body : RustExpr
@@ -154,7 +160,7 @@ structure RustVariant where
   /-- Doc comment. -/
   doc : String
   /-- Variant name (PascalCase). -/
-  name : String
+  name : RustIdent
   /-- Tuple field types (empty for unit variants). -/
   fields : List RustTy
   deriving Repr
@@ -162,7 +168,7 @@ structure RustVariant where
 /-- An outer attribute. -/
 inductive RustAttr where
   /-- `#[derive(Debug, Clone, ...)]`. -/
-  | derive (traits : List String)
+  | derive (traits : List RustIdent)
   /-- Arbitrary attribute text. -/
   | other (text : String)
   deriving Repr
@@ -172,7 +178,7 @@ structure RustEnum where
   doc : String
   attrs : List RustAttr
   vis : RustVis
-  name : String
+  name : RustIdent
   variants : List RustVariant
   deriving Repr
 
@@ -182,7 +188,7 @@ inductive RustStructFields where
   /-- Positional fields: `(pub T1, pub T2)`. -/
   | unnamed (fields : List (RustVis × RustTy))
   /-- Named fields: `{ pub name: T }`. -/
-  | named (fields : List (RustVis × String × RustTy))
+  | named (fields : List (RustVis × RustIdent × RustTy))
   deriving Repr
 
 /-- A Rust struct (tuple or named-field). -/
@@ -190,7 +196,7 @@ structure RustStruct where
   doc : String
   attrs : List RustAttr
   vis : RustVis
-  name : String
+  name : RustIdent
   fields : RustStructFields
   deriving Repr
 
@@ -220,7 +226,7 @@ inductive RustItem where
 /-- A Rust module containing items. -/
 structure RustModule where
   /-- Module name (snake_case). -/
-  name : String
+  name : RustIdent
   /-- Top-level doc comment for the module. -/
   doc : String
   /-- Items in this module. -/
@@ -266,10 +272,10 @@ namespace RustPath
 
 /-- Render a path: `std::cmp::Ordering::Less`. -/
 def render (p : RustPath) : String :=
-  String.intercalate "::" p.segments
+  String.intercalate "::" (p.segments.map (·.val))
 
-/-- Construct a single-segment path. -/
-def simple (s : String) : RustPath := ⟨[s]⟩
+/-- Construct a single-segment path from a string. -/
+def simple (s : String) : RustPath := ⟨[⟨s⟩]⟩
 
 /-- The `Self` path. -/
 def self_ : RustPath := simple "Self"
@@ -317,7 +323,7 @@ def named (s : String) : RustTy :=
 
 /-- `Option<T>`. -/
 def option (t : RustTy) : RustTy :=
-  .adt ⟨["Option"]⟩ [t]
+  .adt ⟨[⟨"Option"⟩]⟩ [t]
 
 /-- `&T`. -/
 def refTo (t : RustTy) : RustTy := .ref false t
@@ -326,9 +332,9 @@ end RustTy
 
 namespace RustExpr
 
-/-- Path expression from segments. -/
+/-- Path expression from string segments. -/
 def pathOf (segments : List String) : RustExpr :=
-  .path ⟨segments⟩
+  .path ⟨segments.map (⟨·⟩)⟩
 
 /-- `None`. -/
 def none_ : RustExpr := pathOf ["None"]
@@ -342,7 +348,7 @@ def emptyVec : RustExpr := .raw "vec![]"
 
 /-- `expr.clone()`. -/
 def clone (e : RustExpr) : RustExpr :=
-  .methodCall e "clone" []
+  .methodCall e ⟨"clone"⟩ []
 
 /-- `*expr`. -/
 def deref (e : RustExpr) : RustExpr :=
@@ -359,9 +365,13 @@ def borrowMut (e : RustExpr) : RustExpr :=
 /-- `todo!()`. -/
 def todo : RustExpr := .raw "todo!()"
 
-/-- A simple identifier expression. -/
-def ident (s : String) : RustExpr :=
-  .path (.simple s)
+/-- A simple identifier expression from a `RustIdent`. -/
+def ident (i : RustIdent) : RustExpr :=
+  .path ⟨[i]⟩
+
+/-- A simple identifier expression from a string. -/
+def identStr (s : String) : RustExpr :=
+  ident ⟨s⟩
 
 /-- The definition behind a Rust type. -/
 inductive RustTyDef where
@@ -379,8 +389,8 @@ namespace RustTyDef
 /-- The `RustTy` corresponding to this definition. -/
 def rustTy : RustTyDef → RustTy
   | .prim ty => .builtin ty
-  | .struct_ s => .adt (.simple s.name) []
-  | .enum_ e => .adt (.simple e.name) []
+  | .struct_ s => .adt ⟨[s.name]⟩ []
+  | .enum_ e => .adt ⟨[e.name]⟩ []
   | .fn_ _ => .infer
 
 /-- The return type, for function definitions. -/
@@ -409,7 +419,7 @@ partial def rustTy (sym : SymbolTable)
     match arm with | .mk _ body => body.rustTy sym
   | .try_ e =>
     match e.rustTy sym with
-    | .adt ⟨["Result"]⟩ (ok :: _) => ok
+    | .adt ⟨[⟨"Result"⟩]⟩ (ok :: _) => ok
     | ty => ty
   | .structInit p _ => .adt p []
   | .path p => (sym p).rustTy
@@ -426,8 +436,8 @@ end RustExpr
 namespace RustPat
 
 /-- `Self::Variant` pattern. -/
-def selfVariant (v : String) : RustPat :=
-  .path ⟨["Self", v]⟩
+def selfVariant (v : RustIdent) : RustPat :=
+  .path ⟨[⟨"Self"⟩, v]⟩
 
 end RustPat
 
