@@ -182,30 +182,8 @@ where
       : Option VariantIdx
   deriving Repr, BEq, Hashable
 
-defFn projTy (.plain "projTy")
-  "Project a type through a list of projection \
-   elements. Returns the final PlaceTy after all \
-   projections."
-  (τ "The current type." : Ty)
-  (v "The variant index." : Option VariantIdx)
-  (projs "The projection elements." : List ProjElem)
-  : Option PlaceTy where
-  | τ ; v ; [] => Some PlaceTy⟨τ, v⟩
-  | .ref _ _ pointee ; _ ; .deref :: π =>
-      projTy ‹pointee, None, π›
-  | .box inner ; _ ; .deref :: π =>
-      projTy ‹inner, None, π›
-  | _ ; _ ; (.field _ τ) :: π =>
-      projTy ‹τ, None, π›
-  | .array elem _ ; _ ; (.index _) :: π =>
-      projTy ‹elem, None, π›
-  | τ ; _ ; (.downcast v) :: π =>
-      projTy ‹τ, Some v, π›
-  | _ ; _ ; _ :: _ => None
-
 defProperty validProjTy (.plain "validProjTy")
-  "A type is valid for a projection list iff \
-   projTy returns Some."
+  "A type is valid for a projection list."
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
   latex
@@ -215,10 +193,6 @@ defProperty validProjTy (.plain "validProjTy")
            .italic (.plain "valid"),
            .plain " for a projection list ",
            .math (.var "\\pi"),
-           .plain " iff ",
-           .code "projTy(τ, \\_, π)",
-           .plain " returns ",
-           .code "Some \\_",
            .plain "."])
   where
   | _ ; [] => true
@@ -253,6 +227,27 @@ defFn isOwned' (.plain "isOwned'")
       isOwned' ‹elem, π›
   | τ ; (.downcast _) :: π =>
       isOwned' ‹τ, π›
+
+defFn placeTy' (.plain "placeTy'")
+  "Project a type through a list of projection \
+   elements. Returns the final PlaceTy after all \
+   projections."
+  (τ "The current type." : Ty)
+  (v "The variant index." : Option VariantIdx)
+  (projs "The projection elements." : List ProjElem)
+  requires validProjTy(τ, projs)
+  : PlaceTy where
+  | τ ; v ; [] => PlaceTy⟨τ, v⟩
+  | .ref _ _ pointee ; _ ; .deref :: π =>
+      placeTy' ‹pointee, None, π›
+  | .box inner ; _ ; .deref :: π =>
+      placeTy' ‹inner, None, π›
+  | _ ; _ ; (.field _ τ) :: π =>
+      placeTy' ‹τ, None, π›
+  | .array elem _ ; _ ; (.index _) :: π =>
+      placeTy' ‹elem, None, π›
+  | τ ; _ ; (.downcast v) :: π =>
+      placeTy' ‹τ, Some v, π›
 
 defProperty validPlace (.plain "valid")
   "A place is valid for a body."
@@ -299,8 +294,9 @@ defFn placeTy (.plain "ty")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
-  : Option PlaceTy begin
-  return projTy ‹body↦decls ! place↦base↦index, None, place↦projection›
+  : PlaceTy where
+  | body ; place =>
+      placeTy' ‹body↦decls ! place↦base↦index, None, place↦projection, lean_proof("h_validPlace.2")›
 
 defFn isOwned (.plain "isOwned")
   "Returns true iff a place is owned, i.e. it does \
