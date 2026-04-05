@@ -201,6 +201,10 @@ partial def toLatex
     s!"{list.toLatex fnName varDisplay
       ctorDisplay}[{idx.toLatex fnName varDisplay
         ctorDisplay}]"
+  | .indexBang list idx =>
+    s!"{list.toLatex fnName varDisplay
+      ctorDisplay}[{idx.toLatex fnName varDisplay
+        ctorDisplay}]"
   | .call fn args =>
     let argStr := ",~".intercalate
       (args.map (toLatex fnName varDisplay
@@ -293,12 +297,18 @@ def formalDefLatex
         s!"    \\State \\Return \
            ${ret.toLatex f.name noDisp ctorDisplay}$"
       stmtLines ++ [retLine]
+  let precondLines := f.preconditions.map fun pn =>
+    let args := ", ".intercalate
+      (f.params.map fun p => Doc.escapeLatex p.name)
+    s!"    \\Require ${Doc.escapeLatexMath pn}\
+       ({args})$"
+  let allLines := precondLines ++ bodyLines
   s!"\\begin{lb}algorithm{rb}\n\
      \\caption{lb}{Doc.escapeLatex f.name}\
      ({paramSig}) \
      $\\to$ {retTy}{rb}\n\
      \\begin{lb}algorithmic{rb}[1]\n\
-     {"\n".intercalate bodyLines}\n\
+     {"\n".intercalate allLines}\n\
      \\end{lb}algorithmic{rb}\n\
      \\end{lb}algorithm{rb}"
 

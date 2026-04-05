@@ -121,6 +121,8 @@ mutual
     /-- Let binding: `let [mut] pat: ty = val;`. -/
     | «let» (pat : RustPat) (ty : Option RustTy)
         (val : RustExpr) (mutable : Bool := false)
+    /-- Assertion: `assert!(expr);`. -/
+    | assert_ (e : RustExpr)
 end
 
 /-- A function parameter. -/

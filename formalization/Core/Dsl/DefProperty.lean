@@ -81,7 +81,7 @@ elab_rules : command
       if pt.isIdent then toString pt.getId
       else pt.reprint.getD (toString pt)
     let tyStr := " → ".intercalate paramTypeStrs.toList
-      ++ " → Bool"
+      ++ " → Prop"
     let armStrs := parsed.toList.map
       fun (patAst, rhsAst) =>
         let patStr := ", ".intercalate
@@ -134,7 +134,7 @@ elab_rules : command
     let retStr := s!"  {parsedRet.toLean}"
     let allLines := stmtStrs ++ [retStr]
     let defStr := s!"def {name.getId} \
-      {paramBinds} : Bool := do\n\
+      {paramBinds} : Prop := do\n\
       {"\n".intercalate allLines}"
     let env ← getEnv
     match Parser.runParserCategory env `command

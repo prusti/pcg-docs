@@ -32,8 +32,10 @@ syntax "⟨" fnExpr,+ "⟩" : fnExpr
 syntax ident "⟨" fnExpr,+ "⟩" : fnExpr
 -- Field access chain: expr ↦ name
 syntax fnExpr "↦" ident : fnExpr
--- Indexing: expr !! expr (for list[idx]?)
+-- Fallible indexing: expr !! expr (for list[idx]?)
 syntax fnExpr "!!" fnExpr : fnExpr
+-- Infallible indexing: expr ! expr (for list[idx])
+syntax fnExpr "!" fnExpr : fnExpr
 -- Function call: fn ‹ arg1, arg2 ›
 syntax ident "‹" fnExpr,* "›" : fnExpr
 -- FoldlM: expr "·foldlM" ident expr
@@ -53,11 +55,13 @@ syntax "let " ident " ← " fnExpr : fnStmt
 
 /-- Pattern-matching function. -/
 syntax "defFn " ident "(" term ")" str
-    fnParam* ":" term " where" fnArm* : command
+    fnParam* ("requires " ident,+)?
+    ":" term " where" fnArm* : command
 
 /-- Imperative do-block function. -/
 syntax "defFn " ident "(" term ")" str
-    fnParam* ":" term " begin" fnStmt*
+    fnParam* ("requires " ident,+)?
+    ":" term " begin" fnStmt*
     "return " fnExpr : command
 
 -- ══════════════════════════════════════════════
@@ -119,6 +123,8 @@ partial def parseExpr
     pure (.field (← parseExpr e) (toString f.getId))
   | `(fnExpr| $e:fnExpr !! $i:fnExpr) =>
     pure (.index (← parseExpr e) (← parseExpr i))
+  | `(fnExpr| $e:fnExpr ! $i:fnExpr) =>
+    pure (.indexBang (← parseExpr e) (← parseExpr i))
   | `(fnExpr| $fn:ident ‹ $args:fnExpr,* ›) => do
     let as_ ← args.getElems.mapM parseExpr
     pure (.call (toString fn.getId) as_.toList)
@@ -178,6 +184,7 @@ def buildFnDef
       × Syntax))
     (retTy : TSyntax `term)
     (body : TSyntax `term)
+    (precondNames : List String := [])
     : CommandElabM Unit := do
   let paramDefs ← paramData.mapM
     fun (pn, pd, pt) => do
@@ -197,6 +204,8 @@ def buildFnDef
     else retTy.raw.reprint.getD (toString retTy)
   let retTn ← `(FType.parse $(quote retStr))
   let paramList ← `([$[$paramDefs],*])
+  let precondList : TSyntax `term :=
+    quote precondNames
   let fnDefId := mkIdent (name.getId ++ `fnDef)
   elabCommand (← `(command|
     def $fnDefId : FnDef :=
@@ -204,11 +213,24 @@ def buildFnDef
         symbolDoc := ($symDoc : Doc), doc := $doc,
         params := $paramList,
         returnType := $retTn,
+        preconditions := $precondList,
         body := $body }))
   let mod ← getMainModule
   let modName : TSyntax `term := quote mod
   elabCommand (← `(command|
     initialize registerFnDef $fnDefId $modName))
+
+/-- Build precondition proof parameter strings for
+    the generated Lean def. Each precondition `prop`
+    becomes `(h_prop : prop param1 param2 ...)`. -/
+private def precondParamBinds
+    (precondNames : List String)
+    (paramNames : List String)
+    : String :=
+  let argStr := " ".intercalate paramNames
+  " ".intercalate
+    (precondNames.map fun pn =>
+      s!"(h_{pn} : {pn} {argStr})")
 
 -- ══════════════════════════════════════════════
 -- Pattern-matching form
@@ -217,9 +239,14 @@ def buildFnDef
 open Lean Elab Command Term in
 elab_rules : command
   | `(defFn $name:ident ($symDoc:term) $doc:str
-       $ps:fnParam* : $retTy:term where
+       $ps:fnParam* $[requires $reqs:ident,*]?
+       : $retTy:term where
        $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
+    let precondNames := match reqs with
+      | some ids =>
+        ids.getElems.toList.map (toString ·.getId)
+      | none => []
     let parsed ← arms.mapM fun arm => match arm with
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
             => $rhs:fnExpr) => do
@@ -233,7 +260,6 @@ elab_rules : command
         pure (#[← parsePat p], ← parseExpr rhs)
       | _ => throwError "invalid fnArm"
     -- Generate Lean def via string parsing
-    let tyStr ← buildFnType paramData retTy
     let armStrs := parsed.toList.map
       fun (patAst, rhsAst) =>
         let patStr := ", ".intercalate
@@ -244,8 +270,31 @@ elab_rules : command
         | .cons .. | .nil => true | _ => false
     let defKw := if hasListPat then "partial def"
       else "def"
-    let defStr := s!"{defKw} {name.getId} : {tyStr}\n\
-      {"\n".intercalate armStrs}"
+    let paramNames := paramData.toList.map
+      fun (pn, _, _) => toString pn.getId
+    let defStr ←
+      if precondNames.isEmpty then
+        let tyStr ← buildFnType paramData retTy
+        pure s!"{defKw} {name.getId} : {tyStr}\n\
+          {"\n".intercalate armStrs}"
+      else do
+        let paramBinds := " ".intercalate
+          (paramData.toList.map fun (pn, _, pt) =>
+            let tyStr :=
+              if pt.isIdent then toString pt.getId
+              else pt.reprint.getD (toString pt)
+            s!"({pn.getId} : {tyStr})")
+        let precBinds := precondParamBinds
+          precondNames paramNames
+        let retRepr :=
+          if retTy.raw.isIdent
+          then toString retTy.raw.getId
+          else retTy.raw.reprint.getD (toString retTy)
+        let matchArgs := ", ".intercalate paramNames
+        pure s!"{defKw} {name.getId} \
+          {paramBinds} {precBinds} : {retRepr} :=\n\
+          match {matchArgs} with\n\
+          {"\n".intercalate armStrs}"
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with
@@ -261,7 +310,8 @@ elab_rules : command
         `({ pat := $pq, rhs := $rq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
-    buildFnDef name symDoc doc paramData retTy bodyTerm
+    buildFnDef name symDoc doc paramData retTy
+      bodyTerm precondNames
 
 -- ══════════════════════════════════════════════
 -- Do-block form
@@ -270,9 +320,14 @@ elab_rules : command
 open Lean Elab Command Term in
 elab_rules : command
   | `(defFn $name:ident ($symDoc:term) $doc:str
-       $ps:fnParam* : $retTy:term begin
+       $ps:fnParam* $[requires $reqs:ident,*]?
+       : $retTy:term begin
        $stmts:fnStmt* return $ret:fnExpr) => do
     let paramData ← ps.mapM parseFnParam
+    let precondNames := match reqs with
+      | some ids =>
+        ids.getElems.toList.map (toString ·.getId)
+      | none => []
     let parsedStmts ← stmts.mapM parseStmt
     let parsedRet ← parseExpr ret
     -- Generate Lean def via string parsing
@@ -284,14 +339,21 @@ elab_rules : command
       BodyStmt.toLean
     let retStr := s!"  {parsedRet.toLean}"
     let allLines := stmtStrs ++ [retStr]
+    let paramNames := paramData.toList.map
+      fun (pn, _, _) => toString pn.getId
     let paramBinds := " ".intercalate
       (paramData.toList.map fun (pn, _, pt) =>
         let tyStr :=
           if pt.isIdent then toString pt.getId
           else pt.reprint.getD (toString pt)
         s!"({pn.getId} : {tyStr})")
+    let precBinds := precondParamBinds
+      precondNames paramNames
+    let allBinds :=
+      if precBinds.isEmpty then paramBinds
+      else s!"{paramBinds} {precBinds}"
     let defStr := s!"def {name.getId} \
-      {paramBinds} : {retRepr} := do\n\
+      {allBinds} : {retRepr} := do\n\
       {"\n".intercalate allLines}"
     let env ← getEnv
     match Parser.runParserCategory env `command
@@ -311,4 +373,5 @@ elab_rules : command
     let retQ := quoteExpr parsedRet
     let bodyTerm ←
       `(FnBody.doBlock $stmtList $retQ)
-    buildFnDef name symDoc doc paramData retTy bodyTerm
+    buildFnDef name symDoc doc paramData retTy
+      bodyTerm precondNames

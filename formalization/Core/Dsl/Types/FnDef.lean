@@ -31,8 +31,10 @@ inductive BodyExpr where
       (body : BodyExpr)
   /-- Struct field access: `recv.fieldName`. -/
   | field (recv : BodyExpr) (name : String)
-  /-- List indexing: `list[idx]`. -/
+  /-- Fallible list indexing: `list[idx]?`. -/
   | index (list : BodyExpr) (idx : BodyExpr)
+  /-- Infallible list indexing: `list[idx]`. -/
+  | indexBang (list : BodyExpr) (idx : BodyExpr)
   /-- Function call: `fn(arg₁, arg₂, …)`. -/
   | call (fn : String) (args : List BodyExpr)
   /-- Monadic fold: `list.foldlM fn init`. -/
@@ -72,6 +74,9 @@ structure FnDef where
   doc : String
   params : List FieldDef
   returnType : FType
+  /-- Names of properties that must hold before calling
+      this function. -/
+  preconditions : List String := []
   body : FnBody
   deriving Repr
 
@@ -132,6 +137,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
       #[quoteExpr recv, quote name]
   | .index list idx =>
     Syntax.mkApp (mkIdent ``BodyExpr.index)
+      #[quoteExpr list, quoteExpr idx]
+  | .indexBang list idx =>
+    Syntax.mkApp (mkIdent ``BodyExpr.indexBang)
       #[quoteExpr list, quoteExpr idx]
   | .call fn args =>
     Syntax.mkApp (mkIdent ``BodyExpr.call)

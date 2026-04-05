@@ -154,17 +154,6 @@ defFn isOwned (.text "isOwned")
   let τ₀ ← decls !! baseIdx
   return ownedProjTy ‹τ₀, place↦projection›
 
-defFn placeTy (.text "ty")
-  "Compute the type of a place: look up the base \
-   local in Δ, then project through projections."
-  (body "The function body." : Body)
-  (place "The place to type-check." : Place)
-  : Option PlaceTy begin
-  let decls := body↦localDecls↦decls
-  let baseIdx := place↦base↦index
-  let τ₀ ← decls !! place↦base↦index
-  return projTy ‹τ₀, None, place↦projection›
-
 defProperty validPlace (.text "valid")
   "A place is valid for a body."
   (body "The function body." : Body)
@@ -183,3 +172,15 @@ defProperty validPlace (.text "valid")
   where
     | body ; ⟨⟨i⟩, _⟩ =>
         i < body↦localDecls↦decls·length
+
+defFn placeTy (.text "ty")
+  "Compute the type of a place: look up the base \
+   local in Δ, then project through projections."
+  (body "The function body." : Body)
+  (place "The place to type-check." : Place)
+  requires validPlace
+  : Option PlaceTy begin
+  let decls := body↦localDecls↦decls
+  let baseIdx := place↦base↦index
+  let τ₀ := decls ! place↦base↦index
+  return projTy ‹τ₀, None, place↦projection›

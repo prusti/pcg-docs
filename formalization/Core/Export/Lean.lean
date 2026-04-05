@@ -91,6 +91,8 @@ partial def toLean : BodyExpr → String
   | .field recv name => s!"{recv.toLean}.{name}"
   | .index list idx =>
     s!"{list.toLean}[{idx.toLean}]?"
+  | .indexBang list idx =>
+    s!"{list.toLean}[{idx.toLean}]"
   | .call fn args =>
     let argStr := " ".intercalate (args.map toLeanArg)
     s!"{fn} {argStr}"

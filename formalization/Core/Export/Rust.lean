@@ -193,6 +193,8 @@ mutual
         | some t => s!": {t.render}"
         | none => ""
       s!"let {mutStr}{pat.render}{tyStr} = {renderExpr d val};"
+    | d, .assert_ e =>
+      s!"assert!({renderExpr d e});"
 end
 
 namespace RustFn
@@ -570,6 +572,8 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       (toSnakeCase name)
   | .index list idx => do
     return .index (← list.toRustExpr) (← idx.toRustExpr)
+  | .indexBang list idx => do
+    return .index (← list.toRustExpr) (← idx.toRustExpr)
   | .call fn args => do
     return .call (.ident (toSnakeCase fn))
       (← args.mapM fun a => do
@@ -606,12 +610,16 @@ def toRustItem (f : FnDef) : RustItem :=
   let retTy := f.returnType.toRust
   let rustName := toSnakeCase f.name
   let re (b : BodyExpr) := b.toRust
+  let paramNames := f.params.map
+    fun p => leanToRustIdent p.name
+  let assertStmts := f.preconditions.map fun pn =>
+    let args := paramNames.map RustExpr.ident
+    RustStmt.assert_
+      (.call (.ident (toSnakeCase pn)) args)
   let body : RustExpr := match f.body with
     | .matchArms arms =>
       if arms.isEmpty then .todo
       else
-        let paramNames := f.params.map
-          fun p => leanToRustIdent p.name
         let enumNames := f.params.map (·.typeName)
         let scrutinee :=
           if paramNames.length == 1 then
@@ -624,7 +632,7 @@ def toRustItem (f : FnDef) : RustItem :=
             then pats.head!
             else s!"({", ".intercalate pats})"
           RustMatchArm.mk (.ident patStr) (re arm.rhs)
-        .block []
+        .block assertStmts
           (some (.«match» scrutinee rustArms))
     | .doBlock stmts ret =>
       let rustStmts := stmts.map fun s =>
@@ -635,7 +643,7 @@ def toRustItem (f : FnDef) : RustItem :=
         | .letBind n v => RustStmt.«let»
             (.ident (leanToRustIdent n)) none
             (.try_ (re v))
-      .block rustStmts (some (re ret))
+      .block (assertStmts ++ rustStmts) (some (re ret))
   .fn_
     { vis := .pub
       name := rustName
