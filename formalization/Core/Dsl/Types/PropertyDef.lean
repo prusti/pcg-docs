@@ -18,19 +18,15 @@ namespace PropertyDef
     environment followed by an algorithm block. -/
 def formalDefLatex
     (p : PropertyDef)
-    (ctorDisplay : String → Option String :=
+    (ctorDisplay : String → Option LatexMath :=
       fun _ => none)
     (variants : List VariantDef := [])
-    : String :=
-  let lb := "{"
-  let rb := "}"
-  let title := Doc.escapeLatex p.fnDef.name
-  let defBlock :=
-    s!"\\begin{lb}definition{rb}[{title}]\n\
-       {p.definition.toLaTeX}\n\
-       \\end{lb}definition{rb}"
+    : Latex :=
+  let defBlock : Latex :=
+    .envOpts "definition" p.fnDef.name
+      (.seq [p.definition.toLatex, .newline])
   let algoBlock := p.fnDef.formalDefLatex
     ctorDisplay variants (isProperty := true)
-  s!"{defBlock}\n\n{algoBlock}"
+  .seq [defBlock, .newline, .newline, algoBlock]
 
 end PropertyDef

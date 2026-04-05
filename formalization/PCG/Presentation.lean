@@ -3,12 +3,11 @@ import MIR
 import Core.Dsl.Types.OrderDef
 import Core.Registry
 
-/-- Build a lookup function that maps enum constructor names
-    to their LaTeX display form, using displayName from all
-    registered enums. -/
+/-- Build a lookup function that maps enum constructor
+    names to their LaTeX display form. -/
 private def mkCtorDisplay
     (enums : List RegisteredEnum)
-    : String → Option String :=
+    : String → Option LatexMath :=
   fun ctorName =>
     let found := enums.flatMap fun e =>
       e.enumDef.variants.filterMap fun v =>
@@ -23,8 +22,7 @@ private def moduleName (n : Lean.Name) : String :=
   | .str _ s => s
   | _ => "Unknown"
 
-/-- Build the LaTeX for a single module (subsection) within
-    a crate. -/
+/-- Build the LaTeX for a single module subsection. -/
 private def moduleLatex
     (modName : String)
     (enums : List RegisteredEnum)
@@ -32,35 +30,36 @@ private def moduleLatex
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
-    (ctorDisplay : String → Option String)
+    (ctorDisplay : String → Option LatexMath)
     (allVariants : List VariantDef)
-    : String :=
-  let lb := "{"
-  let rb := "}"
-  let header := s!"\\subsection{lb}{modName}{rb}\n"
+    : Latex :=
+  let header := Latex.subsection (.raw modName)
   let structParts := structs.map fun s =>
-    s!"{s.structDef.formalDefLatex}\n"
+    Latex.seq [s.structDef.formalDefLatex,
+               .newline, .newline]
   let enumParts := enums.flatMap fun e =>
-    let def_ := s!"{e.enumDef.formalDefLatex}\n"
+    let def_ := Latex.seq
+      [e.enumDef.formalDefLatex, .newline, .newline]
     let orderParts := orders.filter
-      (·.enumName == e.enumDef.name.name) |>.map fun o =>
-        s!"\\subsubsection{lb}Ordering{rb}\n\
-           {o.orderDef.hasseDiagram e.enumDef
-             |>.toLaTeX}\n"
+      (·.enumName == e.enumDef.name.name) |>.map
+        fun o =>
+          Latex.seq [
+            Latex.subsubsection (.raw "Ordering"),
+            .newline,
+            (o.orderDef.hasseDiagram e.enumDef).toLatex,
+            .newline, .newline ]
     def_ :: orderParts
   let fnParts := fns.map fun f =>
-    s!"{f.fnDef.formalDefLatex ctorDisplay
-         allVariants}\n"
+    Latex.seq [f.fnDef.formalDefLatex ctorDisplay
+                 allVariants, .newline, .newline]
   let propParts := properties.map fun p =>
-    s!"{p.propertyDef.formalDefLatex ctorDisplay
-         allVariants}\n"
-  header ++
-    "\n".intercalate
-      (structParts ++ enumParts ++ fnParts ++
-       propParts)
+    Latex.seq [p.propertyDef.formalDefLatex ctorDisplay
+                 allVariants, .newline, .newline]
+  .seq ([header, .newline] ++
+    structParts ++ enumParts ++ fnParts ++ propParts)
 
-/-- Build the presentation sections for a single crate
-    prefix, grouped by module (subsection). -/
+/-- Build the LaTeX sections for a single crate prefix,
+    grouped by module. -/
 private def crateLatex
     (prefix_ : String)
     (enums : List RegisteredEnum)
@@ -68,9 +67,9 @@ private def crateLatex
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
-    (ctorDisplay : String → Option String)
+    (ctorDisplay : String → Option LatexMath)
     (allVariants : List VariantDef)
-    : String :=
+    : Latex :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateStructs := structs.filter
@@ -81,7 +80,6 @@ private def crateLatex
     (·.leanModule.getRoot.toString == prefix_)
   let crateProps := properties.filter
     (·.leanModule.getRoot.toString == prefix_)
-  -- Collect unique module names (preserving order)
   let allModNames := (
     crateStructs.map (moduleName ·.leanModule) ++
     crateEnums.map (moduleName ·.leanModule) ++
@@ -90,10 +88,7 @@ private def crateLatex
   ).foldl (init := [])
     fun acc m =>
       if acc.contains m then acc else acc ++ [m]
-  let lb := "{"
-  let rb := "}"
-  let sectionHeader :=
-    s!"\\section{lb}{prefix_}{rb}\n"
+  let sectionHeader := Latex.section (.raw prefix_)
   let modules := allModNames.map fun mn =>
     let modEnums := crateEnums.filter
       (moduleName ·.leanModule == mn)
@@ -109,17 +104,16 @@ private def crateLatex
       (moduleName ·.leanModule == mn)
     moduleLatex mn modEnums modStructs modOrders
       modFns modProps ctorDisplay allVariants
-  sectionHeader ++ "\n".intercalate modules
+  .seq ([sectionHeader, .newline] ++ modules)
 
-/-- Build the full presentation LaTeX body from all
-    registered definitions. -/
+/-- Build the full presentation LaTeX body. -/
 def buildPresentationLatex
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
-    : String :=
+    : Latex :=
   let prefixes := (
     enums.map (·.leanModule.getRoot.toString) ++
     structs.map (·.leanModule.getRoot.toString) ++
@@ -134,7 +128,7 @@ def buildPresentationLatex
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
       properties ctorDisplay allVariants
-  "\n".intercalate body
+  .seq body
 
 /-- LaTeX packages needed by the presentation. -/
 def latexPackages : List String :=
@@ -142,5 +136,5 @@ def latexPackages : List String :=
    "algorithm", "algpseudocode"]
 
 /-- Extra LaTeX preamble (theorem definitions, etc). -/
-def latexPreamble : String :=
-  "\\newtheorem{definition}{Definition}\n"
+def latexPreamble : Latex :=
+  .raw "\\newtheorem{definition}{Definition}\n"

@@ -34,10 +34,10 @@ private def lookupSymbol (e : EnumDef) (name : String)
 
 /-- Look up the LaTeX math-mode symbol for a variant. -/
 private def lookupSymbolMath
-    (e : EnumDef) (name : String) : String :=
+    (e : EnumDef) (name : String) : LatexMath :=
   match e.variants.find? (·.name.name == name) with
   | some v => v.displayLatexMath
-  | none => name
+  | none => .escaped name
 
 /-- Compute the level (longest path to bottom) of
     each element. -/
@@ -76,7 +76,7 @@ def hasseDiagram (o : OrderDef) (e : EnumDef)
       let n := names.length
       (List.range names.length |>.zip names).map
         fun (i, name) =>
-          let sym := lookupSymbolMath e name
+          let sym := (lookupSymbolMath e name).render
           let x : Int :=
             (2 * i : Int) - (n - 1 : Int)
           s!"  \\node ({name}) at ({x}, {lvl}) \

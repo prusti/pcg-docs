@@ -1,4 +1,4 @@
-import Core.Doc
+import Core.Export.Latex
 import Core.Dsl.DslType
 
 /-- An argument of an enum variant (e.g. `v : RegionVid`). -/
@@ -93,42 +93,42 @@ end EnumDef
 
 namespace DisplayPart
 
-/-- Render a display part to LaTeX math mode. -/
-def toLatexMath : DisplayPart → String
-  | .lit d => Doc.mathToLatexMath d
-  | .arg _ sym => Doc.mathToLatexMath sym
+/-- Render a display part to `LatexMath`. -/
+def toLatexMath : DisplayPart → LatexMath
+  | .lit d => MathDoc.toLatexMath d
+  | .arg _ sym => MathDoc.toLatexMath sym
 
 end DisplayPart
 
 namespace VariantDef
 
-/-- Render the variant's display template to LaTeX math. -/
-def displayLatexMath (v : VariantDef) : String :=
-  String.join (v.display.map DisplayPart.toLatexMath)
+/-- Render the variant's display template to `LatexMath`. -/
+def displayLatexMath (v : VariantDef) : LatexMath :=
+  .seq (v.display.map DisplayPart.toLatexMath)
 
 end VariantDef
 
 namespace EnumDef
 
-/-- Render the enum as a LaTeX `definition` environment with
-    an aligned `array` using the display templates. -/
-def formalDefLatex (d : EnumDef) : String :=
-  let lb := "{"
-  let rb := "}"
+/-- Render the enum as a LaTeX `definition` environment. -/
+def formalDefLatex (d : EnumDef) : Latex :=
   let sym := d.symbolDoc.toLatexMath
   let rows := d.variants.zipIdx.map fun (v, i) =>
-    let sep := if i == 0 then "  " else "\\mid"
-    let variant := v.displayLatexMath
-    let desc := Doc.escapeLatex v.doc
-    s!"  {sep} & {variant} & \
-       \\text{lb}({desc}){rb} \\\\"
-  let arrayBody := "\n".intercalate rows
-  s!"\\begin{lb}definition{rb}[{d.name.name}]\n\
-     {Doc.escapeLatex d.doc}\n\
-     \\[ {sym} ::= \\begin{lb}array{rb}[t]\
-     {lb}rll{rb}\n\
-     {arrayBody}\n\
-     \\end{lb}array{rb} \\]\n\
-     \\end{lb}definition{rb}"
+    let sep : LatexMath :=
+      if i == 0 then .raw "  "
+      else .cmd "mid"
+    let variant : LatexMath :=
+      .seq [.raw " ", v.displayLatexMath]
+    let desc : LatexMath :=
+      .seq [.raw " ", .text (.seq [
+        .raw "(", .text v.doc, .raw ")"])]
+    [sep, variant, desc]
+  .envOpts "definition" d.name.name (.seq [
+    .text d.doc, .newline,
+    .displayMath (.seq [
+      sym, .raw " ::= ",
+      .array (some "t") "rll" rows
+    ]), .newline
+  ])
 
 end EnumDef

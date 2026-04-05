@@ -1,4 +1,4 @@
-import Core.Doc
+import Core.Export.Latex
 import Core.Dsl.DslType
 
 /-- A field of an exportable struct definition. -/
@@ -27,21 +27,21 @@ structure StructDef where
 namespace StructDef
 
 /-- Render the struct as a LaTeX `definition` environment. -/
-def formalDefLatex (s : StructDef) : String :=
-  let lb := "{"
-  let rb := "}"
+def formalDefLatex (s : StructDef) : Latex :=
   let fieldRows := s.fields.map fun f =>
-    s!"  {Doc.escapeLatexMath f.name} &: \
-       {(f.ty.toDoc .math).toLatexMath} & \
-       \\text{lb}({Doc.escapeLatex f.doc}){rb} \\\\"
-  let body := if fieldRows.isEmpty then ""
+    [ .escaped f.name
+    , .seq [.raw ": ", (f.ty.toDoc .math).toLatexMath]
+    , .seq [.raw " ", .text (.text s!"({f.doc})")]
+    ]
+  let body : Latex :=
+    if fieldRows.isEmpty then .seq []
     else
-      s!"\n\\[ \\begin{lb}array{rb}{lb}rll{rb}\n\
-         {"\n".intercalate fieldRows}\n\
-         \\end{lb}array{rb} \\]\n"
-  s!"\\begin{lb}definition{rb}[{s.name}]\n\
-     {Doc.escapeLatex s.doc}\
-     {body}\
-     \\end{lb}definition{rb}"
+      .seq [ .newline
+           , .displayMath (.array none "rll" fieldRows)
+           , .newline ]
+  .envOpts "definition" s.name (.seq [
+    .text s.doc,
+    body
+  ])
 
 end StructDef

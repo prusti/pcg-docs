@@ -1,4 +1,4 @@
-import Core.Doc
+import Core.Export.Latex
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.DslType
@@ -211,109 +211,127 @@ instance : Quote BodyExpr where quote := quoteExpr
 
 namespace BodyPat
 
-partial def toLatex
-    (ctorDisplay : String → Option String)
-    : BodyPat → String
-  | .wild => "\\_"
-  | .var n => Doc.escapeLatexMath n
+partial def toLatexMath
+    (ctorDisplay : String → Option LatexMath)
+    : BodyPat → LatexMath
+  | .wild => .raw "\\_"
+  | .var n => .escaped n
   | .ctor "⟨⟩" args =>
-    s!"({",~".intercalate
-      (args.map (toLatex ctorDisplay))})"
+    .delimited "(" ")"
+      (LatexMath.intercalate (.raw ",~")
+        (args.map (toLatexMath ctorDisplay)))
   | .ctor n args =>
     match ctorDisplay n with
     | some display => display
     | none =>
-      let argStr := ",~".intercalate
-        (args.map (toLatex ctorDisplay))
-      if args.isEmpty then
-        s!"\\text\{{n}}"
-      else s!"\\text\{{n}}({argStr})"
-  | .nil => "[]"
+      let argParts := args.map (toLatexMath ctorDisplay)
+      if args.isEmpty then .text (.raw n)
+      else .seq [ .text (.raw n), .raw "("
+                , LatexMath.intercalate (.raw ",~") argParts
+                , .raw ")" ]
+  | .nil => .raw "[]"
   | .cons h t =>
-    s!"{h.toLatex ctorDisplay} :: {t.toLatex ctorDisplay}"
+    .seq [ h.toLatexMath ctorDisplay
+         , .raw " :: "
+         , t.toLatexMath ctorDisplay ]
 
 end BodyPat
 
 namespace BodyExpr
 
-partial def toLatex
+partial def toLatexMath
     (fnName : String)
-    (varDisplay : String → Option String :=
+    (varDisplay : String → Option LatexMath :=
       fun _ => none)
-    (ctorDisplay : String → Option String :=
+    (ctorDisplay : String → Option LatexMath :=
       fun _ => none)
     (isProperty : Bool := false)
-    : BodyExpr → String :=
-  let go := toLatex fnName varDisplay ctorDisplay
+    : BodyExpr → LatexMath :=
+  let go := toLatexMath fnName varDisplay ctorDisplay
     isProperty
   fun
   | .var n => match varDisplay n with
     | some sym => sym
-    | none => Doc.escapeLatexMath n
+    | none => .escaped n
   | .true_ =>
-    if isProperty then "\\top" else "\\text{true}"
+    if isProperty then .cmd "top"
+    else .text (.raw "true")
   | .false_ =>
-    if isProperty then "\\bot" else "\\text{false}"
-  | .emptyList => "[]"
-  | .none_ => "\\text{None}"
+    if isProperty then .cmd "bot"
+    else .text (.raw "false")
+  | .emptyList => .raw "[]"
+  | .none_ => .text (.raw "None")
   | .some_ e => go e
   | .mkStruct _ args =>
-    s!"({",~".intercalate (args.map go)})"
-  | .cons h t => s!"{go h} :: {go t}"
+    .delimited "(" ")"
+      (LatexMath.intercalate (.raw ",~")
+        (args.map go))
+  | .cons h t =>
+    .seq [go h, .raw " :: ", go t]
   | .append l r =>
-    s!"{go l} \\mathbin\{\\texttt\{++}} {go r}"
+    .seq [ go l, .raw " \\mathbin{\\texttt{++}} "
+         , go r ]
   | .dot recv method =>
-    s!"\\text\{{method}}({go recv})"
+    .seq [.text (.raw method), .raw "(", go recv
+         , .raw ")"]
   | .flatMap list param body =>
-    s!"{go list}.\\text\{flatMap}(\\lambda \
-       {Doc.escapeLatexMath param}.~{go body})"
+    .seq [ go list, .raw ".\\text{flatMap}("
+         , .cmd "lambda", .raw " "
+         , .escaped param, .raw ".~", go body
+         , .raw ")" ]
   | .field recv name =>
-    s!"{go recv}.\\text\{{name}}"
+    .seq [go recv, .raw ".", .text (.raw name)]
   | .index list idx =>
-    s!"{go list}[{go idx}]"
+    .seq [go list, .raw "[", go idx, .raw "]"]
   | .indexBang list idx =>
-    s!"{go list}[{go idx}]"
+    .seq [go list, .raw "[", go idx, .raw "]"]
   | .call fn args =>
-    s!"\\text\{{fn}}({",~".intercalate (args.map go)})"
+    .seq [ .text (.raw fn), .raw "("
+         , LatexMath.intercalate (.raw ",~")
+             (args.map go)
+         , .raw ")" ]
   | .foldlM fn init list =>
-    s!"\\text\{{fn}}^*({go init},~{go list})"
-  | .lt l r => s!"{go l} < {go r}"
+    .seq [ .text (.raw fn), .raw "^*(", go init
+         , .raw ",~", go list, .raw ")" ]
+  | .lt l r => .binop "<" (go l) (go r)
   | .setAll set param body =>
-    s!"\\forall {Doc.escapeLatexMath param} \
-       \\in {go set},~{go body}"
-  | .emptySet => "\\emptyset"
+    .seq [ .cmd "forall", .raw " "
+         , .escaped param, .raw " "
+         , .cmd "in", .raw " ", go set
+         , .raw ",~", go body ]
+  | .emptySet => .cmd "emptyset"
   | .setSingleton e =>
-    let lb := "{"
-    let rb := "}"
-    s!"\\{lb}{go e}\\{rb}"
-  | .setUnion l r => s!"{go l} \\cup {go r}"
+    .delimited "\\{" "\\}" (go e)
+  | .setUnion l r =>
+    .binop "\\cup" (go l) (go r)
   | .setFlatMap list param body =>
-    let lb := "{"
-    let rb := "}"
-    s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
-       \\in {go list}{rb} {go body}"
-  | .and l r => s!"{go l} \\land {go r}"
-  | .sorryProof => ""
-  | .leanProof _ => ""
+    .seq [ .sub (.cmd "bigcup")
+             (.seq [.escaped param, .raw " "
+                   , .cmd "in", .raw " ", go list])
+         , .raw " ", go body ]
+  | .and l r => .binop "\\land" (go l) (go r)
+  | .sorryProof => .seq []
+  | .leanProof _ => .seq []
 
 end BodyExpr
 
 namespace BodyStmt
 
-def toLatex (fnName : String)
+def toLatexMath (fnName : String)
     (varDisplay ctorDisplay
-      : String → Option String)
+      : String → Option LatexMath)
     (isProperty : Bool := false)
-    : BodyStmt → String
+    : BodyStmt → LatexMath
   | .let_ n v =>
-    s!"\\text\{let } {Doc.escapeLatexMath n} := \
-       {v.toLatex fnName varDisplay ctorDisplay
-         isProperty}"
+    .seq [ .text (.raw "let "), .escaped n
+         , .raw " := "
+         , v.toLatexMath fnName varDisplay
+             ctorDisplay isProperty ]
   | .letBind n v =>
-    s!"\\text\{let } {Doc.escapeLatexMath n} \
-       \\leftarrow \
-       {v.toLatex fnName varDisplay ctorDisplay
-         isProperty}"
+    .seq [ .text (.raw "let "), .escaped n
+         , .raw " ", .cmd "leftarrow", .raw " "
+         , v.toLatexMath fnName varDisplay
+             ctorDisplay isProperty ]
 
 end BodyStmt
 
@@ -329,30 +347,31 @@ def shortSig (f : FnDef) : Doc :=
 /-- Render the function as a LaTeX algorithm. -/
 def formalDefLatex
     (f : FnDef)
-    (ctorDisplay : String → Option String :=
+    (ctorDisplay : String → Option LatexMath :=
       fun _ => none)
     (variants : List VariantDef := [])
     (isProperty : Bool := false)
-    : String :=
-  let lb := "{"
-  let rb := "}"
-  let paramSig := ", ".intercalate
-    (f.params.map fun p =>
-      s!"{Doc.escapeLatex p.name} : \
-         {(p.ty.toDoc .normal).toLaTeX}")
-  let caption :=
+    : Latex :=
+  let paramParts : List Latex := f.params.map fun p =>
+    Latex.seq [.text p.name, .raw " : ",
+               (p.ty.toDoc .normal).toLatex]
+  let paramSig : Latex :=
+    .seq (paramParts.intersperse (.raw ", "))
+  let caption : Latex :=
     if isProperty then
-      s!"Property {Doc.escapeLatex f.name}\
-         ({paramSig})"
+      .seq [.raw "Property ", .text f.name,
+            .raw "(", paramSig, .raw ")"]
     else
-      let retTy := (f.returnType.toDoc .normal).toLaTeX
-      s!"{Doc.escapeLatex f.name}\
-         ({paramSig}) $\\to$ {retTy}"
-  let bodyLines := match f.body with
+      let retTy := (f.returnType.toDoc .normal).toLatex
+      .seq [.text f.name, .raw "(",
+            paramSig, .raw ") ",
+            .inlineMath (.cmd "to"), .raw " ",
+            retTy]
+  let bodyLines : List Latex := match f.body with
     | .matchArms arms => arms.map fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>
         match p with | .ctor n _ => some n | _ => none
-      let varDisplay : String → Option String :=
+      let varDisplay : String → Option LatexMath :=
         fun varName =>
           match ctorName with
           | none => none
@@ -365,51 +384,64 @@ def formalDefLatex
               match dp with
               | .arg n sym =>
                 if n == varName then
-                  some (Doc.mathToLatexMath sym)
+                  some (MathDoc.toLatexMath sym)
                 else none
               | _ => none
-      let patStr := ",~".intercalate
-        (arm.pat.map (BodyPat.toLatex ctorDisplay))
-      let rhsStr := arm.rhs.toLatex f.name
+      let patMath := LatexMath.intercalate (.raw ",~")
+        (arm.pat.map
+          (BodyPat.toLatexMath ctorDisplay))
+      let rhsMath := arm.rhs.toLatexMath f.name
         varDisplay ctorDisplay isProperty
-      s!"    \\State \\textbf{lb}case{rb} \
-         ${patStr}$: ${rhsStr}$"
+      .seq [ .raw "    "
+           , Latex.state (.seq [
+               .textbf (.raw "case"), .raw " "
+             , .inlineMath patMath
+             , .raw ": "
+             , .inlineMath rhsMath ]) ]
     | .doBlock stmts ret =>
-      let noDisp : String → Option String :=
+      let noDisp : String → Option LatexMath :=
         fun _ => none
       let stmtLines := stmts.map fun s =>
-        s!"    \\State ${s.toLatex f.name
-          noDisp ctorDisplay isProperty}$"
+        .seq [ .raw "    "
+             , Latex.state (.inlineMath
+                 (s.toLatexMath f.name noDisp
+                    ctorDisplay isProperty)) ]
       let retLine :=
-        s!"    \\State \
-           ${ret.toLatex f.name noDisp ctorDisplay
-             isProperty}$"
+        .seq [ .raw "    "
+             , Latex.state (.inlineMath
+                 (ret.toLatexMath f.name noDisp
+                    ctorDisplay isProperty)) ]
       stmtLines ++ [retLine]
-  let precondLines := f.preconditions.map fun pc =>
-    let args := ", ".intercalate
-      (pc.args.map Doc.escapeLatexMath)
-    s!"    \\Require ${Doc.escapeLatexMath pc.name}\
-       ({args})$"
+  let precondLines : List Latex :=
+    f.preconditions.map fun pc =>
+      let argsMath := LatexMath.intercalate
+        (.raw ", ") (pc.args.map LatexMath.escaped)
+      .seq [ .raw "    "
+           , Latex.require_ (.inlineMath
+               (.seq [.escaped pc.name
+                     , .raw "(", argsMath
+                     , .raw ")"])) ]
   let allLines := precondLines ++ bodyLines
-  s!"\\begin{lb}algorithm{rb}\n\
-     \\caption{lb}{caption}{rb}\n\
-     \\begin{lb}algorithmic{rb}[1]\n\
-     {"\n".intercalate allLines}\n\
-     \\end{lb}algorithmic{rb}\n\
-     \\end{lb}algorithm{rb}"
+  .env "algorithm" (.seq [
+    Latex.caption caption, .newline,
+    .envOpts "algorithmic" "1"
+      (.seq [Latex.lines allLines, .newline]),
+    .newline
+  ])
 
 /-- Render for non-LaTeX (Doc-based). -/
 def algorithmDoc (f : FnDef) : Doc :=
-  let noDisplay : String → Option String :=
+  let noDisplay : String → Option LatexMath :=
     fun _ => none
   let header := Doc.seq
     [ .plain f.doc, .plain " ", f.shortSig ]
   let cases := match f.body with
     | .matchArms arms => arms.map fun arm =>
       let patStr := ", ".intercalate
-        (arm.pat.map (BodyPat.toLatex noDisplay))
-      let rhsStr := arm.rhs.toLatex f.name
-        noDisplay noDisplay
+        (arm.pat.map fun p =>
+          (p.toLatexMath noDisplay).render)
+      let rhsStr := (arm.rhs.toLatexMath f.name
+        noDisplay noDisplay).render
       Doc.plain s!"case {patStr}: return {rhsStr}"
     | .doBlock _ _ => [Doc.plain "(imperative body)"]
   .seq [header, .line, .itemize cases]

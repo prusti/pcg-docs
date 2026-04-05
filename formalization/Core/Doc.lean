@@ -58,15 +58,6 @@ end
 
 namespace MathSym
 
-/-- Render to LaTeX math mode. -/
-def toLatexMath : MathSym → String
-  | .langle => "\\langle"
-  | .rangle => "\\rangle"
-  | .lbracket => "["
-  | .rbracket => "]"
-  | .lparen => "("
-  | .rparen => ")"
-
 /-- Render to plain text. -/
 def toPlainText : MathSym → String
   | .langle => "⟨"
@@ -157,69 +148,6 @@ mutual
 end
 
 mutual
-  /-- Render a document to LaTeX. -/
-  partial def toLaTeX : Doc → String
-    | plain s => escapeLatex s
-    | bold d => s!"\\textbf\{{d.toLaTeX}}"
-    | italic d => s!"\\textit\{{d.toLaTeX}}"
-    | code s => s!"\\texttt\{{escapeLatex s}}"
-    | seq ds => String.join (ds.map toLaTeX)
-    | line => "\n"
-    | itemize items =>
-      let body := items.map fun d =>
-        s!"  \\item {d.toLaTeX}"
-      s!"\\begin\{itemize}\n\
-         {String.intercalate "\n" body}\n\
-         \\end\{itemize}"
-    | raw latex _ _ => latex
-    | math m => mathToLaTeX m
-
-  /-- Render a math fragment to LaTeX (text mode context).
-      Variables enter math mode; doc content renders
-      normally. -/
-  partial def mathToLaTeX : MathDoc → String
-    | .var s => s!"${escapeLatexMath s}$"
-    | .doc d => d.toLaTeX
-    | .sym s => s!"${s.toLatexMath}$"
-    | .seq ds => String.join (ds.map mathToLaTeX)
-end
-
-mutual
-  /-- Render a document to LaTeX math mode. In math mode,
-      `.plain` wraps in `\text{}` for correct rendering of
-      words. -/
-  partial def toLatexMath : Doc → String
-    | plain s => s!"\\text\{{escapeLatex s}}"
-    | bold d => s!"\\mathbf\{{d.toLatexMath}}"
-    | italic d => d.toLatexMath
-    | code s => s!"\\texttt\{{escapeLatex s}}"
-    | seq ds => String.join (ds.map toLatexMath)
-    | line => "\n"
-    | itemize items =>
-      String.join (items.map toLatexMath)
-    | raw latex _ _ => latex
-    | math m => mathToLatexMath m
-
-  /-- Render a math fragment in LaTeX math mode.
-      Variables render bare (already italic); doc content
-      uses math-aware rendering. -/
-  partial def mathToLatexMath : MathDoc → String
-    | .var s => escapeLatexMath s
-    | .doc d => d.toLatexMath
-    | .sym s => s.toLatexMath
-    | .seq ds => String.join (ds.map mathToLatexMath)
-end
-
-/-- Render a Lean type name to LaTeX math mode. -/
-def typeToLatexMath (s : String) : String :=
-  let s := s.trimAscii.toString
-  match s with
-  | "Nat" => "\\mathbb{N}"
-  | "String" => "\\text{String}"
-  | other =>
-    "\\text{" ++ escapeLatexMath other ++ "}"
-
-mutual
   /-- Render a document to Typst. -/
   partial def toTypst : Doc → String
     | plain s => s
@@ -271,20 +199,5 @@ mutual
     | .sym .rparen => ")"
     | .seq ds => String.join (ds.map mathToHTML)
 end
-
-/-- Wrap LaTeX body in a minimal standalone document. -/
-def toStandaloneLatex (d : Doc) (packages : List String := [])
-    : String :=
-  let pkgLines := packages.map fun p =>
-    s!"\\usepackage\{{p}}"
-  let preamble := String.intercalate "\n" pkgLines
-  let body := d.toLaTeX
-  let lb := "{"
-  let rb := "}"
-  s!"\\documentclass{lb}article{rb}\n\
-     {preamble}\n\
-     \\begin{lb}document{rb}\n\n\
-     {body}\n\n\
-     \\end{lb}document{rb}\n"
 
 end Doc
