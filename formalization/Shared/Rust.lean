@@ -454,38 +454,35 @@ namespace BodyExpr
 
 /-- Convert a `BodyExpr` to a typed `RustExpr` in the
     `FreshM` monad (for generating fresh variable names). -/
-partial def toRustExpr
-    (retType : FType := .prim .unit)
-    : BodyExpr → FreshM RustExpr
+partial def toRustExpr : BodyExpr → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
+  | .true_ => pure (.litBool true)
+  | .false_ => pure (.litBool false)
   | .emptyList => pure .emptyVec
   | .none_ => pure .none_
   | .some_ e => do
-    let inner ← e.toRustExpr retType
+    let inner ← e.toRustExpr
     match e with
-    | .var n =>
-      if n == "true" || n == "false" then
-        return .some_ inner
-      else return .some_ (.clone inner)
+    | .true_ | .false_ => return .some_ inner
+    | .var _ => return .some_ (.clone inner)
     | _ => return .some_ inner
   | .mkStruct sName args => do
     if sName.isEmpty then
       return .tuple (← args.mapM fun a =>
-        a.toRustExpr retType)
+        a.toRustExpr)
     else
       return .call (.path ⟨[sName, "new"]⟩)
         (← args.mapM fun a => do
           match a with
           | .var _ =>
-            return .clone (← a.toRustExpr retType)
+            return .clone (← a.toRustExpr)
           | .some_ inner =>
             return .some_
-              (.clone (← inner.toRustExpr retType))
-          | _ => a.toRustExpr retType)
+              (.clone (← inner.toRustExpr))
+          | _ => a.toRustExpr)
   | .cons h t => do
-    let hExpr := RustExpr.clone
-      (← h.toRustExpr retType)
-    let tExpr ← t.toRustExpr retType
+    let hExpr := RustExpr.clone (← h.toRustExpr)
+    let tExpr ← t.toRustExpr
     let v ← fresh
     return .block
       [ .«let» (.ident v) none .emptyVec
@@ -495,8 +492,8 @@ partial def toRustExpr
           [tExpr]) ]
       (some (.ident v))
   | .append l r => do
-    let lExpr ← l.toRustExpr retType
-    let rExpr ← r.toRustExpr retType
+    let lExpr ← l.toRustExpr
+    let rExpr ← r.toRustExpr
     let v ← fresh
     return .block
       [ .«let» (.ident v) none lExpr
@@ -506,10 +503,10 @@ partial def toRustExpr
       (some (.ident v))
   | .dot recv method => do
     return .call (.ident (toSnakeCase method))
-      [.borrow (← recv.toRustExpr retType)]
+      [.borrow (← recv.toRustExpr)]
   | .flatMap list param body => do
-    let listE ← list.toRustExpr retType
-    let bodyE ← body.toRustExpr retType
+    let listE ← list.toRustExpr
+    let bodyE ← body.toRustExpr
     let vecWild := RustTy.adt ⟨["Vec"]⟩ [.infer]
     pure (.methodCall
       (.methodCall
@@ -518,38 +515,33 @@ partial def toRustExpr
       "collect" []
       (typeArgs := [vecWild]))
   | .field recv name => do
-    return .field (← recv.toRustExpr retType)
+    return .field (← recv.toRustExpr)
       (toSnakeCase name)
   | .index list idx => do
     return .methodCall
-      (.methodCall (← list.toRustExpr retType)
+      (.methodCall (← list.toRustExpr)
         "get"
-        [.deref (← idx.toRustExpr retType)])
+        [.deref (← idx.toRustExpr)])
       "cloned" []
   | .call fn args => do
     return .call (.ident (toSnakeCase fn))
       (← args.mapM fun a => do
-        return .borrow (← a.toRustExpr retType))
+        return .borrow (← a.toRustExpr))
   | .foldlM fn init list => do
-    let rustFn := toSnakeCase
-      (if fn.endsWith "Step" then
-        (fn.take (fn.length - 4)).toString
-      else fn)
+    let rustFn := toSnakeCase fn
     return .methodCall
-      (.methodCall (← list.toRustExpr retType)
+      (.methodCall (← list.toRustExpr)
         "iter" [])
       "try_fold"
-      [ ← init.toRustExpr retType
+      [ ← init.toRustExpr
       , .closure ["acc", "x"]
           (.call (.ident rustFn)
             [.borrow (.field (.ident "acc") "ty")
             , .ident "x"])]
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
-def toRust
-    (retType : FType := .prim .unit)
-    (e : BodyExpr) : RustExpr :=
-  (e.toRustExpr retType).run' 0
+def toRust (e : BodyExpr) : RustExpr :=
+  e.toRustExpr.run' 0
 
 end BodyExpr
 
@@ -562,10 +554,8 @@ def toRustItem (f : FnDef) : RustItem :=
     RustParam.named (.ident (leanToRustIdent p.name))
       (.ref false p.ty.toRustParam)
   let retTy := f.returnType.toRust
-  -- Extract inner struct name from return type
-  let retType := f.returnType
   let rustName := toSnakeCase f.name
-  let re (b : BodyExpr) := b.toRust retType
+  let re (b : BodyExpr) := b.toRust
   let body : RustExpr := match f.body with
     | .matchArms arms =>
       if arms.isEmpty then .todo

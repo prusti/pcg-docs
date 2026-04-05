@@ -118,7 +118,7 @@ def stripOption : FType → FType
 
 /-- Parse a Lean type string into an `FType`. -/
 partial def parse (s : String) : FType :=
-  let s := s.trim
+  let s := s.trimAscii.toString
   if s == "Nat" then .prim .nat
   else if s == "String" then .prim .string
   else if s == "Bool" then .prim .bool

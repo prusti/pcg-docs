@@ -86,7 +86,11 @@ private partial def parseExpr
   match stx with
   | `(fnExpr| [ ]) => pure .emptyList
   | `(fnExpr| $n:ident) =>
-    pure (.var (toString n.getId))
+    let name := toString n.getId
+    match name with
+    | "true" => pure .true_
+    | "false" => pure .false_
+    | _ => pure (.var name)
   | `(fnExpr| ($e:fnExpr)) => parseExpr e
   | `(fnExpr| $r:ident · $m:ident) =>
     pure (.dot (.var (toString r.getId))

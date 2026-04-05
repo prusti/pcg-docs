@@ -114,7 +114,7 @@ partial def toLatexMath : Doc → String
 
 /-- Render a Lean type name to LaTeX math mode. -/
 def typeToLatexMath (s : String) : String :=
-  let s := s.trim
+  let s := s.trimAscii.toString
   match s with
   | "Nat" => "\\mathbb{N}"
   | "String" => "\\text{String}"

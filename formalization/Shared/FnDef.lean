@@ -17,6 +17,8 @@ inductive BodyPat where
 /-- An expression in the function body DSL. -/
 inductive BodyExpr where
   | var (name : String)
+  | true_
+  | false_
   | emptyList
   | none_
   | some_ (e : BodyExpr)
@@ -98,6 +100,10 @@ open Lean in
 partial def quoteExpr : BodyExpr → TSyntax `term
   | .var n =>
     Syntax.mkApp (mkIdent ``BodyExpr.var) #[quote n]
+  | .true_ =>
+    Syntax.mkApp (mkIdent ``BodyExpr.true_) #[]
+  | .false_ =>
+    Syntax.mkApp (mkIdent ``BodyExpr.false_) #[]
   | .emptyList =>
     Syntax.mkApp (mkIdent ``BodyExpr.emptyList) #[]
   | .none_ =>
@@ -200,12 +206,16 @@ mutual
     parenthesizing compound expressions. -/
 partial def toLeanArg : BodyExpr → String
   | .var n => n
+  | .true_ => "true"
+  | .false_ => "false"
   | .none_ => "none"
   | .emptyList => "[]"
   | e => s!"({e.toLean})"
 
 partial def toLean : BodyExpr → String
   | .var n => n
+  | .true_ => "true"
+  | .false_ => "false"
   | .emptyList => "[]"
   | .none_ => "none"
   | .some_ e => s!"some {e.toLean}"
@@ -294,6 +304,8 @@ partial def toLatex
   | .var n => match varDisplay n with
     | some sym => sym
     | none => Doc.escapeLatexMath n
+  | .true_ => "\\text{true}"
+  | .false_ => "\\text{false}"
   | .emptyList => "\\emptyset"
   | .none_ => "\\text{None}"
   | .some_ e =>

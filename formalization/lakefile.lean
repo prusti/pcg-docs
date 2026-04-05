@@ -3,7 +3,9 @@ open Lake DSL
 
 package pcg where
   leanOptions := #[
-    ⟨`autoImplicit, false⟩
+    ⟨`autoImplicit, false⟩,
+    ⟨`linter.all, true⟩,
+    ⟨`linter.missingDocs, false⟩
   ]
 
 @[default_target]
