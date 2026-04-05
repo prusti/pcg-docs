@@ -664,8 +664,10 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
   | .indexBang list idx => do
     return .index (← list.toRustExpr) (← idx.toRustExpr)
   | .call fn args => do
+    let filteredArgs := args.filter fun
+      | .sorryProof => false | _ => true
     return .call (.identStr (toSnakeCase fn))
-      (← args.mapM fun a => do
+      (← filteredArgs.mapM fun a => do
         return .borrow (← a.toRustExpr))
   | .foldlM fn init list => do
     let rustFn := toSnakeCase fn
@@ -722,6 +724,7 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
 
   | .and l r => do
     pure (.binOp .and (← l.toRustExpr) (← r.toRustExpr))
+  | .sorryProof => pure (.raw "/* sorry */")
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=

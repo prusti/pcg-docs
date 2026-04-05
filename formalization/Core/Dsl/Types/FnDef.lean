@@ -58,6 +58,10 @@ inductive BodyExpr where
       (body : BodyExpr)
   /-- Logical conjunction: `lhs ∧ rhs`. -/
   | and (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Proof placeholder: `sorry`. Used when calling
+      a function with preconditions from another
+      function that can supply the proof. -/
+  | sorryProof
   deriving Repr
 
 /-- A statement in a do-block. -/
@@ -191,6 +195,8 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .and l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.and)
       #[quoteExpr l, quoteExpr r]
+  | .sorryProof =>
+    Syntax.mkApp (mkIdent ``BodyExpr.sorryProof) #[]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr
@@ -283,6 +289,7 @@ partial def toLatex
     s!"\\bigcup_{lb}{Doc.escapeLatexMath param} \
        \\in {go list}{rb} {go body}"
   | .and l r => s!"{go l} \\land {go r}"
+  | .sorryProof => ""
 
 end BodyExpr
 
@@ -375,7 +382,7 @@ def formalDefLatex
       stmtLines ++ [retLine]
   let precondLines := f.preconditions.map fun pc =>
     let args := ", ".intercalate
-      (pc.args.map Doc.escapeLatex)
+      (pc.args.map Doc.escapeLatexMath)
     s!"    \\Require ${Doc.escapeLatexMath pc.name}\
        ({args})$"
   let allLines := precondLines ++ bodyLines

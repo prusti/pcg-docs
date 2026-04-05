@@ -58,6 +58,8 @@ syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
     : fnExpr
 -- Logical conjunction: expr ∧ expr
 syntax fnExpr " ∧ " fnExpr : fnExpr
+-- Proof placeholder
+syntax "sorry" : fnExpr
 
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
@@ -168,6 +170,7 @@ partial def parseExpr
       (toString p.getId) (← parseExpr b))
   | `(fnExpr| $l:fnExpr ∧ $r:fnExpr) =>
     pure (.and (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| sorry) => pure .sorryProof
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 def parseStmt
@@ -314,16 +317,16 @@ elab_rules : command
         pure (#[← parsePat p], ← parseExpr rhs)
       | _ => throwError "invalid fnArm"
     -- Generate Lean def via string parsing
+    let fnNameStr := toString name.getId
+    let precondNames := preconds.map (·.1)
     let armStrs := parsed.toList.map
       fun (patAst, rhsAst) =>
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
-        s!"  | {patStr} => {rhsAst.toLean}"
-    let hasListPat := parsed.any fun (pats, _) =>
-      pats.any fun p => match p with
-        | .cons .. | .nil => true | _ => false
-    let defKw := if hasListPat then "partial def"
-      else "def"
+        let rhsStr := rhsAst.toLeanWith
+          fnNameStr precondNames
+        s!"  | {patStr} => {rhsStr}"
+    let defKw := "def"
     let paramNames := paramData.toList.map
       fun (pn, _, _) => toString pn.getId
     let defStr ←
@@ -391,9 +394,12 @@ elab_rules : command
       then toString retTy.raw.getId
       else retTy.raw.reprint.getD (toString retTy)
     let retRepr := normaliseLeanType retRaw
+    let fnNameStr := toString name.getId
     let stmtStrs := parsedStmts.toList.map
       BodyStmt.toLean
-    let retStr := s!"  {parsedRet.toLean}"
+    let precondNames := preconds.map (·.1)
+    let retStr := s!"  {parsedRet.toLeanWith
+      fnNameStr precondNames}"
     let allLines := stmtStrs ++ [retStr]
     let paramBinds := " ".intercalate
       (paramData.toList.map fun (pn, _, pt) =>
@@ -405,9 +411,17 @@ elab_rules : command
     let allBinds :=
       if precBinds.isEmpty then paramBinds
       else s!"{paramBinds} {precBinds}"
-    let defStr := s!"def {name.getId} \
-      {allBinds} : {retRepr} := do\n\
-      {"\n".intercalate allLines}"
+    let defStr :=
+      if preconds.isEmpty then
+        s!"def {name.getId} \
+          {allBinds} : {retRepr} := do\n\
+          {"\n".intercalate allLines}"
+      else
+        s!"def {name.getId} \
+          {allBinds} : {retRepr} := by\n\
+          exact do\n\
+          {"\n".intercalate allLines}\n\
+          <;> sorry"
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with

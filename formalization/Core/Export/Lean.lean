@@ -59,7 +59,12 @@ partial def toLean : BodyPat → String
     s!"⟨{", ".intercalate (args.map toLean)}⟩"
   | .ctor n args =>
     if args.isEmpty then s!".{n}"
-    else s!".{n} {" ".intercalate (args.map toLean)}"
+    else
+      let argStr := " ".intercalate
+        (args.map fun a => match a with
+          | .wild => "_" | .var v => v
+          | _ => s!"({a.toLean})")
+      s!".{n} {argStr}"
   | .nil => "[]"
   | .cons h t => s!"{h.toLean} :: {t.toLean}"
 
@@ -67,9 +72,79 @@ end BodyPat
 
 namespace BodyExpr
 
-mutual
-/-- Render an expression as a Lean function argument,
-    parenthesizing compound expressions. -/
+/-- Render a `BodyExpr` to Lean syntax.
+    `selfName` is the current function name (for
+    inserting proof arguments at recursive calls).
+    `precondNames` lists the precondition function
+    names. `calleeProofNames` lists callee functions
+    that also require sorry proof arguments. -/
+partial def toLeanWith
+    (selfName : String)
+    (precondNames : List String)
+    (calleeProofNames : List String := [])
+    : BodyExpr → String :=
+  let go := toLeanWith selfName precondNames
+    calleeProofNames
+  let goArg (e : BodyExpr) : String :=
+    match e with
+    | .var n => n | .true_ => "true"
+    | .false_ => "false" | .none_ => "none"
+    | .emptyList => "[]"
+    | .emptySet => "(∅ : Set _)"
+    | e => s!"({go e})"
+  let proofArgs :=
+    " ".intercalate
+      (precondNames.map fun pn =>
+        s!"(by simp_all [{pn}])")
+  fun
+  | .var n => n
+  | .true_ => "true"
+  | .false_ => "false"
+  | .emptyList => "[]"
+  | .none_ => "none"
+  | .some_ e => s!"some {go e}"
+  | .mkStruct _ args =>
+    s!"⟨{", ".intercalate (args.map go)}⟩"
+  | .cons h t => s!"{go h} :: {go t}"
+  | .append l r => s!"{go l} ++ {go r}"
+  | .dot recv "toSet" =>
+    s!"{go recv}.toSet"
+  | .dot recv method =>
+    s!"{go recv}.{method}"
+  | .flatMap list param body =>
+    s!"{go list}.flatMap fun {param} => \
+       {go body}"
+  | .field recv name => s!"{go recv}.{name}"
+  | .index list idx =>
+    s!"{go list}[{go idx}]?"
+  | .indexBang list idx =>
+    s!"{go list}[{go idx}]!"
+  | .call fn args =>
+    let argStr := " ".intercalate (args.map goArg)
+    if fn == selfName && !precondNames.isEmpty then
+      s!"{fn} {argStr} {proofArgs}"
+    else if calleeProofNames.contains fn then
+      s!"{fn} {argStr} sorry"
+    else s!"{fn} {argStr}"
+  | .foldlM fn init list =>
+    s!"{go list}.foldlM {fn} {go init}"
+  | .lt l r => s!"{go l} < {go r}"
+  | .setAll set param body =>
+    s!"∀ {param} ∈ {go set}, {go body}"
+  | .emptySet => "(∅ : Set _)"
+  | .setSingleton e =>
+    s!"Set.singleton {goArg e}"
+  | .setUnion l r =>
+    s!"{go l} ++ {go r}"
+  | .setFlatMap list param body =>
+    s!"Set.flatMapList {goArg list} fun {param} => \
+       {go body}"
+  | .and l r => s!"{go l} ∧ {go r}"
+  | .sorryProof => "sorry"
+
+partial def toLean : BodyExpr → String :=
+  toLeanWith "" []
+
 partial def toLeanArg : BodyExpr → String
   | .var n => n
   | .true_ => "true"
@@ -78,48 +153,6 @@ partial def toLeanArg : BodyExpr → String
   | .emptyList => "[]"
   | .emptySet => "(∅ : Set _)"
   | e => s!"({e.toLean})"
-
-partial def toLean : BodyExpr → String
-  | .var n => n
-  | .true_ => "true"
-  | .false_ => "false"
-  | .emptyList => "[]"
-  | .none_ => "none"
-  | .some_ e => s!"some {e.toLean}"
-  | .mkStruct _ args =>
-    s!"⟨{", ".intercalate (args.map toLean)}⟩"
-  | .cons h t => s!"{h.toLean} :: {t.toLean}"
-  | .append l r => s!"{l.toLean} ++ {r.toLean}"
-  | .dot recv "toSet" =>
-    s!"{recv.toLean}.toSet"
-  | .dot recv method =>
-    s!"{recv.toLean}.{method}"
-  | .flatMap list param body =>
-    s!"{list.toLean}.flatMap fun {param} => \
-       {body.toLean}"
-  | .field recv name => s!"{recv.toLean}.{name}"
-  | .index list idx =>
-    s!"{list.toLean}[{idx.toLean}]?"
-  | .indexBang list idx =>
-    s!"{list.toLean}[{idx.toLean}]!"
-  | .call fn args =>
-    let argStr := " ".intercalate (args.map toLeanArg)
-    s!"{fn} {argStr}"
-  | .foldlM fn init list =>
-    s!"{list.toLean}.foldlM {fn} {init.toLean}"
-  | .lt l r => s!"{l.toLean} < {r.toLean}"
-  | .setAll set param body =>
-    s!"∀ {param} ∈ {set.toLean}, {body.toLean}"
-  | .emptySet => "(∅ : Set _)"
-  | .setSingleton e =>
-    s!"Set.singleton {e.toLeanArg}"
-  | .setUnion l r =>
-    s!"{l.toLean} ++ {r.toLean}"
-  | .setFlatMap list param body =>
-    s!"Set.flatMapList {list.toLeanArg} fun {param} => \
-       {body.toLean}"
-  | .and l r => s!"{l.toLean} ∧ {r.toLean}"
-end
 
 end BodyExpr
 
@@ -134,14 +167,16 @@ end BodyStmt
 namespace FnBody
 
 def toLean : FnBody → String
-  | .matchArms arms =>
-    "\n".intercalate (arms.map fun arm =>
+  | .matchArms arms => arms.foldl
+    (fun acc arm =>
       let patStr := ", ".intercalate
         (arm.pat.map BodyPat.toLean)
-      s!"  | {patStr} => {arm.rhs.toLean}")
+      let rhsStr := arm.rhs.toLean
+      acc ++ s!"  | {patStr} => {rhsStr}\n") ""
   | .doBlock stmts ret =>
-    let stmtStrs := stmts.map BodyStmt.toLean
-    let all := stmtStrs ++ [s!"  {ret.toLean}"]
-    " do\n".intercalate [] ++ "\n".intercalate all
+    let body := stmts.map BodyStmt.toLean
+    let retStr := ret.toLean
+    (body ++ [s!"  {retStr}"]).foldl
+      (fun acc l => acc ++ l ++ "\n") ""
 
 end FnBody

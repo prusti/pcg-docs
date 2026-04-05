@@ -87,11 +87,7 @@ elab_rules : command
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         s!"  | {patStr} => {rhsAst.toLean}"
-    let hasListPat := parsed.any fun (pats, _) =>
-      pats.any fun p => match p with
-        | .cons .. | .nil => true | _ => false
-    let defKw := if hasListPat then "partial def"
-      else "def"
+    let defKw := "def"
     let defStr := s!"{defKw} {name.getId} : {tyStr}\n\
       {"\n".intercalate armStrs}"
     let env ← getEnv

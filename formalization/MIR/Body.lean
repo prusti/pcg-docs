@@ -242,6 +242,7 @@ defFn isOwned' (.plain "isOwned'")
    dereferencing a reference."
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
+  requires validProjTy(τ, projs)
   : Bool where
   | _ ; [] => true
   | .ref _ _ _ ; .deref :: _ => false
@@ -312,4 +313,4 @@ defFn isOwned (.plain "isOwned")
   requires validPlace(body, place)
   : Bool where
   | body ; place =>
-      isOwned' ‹body↦decls ! place↦base↦index, place↦projection›
+      isOwned' ‹body↦decls ! place↦base↦index, place↦projection, sorry›
