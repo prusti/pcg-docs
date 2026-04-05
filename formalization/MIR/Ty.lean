@@ -59,22 +59,22 @@ defEnum Value (.italic (.text "v"))
 where
   | bool (val : Bool)
     "A boolean value."
-    (#val (.text "b"))
+    (.text "bool ", #val (.text "b"))
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
-    (#val (.text "n"))
+    (.text "u8 ", #val (.text "n"))
   | u16 (val : UInt16)
     "A 16-bit unsigned integer."
-    (#val (.text "n"))
+    (.text "u16 ", #val (.text "n"))
   | u32 (val : UInt32)
     "A 32-bit unsigned integer."
-    (#val (.text "n"))
+    (.text "u32 ", #val (.text "n"))
   | u64 (val : UInt64)
     "A 64-bit unsigned integer."
-    (#val (.text "n"))
+    (.text "u64 ", #val (.text "n"))
   | usize (val : USize)
     "A pointer-sized unsigned integer."
-    (#val (.text "n"))
+    (.text "usize ", #val (.text "n"))
   deriving Repr
 
 /-- A generalized type is either a type or a region.

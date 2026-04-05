@@ -28,6 +28,10 @@ lean_lib MIR where
 lean_lib PCG where
   srcDir := "."
 
+@[default_target]
+lean_lib OpSem where
+  srcDir := "."
+
 lean_exe rust_export where
   root := `RustExport
 

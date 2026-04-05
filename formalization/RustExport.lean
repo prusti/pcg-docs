@@ -1,5 +1,6 @@
 import PCG.Capability.Order
 import MIR
+import OpSem
 import Core.Export.Rust
 import Core.Dsl.Types.OrderDef
 
@@ -43,7 +44,8 @@ def buildCrate
 
 /-- The workspace containing all generated crates. -/
 def workspace : RustWorkspace :=
-  { members := ["formal-mir", "formal-pcg"] }
+  { members := ["formal-mir", "formal-opsem",
+                 "formal-pcg"] }
 
 /-- Write a file, creating parent directories as needed. -/
 private def writeFile
@@ -62,13 +64,18 @@ def main (args : List String) : IO Unit := do
   let props ← getRegisteredProperties
   let mirCrate := buildCrate "MIR" enums structs fns
     props
+  let opSemCrate := buildCrate "OpSem" enums structs fns
+    props
+    (deps := [{ name := "formal-mir"
+                path := "../formal-mir" }])
+    (reexports := ["formal_mir"])
   let pcgCrate := buildCrate "PCG" enums structs fns
     props
     (deps := [{ name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])
   writeFile s!"{outDir}/Cargo.toml" workspace.cargoToml
-  for c in [mirCrate, pcgCrate] do
+  for c in [mirCrate, opSemCrate, pcgCrate] do
     for (path, contents) in c.files do
       writeFile s!"{outDir}/{c.name}/{path}" contents
   -- Format the generated Rust code

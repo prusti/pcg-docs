@@ -1,4 +1,5 @@
 import PCG.Presentation
+import OpSem
 
 def main (args : List String) : IO Unit := do
   let outPath := args.head? |>.getD "generated/presentation.tex"
