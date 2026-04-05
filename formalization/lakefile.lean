@@ -8,6 +8,10 @@ package pcg where
     ⟨`linter.missingDocs, false⟩
   ]
 
+require batteries from
+  git "https://github.com/leanprover-community/batteries"
+    @ "main"
+
 require LSpec from
   git "https://github.com/argumentcomputer/LSpec"
     @ "main"
@@ -36,3 +40,9 @@ lean_lib Tests where
 @[test_driver]
 lean_exe tests where
   root := `Tests
+
+@[lint_driver]
+lean_exe runLinter where
+  srcDir := "scripts"
+  root := `runLinter
+  supportInterpreter := true
