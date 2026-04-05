@@ -142,17 +142,6 @@ defFn ownedProjTy (.text "ownedProjTy")
   | ty ; (.downcast _) :: rest =>
       ownedProjTy ‹ty, rest›
 
-defFn isOwned (.text "isOwned")
-  "Returns true iff a place is owned, i.e. it does \
-   not project from the dereference of a \
-   reference-typed place. See definitions/places.md."
-  (body "The function body." : Body)
-  (place "The place to type-check." : Place)
-  : Option Bool begin
-  let decls := body↦localDecls↦decls
-  let baseIdx := place↦base↦index
-  let τ₀ ← decls !! baseIdx
-  return ownedProjTy ‹τ₀, place↦projection›
 
 defProperty validPlace (.text "valid")
   "A place is valid for a body."
@@ -170,8 +159,8 @@ defProperty validPlace (.text "valid")
            .code "|body.localDecls.decls|",
            .text "."])
   where
-    | body ; ⟨⟨i⟩, _⟩ =>
-        i < body↦localDecls↦decls·length
+    | body ; p =>
+        p↦base↦index < body↦localDecls↦decls·length
 
 defFn placeTy (.text "ty")
   "Compute the type of a place: look up the base \
@@ -180,7 +169,14 @@ defFn placeTy (.text "ty")
   (place "The place to type-check." : Place)
   requires validPlace
   : Option PlaceTy begin
-  let decls := body↦localDecls↦decls
-  let baseIdx := place↦base↦index
-  let τ₀ := decls ! place↦base↦index
-  return projTy ‹τ₀, None, place↦projection›
+  return projTy ‹body↦localDecls↦decls ! place↦base↦index, None, place↦projection›
+
+defFn isOwned (.text "isOwned")
+  "Returns true iff a place is owned, i.e. it does \
+   not project from the dereference of a \
+   reference-typed place. See definitions/places.md."
+  (body "The function body." : Body)
+  (place "The place to type-check." : Place)
+  requires validPlace
+  : Option Bool begin
+  return ownedProjTy ‹body↦localDecls↦decls ! place↦base↦index, place↦projection›
