@@ -223,6 +223,24 @@ defFn ownedProjTy (.text "ownedProjTy")
       ownedProjTy ‹τ, π›
   | _ ; _ :: _ => None
 
+defFn validProjTy (.text "validProjTy")
+  "Check whether a type is valid for a projection \
+   list, i.e. whether projTy would return Some."
+  (τ "The current type." : Ty)
+  (projs "The projection elements." : List ProjElem)
+  : Bool where
+  | _ ; [] => true
+  | .ref _ _ pointee ; .deref :: π =>
+      validProjTy ‹pointee, π›
+  | .box inner ; .deref :: π =>
+      validProjTy ‹inner, π›
+  | _ ; (.field _ τ) :: π =>
+      validProjTy ‹τ, π›
+  | .array elem _ ; (.index _) :: π =>
+      validProjTy ‹elem, π›
+  | τ ; (.downcast _) :: π =>
+      validProjTy ‹τ, π›
+  | _ ; _ :: _ => false
 
 defProperty validPlace (.text "valid")
   "A place is valid for a body."
