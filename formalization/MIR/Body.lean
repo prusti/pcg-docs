@@ -27,7 +27,7 @@ where
   | ref (region : Region) (mutability : Mutability)
       (place : Place)
     "Create a reference to a place."
-    (.text "\\&", #region, .text " ",
+    (.code (.text "&"), #region, .text " ",
      #mutability, .text " ", #place)
   deriving Repr
 
@@ -75,18 +75,11 @@ where
   | terminator "The block's terminator." : Terminator
   deriving Repr
 
-defStruct LocalDecls (.text "Δ")
-  "Local variable declarations: a type for each local."
-where
-  | decls "The type of each local variable."
-      : List Ty
-  deriving Repr
-
 defStruct Body (.text "body")
   "A MIR function body."
 where
-  | localDecls "The local variable declarations."
-      : LocalDecls
+  | decls "The local variable declarations."
+      : List Ty
   | basicBlocks "The basic blocks." : List BasicBlock
   deriving Repr
 
@@ -154,13 +147,13 @@ defProperty validPlace (.text "valid")
            .text " for a body ",
            .italic (.text "body"),
            .text " iff its local index ",
-           .code "p.base.index",
+           .code (.text "p.base.index"),
            .text " is less than ",
-           .code "|body.localDecls.decls|",
+           .code (.text "|body.decls|"),
            .text "."])
   where
     | body ; p =>
-        p↦base↦index < body↦localDecls↦decls·length
+        p↦base↦index < body↦decls·length
 
 defFn placeTy (.text "ty")
   "Compute the type of a place: look up the base \
@@ -169,7 +162,7 @@ defFn placeTy (.text "ty")
   (place "The place to type-check." : Place)
   requires validPlace
   : Option PlaceTy begin
-  return projTy ‹body↦localDecls↦decls ! place↦base↦index, None, place↦projection›
+  return projTy ‹body↦decls ! place↦base↦index, None, place↦projection›
 
 defFn isOwned (.text "isOwned")
   "Returns true iff a place is owned, i.e. it does \
@@ -179,4 +172,4 @@ defFn isOwned (.text "isOwned")
   (place "The place to type-check." : Place)
   requires validPlace
   : Option Bool begin
-  return ownedProjTy ‹body↦localDecls↦decls ! place↦base↦index, place↦projection›
+  return ownedProjTy ‹body↦decls ! place↦base↦index, place↦projection›

@@ -22,7 +22,7 @@ where
     (.text "vid(", #v, .text ")")
   | static
     "The 'static lifetime."
-    (.code "'static")
+    (.code (.text "'static"))
   | earlyBound (eb : EarlyBoundRegion)
     "An early-bound region from generic parameters."
     (.text "early(", #eb, .text ")")

@@ -10,7 +10,7 @@ inductive Doc where
   /-- Italic content. -/
   | italic (d : Doc)
   /-- Inline code / monospace. -/
-  | code (s : String)
+  | code (s : Doc)
   /-- Concatenation of fragments. -/
   | seq (ds : List Doc)
   /-- Line break. -/
@@ -29,7 +29,7 @@ partial def toPlainText : Doc → String
   | text s => s
   | bold d => d.toPlainText
   | italic d => d.toPlainText
-  | code s => s
+  | code s => s.toPlainText
   | seq ds => String.join (ds.map toPlainText)
   | line => "\n"
   | itemize items =>
@@ -88,7 +88,7 @@ partial def toLaTeX : Doc → String
   | text s => escapeLatex s
   | bold d => s!"\\textbf\{{d.toLaTeX}}"
   | italic d => s!"\\textit\{{d.toLaTeX}}"
-  | code s => s!"\\texttt\{{s}}"
+  | code s => s!"\\texttt\{{s.toLaTeX}}"
   | seq ds => String.join (ds.map toLaTeX)
   | line => "\n"
   | itemize items =>
@@ -105,7 +105,7 @@ partial def toLatexMath : Doc → String
   | text s => escapeLatexMath s
   | bold d => s!"\\mathbf\{{d.toLatexMath}}"
   | italic d => d.toLatexMath
-  | code s => s!"\\texttt\{{s}}"
+  | code s => s!"\\mathtt\{{s.toLatexMath}}"
   | seq ds => String.join (ds.map toLatexMath)
   | line => "\n"
   | itemize items =>
@@ -126,7 +126,7 @@ partial def toTypst : Doc → String
   | text s => s
   | bold d => s!"*{d.toTypst}*"
   | italic d => s!"_{d.toTypst}_"
-  | code s => s!"`{s}`"
+  | code s => s!"`{s.toTypst}`"
   | seq ds => String.join (ds.map toTypst)
   | line => "\n"
   | itemize items =>
@@ -140,7 +140,7 @@ partial def toHTML : Doc → String
   | text s => s
   | bold d => s!"<b>{d.toHTML}</b>"
   | italic d => s!"<i>{d.toHTML}</i>"
-  | code s => s!"<code>{s}</code>"
+  | code s => s!"<code>{s.toHTML}</code>"
   | seq ds => String.join (ds.map toHTML)
   | line => "<br>\n"
   | itemize items =>
