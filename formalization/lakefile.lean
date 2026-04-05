@@ -41,6 +41,9 @@ lean_exe presentation_export where
 lean_exe lean_export where
   root := `LeanExport
 
+lean_exe export_all where
+  root := `ExportAll
+
 lean_lib Tests where
   srcDir := "."
 
