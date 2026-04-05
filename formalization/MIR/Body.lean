@@ -121,12 +121,10 @@ defFn projTy (.text "projTy")
       projTy ‹ty, Some v, rest›
 
 defFn ownedProjTy (.text "ownedProjTy")
-  "Check whether a place is owned by walking its \
-   projection list. Returns Some false as soon as \
-   a dereference of a reference is encountered, \
-   Some true if all projections are traversed \
-   without dereferencing a reference, or None on \
-   a type error."
+  "Check whether a place is owned by walking its projection list. Returns Some
+  false as soon as a dereference of a reference is encountered, Some true if all
+  projections are traversed without dereferencing a reference, or None on a
+  type error."
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
   : Option Bool where

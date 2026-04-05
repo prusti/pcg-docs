@@ -81,9 +81,12 @@ mutual
     | .tuple elems =>
       let inner := elems.map (renderExpr d)
       s!"({String.intercalate ", " inner})"
-    | .methodCall recv method args =>
+    | .methodCall recv method args typeArgs =>
       let argStrs := args.map (renderExpr d)
-      s!"{renderExpr d recv}.{method}({String.intercalate ", " argStrs})"
+      let turbo := if typeArgs.isEmpty then ""
+        else s!"::<{String.intercalate ", "
+          (typeArgs.map RustTy.render)}>"
+      s!"{renderExpr d recv}.{method}{turbo}({String.intercalate ", " argStrs})"
     | .field recv name =>
       s!"{renderExpr d recv}.{name}"
     | .block stmts tail =>
@@ -505,10 +508,13 @@ partial def toRustExpr
   | .flatMap list param body => do
     let listE ← list.toRustExpr retType
     let bodyE ← body.toRustExpr retType
-    pure (.raw s!"{renderExpr 0
-      (.methodCall listE "iter" [])}.flat_map(\
-      |{param}| {renderExpr 0 bodyE}\
-      ).collect::<Vec<_>>()")
+    let vecWild := RustTy.adt ⟨["Vec"]⟩ [.infer]
+    pure (.methodCall
+      (.methodCall
+        (.methodCall listE "iter" [])
+        "flat_map" [.closure [param] bodyE])
+      "collect" []
+      (typeArgs := [vecWild]))
   | .field recv name => do
     return .field (← recv.toRustExpr retType)
       (toSnakeCase name)

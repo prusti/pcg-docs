@@ -28,6 +28,8 @@ inductive RustTy where
   | implInto (inner : RustTy)
   /-- Slice type: `[T]`. -/
   | slice (inner : RustTy)
+  /-- Inferred type: `_`. -/
+  | infer
   deriving Repr
 
 /-- A unary operator. -/
@@ -69,9 +71,11 @@ mutual
     | litBool (b : Bool)
     /-- Function call: `f(a, b)`. -/
     | call (func : RustExpr) (args : List RustExpr)
-    /-- Method call: `x.method(a, b)`. -/
+    /-- Method call: `x.method(a, b)` or with turbofish
+        `x.method::<T>(a, b)`. -/
     | methodCall (recv : RustExpr)
         (method : String) (args : List RustExpr)
+        (typeArgs : List RustTy := [])
     /-- Field access: `x.field`. -/
     | field (recv : RustExpr) (name : String)
     /-- Unary operation: `*expr`, `-expr`, `!expr`. -/
@@ -291,6 +295,7 @@ def render : RustTy → String
       s!"{ctor.render}<{String.intercalate ", " argStrs}>"
   | .implInto inner => s!"impl Into<{inner.render}>"
   | .slice inner => s!"[{inner.render}]"
+  | .infer => "_"
 
 /-- The `Self` type. -/
 def self_ : RustTy := .adt RustPath.self_ []
