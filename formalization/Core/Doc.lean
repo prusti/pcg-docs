@@ -8,6 +8,10 @@ inductive MathSym where
   | lbracket
   /-- Right bracket: ] -/
   | rbracket
+  /-- Left parenthesis: ( -/
+  | lparen
+  /-- Right parenthesis: ) -/
+  | rparen
   deriving Repr
 
 mutual
@@ -60,6 +64,8 @@ def toLatexMath : MathSym → String
   | .rangle => "\\rangle"
   | .lbracket => "["
   | .rbracket => "]"
+  | .lparen => "("
+  | .rparen => ")"
 
 /-- Render to plain text. -/
 def toPlainText : MathSym → String
@@ -67,6 +73,8 @@ def toPlainText : MathSym → String
   | .rangle => "⟩"
   | .lbracket => "["
   | .rbracket => "]"
+  | .lparen => "("
+  | .rparen => ")"
 
 end MathSym
 
@@ -259,6 +267,8 @@ mutual
     | .sym .rangle => "&rangle;"
     | .sym .lbracket => "&lbrack;"
     | .sym .rbracket => "&rbrack;"
+    | .sym .lparen => "("
+    | .sym .rparen => ")"
     | .seq ds => String.join (ds.map mathToHTML)
 end
 

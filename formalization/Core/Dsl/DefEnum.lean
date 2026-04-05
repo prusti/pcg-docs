@@ -42,7 +42,7 @@ syntax "| " ident enumVariantArg* str
       "A region (lifetime) in the MIR."
     where
       | vid (v : RegionVid) "A region variable identifier."
-          (.doc (.text "vid("), #v, .doc (.text ")"))
+          (.doc (.text "vid"), .sym .lparen, #v, .sym .rparen)
       | static "The 'static lifetime."
           (.doc (.code "'static"))
     ```

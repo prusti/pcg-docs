@@ -558,6 +558,11 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     match method with
     | "length" =>
       return .methodCall rustRecv ⟨"len"⟩ []
+    | "toList" =>
+      let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
+      return .methodCall
+        (.methodCall rustRecv ⟨"into_iter"⟩ [])
+        ⟨"collect"⟩ [] (typeArgs := [vecWild])
     | _ =>
       return .call (.identStr (toSnakeCase method))
         [.borrow rustRecv]

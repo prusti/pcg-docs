@@ -16,20 +16,47 @@ where
   | move (place : Place)
     "Move the value out of a place."
     (.doc (.text "move "), #place)
+  | const (val : Value)
+    "A constant value."
+    (.doc (.text "const "), #val)
   deriving Repr
+
+namespace Operand
+
+defFn operandPlace (.math (.doc (.text "operandPlace")))
+  "Extract the place from an operand, if any."
+  (o "The operand." : Operand)
+  : Option Place where
+  | .copy p => Some p
+  | .move p => Some p
+  | .const _ => None
+
+end Operand
 
 defEnum Rvalue (.math (.var "rv"))
   "A right-hand side value in an assignment."
 where
   | use (operand : Operand)
     "Use an operand directly."
-    (.doc (.text "use("), #operand, .doc (.text ")"))
+    (.doc (.text "use"), .sym .lparen,
+     #operand, .sym .rparen)
   | ref (region : Region) (mutability : Mutability)
       (place : Place)
     "Create a reference to a place."
     (.doc (.code "&"), #region, .doc (.text " "),
      #mutability, .doc (.text " "), #place)
   deriving Repr
+
+namespace Rvalue
+
+defFn rvaluePlace (.math (.doc (.text "rvaluePlace")))
+  "Extract the place from an rvalue, if any."
+  (rv "The rvalue." : Rvalue)
+  : Option Place where
+  | .use o => o·operandPlace
+  | .ref _ _ p => Some p
+
+end Rvalue
 
 defEnum Statement (.math (.var "s"))
   "A MIR statement within a basic block."
@@ -39,13 +66,26 @@ where
     (#lhs, .doc (.text " := "), #rhs)
   | storageLive (lcl : Local)
     "Mark a local's storage as live."
-    (.doc (.text "StorageLive("), #lcl,
-     .doc (.text ")"))
+    (.doc (.text "StorageLive"), .sym .lparen,
+     #lcl, .sym .rparen)
   | storageDead (lcl : Local)
     "Mark a local's storage as dead."
-    (.doc (.text "StorageDead("), #lcl,
-     .doc (.text ")"))
+    (.doc (.text "StorageDead"), .sym .lparen,
+     #lcl, .sym .rparen)
   deriving Repr
+
+namespace Statement
+
+defFn statementPlaces (.math (.doc (.text "statementPlaces")))
+  "Extract all places referenced by a statement."
+  (s "The statement." : Statement)
+  : List Place where
+  | .assign lhs rhs =>
+      lhs :: (rhs·rvaluePlace)·toList
+  | .storageLive _ => []
+  | .storageDead _ => []
+
+end Statement
 
 defEnum Terminator (.math (.var "t"))
   "A basic block terminator."
@@ -55,8 +95,8 @@ where
     (.doc (.text "goto "), #target)
   | switchInt (operand : Operand)
     "Switch on an integer value."
-    (.doc (.text "switchInt("), #operand,
-     .doc (.text ")"))
+    (.doc (.text "switchInt"), .sym .lparen,
+     #operand, .sym .rparen)
   | return_
     "Return from the function."
     (.doc (.text "return"))
@@ -65,9 +105,17 @@ where
     (.doc (.text "unreachable"))
   | drop (place : Place) (target : BasicBlockIdx)
     "Drop the value at a place."
-    (.doc (.text "drop("),
+    (.doc (.text "drop"), .sym .lparen,
      #place, .doc (.text ", "), #target,
-     .doc (.text ")"))
+     .sym .rparen)
+  | call (callee : Operand) (args : List Operand)
+      (targetPlace : Place)
+      (nextBlock : BasicBlockIdx)
+    "Call a function."
+    (#callee, .sym .lparen,
+     #args (.var "\\bar{o}"),
+     .sym .rparen, .doc (.text " → "),
+     #targetPlace, .doc (.text ", "), #nextBlock)
   deriving Repr
 
 defStruct BasicBlock (.math (.var "B"))

@@ -19,10 +19,12 @@ defEnum Region (.math (.var "r"))
 where
   | vid (v : RegionVid)
     "A region variable identifier."
-    (.doc (.text "vid("), #v, .doc (.text ")"))
+    (.doc (.text "vid"), .sym .lparen,
+     #v, .sym .rparen)
   | static
     "The 'static lifetime."
     (.doc (.code "'static"))
   | earlyBound (eb : EarlyBoundRegion)
     "An early-bound region from generic parameters."
-    (.doc (.text "early("), #eb, .doc (.text ")"))
+    (.doc (.text "early"), .sym .lparen,
+     #eb, .sym .rparen)
