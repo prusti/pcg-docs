@@ -12,10 +12,10 @@ defEnum Operand (.math (.var "o"))
 where
   | copy (place : Place)
     "Copy the value at a place."
-    (.text "copy ", #place)
+    (.doc (.text "copy "), #place)
   | move (place : Place)
     "Move the value out of a place."
-    (.text "move ", #place)
+    (.doc (.text "move "), #place)
   deriving Repr
 
 defEnum Rvalue (.math (.var "rv"))
@@ -23,12 +23,12 @@ defEnum Rvalue (.math (.var "rv"))
 where
   | use (operand : Operand)
     "Use an operand directly."
-    (.text "use(", #operand, .text ")")
+    (.doc (.text "use("), #operand, .doc (.text ")"))
   | ref (region : Region) (mutability : Mutability)
       (place : Place)
     "Create a reference to a place."
-    (.math (.doc (.code "&")), #region, .text " ",
-     #mutability, .text " ", #place)
+    (.doc (.code "&"), #region, .doc (.text " "),
+     #mutability, .doc (.text " "), #place)
   deriving Repr
 
 defEnum Statement (.math (.var "s"))
@@ -36,13 +36,15 @@ defEnum Statement (.math (.var "s"))
 where
   | assign (lhs : Place) (rhs : Rvalue)
     "Assign an rvalue to a place."
-    (#lhs, .text " := ", #rhs)
+    (#lhs, .doc (.text " := "), #rhs)
   | storageLive (lcl : Local)
     "Mark a local's storage as live."
-    (.text "StorageLive(", #lcl, .text ")")
+    (.doc (.text "StorageLive("), #lcl,
+     .doc (.text ")"))
   | storageDead (lcl : Local)
     "Mark a local's storage as dead."
-    (.text "StorageDead(", #lcl, .text ")")
+    (.doc (.text "StorageDead("), #lcl,
+     .doc (.text ")"))
   deriving Repr
 
 defEnum Terminator (.math (.var "t"))
@@ -50,20 +52,22 @@ defEnum Terminator (.math (.var "t"))
 where
   | goto (target : BasicBlockIdx)
     "Unconditional jump."
-    (.text "goto ", #target)
+    (.doc (.text "goto "), #target)
   | switchInt (operand : Operand)
     "Switch on an integer value."
-    (.text "switchInt(", #operand, .text ")")
+    (.doc (.text "switchInt("), #operand,
+     .doc (.text ")"))
   | return_
     "Return from the function."
-    (.text "return")
+    (.doc (.text "return"))
   | unreachable
     "Marks unreachable code."
-    (.text "unreachable")
+    (.doc (.text "unreachable"))
   | drop (place : Place) (target : BasicBlockIdx)
     "Drop the value at a place."
-    (.text "drop(",
-     #place, .text ", ", #target, .text ")")
+    (.doc (.text "drop("),
+     #place, .doc (.text ", "), #target,
+     .doc (.text ")"))
   deriving Repr
 
 defStruct BasicBlock (.math (.var "B"))

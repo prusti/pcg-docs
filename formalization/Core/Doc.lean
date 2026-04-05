@@ -4,6 +4,10 @@ inductive MathSym where
   | langle
   /-- Right angle bracket: ⟩ -/
   | rangle
+  /-- Left bracket: [ -/
+  | lbracket
+  /-- Right bracket: ] -/
+  | rbracket
   deriving Repr
 
 mutual
@@ -17,6 +21,8 @@ mutual
     | doc (d : Doc)
     /-- A math symbol. -/
     | sym (s : MathSym)
+    /-- Concatenation of mathematical documents. -/
+    | seq (ds : List MathDoc)
     deriving Repr
 
   /-- A backend-agnostic document fragment.
@@ -52,15 +58,24 @@ namespace MathSym
 def toLatexMath : MathSym → String
   | .langle => "\\langle"
   | .rangle => "\\rangle"
+  | .lbracket => "["
+  | .rbracket => "]"
 
 /-- Render to plain text. -/
 def toPlainText : MathSym → String
   | .langle => "⟨"
   | .rangle => "⟩"
+  | .lbracket => "["
+  | .rbracket => "]"
 
 end MathSym
 
 namespace Doc
+
+def brackets (d: MathDoc) : MathDoc :=
+  .seq [.sym .lbracket, d, .sym .rbracket]
+
+
 
 /-- Unicode-to-LaTeX replacement pairs. Each pair is
     `(unicode, textMode, mathMode)`. -/
@@ -130,6 +145,7 @@ mutual
     | .var s => s
     | .doc d => d.toPlainText
     | .sym s => s.toPlainText
+    | .seq ds => String.join (ds.map mathToPlainText)
 end
 
 mutual
@@ -157,6 +173,7 @@ mutual
     | .var s => s!"${escapeLatexMath s}$"
     | .doc d => d.toLaTeX
     | .sym s => s!"${s.toLatexMath}$"
+    | .seq ds => String.join (ds.map mathToLaTeX)
 end
 
 mutual
@@ -167,7 +184,7 @@ mutual
     | text s => s!"\\text\{{escapeLatex s}}"
     | bold d => s!"\\mathbf\{{d.toLatexMath}}"
     | italic d => d.toLatexMath
-    | code s => s!"\\mathtt\{{escapeLatexMath s}}"
+    | code s => s!"\\texttt\{{escapeLatex s}}"
     | seq ds => String.join (ds.map toLatexMath)
     | line => "\n"
     | itemize items =>
@@ -182,6 +199,7 @@ mutual
     | .var s => escapeLatexMath s
     | .doc d => d.toLatexMath
     | .sym s => s.toLatexMath
+    | .seq ds => String.join (ds.map mathToLatexMath)
 end
 
 /-- Render a Lean type name to LaTeX math mode. -/
@@ -214,6 +232,7 @@ mutual
     | .var s => s
     | .doc d => d.toTypst
     | .sym s => s.toPlainText
+    | .seq ds => String.join (ds.map mathToPlainText)
 end
 
 mutual
@@ -238,6 +257,9 @@ mutual
     | .doc d => d.toHTML
     | .sym .langle => "&langle;"
     | .sym .rangle => "&rangle;"
+    | .sym .lbracket => "&lbrack;"
+    | .sym .rbracket => "&rbrack;"
+    | .seq ds => String.join (ds.map mathToHTML)
 end
 
 /-- Wrap LaTeX body in a minimal standalone document. -/

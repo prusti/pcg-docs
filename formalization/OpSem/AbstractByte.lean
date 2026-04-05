@@ -8,7 +8,7 @@ defEnum AbstractByte (.math (.var "b"))
 where
   | uninit
     "An uninitialized byte."
-    (.text "uninit")
+    (.doc (.text "uninit"))
   | init (value : UInt8)
     "An initialized byte with a concrete value."
-    (.text "init ", #value (.math (.var "v")))
+    (.doc (.text "init "), #value (.var "v"))

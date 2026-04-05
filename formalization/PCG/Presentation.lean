@@ -98,8 +98,10 @@ private def crateLatex
       (moduleName ·.leanModule == mn)
     let modStructs := crateStructs.filter
       (moduleName ·.leanModule == mn)
+    let modEnumNames := modEnums.map
+      (·.enumDef.name.name)
     let modOrders := crateOrders.filter
-      (moduleName ·.leanModule == mn)
+      fun o => modEnumNames.contains o.enumName
     let modFns := crateFns.filter
       (moduleName ·.leanModule == mn)
     let modProps := crateProps.filter

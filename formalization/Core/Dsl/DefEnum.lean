@@ -36,22 +36,23 @@ syntax "| " ident enumVariantArg* str
        (defaults to `DecidableEq` and `Repr`)
     2. A `.enumDef : EnumDef` for export and document generation
 
-    Variants may carry arguments:
+    Variants may carry arguments. Display parts are `MathDoc`:
     ```
     defEnum Region (.math (.var "r"))
       "A region (lifetime) in the MIR."
     where
       | vid (v : RegionVid) "A region variable identifier."
-          (.text "vid") (.text "vid")
+          (.doc (.text "vid("), #v, .doc (.text ")"))
       | static "The 'static lifetime."
-          (.text "static") (.text "static")
+          (.doc (.code "'static"))
     ```
 
     A custom `deriving` clause overrides the default:
     ```
     defEnum Ty (.math (.var "τ")) "A MIR type."
     where
-      | param (index : Nat) "..." (.text "param") (.text "param")
+      | param (index : Nat) "..."
+          (.doc (.text "param "), #index (.var "i"))
       deriving Repr
     ``` -/
 syntax "defEnum " ident "(" term ")" str " where"
@@ -123,7 +124,7 @@ private def parseDisplayPart
   | `(displayPart| # $n:ident ($sym:term)) =>
     let ns : Lean.TSyntax `term :=
       Lean.quote (toString n.getId)
-    `(DisplayPart.arg $ns ($sym : Doc))
+    `(DisplayPart.arg $ns ($sym : MathDoc))
   | `(displayPart| # $n:ident) => do
     let argName := toString n.getId
     let typeName := argTypes.find?
@@ -137,23 +138,24 @@ private def parseDisplayPart
       let tnName := Name.mkSimple tn
       let ns : TSyntax `term := quote argName
       if tn == selfName then
-        `(DisplayPart.arg $ns ($selfSym : Doc))
+        `(DisplayPart.arg $ns
+            (MathDoc.doc ($selfSym : Doc)))
       else if env.find? (tnName ++ `enumDef)
           |>.isSome then
         let ref := mkIdent
           (tnName ++ `enumDef ++ `symbolDoc)
-        `(DisplayPart.arg $ns $ref)
+        `(DisplayPart.arg $ns (MathDoc.doc $ref))
       else if env.find? (tnName ++ `structDef)
           |>.isSome then
         let ref := mkIdent
           (tnName ++ `structDef ++ `symbolDoc)
-        `(DisplayPart.arg $ns $ref)
+        `(DisplayPart.arg $ns (MathDoc.doc $ref))
       else
         throwError
           s!"defEnum: no enumDef or structDef \
              found for type '{tn}'"
   | `(displayPart| $t:term) =>
-    `(DisplayPart.lit ($t : Doc))
+    `(DisplayPart.lit ($t : MathDoc))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in

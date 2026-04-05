@@ -349,7 +349,7 @@ def formalDefLatex
               match dp with
               | .arg n sym =>
                 if n == varName then
-                  some sym.toLatexMath
+                  some (Doc.mathToLatexMath sym)
                 else none
               | _ => none
       let patStr := ",~".intercalate

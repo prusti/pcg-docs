@@ -17,45 +17,45 @@ defEnum Mutability (.math (.var "m"))
 where
   | shared
     "Shared"
-    (.text "shared")
+    (.doc (.text "shared"))
   | mutable
     "Mutable"
-    (.text "mut")
+    (.doc (.text "mut"))
 
 defEnum Ty (.math (.var "τ"))
   "A type in the MIR. See definitions/types.md."
 where
   | param (index : Nat)
     "A type parameter."
-    (.text "param ",
-     #index (.math (.var "i")))
+    (.doc (.text "param "),
+     #index (.var "i"))
   | alias (base : Ty) (name : AliasTyName)
       (args : List Ty)
     "An alias type."
-    (#base, .text "::", #name,
-     .math (.sym .langle),
-     #args (.math (.var "τ̄")),
-     .math (.sym .rangle))
+    (#base, .doc (.text "::"), #name,
+     .sym .langle,
+     #args (.var "τ̄"),
+     .sym .rangle)
   | ctor (name : TyCtorName) (args : List Ty)
     "A type constructor application."
-    (#name, .math (.sym .langle),
-     #args (.math (.var "τ̄")),
-     .math (.sym .rangle))
+    (#name, .sym .langle,
+     #args (.var "τ̄"),
+     .sym .rangle)
   | ref (region : Region) (mutability : Mutability)
       (pointee : Ty)
     "A reference type."
-    (.text "&", #region, .text " ",
-     #mutability, .text " ", #pointee)
+    (.doc (.text "&"), #region, .doc (.text " "),
+     #mutability, .doc (.text " "), #pointee)
   | box (inner : Ty)
     "A box type."
-    (.math (.doc (.code "Box")),
-     .math (.sym .langle),
+    (.doc (.code "Box"),
+     .sym .langle,
      #inner,
-     .math (.sym .rangle))
+     .sym .rangle)
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
-    (.text "[", #elem, .text "; ",
-     #len (.math (.var "n")), .text "]")
+    (.doc (.text "["), #elem, .doc (.text "; "),
+     #len (.var "n"), .doc (.text "]"))
   deriving Repr
 
 defEnum Value (.math (.var "v"))
@@ -63,22 +63,22 @@ defEnum Value (.math (.var "v"))
 where
   | bool (val : Bool)
     "A boolean value."
-    (.text "bool ", #val (.math (.var "b")))
+    (.doc (.text "bool "), #val (.var "b"))
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
-    (.text "u8 ", #val (.math (.var "n")))
+    (.doc (.text "u8 "), #val (.var "n"))
   | u16 (val : UInt16)
     "A 16-bit unsigned integer."
-    (.text "u16 ", #val (.math (.var "n")))
+    (.doc (.text "u16 "), #val (.var "n"))
   | u32 (val : UInt32)
     "A 32-bit unsigned integer."
-    (.text "u32 ", #val (.math (.var "n")))
+    (.doc (.text "u32 "), #val (.var "n"))
   | u64 (val : UInt64)
     "A 64-bit unsigned integer."
-    (.text "u64 ", #val (.math (.var "n")))
+    (.doc (.text "u64 "), #val (.var "n"))
   | usize (val : USize)
     "A pointer-sized unsigned integer."
-    (.text "usize ", #val (.math (.var "n")))
+    (.doc (.text "usize "), #val (.var "n"))
   deriving Repr
 
 /-- A generalized type is either a type or a region.

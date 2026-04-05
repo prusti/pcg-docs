@@ -21,21 +21,21 @@ defEnum ProjElem (.math (.var "π"))
 where
   | deref
     "Dereference a pointer or reference."
-    (.text "*")
+    (.doc (.code "*"))
   | field (idx : FieldIdx) (ty : Ty)
     "Access a field by index."
-    (.text ".",
+    (.doc (.text "."),
      #idx,
-     .text " : ",
+     .doc (.text " : "),
      #ty)
   | index (idx : Local)
     "Index into an array or slice."
-    (.text "[",
+    (.sym .lbracket,
      #idx,
-     .text "]")
+     .sym .rbracket)
   | downcast (variant : VariantIdx)
     "Downcast an enum to a specific variant."
-    (.text "@",
+    (.doc (.text "@"),
      #variant)
   deriving Repr
 

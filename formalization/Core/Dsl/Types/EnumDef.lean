@@ -10,15 +10,16 @@ structure ArgDef where
   deriving Repr
 
 /-- A part of a variant's display template. Either a literal
-    `Doc` fragment or a reference to an argument with its own
-    display symbol. -/
+    `MathDoc` fragment or a reference to an argument with its
+    own display symbol. Display parts always appear in math
+    context. -/
 inductive DisplayPart where
-  /-- Literal text / formatting. -/
-  | lit (d : Doc)
+  /-- Literal math content. -/
+  | lit (d : MathDoc)
   /-- Argument reference with its display symbol.
-      E.g. `arg "region" (.math (.var "r"))` renders the
+      E.g. `arg "region" (.var "r")` renders the
       `region` argument as *r*. -/
-  | arg (name : String) (symbolDoc : Doc)
+  | arg (name : String) (symbolDoc : MathDoc)
   deriving Repr
 
 /-- A single variant in an exportable enum definition. -/
@@ -50,10 +51,10 @@ structure EnumDef where
 
 namespace DisplayPart
 
-/-- Render a display part using argument symbols. -/
+/-- Render a display part as a `Doc` (wraps in math). -/
 def toDoc : DisplayPart → Doc
-  | .lit d => d
-  | .arg _ sym => sym
+  | .lit d => .math d
+  | .arg _ sym => .math sym
 
 end DisplayPart
 
@@ -94,8 +95,8 @@ namespace DisplayPart
 
 /-- Render a display part to LaTeX math mode. -/
 def toLatexMath : DisplayPart → String
-  | .lit d => d.toLatexMath
-  | .arg _ sym => sym.toLatexMath
+  | .lit d => Doc.mathToLatexMath d
+  | .arg _ sym => Doc.mathToLatexMath sym
 
 end DisplayPart
 
