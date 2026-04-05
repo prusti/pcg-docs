@@ -127,6 +127,8 @@ mutual
       s!"{path.render} \{\n\
          {String.intercalate "\n" fieldStrs}\n\
          {ind d}}"
+    | .index recv idx =>
+      s!"{renderExpr d recv}[{renderExpr d idx}]"
     | .raw s => s
 
   /-- Render a match arm. -/
@@ -518,11 +520,7 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     return .field (← recv.toRustExpr)
       (toSnakeCase name)
   | .index list idx => do
-    return .methodCall
-      (.methodCall (← list.toRustExpr)
-        "get"
-        [.deref (← idx.toRustExpr)])
-      "cloned" []
+    return .index (← list.toRustExpr) (← idx.toRustExpr)
   | .call fn args => do
     return .call (.ident (toSnakeCase fn))
       (← args.mapM fun a => do

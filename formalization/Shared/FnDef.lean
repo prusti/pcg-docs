@@ -32,7 +32,7 @@ inductive BodyExpr where
       (body : BodyExpr)
   /-- Struct field access: `recv.fieldName`. -/
   | field (recv : BodyExpr) (name : String)
-  /-- Fallible list indexing: `list[idx]?`. -/
+  /-- List indexing: `list[idx]`. -/
   | index (list : BodyExpr) (idx : BodyExpr)
   /-- Function call: `fn(arg₁, arg₂, …)`. -/
   | call (fn : String) (args : List BodyExpr)

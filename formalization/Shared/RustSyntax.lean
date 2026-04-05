@@ -104,6 +104,8 @@ mutual
     /-- Struct literal: `Path { field: expr, ... }`. -/
     | structInit (path : RustPath)
         (fields : List (String × RustExpr))
+    /-- Index expression: `expr[idx]`. -/
+    | index (recv : RustExpr) (idx : RustExpr)
     /-- Raw string (for macros like `vec![]`,
         `todo!()`). -/
     | raw (s : String)
