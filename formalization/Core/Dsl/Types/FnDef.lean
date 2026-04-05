@@ -62,6 +62,8 @@ inductive BodyExpr where
       a function with preconditions from another
       function that can supply the proof. -/
   | sorryProof
+  /-- Raw Lean proof term, invisible in Rust/LaTeX. -/
+  | leanProof (term : String)
   deriving Repr
 
 /-- A statement in a do-block. -/
@@ -197,6 +199,8 @@ partial def quoteExpr : BodyExpr → TSyntax `term
       #[quoteExpr l, quoteExpr r]
   | .sorryProof =>
     Syntax.mkApp (mkIdent ``BodyExpr.sorryProof) #[]
+  | .leanProof t =>
+    Syntax.mkApp (mkIdent ``BodyExpr.leanProof) #[quote t]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr
@@ -290,6 +294,7 @@ partial def toLatex
        \\in {go list}{rb} {go body}"
   | .and l r => s!"{go l} \\land {go r}"
   | .sorryProof => ""
+  | .leanProof _ => ""
 
 end BodyExpr
 

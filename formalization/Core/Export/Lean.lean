@@ -158,6 +158,7 @@ partial def toLeanWith
        {go body}"
   | .and l r => s!"{go l} ∧ {go r}"
   | .sorryProof => "sorry"
+  | .leanProof t => t
 
 partial def toLean : BodyExpr → String :=
   toLeanWith "" []

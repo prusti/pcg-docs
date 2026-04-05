@@ -60,6 +60,8 @@ syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
 syntax fnExpr " ∧ " fnExpr : fnExpr
 -- Proof placeholder
 syntax "sorry" : fnExpr
+-- Raw Lean proof term (invisible in Rust/LaTeX)
+syntax "lean_proof(" str ")" : fnExpr
 
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
@@ -171,6 +173,8 @@ partial def parseExpr
   | `(fnExpr| $l:fnExpr ∧ $r:fnExpr) =>
     pure (.and (← parseExpr l) (← parseExpr r))
   | `(fnExpr| sorry) => pure .sorryProof
+  | `(fnExpr| lean_proof($s:str)) =>
+    pure (.leanProof s.getString)
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 def parseStmt

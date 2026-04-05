@@ -313,4 +313,4 @@ defFn isOwned (.plain "isOwned")
   requires validPlace(body, place)
   : Bool where
   | body ; place =>
-      isOwned' ‹body↦decls ! place↦base↦index, place↦projection, sorry›
+      isOwned' ‹body↦decls ! place↦base↦index, place↦projection, lean_proof("h_validPlace.2")›
