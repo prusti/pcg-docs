@@ -612,7 +612,10 @@ namespace FnDef
 
 /-- Convert a `FnDef` to a `RustItem.fn_` using the
     typed Rust AST. -/
-def toRustItem (f : FnDef) : RustItem :=
+def toRustItem (f : FnDef)
+    (structFields : String → Option (List String)
+      := fun _ => none)
+    : RustItem :=
   let params := f.params.map fun p =>
     RustParam.named (.ident (leanToRustIdent p.name))
       (.ref false p.ty.toRustParam)
@@ -636,7 +639,7 @@ def toRustItem (f : FnDef) : RustItem :=
           else .tuple (paramNames.map RustExpr.ident)
         let rustArms := arms.map fun arm =>
           let pats := arm.pat.zip enumNames |>.map
-            fun (p, en) => p.toRust en
+            fun (p, en) => p.toRust en structFields
           let patStr := if pats.length == 1
             then pats.head!
             else s!"({", ".intercalate pats})"
@@ -751,11 +754,18 @@ def buildModules
       (rustModuleNameOf ·.leanModule == modName)
     let modExtras := extraItems.filter
       (·.1 == modName) |>.map (·.2)
+    let structFieldLookup : String → Option (List String) :=
+      fun name => structs.findSome? fun s =>
+        if s.structDef.name == name then
+          some (s.structDef.fields.map fun f =>
+            toSnakeCase f.name)
+        else none
     let items :=
       modStructs.flatMap (·.structDef.toRustItems) ++
       modEnums.map (·.enumDef.toRustItem) ++
-      modFns.map (·.fnDef.toRustItem) ++
-      modProps.map (·.propertyDef.fnDef.toRustItem) ++
+      modFns.map (·.fnDef.toRustItem structFieldLookup) ++
+      modProps.map
+        (·.propertyDef.fnDef.toRustItem structFieldLookup) ++
       modExtras
     let doc := match modEnums.head? with
       | some e => e.enumDef.doc

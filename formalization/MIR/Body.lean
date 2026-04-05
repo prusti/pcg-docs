@@ -118,6 +118,22 @@ where
      #targetPlace, .doc (.text ", "), #nextBlock)
   deriving Repr
 
+namespace Terminator
+
+defFn terminatorPlaces (.math (.doc (.text "terminatorPlaces")))
+  "Extract all places referenced by a terminator."
+  (t "The terminator." : Terminator)
+  : List Place where
+  | .goto _ => []
+  | .switchInt o => o·operandPlace·toList
+  | .return_ => []
+  | .unreachable => []
+  | .drop p _ => p :: []
+  | .call callee args dest _ =>
+      dest :: callee·operandPlace·toList ++ (args·flatMap fun a => a·operandPlace·toList)
+
+end Terminator
+
 defStruct BasicBlock (.math (.var "B"))
   "A basic block: a sequence of statements followed \
    by a terminator."
@@ -126,6 +142,17 @@ where
       : List Statement
   | terminator "The block's terminator." : Terminator
   deriving Repr
+
+namespace BasicBlock
+
+defFn basicBlockPlaces (.math (.doc (.text "basicBlockPlaces")))
+  "All places referenced in a basic block."
+  (bb "The basic block." : BasicBlock)
+  : List Place where
+  | ⟨stmts, t⟩ =>
+      (stmts·flatMap fun s => s·statementPlaces) ++ t·terminatorPlaces
+
+end BasicBlock
 
 defStruct Body (.math (.doc (.text "body")))
   "A MIR function body."

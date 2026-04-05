@@ -158,20 +158,28 @@ instance : Quote BodyExpr where quote := quoteExpr
 namespace BodyPat
 
 partial def toRust (enumName : String)
+    (structFields : String → Option (List String)
+      := fun _ => none)
     : BodyPat → String
   | .wild => "_"
   | .var n => n.replace "τ₀" "ty0"
     |>.replace "τ" "ty" |>.replace "π" "pi"
   | .ctor "⟨⟩" args =>
-    -- Struct destructure: render children without
-    -- enum qualification.
-    s!"({", ".intercalate
-      (args.map (toRust ""))})"
+    match structFields enumName with
+    | some fields =>
+      let bindings := fields.zip
+        (args.map (toRust "" structFields))
+      let inner := ", ".intercalate
+        (bindings.map fun (f, v) => s!"{f}: {v}")
+      s!"{enumName} \{ {inner} }"
+    | none =>
+      s!"({", ".intercalate
+        (args.map (toRust "" structFields))})"
   | .ctor n args =>
     let capName := String.ofList
       (n.toList.head!.toUpper :: n.toList.tail!)
     let argStr := ", ".intercalate
-      (args.map (toRust enumName))
+      (args.map (toRust enumName structFields))
     if enumName.isEmpty then
       -- Inside a struct destructure: bare variant
       if args.isEmpty then capName
@@ -185,14 +193,14 @@ partial def toRust (enumName : String)
     let elemName := if enumName.startsWith "List "
       then enumName.drop 5 |>.toString
       else enumName
-    let hStr := h.toRust elemName
+    let hStr := h.toRust elemName structFields
     let tailStr := match tail with
       | .var rest =>
         let rv := rest.replace "τ" "ty"
           |>.replace "π" "pi"
         s!", {rv} @ .."
       | .wild => ", .."
-      | _ => s!", {tail.toRust elemName} @ .."
+      | _ => s!", {tail.toRust elemName structFields} @ .."
     s!"[{hStr}{tailStr}]"
 
 end BodyPat
