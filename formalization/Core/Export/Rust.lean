@@ -1,10 +1,53 @@
-import Shared.RustSyntax
-import Shared.EnumDef
-import Shared.StructDef
-import Shared.FnDef
-import Shared.FType
-import Shared.OrderDef
-import Shared.Registry
+import Core.RustSyntax
+import Core.EnumDef
+import Core.StructDef
+import Core.FnDef
+import Core.FType
+import Core.OrderDef
+import Core.Registry
+import Core.Export.Lean
+
+-- ══════════════════════════════════════════════
+-- FPrim / FType → Rust conversions
+-- ══════════════════════════════════════════════
+
+namespace FPrim
+
+/-- Convert to a `RustBuiltinTy`. -/
+def toRust : FPrim → RustBuiltinTy
+  | .nat => .usize
+  | .string => .string
+  | .bool => .bool
+  | .unit => .unit
+
+/-- Render a primitive to a Rust type string. -/
+def toRustStr (p : FPrim) : String := p.toRust.render
+
+end FPrim
+
+namespace FType
+
+/-- Convert to a typed `RustTy`. -/
+def toRust : FType → RustTy
+  | .prim p => .builtin p.toRust
+  | .named n => .named n
+  | .option t => .option t.toRust
+  | .list t => .adt ⟨["Vec"]⟩ [t.toRust]
+
+/-- Convert to a Rust parameter type. Lists become
+    slices (`&[T]`) for pattern-matching support. -/
+def toRustParam : FType → RustTy
+  | .prim p => .builtin p.toRust
+  | .named n => .named n
+  | .option t => .option t.toRust
+  | .list t => .slice t.toRust
+
+/-- Render a type to a Rust type string. -/
+def toRustStr (t : FType) : String := t.toRust.render
+
+end FType
+
+-- ══════════════════════════════════════════════
 
 /-- Capitalise the first character of a string. -/
 def capitalise (s : String) : String :=

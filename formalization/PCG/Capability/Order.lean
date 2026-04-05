@@ -1,6 +1,6 @@
 import PCG.Capability
-import Shared.DefOrder
-import Shared.Order
+import Core.Dsl.DefOrder
+import Core.Order
 
 defOrder Capability where
   | exclusive > read

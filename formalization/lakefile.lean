@@ -9,7 +9,7 @@ package pcg where
   ]
 
 @[default_target]
-lean_lib Shared where
+lean_lib Core where
   srcDir := "."
 
 @[default_target]

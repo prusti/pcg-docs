@@ -1,4 +1,4 @@
-import Shared.DefEnum
+import Core.Dsl.DefEnum
 
 defEnum Capability (.italic (.text "c"))
   "A capability describes the actions permitted on a \

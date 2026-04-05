@@ -1,4 +1,5 @@
-import Shared.Registry
+import Core.Registry
+import Core.Export.Lean
 import Lean
 
 open Lean in
@@ -146,7 +147,7 @@ private def parseFnParam
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 -- ══════════════════════════════════════════════
--- Shared elaboration helpers
+-- Core elaboration helpers
 -- ══════════════════════════════════════════════
 
 private def buildFnType

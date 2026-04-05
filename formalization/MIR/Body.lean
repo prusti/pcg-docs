@@ -1,5 +1,5 @@
 import MIR.Place
-import Shared.DefFn
+import Core.Dsl.DefFn
 
 defStruct BasicBlockIdx (.text "bb")
   "An index into the list of basic blocks."

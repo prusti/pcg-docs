@@ -1,5 +1,5 @@
 import MIR.Region
-import Shared.DefFn
+import Core.Dsl.DefFn
 
 defStruct TyCtorName (.text "T")
   "A type constructor name, representing an ADT or \
@@ -16,7 +16,7 @@ defEnum Mutability (.italic (.text "m"))
   "Mutability of a reference."
 where
   | shared
-    "Shared"
+    "Core"
     (.text "shared")
   | mutable
     "Mutable"

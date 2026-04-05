@@ -1,4 +1,4 @@
-import Shared.Registry
+import Core.Registry
 import Lean
 
 open Lean Elab Command Term in

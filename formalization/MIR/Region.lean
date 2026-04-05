@@ -1,5 +1,5 @@
-import Shared.DefEnum
-import Shared.DefStruct
+import Core.Dsl.DefEnum
+import Core.Dsl.DefStruct
 
 defStruct RegionVid (.text "vid")
   "A region variable identifier."

@@ -1,7 +1,7 @@
-import Shared.EnumDef
-import Shared.StructDef
-import Shared.OrderDef
-import Shared.FnDef
+import Core.EnumDef
+import Core.StructDef
+import Core.OrderDef
+import Core.FnDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where

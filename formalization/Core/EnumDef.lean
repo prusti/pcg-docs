@@ -1,4 +1,4 @@
-import Shared.Doc
+import Core.Doc
 
 /-- An argument of an enum variant (e.g. `v : RegionVid`). -/
 structure ArgDef where
@@ -54,11 +54,6 @@ def toDoc : DisplayPart → Doc
   | .lit d => d
   | .arg _ sym => sym
 
-/-- Render a display part to LaTeX math mode. -/
-def toLatexMath : DisplayPart → String
-  | .lit d => d.toLatexMath
-  | .arg _ sym => sym.toLatexMath
-
 end DisplayPart
 
 namespace VariantDef
@@ -67,10 +62,6 @@ namespace VariantDef
     (using the symbolic form of each argument). -/
 def displayDoc (v : VariantDef) : Doc :=
   .seq (v.display.map DisplayPart.toDoc)
-
-/-- Render the variant's display template to LaTeX math. -/
-def displayLatexMath (v : VariantDef) : String :=
-  String.join (v.display.map DisplayPart.toLatexMath)
 
 end VariantDef
 
@@ -91,26 +82,5 @@ def longDef (d : EnumDef) : Doc :=
   let items := d.variants.map fun v =>
     Doc.seq [v.displayDoc, .text s!": {v.doc}"]
   .seq [header, .line, .itemize items]
-
-/-- Render the enum as a LaTeX `definition` environment with
-    an aligned `array` using the display templates. -/
-def formalDefLatex (d : EnumDef) : String :=
-  let lb := "{"
-  let rb := "}"
-  let sym := d.symbolDoc.toLatexMath
-  let rows := d.variants.zipIdx.map fun (v, i) =>
-    let sep := if i == 0 then "  " else "\\mid"
-    let variant := v.displayLatexMath
-    let desc := Doc.escapeLatex v.doc
-    s!"  {sep} & {variant} & \
-       \\text{lb}({desc}){rb} \\\\"
-  let arrayBody := "\n".intercalate rows
-  s!"\\begin{lb}definition{rb}[{d.name}]\n\
-     {Doc.escapeLatex d.doc}\n\
-     \\[ {sym} ::= \\begin{lb}array{rb}[t]\
-     {lb}rll{rb}\n\
-     {arrayBody}\n\
-     \\end{lb}array{rb} \\]\n\
-     \\end{lb}definition{rb}"
 
 end EnumDef
