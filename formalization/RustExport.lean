@@ -82,3 +82,15 @@ def main (args : List String) : IO Unit := do
   else
     IO.eprintln s!"  cargo fmt failed: \
       {fmtResult.stderr}"
+  -- Type-check the generated Rust code
+  let checkResult ← IO.Process.output {
+    cmd := "cargo"
+    args := #["check", "--all", "--manifest-path",
+      s!"{outDir}/Cargo.toml"]
+  }
+  if checkResult.exitCode == 0 then
+    IO.println "  type-checked with cargo check"
+  else
+    IO.eprintln s!"  cargo check failed:\n\
+      {checkResult.stderr}"
+    IO.Process.exit 1
