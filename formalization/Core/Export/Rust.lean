@@ -83,7 +83,7 @@ end RustBinOp
 namespace RustPat
 
 /-- Render a pattern. -/
-def render : RustPat → String
+partial def render : RustPat → String
   | .ident n => n.val
   | .wild => "_"
   | .tuple ps =>
@@ -93,6 +93,29 @@ def render : RustPat → String
   | .ref inner => s!"&{inner.render}"
   | .or pats =>
     String.intercalate " | " (pats.map RustPat.render)
+  | .struct_ sp fields rest =>
+    let fieldStrs := fields.map fun (f, p) =>
+      if p == .ident f then f.val
+      else s!"{f.val}: {p.render}"
+    let restStr := if rest then
+      if fields.isEmpty then ".." else ", .."
+    else ""
+    s!"{sp.render} \{ \
+       {", ".intercalate fieldStrs}{restStr} }"
+  | .pathArgs pp args =>
+    if args.isEmpty then pp.render
+    else
+      let argStrs := args.map RustPat.render
+      s!"{pp.render}\
+         ({", ".intercalate argStrs})"
+  | .slice elems rest =>
+    let elemStrs := elems.map RustPat.render
+    let restStr := match rest with
+      | some (.ident n) => [s!"{n.val} @ .."]
+      | some .wild => [".."]
+      | some p => [s!"{p.render} @ .."]
+      | none => []
+    s!"[{", ".intercalate (elemStrs ++ restStr)}]"
 
 end RustPat
 
@@ -512,6 +535,48 @@ def freshIdent : FreshM RustExpr := do
 def freshPat : FreshM RustPat := do
   return .ident (← fresh)
 
+namespace BodyPat
+
+/-- Convert a `BodyPat` to a typed `RustPat`.
+    `enumName` is the enum type name (for qualifying
+    variant paths). `structFields` returns field names
+    for struct destructuring. -/
+partial def toRustPat (enumName : String)
+    (structFields : String → Option (List String)
+      := fun _ => none)
+    : BodyPat → RustPat
+  | .wild => .wild
+  | .var n => .ident (leanToRustIdent n)
+  | .ctor "⟨⟩" args =>
+    match structFields enumName with
+    | some fields =>
+      let bindings := (fields.map (⟨·⟩ : String → RustIdent)).zip
+        (args.map (toRustPat "" structFields))
+      .struct_ (.simple enumName) bindings false
+    | none =>
+      .tuple (args.map (toRustPat "" structFields))
+  | .ctor n args =>
+    let capName := capitalise n
+    let rustArgs :=
+      args.map (toRustPat enumName structFields)
+    if enumName.isEmpty then
+      .pathArgs (.simple capName) rustArgs
+    else
+      .pathArgs ⟨[⟨enumName⟩, ⟨capName⟩]⟩ rustArgs
+  | .nil => .slice [] none
+  | .cons h tail =>
+    let elemName := if enumName.startsWith "List "
+      then enumName.drop 5 |>.toString
+      else enumName
+    let hPat := h.toRustPat elemName structFields
+    let restPat := match tail with
+      | .var rest => .ident (leanToRustIdent rest)
+      | .wild => .wild
+      | _ => tail.toRustPat elemName structFields
+    .slice [hPat] (some restPat)
+
+end BodyPat
+
 namespace BodyExpr
 
 /-- Convert a `BodyExpr` to a typed `RustExpr` in the
@@ -696,11 +761,11 @@ def toRustItem (f : FnDef)
           else .tuple (paramNames.map RustExpr.ident)
         let rustArms := arms.map fun arm =>
           let pats := arm.pat.zip enumNames |>.map
-            fun (p, en) => p.toRust en structFields
-          let patStr := if pats.length == 1
+            fun (p, en) => p.toRustPat en structFields
+          let pat := if pats.length == 1
             then pats.head!
-            else s!"({", ".intercalate pats})"
-          RustMatchArm.mk (.ident ⟨patStr⟩) (re arm.rhs)
+            else .tuple pats
+          RustMatchArm.mk pat (re arm.rhs)
         .block assertStmts
           (some (.«match» scrutinee rustArms))
     | .doBlock stmts ret =>

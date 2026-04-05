@@ -7,7 +7,7 @@ structure RustIdent where
 /-- A Rust path like `std::cmp::Ordering::Less` or `Self`. -/
 structure RustPath where
   segments : List RustIdent
-  deriving Repr
+  deriving Repr, BEq
 
 /-- A Rust built-in (primitive) type. -/
 inductive RustBuiltinTy where
@@ -64,7 +64,17 @@ inductive RustPat where
   | ref (inner : RustPat)
   /-- Or pattern: `A | B | C`. -/
   | or (pats : List RustPat)
-  deriving Repr
+  /-- Struct destructure: `Foo { a, b: pat, .. }`. -/
+  | struct_ (path : RustPath)
+      (fields : List (RustIdent × RustPat))
+      (rest : Bool)
+  /-- Enum/path with positional args:
+      `Ty::Ref(r, m, p)`. -/
+  | pathArgs (path : RustPath) (args : List RustPat)
+  /-- Slice pattern: `[h, rest @ ..]`, `[]`. -/
+  | slice (elems : List RustPat)
+      (rest : Option RustPat)
+  deriving Repr, BEq, Nonempty
 
 mutual
   /-- A Rust expression. -/
@@ -267,6 +277,9 @@ structure RustWorkspace where
   /-- Crate directory names (relative to workspace root). -/
   members : List String
   deriving Repr
+
+instance : Inhabited RustPat where
+  default := .wild
 
 instance : Inhabited RustExpr where
   default := .raw ""
