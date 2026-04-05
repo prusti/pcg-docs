@@ -1,11 +1,12 @@
 import Core.Doc
+import Core.Dsl.DslType
 
 /-- An argument of an enum variant (e.g. `v : RegionVid`). -/
 structure ArgDef where
   /-- The argument name (e.g. `"v"`). -/
   name : String
-  /-- The argument type name (e.g. `"RegionVid"`). -/
-  typeName : String
+  /-- The argument type (e.g. `RegionVid`). -/
+  type : DSLType
   deriving Repr
 
 /-- A part of a variant's display template. Either a literal
@@ -23,7 +24,7 @@ inductive DisplayPart where
 /-- A single variant in an exportable enum definition. -/
 structure VariantDef where
   /-- The variant name (e.g. `"exclusive"`). -/
-  name : String
+  name : DSLNamedTy
   /-- Documentation for this variant. -/
   doc : String
   /-- Display template: a list of literal fragments and
@@ -38,7 +39,7 @@ structure VariantDef where
     code generation and presentation. -/
 structure EnumDef where
   /-- The enum name (e.g. `"Capability"`). -/
-  name : String
+  name : DSLNamedTy
   /-- Formatted type symbol for document exports. -/
   symbolDoc : Doc
   /-- Top-level documentation. -/

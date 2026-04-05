@@ -186,8 +186,9 @@ elab_rules : command
       elabCommand deriveCmd
     let varDefs ←
       varData.mapM fun (vn, args, vd, dps) => do
-        let ns : TSyntax `term :=
+        let vnStr : TSyntax `term :=
           quote (toString vn.getId)
+        let ns ← `(DSLNamedTy.mk $vnStr)
         let argDefs ← args.mapM fun a => do
           let (argName, argType) ← parseVariantArg a
           let an : TSyntax `term :=
@@ -198,7 +199,8 @@ elab_rules : command
             else argType.reprint.getD
               (toString argType)
           let tn : TSyntax `term := quote typeStr
-          `({ name := $an, typeName := $tn : ArgDef })
+          `({ name := $an,
+              type := DSLType.parse $tn : ArgDef })
         let argList ← `([$[$argDefs],*])
         let argTypes ← args.toList.mapM
           fun (a : Lean.TSyntax `enumVariantArg) => do
@@ -215,7 +217,9 @@ elab_rules : command
             display := $dpList,
             args := $argList
             : VariantDef })
-    let ns : TSyntax `term := quote (toString name.getId)
+    let enumNameStr : TSyntax `term :=
+      quote (toString name.getId)
+    let ns ← `(DSLNamedTy.mk $enumNameStr)
     let varList ← `([$[$varDefs],*])
     let enumDefVal ← `(term|
       { name := $ns,

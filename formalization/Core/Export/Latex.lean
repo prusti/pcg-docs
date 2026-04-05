@@ -96,7 +96,7 @@ def formalDefLatex (d : EnumDef) : String :=
     s!"  {sep} & {variant} & \
        \\text{lb}({desc}){rb} \\\\"
   let arrayBody := "\n".intercalate rows
-  s!"\\begin{lb}definition{rb}[{d.name}]\n\
+  s!"\\begin{lb}definition{rb}[{d.name.name}]\n\
      {Doc.escapeLatex d.doc}\n\
      \\[ {sym} ::= \\begin{lb}array{rb}[t]\
      {lb}rll{rb}\n\
@@ -281,7 +281,7 @@ def formalDefLatex
           match ctorName with
           | none => none
           | some cn =>
-            let variant := variants.find? (·.name == cn)
+            let variant := variants.find? (·.name.name == cn)
             match variant with
             | none => none
             | some v => v.display.findSome? fun dp =>
@@ -349,14 +349,14 @@ namespace OrderDef
 /-- Look up the plain-text symbol for a variant name. -/
 private def lookupSymbol (e : EnumDef) (name : String)
     : String :=
-  match e.variants.find? (·.name == name) with
+  match e.variants.find? (·.name.name == name) with
   | some v => v.displayDoc.toPlainText
   | none => name
 
 /-- Look up the LaTeX math-mode symbol for a variant. -/
 private def lookupSymbolMath
     (e : EnumDef) (name : String) : String :=
-  match e.variants.find? (·.name == name) with
+  match e.variants.find? (·.name.name == name) with
   | some v => v.displayLatexMath
   | none => name
 

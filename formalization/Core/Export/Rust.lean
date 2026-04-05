@@ -460,7 +460,7 @@ namespace EnumDef
     `Box` if self-referential. -/
 private def argToRustTy
     (enumName : String) (a : ArgDef) : RustTy :=
-  let ft := DSLType.parse a.typeName
+  let ft := a.type
   let rustTy := ft.toRust
   if ft.isRecursiveIn enumName then
     .adt ⟨["Box"]⟩ [rustTy]
@@ -474,11 +474,11 @@ def toRustItem (d : EnumDef) : RustItem :=
     doc := d.doc
     attrs := [.derive defaultRustDerives]
     vis := .pub
-    name := d.name
+    name := d.name.name
     variants := d.variants.map fun v =>
       { doc := v.doc
-        name := capitalise v.name
-        fields := v.args.map (argToRustTy d.name) } }
+        name := capitalise v.name.name
+        fields := v.args.map (argToRustTy d.name.name) } }
 
 /-- Generate Rust source code for this enum. -/
 def toRust (d : EnumDef) : String :=

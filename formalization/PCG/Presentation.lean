@@ -13,7 +13,7 @@ private def mkCtorDisplay
   fun ctorName =>
     let found := enums.flatMap fun e =>
       e.enumDef.variants.filterMap fun v =>
-        if v.name == ctorName then
+        if v.name.name == ctorName then
           some v.displayLatexMath
         else none
     found.head?
@@ -44,7 +44,7 @@ private def moduleLatex
   let enumParts := enums.flatMap fun e =>
     let def_ := s!"{e.enumDef.formalDefLatex}\n"
     let orderParts := orders.filter
-      (·.enumName == e.enumDef.name) |>.map fun o =>
+      (·.enumName == e.enumDef.name.name) |>.map fun o =>
         s!"\\subsubsection{lb}Ordering{rb}\n\
            {o.orderDef.hasseDiagram e.enumDef
              |>.toLaTeX}\n"
