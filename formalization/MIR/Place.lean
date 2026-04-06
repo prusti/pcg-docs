@@ -3,6 +3,7 @@ import MIR.Ty
 defStruct Local (.raw "l", .raw "L")
   "Locals"
   "A local {def} is a variable in the MIR, identified by index."
+  constructor "LocalIdx"
 where
   | index "The local variable index." : Nat
 

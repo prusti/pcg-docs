@@ -14,6 +14,10 @@ inductive MathSym where
   | rparen
   /-- Empty set: ∅ -/
   | emptySet
+  /-- Set membership: ∈ -/
+  | setContains
+  /-- Non-breaking space. -/
+  | space
   deriving Repr
 
 mutual
@@ -77,6 +81,8 @@ def toPlainText : MathSym → String
   | .lparen => "("
   | .rparen => ")"
   | .emptySet => "∅"
+  | .setContains => "∈"
+  | .space => " "
 
 end MathSym
 
@@ -90,7 +96,7 @@ def brackets (d: MathDoc) : MathDoc :=
 def interpolateDef
     (s : String) (sym set : MathDoc) : Doc :=
   let defDoc : Doc :=
-    .math (.seq [sym, .raw " ∈ ", set])
+    .math (.seq [sym, .sym .setContains, set])
   let parts := s.splitOn "{def}"
   match parts with
   | [] => .plain ""
@@ -230,6 +236,8 @@ mutual
     | .sym .lparen => "("
     | .sym .rparen => ")"
     | .sym .emptySet => "&empty;"
+    | .sym .setContains => "&isin;"
+    | .sym .space => "&nbsp;"
     | .bb d | .bold d => s!"<b>{mathToHTML d}</b>"
     | .italic d => s!"<i>{mathToHTML d}</i>"
     | .cal d => mathToHTML d

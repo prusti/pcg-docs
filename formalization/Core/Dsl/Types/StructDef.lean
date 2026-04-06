@@ -25,6 +25,10 @@ structure StructDef where
   /-- Top-level documentation. May contain inline math
       from `{def}` interpolation. -/
   doc : Doc
+  /-- Optional constructor name (e.g. `"LocalIdx"`).
+      When set, renders as `sym ∈ set ::= Ctor(params)`.
+      When `none`, renders with angle brackets. -/
+  ctorName : Option String := none
   /-- The fields of the struct. -/
   fields : List FieldDef
   deriving Repr
@@ -33,20 +37,45 @@ namespace StructDef
 
 /-- Render the struct as a LaTeX `definition` environment. -/
 def formalDefLatex (s : StructDef) : Latex :=
-  let fieldRows := s.fields.map fun f =>
-    [ .escaped f.name
-    , .seq [.raw ": ", (f.ty.toDoc .math).toLatexMath]
-    , .seq [.raw " ", .text (.text s!"({f.doc})")]
-    ]
-  let body : Latex :=
-    if fieldRows.isEmpty then .seq []
+  let sym := s.symbolDoc.toLatexMath
+  let sp := MathSym.space.toLatex
+  let fieldNames : LatexMath :=
+    .seq (s.fields.map fun f =>
+      .seq [sp, .escaped f.name])
+  let typedParams : LatexMath :=
+    LatexMath.intercalate (.raw ",~")
+      (s.fields.map fun f =>
+        .seq [.escaped f.name, .raw " : ",
+              (f.ty.toDoc .math).toLatexMath])
+  let rhs : LatexMath := match s.ctorName with
+    | some name =>
+      .seq [.texttt name, fieldNames]
+    | none =>
+      .delimited "\\langle " "\\rangle" typedParams
+  let defLine : Latex :=
+    if s.fields.isEmpty then .seq []
+    else .seq [
+      .newline,
+      .displayMath (.seq [
+        sym, .raw " ", .cmd "in", .raw " ",
+        s.setDoc.toLatexMath, .raw " ::= ", rhs]),
+      .newline]
+  let whereBlock : Latex :=
+    if s.fields.isEmpty then .seq []
     else
-      .seq [ .newline
-           , .displayMath (.array none "rll" fieldRows)
-           , .newline ]
+      let fieldRows := s.fields.map fun f =>
+        [ .escaped f.name
+        , .seq [.raw ": ",
+                (f.ty.toDoc .math).toLatexMath]
+        , .seq [.raw " ", .text (.text s!"({f.doc})")]
+        ]
+      .seq [.raw "where", .newline,
+            .displayMath (.array none "rll" fieldRows),
+            .newline]
   .envOpts "definition" s.docParam (.seq [
     s.doc.toLatex,
-    body
+    defLine,
+    whereBlock
   ])
 
 end StructDef

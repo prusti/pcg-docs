@@ -226,6 +226,8 @@ def toLatex : MathSym → LatexMath
   | .lparen => .raw "("
   | .rparen => .raw ")"
   | .emptySet => .raw "\\emptyset"
+  | .setContains => .raw " \\in "
+  | .space => .raw "~"
 
 end MathSym
 
