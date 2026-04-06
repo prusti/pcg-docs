@@ -17,13 +17,15 @@ syntax "| " ident str ":" term : structField
 
     Example:
     ```
-    defStruct RegionVid (.doc (.plain "vid"))
+    defStruct RegionVid (.doc (.plain "vid"),
+        .doc (.plain "RegionVid"))
       "Region Variables"
       "A region variable identifier."
     where
       | id "The region variable id." : Nat
     ``` -/
-syntax "defStruct " ident "(" term ")" str str " where"
+syntax "defStruct " ident "(" term "," term ")"
+    str str " where"
     structField* ("deriving " ident,+)? : command
 
 /-- Extract field name, type, and doc from a `structField`
@@ -40,7 +42,7 @@ private def parseStructField
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defStruct $name:ident ($symDoc:term)
+  | `(defStruct $name:ident ($symDoc:term, $setDoc:term)
        $docParam:str $doc:str where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
@@ -89,6 +91,7 @@ elab_rules : command
           : StructDef :=
         { name := $ns,
           symbolDoc := ($symDoc : MathDoc),
+          setDoc := ($setDoc : MathDoc),
           docParam := $docParam, doc := $doc,
           fields := $fieldList }))
     let mod ← getMainModule

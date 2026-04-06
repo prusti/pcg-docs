@@ -18,6 +18,8 @@ structure StructDef where
   name : String
   /-- Formatted type symbol for document exports. -/
   symbolDoc : MathDoc
+  /-- Symbol for the set of all values of this type. -/
+  setDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Basic Blocks"`). -/
   docParam : String
   /-- Top-level documentation. -/

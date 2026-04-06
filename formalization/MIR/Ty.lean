@@ -1,20 +1,22 @@
 import MIR.Region
 import Core.Dsl.DefFn
 
-defStruct TyCtorName (.raw "T")
-  "Type Constrawor Names"
+defStruct TyCtorName (.raw "T",
+    .doc (.plain "TyCtorName"))
+  "Type Constructor Names"
   "A type constructor name, representing an ADT or \
    primitive type."
 where
   | name "The constructor name." : String
 
-defStruct AliasTyName (.raw "A")
+defStruct AliasTyName (.raw "A",
+    .doc (.plain "AliasTyName"))
   "Alias Type Names"
   "An associated type name."
 where
   | name "The associated type name." : String
 
-defEnum Mutability (.raw "m")
+defEnum Mutability (.raw "m", .raw "M")
   "Mutabilities"
   "Mutability of a reference."
 where
@@ -25,7 +27,7 @@ where
     "Mutable"
     (.doc (.plain "mut"))
 
-defEnum Ty (.raw "τ")
+defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
   "A type in the MIR. See definitions/types.md."
 where
@@ -65,7 +67,7 @@ where
 instance : Inhabited Ty where
   default := .param 0
 
-defEnum Value (.raw "v")
+defEnum Value (.raw "v", .raw "V")
   "Values"
   "A concrete runtime value."
 where

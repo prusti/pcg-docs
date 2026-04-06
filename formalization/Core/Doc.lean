@@ -110,6 +110,7 @@ private def latexReplacements :
   , ("∨", "$\\lor$", "\\lor")
   , ("τ̄", "$\\bar{\\tau}$", "\\bar{\\tau}")
   , ("τ", "$\\tau$", "\\tau")
+  , ("Π", "$\\Pi$", "\\Pi")
   , ("π", "$\\pi$", "\\pi")
   , ("₀", "$_0$", "_0")
   , ("⟨", "$\\langle$", "\\langle")

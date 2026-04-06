@@ -1,6 +1,6 @@
 import Core.Dsl.DefEnum
 
-defEnum Capability (.raw "c")
+defEnum Capability (.raw "c", .raw "C")
   "Capabilities"
   "A capability describes the actions permitted on a \
    place at a particular program point."

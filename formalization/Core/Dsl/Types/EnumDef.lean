@@ -43,6 +43,8 @@ structure EnumDef where
   name : DSLNamedTy
   /-- Formatted type symbol for document exports. -/
   symbolDoc : MathDoc
+  /-- Symbol for the set of all values of this type. -/
+  setDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Operands"`). -/
   defnName : String
   /-- Top-level documentation. -/

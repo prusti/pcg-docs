@@ -2,13 +2,14 @@ import MIR.Place
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 
-defStruct BasicBlockIdx (.doc (.plain "bb"))
+defStruct BasicBlockIdx (.doc (.plain "bb"),
+    .doc (.plain "BasicBlockIdx"))
   "Basic Block Indices"
   "An index into the list of basic blocks."
 where
   | index "The basic block index." : Nat
 
-defEnum Operand (.raw "o")
+defEnum Operand (.raw "o", .raw "O")
   "Operands"
   "An operand in a MIR statement or terminator."
 where
@@ -35,7 +36,7 @@ defFn operandPlace (.plain "operandPlace")
 
 end Operand
 
-defEnum Rvalue (.raw "rv")
+defEnum Rvalue (.raw "rv", .raw "Rv")
   "Rvalues"
   "A right-hand side value in an assignment."
 where
@@ -61,7 +62,7 @@ defFn rvaluePlace (.plain "rvaluePlace")
 
 end Rvalue
 
-defEnum Statement (.raw "s")
+defEnum Statement (.raw "s", .raw "S")
   "Statements"
   "A MIR statement within a basic block."
 where
@@ -91,7 +92,7 @@ defFn statementPlaces (.plain "statementPlaces")
 
 end Statement
 
-defEnum Terminator (.raw "t")
+defEnum Terminator (.raw "t", .raw "T")
   "Terminators"
   "A basic block terminator."
 where
@@ -139,7 +140,8 @@ defFn terminatorPlaces (.plain "terminatorPlaces")
 
 end Terminator
 
-defStruct BasicBlock (.raw "B")
+defStruct BasicBlock (.raw "B",
+    .doc (.plain "BasicBlock"))
   "Basic Blocks"
   "A basic block: a sequence of statements followed \
    by a terminator."
@@ -160,7 +162,8 @@ defFn basicBlockPlaces (.plain "basicBlockPlaces")
 
 end BasicBlock
 
-defStruct Body (.doc (.plain "body"))
+defStruct Body (.doc (.plain "body"),
+    .doc (.plain "Body"))
   "Bodies"
   "A MIR function body"
 where
@@ -180,7 +183,8 @@ defFn bodyPlaces (.plain "bodyPlaces")
 
 end Body
 
-defStruct PlaceTy (.doc (.plain "pty"))
+defStruct PlaceTy (.doc (.plain "pty"),
+    .doc (.plain "PlaceTy"))
   "Place Types"
   "The type of a place: a type paired with an optional \
    variant index (set after a downcast)."

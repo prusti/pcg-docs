@@ -38,7 +38,7 @@ syntax "| " ident enumVariantArg* str
 
     Variants may carry arguments. Display parts are `MathDoc`:
     ```
-    defEnum Region (.math (.var "r"))
+    defEnum Region (.raw "r", .raw "R")
       "Regions"
       "A region (lifetime) in the MIR."
     where
@@ -50,15 +50,16 @@ syntax "| " ident enumVariantArg* str
 
     A custom `deriving` clause overrides the default:
     ```
-    defEnum Ty (.math (.var "τ"))
+    defEnum Ty (.raw "τ", .raw "Ty")
       "Types"
       "A MIR type."
     where
       | param (index : Nat) "..."
-          (.doc (.plain "param "), #index (.var "i"))
+          (.doc (.plain "param "), #index (.raw "i"))
       deriving Repr
     ``` -/
-syntax "defEnum " ident "(" term ")" str str " where"
+syntax "defEnum " ident "(" term "," term ")" str str
+    " where"
     enumVariant* ("deriving " ident,+)? : command
 
 private def mkNullNode' : Lean.Syntax :=
@@ -162,7 +163,7 @@ private def parseDisplayPart
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defEnum $name:ident ($symDoc:term)
+  | `(defEnum $name:ident ($symDoc:term, $setDoc:term)
        $defnName:str $doc:str where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
     let varData ← vs.mapM fun v => match v with
@@ -230,6 +231,7 @@ elab_rules : command
     let enumDefVal ← `(term|
       { name := $ns,
         symbolDoc := ($symDoc : MathDoc),
+        setDoc := ($setDoc : MathDoc),
         defnName := $defnName, doc := $doc,
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)
