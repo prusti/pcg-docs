@@ -12,7 +12,7 @@ inductive BodyPat where
   | nil
   /-- List cons pattern: `h :: t`. -/
   | cons (head : BodyPat) (tail : BodyPat)
-  deriving Repr
+  deriving Repr, Inhabited
 
 /-- An expression in the function body DSL. -/
 inductive BodyExpr where
@@ -75,6 +75,12 @@ inductive BodyExpr where
   | sorryProof
   /-- Raw Lean proof term, invisible in Rust/LaTeX. -/
   | leanProof (term : String)
+  /-- Match expression:
+      `match scrutinee with | pats => rhs | …`.
+      Each arm is a list of patterns paired with a
+      right-hand side. -/
+  | match_ (scrutinee : BodyExpr)
+      (arms : List (List BodyPat × BodyExpr))
   deriving Repr
 
 /-- A statement in a do-block. -/
@@ -231,6 +237,12 @@ partial def quoteExpr : BodyExpr → TSyntax `term
     Syntax.mkApp (mkIdent ``BodyExpr.sorryProof) #[]
   | .leanProof t =>
     Syntax.mkApp (mkIdent ``BodyExpr.leanProof) #[quote t]
+  | .match_ scrut arms =>
+    let qArms := arms.map fun (pats, rhs) =>
+      Syntax.mkApp (mkIdent ``Prod.mk)
+        #[quote pats, quoteExpr rhs]
+    Syntax.mkApp (mkIdent ``BodyExpr.match_)
+      #[quoteExpr scrut, quote qArms]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr
@@ -354,6 +366,19 @@ partial def toLatexMath
          , .escaped p, .raw ",~", go b ]
   | .sorryProof => .seq []
   | .leanProof _ => .seq []
+  | .match_ scrut arms =>
+    let noCtor : String → Option LatexMath :=
+      fun _ => Option.none
+    let rows := arms.map fun (pats, rhs) =>
+      let patMath := LatexMath.intercalate (.raw ",~")
+        (pats.map (BodyPat.toLatexMath noCtor))
+      [go rhs, .seq [ .text (.raw "if~")
+                     , patMath ]]
+    .seq [ .text (.raw "match~")
+         , go scrut
+         , .raw ": "
+         , .delimited "\\left\\{" "\\right."
+             (.array Option.none "ll" rows) ]
 
 end BodyExpr
 
@@ -454,6 +479,29 @@ def formalDefLatex
                  (ret.toLatexMath f.name noDisp
                     ctorDisplay isProperty)) ]
       stmtLines ++ [retLine]
+    | .expr (.match_ scrut matchArms) =>
+      let noDisp : String → Option LatexMath :=
+        fun _ => none
+      let goExpr := BodyExpr.toLatexMath f.name
+        noDisp ctorDisplay isProperty
+      let headerLine : Latex :=
+        .seq [ .raw "    "
+             , Latex.state (.seq [
+                 .textbf (.raw "match"), .raw " "
+               , .inlineMath (goExpr scrut)
+               , .raw ":" ]) ]
+      let armLines := matchArms.map fun (pats, rhs) =>
+        let patMath := LatexMath.intercalate
+          (.raw ",~")
+          (pats.map (BodyPat.toLatexMath noDisp))
+        let rhsMath := goExpr rhs
+        .seq [ .raw "    "
+             , Latex.state (.seq [
+                 .textbf (.raw "case"), .raw " "
+               , .inlineMath patMath
+               , .raw ": "
+               , .inlineMath rhsMath ]) ]
+      headerLine :: armLines
     | .expr body =>
       let noDisp : String → Option LatexMath :=
         fun _ => none

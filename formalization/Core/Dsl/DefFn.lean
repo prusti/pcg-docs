@@ -80,6 +80,9 @@ syntax "| " fnPat "; " fnPat " => " fnExpr : fnArm
 syntax "| " fnPat "; " fnPat "; " fnPat " => " fnExpr
     : fnArm
 
+-- Match expression: match expr with | pat => expr end
+syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
+
 declare_syntax_cat fnStmt
 syntax "let " ident " := " fnExpr : fnStmt
 syntax "let " ident " ← " fnExpr : fnStmt
@@ -204,6 +207,23 @@ partial def parseExpr
   | `(fnExpr| sorry) => pure .sorryProof
   | `(fnExpr| lean_proof($s:str)) =>
     pure (.leanProof s.getString)
+  | `(fnExpr| match $scrut:fnExpr with
+        $arms:fnArm* end) => do
+    let scrutAst ← parseExpr scrut
+    let parsedArms ← arms.mapM fun arm =>
+      match arm with
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+            => $rhs:fnExpr) => do
+        pure ([← parsePat p1, ← parsePat p2,
+          ← parsePat p3], ← parseExpr rhs)
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
+            $rhs:fnExpr) => do
+        pure ([← parsePat p1, ← parsePat p2],
+          ← parseExpr rhs)
+      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
+        pure ([← parsePat p], ← parseExpr rhs)
+      | _ => Lean.Elab.throwUnsupportedSyntax
+    pure (.match_ scrutAst parsedArms.toList)
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 def parseStmt

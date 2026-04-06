@@ -168,6 +168,13 @@ partial def toLeanWith
   | .forall_ p b => s!"∀ {p}, {go b}"
   | .sorryProof => "sorry"
   | .leanProof t => t
+  | .match_ scrut arms =>
+    let armStrs := arms.map fun (pats, rhs) =>
+      let patStr := ", ".intercalate
+        (pats.map BodyPat.toLean)
+      s!"  | {patStr} => {go rhs}"
+    s!"match {go scrut} with\n\
+       {"\n".intercalate armStrs}"
 
 partial def toLean : BodyExpr → String :=
   toLeanWith "" []
@@ -389,6 +396,9 @@ partial def calledNames : BodyExpr → List String
   | .index l i => l.calledNames ++ i.calledNames
   | .indexBang l i => l.calledNames ++ i.calledNames
   | .field e _ => e.calledNames
+  | .match_ scrut arms =>
+    scrut.calledNames ++
+      arms.flatMap fun (_, rhs) => rhs.calledNames
   | _ => []
 
 end BodyExpr

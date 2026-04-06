@@ -745,6 +745,14 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     pure (.raw "/* forall omitted */")
   | .sorryProof => pure (.raw "/* sorry */")
   | .leanProof _ => pure (.raw "/* proof omitted */")
+  | .match_ scrut arms => do
+    let scrutExpr ← scrut.toRustExpr
+    let rustArms ← arms.mapM fun (pats, rhs) => do
+      let pat := if pats.length == 1
+        then pats.head!.toRustPat ""
+        else .tuple (pats.map (·.toRustPat ""))
+      pure (RustMatchArm.mk pat (← rhs.toRustExpr))
+    pure (.«match» scrutExpr rustArms)
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=

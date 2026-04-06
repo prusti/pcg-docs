@@ -44,14 +44,18 @@ where
   | allocs "The allocations." : List Allocation
 
 namespace Memory
-open Allocation in
 
+def last := @List.getLast?
+
+open Allocation in
 defFn top (.plain "top")
   "The next available address after all allocations."
   (m "The memory." : Memory)
-  : Address where
-  | ⟨[]⟩ => Address⟨0⟩
-  | ⟨h :: t⟩ => Address⟨endAddr ‹(h :: t)·getLast!› + 1⟩
+  : Address :=
+  match last ‹m↦allocs› with
+  | .none => Address⟨0⟩
+  | .some alloc => Address⟨endAddr ‹alloc› + 1⟩
+  end
 
 open Allocation in
 
