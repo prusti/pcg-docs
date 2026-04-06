@@ -67,7 +67,7 @@ where
 instance : Inhabited Ty where
   default := .param 0
 
-defEnum Value (.raw "v", .raw "V")
+defEnum Value (.raw "v", .cal (.raw "V"))
   "Values"
   "A concrete runtime value."
 where

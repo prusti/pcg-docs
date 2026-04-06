@@ -47,8 +47,9 @@ structure EnumDef where
   setDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Operands"`). -/
   defnName : String
-  /-- Top-level documentation. -/
-  doc : String
+  /-- Top-level documentation. May contain inline math
+      from `{def}` interpolation. -/
+  doc : Doc
   /-- The variants of the enum. -/
   variants : List VariantDef
   deriving Repr
@@ -83,7 +84,7 @@ def shortDef (d : EnumDef) : Doc :=
 /-- Long formal definition with descriptions. -/
 def longDef (d : EnumDef) : Doc :=
   let header := Doc.seq
-    [.plain d.doc, .plain " ", .math d.symbolDoc,
+    [d.doc, .plain " ", .math d.symbolDoc,
      .plain " is one of:"]
   let items := d.variants.map fun v =>
     Doc.seq [v.displayDoc, .plain s!": {v.doc}"]
@@ -128,9 +129,10 @@ def formalDefLatex (d : EnumDef) : Latex :=
         .raw "(", .text v.doc, .raw ")"])]
     [sep, variant, desc]
   .envOpts "definition" d.defnName (.seq [
-    .text d.doc, .newline,
+    d.doc.toLatex, .newline,
     .displayMath (.seq [
-      sym, .raw " ::= ",
+      sym, .raw " ", .cmd "in", .raw " ",
+      d.setDoc.toLatexMath, .raw " ::= ",
       .array (some "t") "rll" rows
     ]), .newline
   ])

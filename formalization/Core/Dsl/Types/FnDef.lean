@@ -261,7 +261,8 @@ partial def toLatexMath
     else .text (.raw "false")
   | .emptyList => .raw "[]"
   | .none_ => .text (.raw "None")
-  | .some_ e => go e
+  | .some_ e =>
+    .seq [.text (.raw "Some"), .raw "(", go e, .raw ")"]
   | .mkStruct _ args =>
     .delimited "(" ")"
       (LatexMath.intercalate (.raw ",~")

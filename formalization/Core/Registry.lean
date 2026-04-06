@@ -28,14 +28,38 @@ initialize enumRegistry : IO.Ref (List RegisteredEnum) ←
 initialize structRegistry : IO.Ref (List RegisteredStruct) ←
   IO.mkRef []
 
+/-- Registry mapping symbol strings to the type name that
+    claimed them, for duplicate detection. -/
+initialize symbolRegistry :
+    IO.Ref (List (String × String)) ←
+  IO.mkRef []
+
+/-- Check that a symbol is not already claimed by another
+    type. Logs a warning if a duplicate is found. -/
+private def checkSymbolUnique
+    (sym : MathDoc) (typeName : String) : IO Unit := do
+  let rendered := sym.toLatexMath.render
+  if rendered.isEmpty then return
+  let existing ← symbolRegistry.get
+  match existing.find? (·.1 == rendered) with
+  | some (_, owner) =>
+    IO.eprintln s!"warning: symbol '{rendered}' is \
+      used by both '{owner}' and '{typeName}'"
+  | none => pure ()
+  symbolRegistry.modify (· ++ [(rendered, typeName)])
+
 /-- Register an enum definition from the given module. -/
 def registerEnumDef
-    (e : EnumDef) (mod : Lean.Name) : IO Unit :=
+    (e : EnumDef) (mod : Lean.Name) : IO Unit := do
+  checkSymbolUnique e.symbolDoc e.name.name
+  checkSymbolUnique e.setDoc e.name.name
   enumRegistry.modify (· ++ [⟨e, mod⟩])
 
 /-- Register a struct definition from the given module. -/
 def registerStructDef
-    (s : StructDef) (mod : Lean.Name) : IO Unit :=
+    (s : StructDef) (mod : Lean.Name) : IO Unit := do
+  checkSymbolUnique s.symbolDoc s.name
+  checkSymbolUnique s.setDoc s.name
   structRegistry.modify (· ++ [⟨s, mod⟩])
 
 /-- Retrieve all registered enum definitions. -/

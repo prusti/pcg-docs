@@ -92,7 +92,9 @@ elab_rules : command
         { name := $ns,
           symbolDoc := ($symDoc : MathDoc),
           setDoc := ($setDoc : MathDoc),
-          docParam := $docParam, doc := $doc,
+          docParam := $docParam,
+          doc := Doc.interpolateDef $doc
+            ($symDoc : MathDoc) ($setDoc : MathDoc),
           fields := $fieldList }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod

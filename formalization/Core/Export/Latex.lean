@@ -242,7 +242,7 @@ mutual
       .env "itemize" (.seq (items.map fun d =>
         .seq [Latex.item d.toLatex, .newline]))
     | .raw latex _ _ => .raw latex
-    | .math m => MathDoc.toLatex m
+    | .math m => .inlineMath m.toLatexMath
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
   partial def MathDoc.toLatex : MathDoc → Latex

@@ -92,7 +92,8 @@ defFn statementPlaces (.plain "statementPlaces")
 
 end Statement
 
-defEnum Terminator (.raw "t", .raw "T")
+defEnum Terminator (.raw "t",
+    .doc (.plain "Term"))
   "Terminators"
   "A basic block terminator."
 where

@@ -85,6 +85,20 @@ namespace Doc
 def brackets (d: MathDoc) : MathDoc :=
   .seq [.sym .lbracket, d, .sym .rbracket]
 
+/-- Interpolate `{def}` in a documentation string, replacing
+    each occurrence with inline math `sym ∈ set`. -/
+def interpolateDef
+    (s : String) (sym set : MathDoc) : Doc :=
+  let defDoc : Doc :=
+    .math (.seq [sym, .raw " ∈ ", set])
+  let parts := s.splitOn "{def}"
+  match parts with
+  | [] => .plain ""
+  | [single] => .plain single
+  | first :: rest =>
+    .seq ((.plain first) :: rest.flatMap fun part =>
+      [defDoc, .plain part])
+
 
 
 /-- Unicode-to-LaTeX replacement pairs. Each pair is

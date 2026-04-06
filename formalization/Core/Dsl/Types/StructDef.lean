@@ -22,8 +22,9 @@ structure StructDef where
   setDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Basic Blocks"`). -/
   docParam : String
-  /-- Top-level documentation. -/
-  doc : String
+  /-- Top-level documentation. May contain inline math
+      from `{def}` interpolation. -/
+  doc : Doc
   /-- The fields of the struct. -/
   fields : List FieldDef
   deriving Repr
@@ -44,7 +45,7 @@ def formalDefLatex (s : StructDef) : Latex :=
            , .displayMath (.array none "rll" fieldRows)
            , .newline ]
   .envOpts "definition" s.docParam (.seq [
-    .text s.doc,
+    s.doc.toLatex,
     body
   ])
 

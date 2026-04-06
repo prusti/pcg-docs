@@ -502,7 +502,7 @@ private def argToRustTy
     fields are wrapped in `Box<>`. -/
 def toRustItem (d : EnumDef) : RustItem :=
   .enum {
-    doc := d.doc
+    doc := d.doc.toPlainText
     attrs := [.derive defaultRustDerives]
     vis := .pub
     name := ⟨d.name.name⟩
@@ -803,7 +803,7 @@ namespace StructDef
 def toRustItems (s : StructDef) : List RustItem :=
   let fieldTys := s.fields.map fun f => f.ty.toRust
   let rs : RustStruct := {
-    doc := s.doc
+    doc := s.doc.toPlainText
     attrs := [.derive defaultRustDerives]
     vis := .pub
     name := ⟨s.name⟩
@@ -898,9 +898,9 @@ def buildModules
         (·.propertyDef.fnDef.toRustItem structFieldLookup) ++
       modExtras
     let doc := match modEnums.head? with
-      | some e => e.enumDef.doc
+      | some e => e.enumDef.doc.toPlainText
       | none => match modStructs.head? with
-        | some s => s.structDef.doc
+        | some s => s.structDef.doc.toPlainText
         | none => modName
     let usesSet := modFns.any
       fun f => f.fnDef.returnType matches .set ..

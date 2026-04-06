@@ -232,7 +232,9 @@ elab_rules : command
       { name := $ns,
         symbolDoc := ($symDoc : MathDoc),
         setDoc := ($setDoc : MathDoc),
-        defnName := $defnName, doc := $doc,
+        defnName := $defnName,
+        doc := Doc.interpolateDef $doc
+          ($symDoc : MathDoc) ($setDoc : MathDoc),
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)
     elabCommand (← `(command|
