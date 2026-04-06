@@ -18,6 +18,8 @@ structure StructDef where
   name : String
   /-- Formatted type symbol for document exports. -/
   symbolDoc : Doc
+  /-- LaTeX definition title (e.g. `"Basic Blocks"`). -/
+  docParam : String
   /-- Top-level documentation. -/
   doc : String
   /-- The fields of the struct. -/
@@ -39,7 +41,7 @@ def formalDefLatex (s : StructDef) : Latex :=
       .seq [ .newline
            , .displayMath (.array none "rll" fieldRows)
            , .newline ]
-  .envOpts "definition" s.name (.seq [
+  .envOpts "definition" s.docParam (.seq [
     .text s.doc,
     body
   ])

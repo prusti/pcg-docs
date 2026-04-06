@@ -2,11 +2,13 @@ import Core.Dsl.DefEnum
 import Core.Dsl.DefStruct
 
 defStruct RegionVid (.plain "vid")
+  "Region Variables"
   "A region variable identifier."
 where
   | id "The region variable id." : Nat
 
 defStruct EarlyBoundRegion (.plain "eb")
+  "Early-Bound Regions"
   "An early-bound region, identified by its index \
    in the function's generic parameter list."
 where

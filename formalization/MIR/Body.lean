@@ -3,6 +3,7 @@ import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 
 defStruct BasicBlockIdx (.plain "bb")
+  "Basic Block Indices"
   "An index into the list of basic blocks."
 where
   | index "The basic block index." : Nat
@@ -135,6 +136,7 @@ defFn terminatorPlaces (.plain "terminatorPlaces")
 end Terminator
 
 defStruct BasicBlock (.math (.var "B"))
+  "Basic Blocks"
   "A basic block: a sequence of statements followed \
    by a terminator."
 where
@@ -155,7 +157,8 @@ defFn basicBlockPlaces (.plain "basicBlockPlaces")
 end BasicBlock
 
 defStruct Body (.plain "body")
-  "A MIR function body."
+  "Bodies"
+  "A MIR function body"
 where
   | decls "The local variable declarations."
       : List Ty
@@ -174,6 +177,7 @@ defFn bodyPlaces (.plain "bodyPlaces")
 end Body
 
 defStruct PlaceTy (.plain "pty")
+  "Place Types"
   "The type of a place: a type paired with an optional \
    variant index (set after a downcast)."
 where

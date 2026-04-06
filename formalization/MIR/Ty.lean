@@ -2,12 +2,14 @@ import MIR.Region
 import Core.Dsl.DefFn
 
 defStruct TyCtorName (.math (.var "T"))
+  "Type Constructor Names"
   "A type constructor name, representing an ADT or \
    primitive type."
 where
   | name "The constructor name." : String
 
 defStruct AliasTyName (.math (.var "A"))
+  "Alias Type Names"
   "An associated type name."
 where
   | name "The associated type name." : String
