@@ -42,16 +42,13 @@ def formalDefLatex (s : StructDef) : Latex :=
   let fieldNames : LatexMath :=
     .seq (s.fields.map fun f =>
       .seq [sp, .escaped f.name])
-  let typedParams : LatexMath :=
-    LatexMath.intercalate (.raw ",~")
-      (s.fields.map fun f =>
-        .seq [.escaped f.name, .raw " : ",
-              (f.ty.toDoc .math).toLatexMath])
   let rhs : LatexMath := match s.ctorName with
     | some name =>
       .seq [.texttt name, fieldNames]
     | none =>
-      .delimited "\\langle " "\\rangle" typedParams
+      let names := LatexMath.intercalate (.raw ",~")
+        (s.fields.map fun f => .escaped f.name)
+      .delimited "\\langle " "\\rangle" names
   let defLine : Latex :=
     if s.fields.isEmpty then .seq []
     else .seq [

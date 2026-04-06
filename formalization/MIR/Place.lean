@@ -10,6 +10,7 @@ where
 defStruct FieldIdx (.raw "f", .raw "F")
   "Field Indices"
   "A field index within a struct or tuple."
+  constructor "FieldIdx"
 where
   | index "The field index." : Nat
 
@@ -17,6 +18,7 @@ defStruct VariantIdx (.raw "V",
     .doc (.plain "VariantIdx"))
   "Variant Indices"
   "A variant index within an enum."
+  constructor "VariantIdx"
 where
   | index "The variant index." : Nat
 
