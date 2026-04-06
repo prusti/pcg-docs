@@ -146,6 +146,7 @@ partial def toLeanWith
   | .foldlM fn init list =>
     s!"{go list}.foldlM {fn} {go init}"
   | .lt l r => s!"{go l} < {go r}"
+  | .add l r => s!"{go l} + {go r}"
   | .setAll set param body =>
     s!"∀ {param} ∈ {go set}, {go body}"
   | .emptySet => "(∅ : Set _)"
@@ -370,6 +371,7 @@ partial def calledNames : BodyExpr → List String
   | .setSingleton e => e.calledNames
   | .cons h t => h.calledNames ++ t.calledNames
   | .lt l r => l.calledNames ++ r.calledNames
+  | .add l r => l.calledNames ++ r.calledNames
   | .mkStruct _ args => args.flatMap calledNames
   | .index l i => l.calledNames ++ i.calledNames
   | .indexBang l i => l.calledNames ++ i.calledNames

@@ -33,6 +33,8 @@ structure StructDef where
       When set, renders as `sym ∈ set ::= Ctor(params)`.
       When `none`, renders with angle brackets. -/
   ctorName : Option String := none
+  /-- Optional note (e.g. a URL) rendered as a footnote. -/
+  note : Option String := none
   /-- The fields of the struct. -/
   fields : List FieldDef
   deriving Repr
@@ -77,8 +79,12 @@ def formalDefLatex (s : StructDef) : Latex :=
       .seq [.raw "where", .newline,
             .displayMath (.array none "rll" fieldRows),
             .newline]
+  let noteFootnote : Latex := match s.note with
+    | some url =>
+      .cmd "footnote" [.cmd "url" [.raw url]]
+    | none => .seq []
   .envOpts "definition" s.docParam (.seq [
-    s.doc.toLatex,
+    s.doc.toLatex, noteFootnote,
     defLine,
     whereBlock
   ])

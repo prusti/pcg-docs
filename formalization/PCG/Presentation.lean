@@ -133,7 +133,7 @@ def buildPresentationLatex
 /-- LaTeX packages needed by the presentation. -/
 def latexPackages : List String :=
   ["tikz", "amsmath", "amssymb", "amsthm",
-   "algorithm", "algpseudocode"]
+   "algorithm", "algpseudocode", "hyperref"]
 
 /-- Extra LaTeX preamble (theorem definitions, etc). -/
 def latexPreamble : Latex :=

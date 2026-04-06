@@ -43,6 +43,8 @@ syntax ident "‹" fnExpr,* "›" : fnExpr
 syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 -- Less-than: expr < expr
 syntax fnExpr " < " fnExpr : fnExpr
+-- Addition: expr + expr
+syntax fnExpr " + " fnExpr : fnExpr
 -- Empty set: ∅
 syntax "∅" : fnExpr
 -- Set singleton: ⦃ expr ���
@@ -162,6 +164,8 @@ partial def parseExpr
       (← parseExpr init) (← parseExpr e))
   | `(fnExpr| $l:fnExpr < $r:fnExpr) =>
     pure (.lt (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr + $r:fnExpr) =>
+    pure (.add (← parseExpr l) (← parseExpr r))
   | `(fnExpr| ∅) => pure .emptySet
   | `(fnExpr| ⦃ $e:fnExpr ⦄) =>
     pure (.setSingleton (← parseExpr e))

@@ -25,7 +25,8 @@ syntax "| " ident str ":" term : structField
       | id "The region variable id." : Nat
     ``` -/
 syntax "defStruct " ident "(" term "," term ")"
-    str str ("constructor" str)? " where"
+    str str ("constructor" str)? ("note" str)?
+    " where"
     structField* ("deriving " ident,+)? : command
 
 /-- Extract field name, type, and doc from a `structField`
@@ -43,7 +44,8 @@ private def parseStructField
 open Lean Elab Command in
 elab_rules : command
   | `(defStruct $name:ident ($symDoc:term, $setDoc:term)
-       $docParam:str $doc:str $[constructor $ctorName:str]? where
+       $docParam:str $doc:str $[constructor $ctorName:str]?
+       $[note $noteLit:str]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
     let fieldData ← fs.mapM parseStructField
@@ -109,9 +111,12 @@ elab_rules : command
     let ctorTerm : TSyntax `term ← match ctorName with
       | some cn => `(some $cn)
       | none => `(none)
+    let noteTerm : TSyntax `term ← match noteLit with
+      | some n => `(some $n)
+      | none => `(none)
+    let sdId := mkIdent (name.getId ++ `structDef)
     elabCommand (← `(command|
-      def $(mkIdent (name.getId ++ `structDef))
-          : StructDef :=
+      def $sdId : StructDef :=
         { name := $ns,
           symbolDoc := ($symDoc : MathDoc),
           setDoc := ($setDoc : MathDoc),
@@ -119,9 +124,9 @@ elab_rules : command
           doc := Doc.interpolateDef $doc
             ($symDoc : MathDoc) ($setDoc : MathDoc),
           ctorName := $ctorTerm,
+          «note» := $noteTerm,
           fields := $fieldList }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod
-    let sdId := mkIdent (name.getId ++ `structDef)
     elabCommand (← `(command|
       initialize registerStructDef $sdId $modName))

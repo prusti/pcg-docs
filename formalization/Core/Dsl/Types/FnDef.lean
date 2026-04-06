@@ -43,6 +43,8 @@ inductive BodyExpr where
       (list : BodyExpr)
   /-- Less-than comparison: `lhs < rhs`. -/
   | lt (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Addition: `lhs + rhs`. -/
+  | add (lhs : BodyExpr) (rhs : BodyExpr)
   /-- Universal quantifier over a set:
       `∀ x ∈ s, body`. -/
   | setAll (set : BodyExpr) (param : String)
@@ -182,6 +184,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .lt l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.lt)
       #[quoteExpr l, quoteExpr r]
+  | .add l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.add)
+      #[quoteExpr l, quoteExpr r]
   | .setAll set param body =>
     Syntax.mkApp (mkIdent ``BodyExpr.setAll)
       #[quoteExpr set, quote param, quoteExpr body]
@@ -299,6 +304,7 @@ partial def toLatexMath
     .seq [ .text (.raw fn), .raw "^*(", go init
          , .raw ",~", go list, .raw ")" ]
   | .lt l r => .binop "<" (go l) (go r)
+  | .add l r => .binop "+" (go l) (go r)
   | .setAll set param body =>
     .seq [ .cmd "forall", .raw " "
          , .escaped param, .raw " "

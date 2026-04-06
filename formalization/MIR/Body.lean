@@ -292,8 +292,10 @@ defProperty validBody (.plain "validBody")
            .plain " is ",
            .italic (.plain "valid"),
            .plain " iff every place in ",
-           .code "bodyPlaces(body)",
-           .plain " is valid for ",
+           .code "bodyPlaces",
+           .plain "(",
+           .math (.raw "body"),
+           .plain ") is valid for ",
            .math (.raw "body"),
            .plain "."])
   where
