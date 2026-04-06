@@ -196,6 +196,7 @@ def toLean : FnBody → String
     let retStr := ret.toLean
     (body ++ [s!"  {retStr}"]).foldl
       (fun acc l => acc ++ l ++ "\n") ""
+  | .expr body => s!"  {body.toLean}\n"
 
 end FnBody
 
@@ -302,6 +303,10 @@ def toLean
          exact do\n\
          {"\n".intercalate allLines}\n\
          <;> sorry"
+  | .expr body =>
+    let rhsStr := body.toLeanWith f.name precondNames
+    s!"def {f.name} {paramBinds} {precBinds} \
+       : {retRepr} :=\n  {rhsStr}"
 
 end FnDef
 
@@ -384,6 +389,7 @@ def calledNames : FnBody → List String
       | .let_ _ v => v.calledNames
       | .letBind _ v => v.calledNames)
     ++ ret.calledNames
+  | .expr body => body.calledNames
 
 end FnBody
 

@@ -73,6 +73,7 @@ elab_rules : command
       elabCommand (← `(command|
         deriving instance $d:ident for $name))
     -- Build StructDef metadata
+    let selfN := Name.mkSimple (toString name.getId)
     let fieldDefs ← fieldData.mapM
       fun (fn, ft, fd) => do
         let ns : TSyntax `term :=
@@ -81,8 +82,27 @@ elab_rules : command
           if ft.isIdent then toString ft.getId
           else ft.reprint.getD (toString ft)
         let tyTerm ← `(DSLType.parse $(quote typeStr))
+        let symTerm : TSyntax `term ←
+          if ft.isIdent then do
+            let tn := Name.mkSimple (toString ft.getId)
+            let env ← getEnv
+            if tn == selfN then
+              `(some ($symDoc : MathDoc))
+            else if env.find? (tn ++ `enumDef) |>.isSome
+                then
+              let ref := mkIdent
+                (tn ++ `enumDef ++ `symbolDoc)
+              `(some $ref)
+            else if env.find? (tn ++ `structDef)
+                |>.isSome then
+              let ref := mkIdent
+                (tn ++ `structDef ++ `symbolDoc)
+              `(some $ref)
+            else `(none)
+          else `(none)
         `({ name := $ns, ty := $tyTerm,
-            doc := $fd : FieldDef })
+            doc := $fd,
+            symbolDoc := $symTerm : FieldDef })
     let ns : TSyntax `term :=
       quote (toString name.getId)
     let fieldList ← `([$[$fieldDefs],*])

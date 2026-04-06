@@ -87,6 +87,8 @@ inductive FnBody where
   | matchArms (arms : List BodyArm)
   /-- Imperative do-block with let bindings. -/
   | doBlock (stmts : List BodyStmt) (ret : BodyExpr)
+  /-- Direct expression (no pattern match needed). -/
+  | expr (body : BodyExpr)
   deriving Repr
 
 /-- A precondition applied to specific arguments. -/
@@ -272,6 +274,8 @@ partial def toLatexMath
   | .append l r =>
     .seq [ go l, .raw " \\mathbin{\\texttt{++}} "
          , go r ]
+  | .dot recv "length" =>
+    .seq [.raw "|", go recv, .raw "|"]
   | .dot recv method =>
     .seq [.text (.raw method), .raw "(", go recv
          , .raw ")"]
@@ -413,6 +417,13 @@ def formalDefLatex
                  (ret.toLatexMath f.name noDisp
                     ctorDisplay isProperty)) ]
       stmtLines ++ [retLine]
+    | .expr body =>
+      let noDisp : String → Option LatexMath :=
+        fun _ => none
+      [.seq [ .raw "    "
+            , Latex.state (.inlineMath
+                (body.toLatexMath f.name noDisp
+                   ctorDisplay isProperty)) ]]
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argsMath := LatexMath.intercalate
@@ -445,6 +456,10 @@ def algorithmDoc (f : FnDef) : Doc :=
         noDisplay noDisplay).render
       Doc.plain s!"case {patStr}: return {rhsStr}"
     | .doBlock _ _ => [Doc.plain "(imperative body)"]
+    | .expr body =>
+      let rhsStr := (body.toLatexMath f.name
+        noDisplay noDisplay).render
+      [Doc.plain s!"return {rhsStr}"]
   .seq [header, .line, .itemize cases]
 
 end FnDef

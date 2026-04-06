@@ -786,6 +786,8 @@ def toRustItem (f : FnDef)
             (.ident (leanToRustIdent n)) none
             (.try_ (re v))
       .block (assertStmts ++ rustStmts) (some (re ret))
+    | .expr body =>
+      .block assertStmts (some (re body))
   .fn_
     { vis := .pub
       name := rustName

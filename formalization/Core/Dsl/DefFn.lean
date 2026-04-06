@@ -81,6 +81,11 @@ syntax "defFn " ident "(" term ")" str
     fnParam* ("requires " fnPrecond,+)?
     ":" term " where" fnArm* : command
 
+/-- Direct expression function (no pattern match). -/
+syntax "defFn " ident "(" term ")" str
+    fnParam* ("requires " fnPrecond,+)?
+    ":" term " :=" fnExpr : command
+
 /-- Imperative do-block function. -/
 syntax "defFn " ident "(" term ")" str
     fnParam* ("requires " fnPrecond,+)?
@@ -371,6 +376,53 @@ elab_rules : command
         `({ pat := $pq, rhs := $rq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
+    buildFnDef name symDoc doc paramData retTy
+      bodyTerm preconds
+
+-- ══════════════════════════════════════════════
+-- Direct expression form
+-- ══════════════════════════════════════════════
+
+open Lean Elab Command in
+elab_rules : command
+  | `(defFn $name:ident ($symDoc:term) $doc:str
+       $ps:fnParam* $[requires $reqs:fnPrecond,*]?
+       : $retTy:term := $rhs:fnExpr) => do
+    let paramData ← ps.mapM parseFnParam
+    let preconds ← match reqs with
+      | some pcs =>
+        pcs.getElems.toList.mapM
+          (parsePrecond ·.raw)
+      | none => pure []
+    let rhsAst ← parseExpr rhs
+    let fnNameStr := toString name.getId
+    let precondNames := preconds.map (·.1)
+    let rhsStr := rhsAst.toLeanWith
+      fnNameStr precondNames
+    let paramBinds := " ".intercalate
+      (paramData.toList.map fun (pn, _, pt) =>
+        let tyStr :=
+          if pt.isIdent then toString pt.getId
+          else pt.reprint.getD (toString pt)
+        s!"({pn.getId} : {normaliseLeanType tyStr})")
+    let precBinds := precondParamBinds preconds
+    let retRaw :=
+      if retTy.raw.isIdent
+      then toString retTy.raw.getId
+      else retTy.raw.reprint.getD (toString retTy)
+    let retRepr := normaliseLeanType retRaw
+    let defStr :=
+      s!"def {name.getId} {paramBinds} \
+         {precBinds} : {retRepr} :=\n  {rhsStr}"
+    let env ← getEnv
+    match Parser.runParserCategory env `command
+      defStr with
+    | .ok stx => elabCommand stx
+    | .error e =>
+      throwError s!"defFn: parse error: {e}\n\
+        ---\n{defStr}\n---"
+    let bodyTerm ←
+      `(FnBody.expr $(quoteExpr rhsAst))
     buildFnDef name symDoc doc paramData retTy
       bodyTerm preconds
 

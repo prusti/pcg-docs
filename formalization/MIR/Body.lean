@@ -265,7 +265,7 @@ defFn placeTy' (.plain "placeTy'")
 defProperty validPlace (.plain "valid")
   "A place is valid for a body."
   (body "The function body." : Body)
-  (place "The place." : Place)
+  (p "The place." : Place)
   latex
     (.seq [.plain "A place ", .math (.raw "p"),
            .plain " is ",
@@ -279,10 +279,9 @@ defProperty validPlace (.plain "valid")
            .plain " and ",
            .code "validProjTy(body.decls[p.base.index], p.projection)",
            .plain " holds."])
-  where
-    | body ; p =>
-        p↦base↦index < body↦decls·length ∧
-        validProjTy ‹body↦decls ! p↦base↦index, p↦projection›
+  :=
+    p↦base↦index < body↦decls·length ∧
+    validProjTy ‹body↦decls ! p↦base↦index, p↦projection›
 
 defProperty validBody (.plain "validBody")
   "A body is valid iff all places in it are valid."
@@ -307,9 +306,8 @@ defFn placeTy (.plain "ty")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
-  : PlaceTy where
-  | body ; place =>
-      placeTy' ‹body↦decls ! place↦base↦index, None, place↦projection, lean_proof("h_validPlace.2")›
+  : PlaceTy :=
+    placeTy' ‹body↦decls ! place↦base↦index, None, place↦projection, lean_proof("h_validPlace.2")›
 
 defFn isOwned (.plain "isOwned")
   "Returns true iff a place is owned, i.e. it does \
@@ -318,6 +316,5 @@ defFn isOwned (.plain "isOwned")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
-  : Bool where
-  | body ; place =>
-      isOwned' ‹body↦decls ! place↦base↦index, place↦projection, lean_proof("h_validPlace.2")›
+  : Bool :=
+    isOwned' ‹body↦decls ! place↦base↦index, place↦projection, lean_proof("h_validPlace.2")›

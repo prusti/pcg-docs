@@ -7,6 +7,10 @@ syntax "defProperty " ident "(" term ")" str
     fnParam* "latex" term "where" fnArm*
     : command
 
+/-- Direct expression property. -/
+syntax "defProperty " ident "(" term ")" str
+    fnParam* "latex" term ":=" fnExpr : command
+
 /-- Do-block property. -/
 syntax "defProperty " ident "(" term ")" str
     fnParam* "latex" term "begin" fnStmt*
@@ -114,6 +118,39 @@ elab_rules : command
         `({ pat := $pq, rhs := $rq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
+    buildPropertyDef name symDoc doc paramData
+      bodyTerm defnDoc
+
+-- ══════════════════════════════════════════════
+-- Direct expression form
+-- ══════════════════════════════════════════════
+
+open Lean Elab Command Term in
+elab_rules : command
+  | `(defProperty $name:ident ($symDoc:term) $doc:str
+       $ps:fnParam* latex $defnDoc:term :=
+       $rhs:fnExpr) => do
+    let paramData ← ps.mapM parseFnParam
+    let rhsAst ← parseExpr rhs
+    let paramBinds := " ".intercalate
+      (paramData.toList.map fun (pn, _, pt) =>
+        let tyStr :=
+          if pt.isIdent then toString pt.getId
+          else pt.reprint.getD (toString pt)
+        s!"({pn.getId} : {tyStr})")
+    let rhsStr := rhsAst.toLean
+    let defStr :=
+      s!"def {name.getId} {paramBinds} : Prop :=\n\
+         {rhsStr}"
+    let env ← getEnv
+    match Parser.runParserCategory env `command
+      defStr with
+    | .ok stx => elabCommand stx
+    | .error e =>
+      throwError s!"defProperty: parse error: {e}\n\
+        ---\n{defStr}\n---"
+    let bodyTerm ←
+      `(FnBody.expr $(quoteExpr rhsAst))
     buildPropertyDef name symDoc doc paramData
       bodyTerm defnDoc
 

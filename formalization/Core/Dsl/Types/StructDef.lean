@@ -9,6 +9,10 @@ structure FieldDef where
   ty : DSLType
   /-- Documentation for this field. -/
   doc : String
+  /-- Symbol for this field's type (e.g. `τ` for `Ty`),
+      looked up from the type's enum/struct definition.
+      Used in constructor equations. -/
+  symbolDoc : Option MathDoc := none
   deriving Repr
 
 /-- An exportable struct definition with metadata for
@@ -39,15 +43,19 @@ namespace StructDef
 def formalDefLatex (s : StructDef) : Latex :=
   let sym := s.symbolDoc.toLatexMath
   let sp := MathSym.space.toLatex
+  let fieldSym (f : FieldDef) : LatexMath :=
+    match f.symbolDoc with
+    | some md => md.toLatexMath
+    | none => .escaped f.name
   let fieldNames : LatexMath :=
     .seq (s.fields.map fun f =>
-      .seq [sp, .escaped f.name])
+      .seq [sp, fieldSym f])
   let rhs : LatexMath := match s.ctorName with
     | some name =>
       .seq [.texttt name, fieldNames]
     | none =>
       let names := LatexMath.intercalate (.raw ",~")
-        (s.fields.map fun f => .escaped f.name)
+        (s.fields.map fieldSym)
       .delimited "\\langle " "\\rangle" names
   let defLine : Latex :=
     if s.fields.isEmpty then .seq []
@@ -61,7 +69,7 @@ def formalDefLatex (s : StructDef) : Latex :=
     if s.fields.isEmpty then .seq []
     else
       let fieldRows := s.fields.map fun f =>
-        [ .escaped f.name
+        [ fieldSym f
         , .seq [.raw ": ",
                 (f.ty.toDoc .math).toLatexMath]
         , .seq [.raw " ", .text (.text s!"({f.doc})")]
