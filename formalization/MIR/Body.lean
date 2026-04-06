@@ -2,13 +2,13 @@ import MIR.Place
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 
-defStruct BasicBlockIdx (.plain "bb")
+defStruct BasicBlockIdx (.doc (.plain "bb"))
   "Basic Block Indices"
   "An index into the list of basic blocks."
 where
   | index "The basic block index." : Nat
 
-defEnum Operand (.math (.var "o"))
+defEnum Operand (.raw "o")
   "Operands"
   "An operand in a MIR statement or terminator."
 where
@@ -35,7 +35,7 @@ defFn operandPlace (.plain "operandPlace")
 
 end Operand
 
-defEnum Rvalue (.math (.var "rv"))
+defEnum Rvalue (.raw "rv")
   "Rvalues"
   "A right-hand side value in an assignment."
 where
@@ -61,7 +61,7 @@ defFn rvaluePlace (.plain "rvaluePlace")
 
 end Rvalue
 
-defEnum Statement (.math (.var "s"))
+defEnum Statement (.raw "s")
   "Statements"
   "A MIR statement within a basic block."
 where
@@ -91,7 +91,7 @@ defFn statementPlaces (.plain "statementPlaces")
 
 end Statement
 
-defEnum Terminator (.math (.var "t"))
+defEnum Terminator (.raw "t")
   "Terminators"
   "A basic block terminator."
 where
@@ -118,7 +118,7 @@ where
       (nextBlock : BasicBlockIdx)
     "Call a function."
     (#callee, .sym .lparen,
-     #args (.var "\\bar{o}"),
+     #args (.raw "\\bar{o}"),
      .sym .rparen, .doc (.plain " → "),
      #targetPlace, .doc (.plain ", "), #nextBlock)
   deriving Repr, BEq, Hashable
@@ -139,7 +139,7 @@ defFn terminatorPlaces (.plain "terminatorPlaces")
 
 end Terminator
 
-defStruct BasicBlock (.math (.var "B"))
+defStruct BasicBlock (.raw "B")
   "Basic Blocks"
   "A basic block: a sequence of statements followed \
    by a terminator."
@@ -160,7 +160,7 @@ defFn basicBlockPlaces (.plain "basicBlockPlaces")
 
 end BasicBlock
 
-defStruct Body (.plain "body")
+defStruct Body (.doc (.plain "body"))
   "Bodies"
   "A MIR function body"
 where
@@ -180,7 +180,7 @@ defFn bodyPlaces (.plain "bodyPlaces")
 
 end Body
 
-defStruct PlaceTy (.plain "pty")
+defStruct PlaceTy (.doc (.plain "pty"))
   "Place Types"
   "The type of a place: a type paired with an optional \
    variant index (set after a downcast)."
@@ -196,11 +196,11 @@ defProperty validProjTy (.plain "validProjTy")
   (projs "The projection elements." : List ProjElem)
   latex
     (.seq [.plain "A type ",
-           .math (.var "\\tau"),
+           .math (.raw "\\tau"),
            .plain " is ",
            .italic (.plain "valid"),
            .plain " for a projection list ",
-           .math (.var "\\pi"),
+           .math (.raw "\\pi"),
            .plain "."])
   where
   | _ ; [] => true
@@ -262,11 +262,11 @@ defProperty validPlace (.plain "valid")
   (body "The function body." : Body)
   (place "The place." : Place)
   latex
-    (.seq [.plain "A place ", .math (.var "p"),
+    (.seq [.plain "A place ", .math (.raw "p"),
            .plain " is ",
            .italic (.plain "valid"),
            .plain " for a body ",
-           .math (.var "body"),
+           .math (.raw "body"),
            .plain " iff its local index ",
            .code "p.base.index",
            .plain " is less than ",
@@ -284,13 +284,13 @@ defProperty validBody (.plain "validBody")
   (body "The function body." : Body)
   latex
     (.seq [.plain "A body ",
-           .math (.var "body"),
+           .math (.raw "body"),
            .plain " is ",
            .italic (.plain "valid"),
            .plain " iff every place in ",
            .code "bodyPlaces(body)",
            .plain " is valid for ",
-           .math (.var "body"),
+           .math (.raw "body"),
            .plain "."])
   where
     | body =>

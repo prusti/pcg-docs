@@ -17,7 +17,7 @@ structure StructDef where
   /-- The struct name (e.g. `"RegionVid"`). -/
   name : String
   /-- Formatted type symbol for document exports. -/
-  symbolDoc : Doc
+  symbolDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Basic Blocks"`). -/
   docParam : String
   /-- Top-level documentation. -/

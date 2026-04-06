@@ -141,18 +141,17 @@ private def parseDisplayPart
       let tnName := Name.mkSimple tn
       let ns : TSyntax `term := quote argName
       if tn == selfName then
-        `(DisplayPart.arg $ns
-            (MathDoc.doc ($selfSym : Doc)))
+        `(DisplayPart.arg $ns ($selfSym : MathDoc))
       else if env.find? (tnName ++ `enumDef)
           |>.isSome then
         let ref := mkIdent
           (tnName ++ `enumDef ++ `symbolDoc)
-        `(DisplayPart.arg $ns (MathDoc.doc $ref))
+        `(DisplayPart.arg $ns $ref)
       else if env.find? (tnName ++ `structDef)
           |>.isSome then
         let ref := mkIdent
           (tnName ++ `structDef ++ `symbolDoc)
-        `(DisplayPart.arg $ns (MathDoc.doc $ref))
+        `(DisplayPart.arg $ns $ref)
       else
         throwError
           s!"defEnum: no enumDef or structDef \
@@ -230,7 +229,7 @@ elab_rules : command
     let varList ← `([$[$varDefs],*])
     let enumDefVal ← `(term|
       { name := $ns,
-        symbolDoc := ($symDoc : Doc),
+        symbolDoc := ($symDoc : MathDoc),
         defnName := $defnName, doc := $doc,
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)

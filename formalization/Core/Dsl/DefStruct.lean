@@ -17,7 +17,7 @@ syntax "| " ident str ":" term : structField
 
     Example:
     ```
-    defStruct RegionVid (.math (.doc (.plain "vid")))
+    defStruct RegionVid (.doc (.plain "vid"))
       "Region Variables"
       "A region variable identifier."
     where
@@ -88,7 +88,7 @@ elab_rules : command
       def $(mkIdent (name.getId ++ `structDef))
           : StructDef :=
         { name := $ns,
-          symbolDoc := ($symDoc : Doc),
+          symbolDoc := ($symDoc : MathDoc),
           docParam := $docParam, doc := $doc,
           fields := $fieldList }))
     let mod ← getMainModule

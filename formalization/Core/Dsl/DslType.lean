@@ -47,8 +47,8 @@ namespace DSLPrimTy
 
 /-- Render a primitive type to a `Doc`. -/
 def toDoc : DSLPrimTy → OutputMode → Doc
-  | .nat, .normal => .raw "$\\mathbb{N}$" "ℕ" "ℕ"
-  | .nat, .math => .math (.var "\\mathbb{N}")
+  | .nat, .normal => .math (.bb (.raw "N"))
+  | .nat, .math => .math (.bb (.raw "N"))
   | .string, _ => .plain "String"
   | .bool, _ => .plain "Bool"
   | .unit, _ => .plain "()"

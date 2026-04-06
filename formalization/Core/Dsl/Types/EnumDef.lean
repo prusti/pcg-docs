@@ -42,7 +42,7 @@ structure EnumDef where
   /-- The enum name (e.g. `"Capability"`). -/
   name : DSLNamedTy
   /-- Formatted type symbol for document exports. -/
-  symbolDoc : Doc
+  symbolDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Operands"`). -/
   defnName : String
   /-- Top-level documentation. -/
@@ -73,7 +73,7 @@ namespace EnumDef
 
 /-- Short formal definition: `c ::= E | W | R | e` -/
 def shortDef (d : EnumDef) : Doc :=
-  let lhs := d.symbolDoc
+  let lhs := Doc.math d.symbolDoc
   let rhs := Doc.intercalate (.plain " | ")
     (d.variants.map fun v => v.displayDoc)
   .seq [lhs, .plain " ::= ", rhs]
@@ -81,7 +81,7 @@ def shortDef (d : EnumDef) : Doc :=
 /-- Long formal definition with descriptions. -/
 def longDef (d : EnumDef) : Doc :=
   let header := Doc.seq
-    [.plain d.doc, .plain " ", d.symbolDoc,
+    [.plain d.doc, .plain " ", .math d.symbolDoc,
      .plain " is one of:"]
   let items := d.variants.map fun v =>
     Doc.seq [v.displayDoc, .plain s!": {v.doc}"]

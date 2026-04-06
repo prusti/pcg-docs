@@ -1,24 +1,24 @@
 import MIR.Ty
 
-defStruct Local (.math (.var "l"))
+defStruct Local (.raw "l")
   "Locals"
   "A local variable in the MIR, identified by index."
 where
   | index "The local variable index." : Nat
 
-defStruct FieldIdx (.math (.var "f"))
+defStruct FieldIdx (.raw "f")
   "Field Indices"
   "A field index within a struct or tuple."
 where
   | index "The field index." : Nat
 
-defStruct VariantIdx (.math (.var "V"))
+defStruct VariantIdx (.raw "V")
   "Variant Indices"
   "A variant index within an enum."
 where
   | index "The variant index." : Nat
 
-defEnum ProjElem (.math (.var "π"))
+defEnum ProjElem (.raw "π")
   "Projection Elements"
   "A projection element applied to a place. \
    See definitions/places.md."
@@ -43,7 +43,7 @@ where
      #variant)
   deriving Repr, BEq, Hashable
 
-defStruct Place (.math (.var "p"))
+defStruct Place (.raw "p")
   "Places"
   "A place in the MIR: a local with a projection. \
    See definitions/places.md."

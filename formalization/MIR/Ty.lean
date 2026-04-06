@@ -1,20 +1,20 @@
 import MIR.Region
 import Core.Dsl.DefFn
 
-defStruct TyCtorName (.math (.var "T"))
-  "Type Constructor Names"
+defStruct TyCtorName (.raw "T")
+  "Type Constrawor Names"
   "A type constructor name, representing an ADT or \
    primitive type."
 where
   | name "The constructor name." : String
 
-defStruct AliasTyName (.math (.var "A"))
+defStruct AliasTyName (.raw "A")
   "Alias Type Names"
   "An associated type name."
 where
   | name "The associated type name." : String
 
-defEnum Mutability (.math (.var "m"))
+defEnum Mutability (.raw "m")
   "Mutabilities"
   "Mutability of a reference."
 where
@@ -25,25 +25,25 @@ where
     "Mutable"
     (.doc (.plain "mut"))
 
-defEnum Ty (.math (.var "τ"))
+defEnum Ty (.raw "τ")
   "Types"
   "A type in the MIR. See definitions/types.md."
 where
   | param (index : Nat)
     "A type parameter."
     (.doc (.plain "param "),
-     #index (.var "i"))
+     #index (.raw "i"))
   | alias (base : Ty) (name : AliasTyName)
       (args : List Ty)
     "An alias type."
     (#base, .doc (.plain "::"), #name,
      .sym .langle,
-     #args (.var "τ̄"),
+     #args (.raw "τ̄"),
      .sym .rangle)
   | ctor (name : TyCtorName) (args : List Ty)
     "A type constructor application."
     (#name, .sym .langle,
-     #args (.var "τ̄"),
+     #args (.raw "τ̄"),
      .sym .rangle)
   | ref (region : Region) (mutability : Mutability)
       (pointee : Ty)
@@ -59,34 +59,34 @@ where
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
     (.doc (.plain "["), #elem, .doc (.plain "; "),
-     #len (.var "n"), .doc (.plain "]"))
+     #len (.raw "n"), .doc (.plain "]"))
   deriving Repr, BEq, Hashable
 
 instance : Inhabited Ty where
   default := .param 0
 
-defEnum Value (.math (.var "v"))
+defEnum Value (.raw "v")
   "Values"
   "A concrete runtime value."
 where
   | bool (val : Bool)
     "A boolean value."
-    (.doc (.plain "bool "), #val (.var "b"))
+    (.doc (.plain "bool "), #val (.raw "b"))
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
-    (.doc (.plain "u8 "), #val (.var "n"))
+    (.doc (.plain "u8 "), #val (.raw "n"))
   | u16 (val : UInt16)
     "A 16-bit unsigned integer."
-    (.doc (.plain "u16 "), #val (.var "n"))
+    (.doc (.plain "u16 "), #val (.raw "n"))
   | u32 (val : UInt32)
     "A 32-bit unsigned integer."
-    (.doc (.plain "u32 "), #val (.var "n"))
+    (.doc (.plain "u32 "), #val (.raw "n"))
   | u64 (val : UInt64)
     "A 64-bit unsigned integer."
-    (.doc (.plain "u64 "), #val (.var "n"))
+    (.doc (.plain "u64 "), #val (.raw "n"))
   | usize (val : USize)
     "A pointer-sized unsigned integer."
-    (.doc (.plain "usize "), #val (.var "n"))
+    (.doc (.plain "usize "), #val (.raw "n"))
   deriving Repr, BEq, Hashable
 
 /-- A generalized type is either a type or a region.

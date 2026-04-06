@@ -225,6 +225,7 @@ def toLatex : MathSym → LatexMath
   | .rbracket => .raw "]"
   | .lparen => .raw "("
   | .rparen => .raw ")"
+  | .emptySet => .raw "\\emptyset"
 
 end MathSym
 
@@ -245,11 +246,11 @@ mutual
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
   partial def MathDoc.toLatex : MathDoc → Latex
-    | .var s => .inlineMath (.var s)
+    | .raw s => .inlineMath (.var s)
     | .doc d => d.toLatex
     | .sym s => .inlineMath s.toLatex
     | .bb d => .inlineMath (.mathbb d.toLatexMath)
-    | .bold d => .inlineMath (.mathbb d.toLatexMath)
+    | .bold d => .inlineMath (.mathbf d.toLatexMath)
     | .italic d => .inlineMath (.mathit d.toLatexMath)
     | .cal d => .inlineMath (.mathcal d.toLatexMath)
     | .seq ds => .seq (ds.map MathDoc.toLatex)
@@ -269,11 +270,11 @@ mutual
 
   /-- Convert `MathDoc` to math-mode `LatexMath` AST. -/
   partial def MathDoc.toLatexMath : MathDoc → LatexMath
-    | .var s => .escaped s
+    | .raw s => .escaped s
     | .doc d => d.toLatexMath
     | .sym s => s.toLatex
     | .bb d => .mathbb d.toLatexMath
-    | .bold d => .mathbb d.toLatexMath
+    | .bold d => .mathbf d.toLatexMath
     | .italic d => .mathit d.toLatexMath
     | .cal d => .mathcal d.toLatexMath
     | .seq ds => .seq (ds.map MathDoc.toLatexMath)

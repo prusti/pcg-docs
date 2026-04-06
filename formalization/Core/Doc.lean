@@ -12,14 +12,16 @@ inductive MathSym where
   | lparen
   /-- Right parenthesis: ) -/
   | rparen
+  /-- Empty set: ∅ -/
+  | emptySet
   deriving Repr
 
 mutual
   /-- A mathematical document fragment, for content that
       appears in math mode (e.g. inside `\[ ... \]`). -/
   inductive MathDoc where
-    /-- A math variable, rendered italic in math mode. -/
-    | var (s : String)
+    /-- Raw math content, verbatim. -/
+    | raw (s : String)
     /-- A `Doc` rendered in math context (`.plain` becomes
         `\text{}`, `.code` becomes `\mathtt{}`, etc). -/
     | doc (d : Doc)
@@ -74,6 +76,7 @@ def toPlainText : MathSym → String
   | .rbracket => "]"
   | .lparen => "("
   | .rparen => ")"
+  | .emptySet => "∅"
 
 end MathSym
 
@@ -149,7 +152,7 @@ mutual
 
   /-- Extract plain text from a math fragment. -/
   partial def mathToPlainText : MathDoc → String
-    | .var s => s
+    | .raw s => s
     | .doc d => d.toPlainText
     | .sym s => s.toPlainText
     | .bb d | .bold d | .italic d | .cal d =>
@@ -175,7 +178,7 @@ mutual
 
   /-- Render a math fragment to Typst. -/
   partial def mathToTypst : MathDoc → String
-    | .var s => s
+    | .raw s => s
     | .doc d => d.toTypst
     | .sym s => s.toPlainText
     | .bb d => s!"bb({mathToTypst d})"
@@ -203,7 +206,7 @@ mutual
 
   /-- Render a math fragment to HTML. -/
   partial def mathToHTML : MathDoc → String
-    | .var s => s!"<i>{s}</i>"
+    | .raw s => s!"<i>{s}</i>"
     | .doc d => d.toHTML
     | .sym .langle => "&langle;"
     | .sym .rangle => "&rangle;"
@@ -211,6 +214,7 @@ mutual
     | .sym .rbracket => "&rbrack;"
     | .sym .lparen => "("
     | .sym .rparen => ")"
+    | .sym .emptySet => "&empty;"
     | .bb d | .bold d => s!"<b>{mathToHTML d}</b>"
     | .italic d => s!"<i>{mathToHTML d}</i>"
     | .cal d => mathToHTML d
