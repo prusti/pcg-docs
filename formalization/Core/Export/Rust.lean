@@ -583,6 +583,7 @@ namespace BodyExpr
     `FreshM` monad (for generating fresh variable names). -/
 partial def toRustExpr : BodyExpr → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
+  | .natLit n => pure (.raw (toString n))
   | .true_ => pure (.litBool true)
   | .false_ => pure (.litBool false)
   | .emptyList => pure .emptyVec

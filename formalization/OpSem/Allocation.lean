@@ -46,6 +46,15 @@ where
 namespace Memory
 open Allocation in
 
+defFn top (.plain "top")
+  "The next available address after all allocations."
+  (m "The memory." : Memory)
+  : Address where
+  | ⟨[]⟩ => Address⟨0⟩
+  | ⟨h :: t⟩ => Address⟨endAddr ‹(h :: t)·getLast!› + 1⟩
+
+open Allocation in
+
 defProperty validMemory (.plain "validMemory")
   "Allocations are ordered and non-overlapping."
   (m "The memory." : Memory)

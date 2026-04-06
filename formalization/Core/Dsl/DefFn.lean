@@ -19,6 +19,7 @@ syntax fnPat " :: " fnPat : fnPat
 
 declare_syntax_cat fnExpr
 syntax "[" "]" : fnExpr
+syntax num : fnExpr
 syntax ident : fnExpr
 syntax "(" fnExpr ")" : fnExpr
 syntax fnExpr "·" ident : fnExpr
@@ -130,6 +131,8 @@ partial def parseExpr
     : Lean.Elab.Command.CommandElabM BodyExpr := do
   match stx with
   | `(fnExpr| [ ]) => pure .emptyList
+  | `(fnExpr| $n:num) =>
+    pure (.natLit n.getNat)
   | `(fnExpr| $n:ident) =>
     let name := toString n.getId
     match name with

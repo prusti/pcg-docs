@@ -115,6 +115,7 @@ partial def toLeanWith
         s!"(by simp_all [{pn}])")
   fun
   | .var n => n
+  | .natLit n => toString n
   | .true_ => "true"
   | .false_ => "false"
   | .emptyList => "[]"
@@ -125,9 +126,9 @@ partial def toLeanWith
   | .cons h t => s!"{go h} :: {go t}"
   | .append l r => s!"{go l} ++ {go r}"
   | .dot recv "toSet" =>
-    s!"{go recv}.toSet"
+    s!"{goArg recv}.toSet"
   | .dot recv method =>
-    s!"{go recv}.{method}"
+    s!"{goArg recv}.{method}"
   | .flatMap list param body =>
     s!"{go list}.flatMap fun {param} => \
        {go body}"
@@ -173,6 +174,7 @@ partial def toLean : BodyExpr → String :=
 
 partial def toLeanArg : BodyExpr → String
   | .var n => n
+  | .natLit n => toString n
   | .true_ => "true"
   | .false_ => "false"
   | .none_ => "none"

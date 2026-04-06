@@ -17,6 +17,7 @@ inductive BodyPat where
 /-- An expression in the function body DSL. -/
 inductive BodyExpr where
   | var (name : String)
+  | natLit (n : Nat)
   | true_
   | false_
   | emptyList
@@ -148,6 +149,8 @@ open Lean in
 partial def quoteExpr : BodyExpr → TSyntax `term
   | .var n =>
     Syntax.mkApp (mkIdent ``BodyExpr.var) #[quote n]
+  | .natLit n =>
+    Syntax.mkApp (mkIdent ``BodyExpr.natLit) #[quote n]
   | .true_ =>
     Syntax.mkApp (mkIdent ``BodyExpr.true_) #[]
   | .false_ =>
@@ -280,6 +283,7 @@ partial def toLatexMath
   | .var n => match varDisplay n with
     | some sym => sym
     | none => .escaped n
+  | .natLit n => .raw (toString n)
   | .true_ =>
     if isProperty then .cmd "top"
     else .text (.raw "true")
