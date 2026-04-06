@@ -146,6 +146,11 @@ partial def toLeanWith
   | .foldlM fn init list =>
     s!"{go list}.foldlM {fn} {go init}"
   | .lt l r => s!"{go l} < {go r}"
+  | .le l r => s!"{go l} ≤ {go r}"
+  | .ltChain es =>
+    let pairs := es.zip (es.drop 1)
+    " ∧ ".intercalate
+      (pairs.map fun (l, r) => s!"{go l} < {go r}")
   | .add l r => s!"{go l} + {go r}"
   | .setAll set param body =>
     s!"∀ {param} ∈ {go set}, {go body}"
@@ -158,6 +163,8 @@ partial def toLeanWith
     s!"Set.flatMapList {goArg list} fun {param} => \
        {go body}"
   | .and l r => s!"{go l} ∧ {go r}"
+  | .implies l r => s!"{go l} → {go r}"
+  | .forall_ p b => s!"∀ {p}, {go b}"
   | .sorryProof => "sorry"
   | .leanProof t => t
 
@@ -365,12 +372,16 @@ partial def calledNames : BodyExpr → List String
   | .flatMap list _ body =>
     list.calledNames ++ body.calledNames
   | .and l r => l.calledNames ++ r.calledNames
+  | .implies l r => l.calledNames ++ r.calledNames
+  | .forall_ _ b => b.calledNames
   | .setUnion l r => l.calledNames ++ r.calledNames
   | .append l r => l.calledNames ++ r.calledNames
   | .some_ e => e.calledNames
   | .setSingleton e => e.calledNames
   | .cons h t => h.calledNames ++ t.calledNames
   | .lt l r => l.calledNames ++ r.calledNames
+  | .le l r => l.calledNames ++ r.calledNames
+  | .ltChain es => es.flatMap calledNames
   | .add l r => l.calledNames ++ r.calledNames
   | .mkStruct _ args => args.flatMap calledNames
   | .index l i => l.calledNames ++ i.calledNames

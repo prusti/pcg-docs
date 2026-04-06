@@ -684,6 +684,18 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
 
   | .lt l r => do
     pure (.binOp .lt (← l.toRustExpr) (← r.toRustExpr))
+  | .le l r => do
+    pure (.binOp .le (← l.toRustExpr) (← r.toRustExpr))
+  | .ltChain es => do
+    let rExprs ← es.mapM (·.toRustExpr)
+    let pairs := rExprs.zip (rExprs.drop 1)
+    let comparisons := pairs.map fun (l, r) =>
+      RustExpr.binOp .lt l r
+    match comparisons with
+    | [] => pure (.raw "true")
+    | [c] => pure c
+    | c :: cs => pure (cs.foldl
+        (fun acc x => .binOp .and acc x) c)
   | .add l r => do
     pure (.binOp .add (← l.toRustExpr) (← r.toRustExpr))
   | .setAll set param body => do
@@ -727,6 +739,9 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
 
   | .and l r => do
     pure (.binOp .and (← l.toRustExpr) (← r.toRustExpr))
+  | .implies _ _ => pure (.raw "/* implication omitted */")
+  | .forall_ _ _ =>
+    pure (.raw "/* forall omitted */")
   | .sorryProof => pure (.raw "/* sorry */")
   | .leanProof _ => pure (.raw "/* proof omitted */")
 

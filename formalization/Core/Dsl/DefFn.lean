@@ -43,6 +43,10 @@ syntax ident "‹" fnExpr,* "›" : fnExpr
 syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 -- Less-than: expr < expr
 syntax fnExpr " < " fnExpr : fnExpr
+-- Chained less-than: expr < expr < expr
+syntax fnExpr " < " fnExpr " < " fnExpr : fnExpr
+-- Less-than-or-equal: expr ≤ expr
+syntax fnExpr " ≤ " fnExpr : fnExpr
 -- Addition: expr + expr
 syntax fnExpr " + " fnExpr : fnExpr
 -- Empty set: ∅
@@ -60,6 +64,10 @@ syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
     : fnExpr
 -- Logical conjunction: expr ∧ expr
 syntax fnExpr " ∧ " fnExpr : fnExpr
+-- Implication: expr → expr
+syntax fnExpr " → " fnExpr : fnExpr
+-- Universal quantifier: ∀ ident, expr
+syntax "∀∀" ident "," fnExpr : fnExpr
 -- Proof placeholder
 syntax "sorry" : fnExpr
 -- Raw Lean proof term (invisible in Rust/LaTeX)
@@ -162,8 +170,13 @@ partial def parseExpr
         $init:fnExpr) =>
     pure (.foldlM (toString fn.getId)
       (← parseExpr init) (← parseExpr e))
+  | `(fnExpr| $a:fnExpr < $b:fnExpr < $c:fnExpr) =>
+    pure (.ltChain [← parseExpr a, ← parseExpr b,
+      ← parseExpr c])
   | `(fnExpr| $l:fnExpr < $r:fnExpr) =>
     pure (.lt (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr ≤ $r:fnExpr) =>
+    pure (.le (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr + $r:fnExpr) =>
     pure (.add (← parseExpr l) (← parseExpr r))
   | `(fnExpr| ∅) => pure .emptySet
@@ -181,6 +194,10 @@ partial def parseExpr
       (toString p.getId) (← parseExpr b))
   | `(fnExpr| $l:fnExpr ∧ $r:fnExpr) =>
     pure (.and (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr → $r:fnExpr) =>
+    pure (.implies (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| ∀∀ $p:ident , $b:fnExpr) =>
+    pure (.forall_ (toString p.getId) (← parseExpr b))
   | `(fnExpr| sorry) => pure .sorryProof
   | `(fnExpr| lean_proof($s:str)) =>
     pure (.leanProof s.getString)

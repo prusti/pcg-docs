@@ -43,6 +43,10 @@ inductive BodyExpr where
       (list : BodyExpr)
   /-- Less-than comparison: `lhs < rhs`. -/
   | lt (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Less-than-or-equal: `lhs ≤ rhs`. -/
+  | le (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Chained less-than: `a < b < c < …`. -/
+  | ltChain (exprs : List BodyExpr)
   /-- Addition: `lhs + rhs`. -/
   | add (lhs : BodyExpr) (rhs : BodyExpr)
   /-- Universal quantifier over a set:
@@ -60,6 +64,10 @@ inductive BodyExpr where
       (body : BodyExpr)
   /-- Logical conjunction: `lhs ∧ rhs`. -/
   | and (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Implication: `lhs → rhs`. -/
+  | implies (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Universal quantifier: `∀ x, body`. -/
+  | forall_ (param : String) (body : BodyExpr)
   /-- Proof placeholder: `sorry`. Used when calling
       a function with preconditions from another
       function that can supply the proof. -/
@@ -184,6 +192,12 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .lt l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.lt)
       #[quoteExpr l, quoteExpr r]
+  | .le l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.le)
+      #[quoteExpr l, quoteExpr r]
+  | .ltChain es =>
+    Syntax.mkApp (mkIdent ``BodyExpr.ltChain)
+      #[quote (es.map quoteExpr)]
   | .add l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.add)
       #[quoteExpr l, quoteExpr r]
@@ -204,6 +218,12 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .and l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.and)
       #[quoteExpr l, quoteExpr r]
+  | .implies l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.implies)
+      #[quoteExpr l, quoteExpr r]
+  | .forall_ p b =>
+    Syntax.mkApp (mkIdent ``BodyExpr.forall_)
+      #[quote p, quoteExpr b]
   | .sorryProof =>
     Syntax.mkApp (mkIdent ``BodyExpr.sorryProof) #[]
   | .leanProof t =>
@@ -304,6 +324,9 @@ partial def toLatexMath
     .seq [ .text (.raw fn), .raw "^*(", go init
          , .raw ",~", go list, .raw ")" ]
   | .lt l r => .binop "<" (go l) (go r)
+  | .le l r => .binop "\\leqslant" (go l) (go r)
+  | .ltChain es =>
+    LatexMath.intercalate (.raw " < ") (es.map go)
   | .add l r => .binop "+" (go l) (go r)
   | .setAll set param body =>
     .seq [ .cmd "forall", .raw " "
@@ -321,6 +344,10 @@ partial def toLatexMath
                    , .cmd "in", .raw " ", go list])
          , .raw " ", go body ]
   | .and l r => .binop "\\land" (go l) (go r)
+  | .implies l r => .binop "\\to" (go l) (go r)
+  | .forall_ p b =>
+    .seq [ .cmd "forall", .raw " "
+         , .escaped p, .raw ",~", go b ]
   | .sorryProof => .seq []
   | .leanProof _ => .seq []
 
@@ -442,7 +469,7 @@ def formalDefLatex
   let allLines := precondLines ++ bodyLines
   .env "algorithm" (.seq [
     Latex.caption caption, .newline,
-    .envOpts "algorithmic" "1"
+    .env "algorithmic"
       (.seq [Latex.lines allLines, .newline]),
     .newline
   ])

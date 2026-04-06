@@ -6,3 +6,4 @@ defStruct Address (.raw "a", .cal (.raw "A"))
   constructor "Address"
 where
   | addr "The address value." : Nat
+  deriving DecidableEq, Repr, Hashable, Inhabited

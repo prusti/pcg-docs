@@ -81,7 +81,8 @@ def formalDefLatex (s : StructDef) : Latex :=
             .newline]
   let noteFootnote : Latex := match s.note with
     | some url =>
-      .cmd "footnote" [.cmd "url" [.raw url]]
+      let escaped := url.replace "#" "\\#"
+      .cmd "footnote" [.cmd "url" [.raw escaped]]
     | none => .seq []
   .envOpts "definition" s.docParam (.seq [
     s.doc.toLatex, noteFootnote,
