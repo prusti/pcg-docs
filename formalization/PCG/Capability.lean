@@ -1,6 +1,7 @@
 import Core.Dsl.DefEnum
 
 defEnum Capability (.math (.var "c"))
+  "Capabilities"
   "A capability describes the actions permitted on a \
    place at a particular program point."
 where

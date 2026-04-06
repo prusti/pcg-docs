@@ -4,6 +4,7 @@ import Core.Dsl.DefEnum
    https://github.com/minirust/minirust/blob/master/spec/mem/interface.md#abstract-bytes -/
 
 defEnum AbstractByte (.math (.var "b"))
+  "Abstract Bytes"
   "An abstract byte in the memory model."
 where
   | uninit

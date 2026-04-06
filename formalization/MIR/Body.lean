@@ -9,6 +9,7 @@ where
   | index "The basic block index." : Nat
 
 defEnum Operand (.math (.var "o"))
+  "Operands"
   "An operand in a MIR statement or terminator."
 where
   | copy (place : Place)
@@ -35,6 +36,7 @@ defFn operandPlace (.plain "operandPlace")
 end Operand
 
 defEnum Rvalue (.math (.var "rv"))
+  "Rvalues"
   "A right-hand side value in an assignment."
 where
   | use (operand : Operand)
@@ -60,6 +62,7 @@ defFn rvaluePlace (.plain "rvaluePlace")
 end Rvalue
 
 defEnum Statement (.math (.var "s"))
+  "Statements"
   "A MIR statement within a basic block."
 where
   | assign (lhs : Place) (rhs : Rvalue)
@@ -89,6 +92,7 @@ defFn statementPlaces (.plain "statementPlaces")
 end Statement
 
 defEnum Terminator (.math (.var "t"))
+  "Terminators"
   "A basic block terminator."
 where
   | goto (target : BasicBlockIdx)

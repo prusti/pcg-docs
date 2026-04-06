@@ -16,6 +16,7 @@ where
       : Nat
 
 defEnum Region (.math (.var "r"))
+  "Regions"
   "A region (lifetime) in the MIR. \
    See definitions/regions.md."
 where

@@ -15,6 +15,7 @@ where
   | name "The associated type name." : String
 
 defEnum Mutability (.math (.var "m"))
+  "Mutabilities"
   "Mutability of a reference."
 where
   | shared
@@ -25,6 +26,7 @@ where
     (.doc (.plain "mut"))
 
 defEnum Ty (.math (.var "τ"))
+  "Types"
   "A type in the MIR. See definitions/types.md."
 where
   | param (index : Nat)
@@ -64,6 +66,7 @@ instance : Inhabited Ty where
   default := .param 0
 
 defEnum Value (.math (.var "v"))
+  "Values"
   "A concrete runtime value."
 where
   | bool (val : Bool)

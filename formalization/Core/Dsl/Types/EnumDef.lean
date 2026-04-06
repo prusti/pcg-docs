@@ -43,6 +43,8 @@ structure EnumDef where
   name : DSLNamedTy
   /-- Formatted type symbol for document exports. -/
   symbolDoc : Doc
+  /-- LaTeX definition title (e.g. `"Operands"`). -/
+  defnName : String
   /-- Top-level documentation. -/
   doc : String
   /-- The variants of the enum. -/
@@ -123,7 +125,7 @@ def formalDefLatex (d : EnumDef) : Latex :=
       .seq [.raw " ", .text (.seq [
         .raw "(", .text v.doc, .raw ")"])]
     [sep, variant, desc]
-  .envOpts "definition" d.name.name (.seq [
+  .envOpts "definition" d.defnName (.seq [
     .text d.doc, .newline,
     .displayMath (.seq [
       sym, .raw " ::= ",

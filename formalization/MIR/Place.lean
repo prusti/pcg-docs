@@ -19,6 +19,7 @@ where
   | index "The variant index." : Nat
 
 defEnum ProjElem (.math (.var "π"))
+  "Projection Elements"
   "A projection element applied to a place. \
    See definitions/places.md."
 where
