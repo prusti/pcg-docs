@@ -25,6 +25,14 @@ mutual
     | doc (d : Doc)
     /-- A math symbol. -/
     | sym (s : MathSym)
+    /-- Blackboard bold: `\mathbb{...}`. -/
+    | bb (d : MathDoc)
+    /-- Bold: `\mathbb{...}`. -/
+    | bold (d : MathDoc)
+    /-- Italic: `\mathit{...}`. -/
+    | italic (d : MathDoc)
+    /-- Calligraphic: `\mathcal{...}`. -/
+    | cal (d : MathDoc)
     /-- Concatenation of mathematical documents. -/
     | seq (ds : List MathDoc)
     deriving Repr
@@ -144,6 +152,8 @@ mutual
     | .var s => s
     | .doc d => d.toPlainText
     | .sym s => s.toPlainText
+    | .bb d | .bold d | .italic d | .cal d =>
+      mathToPlainText d
     | .seq ds => String.join (ds.map mathToPlainText)
 end
 
@@ -168,6 +178,10 @@ mutual
     | .var s => s
     | .doc d => d.toTypst
     | .sym s => s.toPlainText
+    | .bb d => s!"bb({mathToTypst d})"
+    | .bold d => s!"bold({mathToTypst d})"
+    | .italic d => s!"italic({mathToTypst d})"
+    | .cal d => s!"cal({mathToTypst d})"
     | .seq ds => String.join (ds.map mathToPlainText)
 end
 
@@ -197,6 +211,9 @@ mutual
     | .sym .rbracket => "&rbrack;"
     | .sym .lparen => "("
     | .sym .rparen => ")"
+    | .bb d | .bold d => s!"<b>{mathToHTML d}</b>"
+    | .italic d => s!"<i>{mathToHTML d}</i>"
+    | .cal d => mathToHTML d
     | .seq ds => String.join (ds.map mathToHTML)
 end
 

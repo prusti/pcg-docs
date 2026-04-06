@@ -52,7 +52,11 @@ mutual
     /-- `\mathbf{...}`. -/
     | mathbf (body : LatexMath)
     /-- `\mathbb{...}`. -/
-    | mathbb (s : String)
+    | mathbb (body : LatexMath)
+    /-- `\mathit{...}`. -/
+    | mathit (body : LatexMath)
+    /-- `\mathcal{...}`. -/
+    | mathcal (body : LatexMath)
     /-- Binary operator: `lhs op rhs`. -/
     | binop (op : String) (lhs : LatexMath)
         (rhs : LatexMath)
@@ -181,7 +185,12 @@ mutual
       s!"\\texttt\{{Doc.escapeLatex s}}"
     | .mathbf body =>
       s!"\\mathbf\{{body.render}}"
-    | .mathbb s => s!"\\mathbb\{{s}}"
+    | .mathbb body =>
+      s!"\\mathbb\{{body.render}}"
+    | .mathit body =>
+      s!"\\mathit\{{body.render}}"
+    | .mathcal body =>
+      s!"\\mathcal\{{body.render}}"
     | .binop op lhs rhs =>
       s!"{lhs.render} {op} {rhs.render}"
     | .sub base subscript =>
@@ -239,10 +248,12 @@ mutual
     | .var s => .inlineMath (.var s)
     | .doc d => d.toLatex
     | .sym s => .inlineMath s.toLatex
+    | .bb d => .inlineMath (.mathbb d.toLatexMath)
+    | .bold d => .inlineMath (.mathbb d.toLatexMath)
+    | .italic d => .inlineMath (.mathit d.toLatexMath)
+    | .cal d => .inlineMath (.mathcal d.toLatexMath)
     | .seq ds => .seq (ds.map MathDoc.toLatex)
-end
 
-mutual
   /-- Convert `Doc` to math-mode `LatexMath` AST. -/
   partial def Doc.toLatexMath : Doc → LatexMath
     | .plain s => .text (.text s)
@@ -261,6 +272,10 @@ mutual
     | .var s => .escaped s
     | .doc d => d.toLatexMath
     | .sym s => s.toLatex
+    | .bb d => .mathbb d.toLatexMath
+    | .bold d => .mathbb d.toLatexMath
+    | .italic d => .mathit d.toLatexMath
+    | .cal d => .mathcal d.toLatexMath
     | .seq ds => .seq (ds.map MathDoc.toLatexMath)
 end
 
@@ -270,7 +285,7 @@ namespace Doc
 def typeToLatexMathAst (s : String) : LatexMath :=
   let s := s.trimAscii.toString
   match s with
-  | "Nat" => .mathbb "N"
+  | "Nat" => .mathbb (.raw "N")
   | "String" => .text (.raw "String")
   | other => .text (.text other)
 
