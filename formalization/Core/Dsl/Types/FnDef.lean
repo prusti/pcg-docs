@@ -12,6 +12,8 @@ inductive BodyPat where
   | nil
   /-- List cons pattern: `h :: t`. -/
   | cons (head : BodyPat) (tail : BodyPat)
+  /-- Numeric literal pattern. -/
+  | natLit (n : Nat)
   deriving Repr, Inhabited
 
 /-- An expression in the function body DSL. -/
@@ -150,6 +152,8 @@ partial def quotePat : BodyPat → TSyntax `term
   | .cons h t =>
     Syntax.mkApp (mkIdent ``BodyPat.cons)
       #[quotePat h, quotePat t]
+  | .natLit n =>
+    Syntax.mkApp (mkIdent ``BodyPat.natLit) #[quote n]
 
 open Lean in
 instance : Quote BodyPat where quote := quotePat
@@ -285,6 +289,7 @@ partial def toLatexMath
     .seq [ h.toLatexMath ctorDisplay
          , .raw " :: "
          , t.toLatexMath ctorDisplay ]
+  | .natLit n => .raw (toString n)
 
 end BodyPat
 
@@ -475,15 +480,30 @@ private partial def exprLinesTop
         let patMath := LatexMath.intercalate
           (.raw ",~")
           (pats.map (BodyPat.toLatexMath noDisp))
-        let caseLine : Latex :=
-          .seq [ .raw "    "
-               , Latex.state (.inlineMath (.seq [
-                   mkIndent (depth + 1)
-                 , .text (.raw "case~")
-                 , patMath
-                 , .raw ":" ])) ]
-        caseLine :: exprLinesTop fnName ctorDisplay
-          isProperty rhs (depth + 2)
+        let isSimple := match rhs with
+          | .letIn .. => false
+          | .match_ .. => false
+          | _ => true
+        if isSimple then
+          let caseLine : Latex :=
+            .seq [ .raw "    "
+                 , Latex.state (.inlineMath (.seq [
+                     mkIndent (depth + 1)
+                   , .text (.raw "case~")
+                   , patMath
+                   , .raw ": "
+                   , goExpr rhs ])) ]
+          [caseLine]
+        else
+          let caseLine : Latex :=
+            .seq [ .raw "    "
+                 , Latex.state (.inlineMath (.seq [
+                     mkIndent (depth + 1)
+                   , .text (.raw "case~")
+                   , patMath
+                   , .raw ":" ])) ]
+          caseLine :: exprLinesTop fnName ctorDisplay
+            isProperty rhs (depth + 2)
     headerLine :: armBlocks
   | e =>
     [.seq [ .raw "    "

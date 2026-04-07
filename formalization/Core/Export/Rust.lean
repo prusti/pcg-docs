@@ -562,13 +562,17 @@ partial def toRustPat (enumName : String)
     | none =>
       .tuple (args.map (toRustPat "" structFields))
   | .ctor n args =>
-    let capName := capitalise n
     let rustArgs :=
       args.map (toRustPat enumName structFields)
-    if enumName.isEmpty then
-      .pathArgs (.simple capName) rustArgs
-    else
-      .pathArgs ⟨[⟨enumName⟩, ⟨capName⟩]⟩ rustArgs
+    match n.splitOn "." with
+    | [en, v] =>
+      .pathArgs ⟨[⟨en⟩, ⟨capitalise v⟩]⟩ rustArgs
+    | _ =>
+      let capName := capitalise n
+      if enumName.isEmpty then
+        .pathArgs (.simple capName) rustArgs
+      else
+        .pathArgs ⟨[⟨enumName⟩, ⟨capName⟩]⟩ rustArgs
   | .nil => .slice [] none
   | .cons h tail =>
     let stripParens (s : String) : String :=
@@ -579,12 +583,22 @@ partial def toRustPat (enumName : String)
     let elemName := if enumName.startsWith "List "
       then stripParens (enumName.drop 5).toString
       else stripParens enumName
-    let hPat := h.toRustPat elemName structFields
-    let restPat := match tail with
-      | .var rest => .ident (leanToRustIdent rest)
-      | .wild => .wild
-      | _ => tail.toRustPat elemName structFields
-    .slice [hPat] (some restPat)
+    -- Collect a chain of cons followed by nil/wild/var
+    let rec collect : BodyPat → List BodyPat × Option BodyPat
+      | .nil => ([], none)
+      | .cons h' t =>
+        let (hs, rest) := collect t
+        (h' :: hs, rest)
+      | other => ([], some other)
+    let (headPats, restTail) := collect (.cons h tail)
+    let rustHeads := headPats.map
+      fun p => p.toRustPat elemName structFields
+    let restPat := restTail.map fun t => match t with
+      | .var rest => RustPat.ident (leanToRustIdent rest)
+      | .wild => RustPat.wild
+      | _ => t.toRustPat (s!"List ({elemName})") structFields
+    .slice rustHeads restPat
+  | .natLit n => .path (.simple (toString n))
 
 end BodyPat
 
@@ -684,9 +698,16 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     let filteredArgs := args.filter fun
       | .sorryProof => false | .leanProof _ => false
       | _ => true
-    return .call (.identStr (toSnakeCase fn))
-      (← filteredArgs.mapM fun a => do
-        return .borrow (← a.toRustExpr))
+    match fn.splitOn "." with
+    | [en, v] =>
+      let path : RustPath :=
+        ⟨[⟨en⟩, ⟨capitalise v⟩]⟩
+      return .call (.path path)
+        (← filteredArgs.mapM fun a => a.toRustExpr)
+    | _ =>
+      return .call (.identStr (toSnakeCase fn))
+        (← filteredArgs.mapM fun a => do
+          return .borrow (← a.toRustExpr))
   | .foldlM fn init list => do
     let rustFn := toSnakeCase fn
     return .methodCall

@@ -78,15 +78,21 @@ partial def toLean : BodyPat → String
   | .ctor "⟨⟩" args =>
     s!"⟨{", ".intercalate (args.map toLean)}⟩"
   | .ctor n args =>
-    if args.isEmpty then s!".{n}"
+    let prefix_ := if n.contains '.' then "" else "."
+    if args.isEmpty then s!"{prefix_}{n}"
     else
       let argStr := " ".intercalate
         (args.map fun a => match a with
           | .wild => "_" | .var v => v
           | _ => s!"({a.toLean})")
-      s!".{n} {argStr}"
+      s!"{prefix_}{n} {argStr}"
   | .nil => "[]"
-  | .cons h t => s!"{h.toLean} :: {t.toLean}"
+  | .cons h t =>
+    let hStr := match h with
+      | .ctor _ (_ :: _) => s!"({h.toLean})"
+      | _ => h.toLean
+    s!"{hStr} :: {t.toLean}"
+  | .natLit n => toString n
 
 end BodyPat
 
@@ -123,7 +129,7 @@ partial def toLeanWith
   | .false_ => "false"
   | .emptyList => "[]"
   | .none_ => "none"
-  | .some_ e => s!"some {go e}"
+  | .some_ e => s!"some {goArg e}"
   | .mkStruct _ args =>
     s!"⟨{", ".intercalate (args.map go)}⟩"
   | .cons h t => s!"{go h} :: {go t}"
@@ -180,8 +186,8 @@ partial def toLeanWith
       let patStr := ", ".intercalate
         (pats.map BodyPat.toLean)
       s!"  | {patStr} => {go rhs}"
-    s!"match {go scrut} with\n\
-       {"\n".intercalate armStrs}"
+    s!"(match {go scrut} with\n\
+       {"\n".intercalate armStrs})"
   | .letIn name val body =>
     s!"let {name} := {go val}\n{go body}"
 

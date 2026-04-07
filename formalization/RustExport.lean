@@ -79,6 +79,10 @@ pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
     v
 }
 ")
+  , ("OpSem", "decode", .raw
+"use formal_mir::ty::Value;
+use crate::abstractbyte::AbstractByte::*;
+")
   , ("OpSem", "pointer", .raw
 "pub fn write_bytes_at(data: &[AbstractByte], offset: &usize, bytes: &[AbstractByte]) -> Vec<AbstractByte> {
     let mut v: Vec<AbstractByte> = data.iter().take(*offset).cloned().collect();

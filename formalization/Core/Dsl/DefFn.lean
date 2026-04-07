@@ -12,6 +12,8 @@ declare_syntax_cat fnPat
 syntax "_" : fnPat
 syntax ident : fnPat
 syntax "." ident fnPat* : fnPat
+syntax ident "." ident fnPat* : fnPat
+syntax num : fnPat
 syntax "⟨" fnPat,+ "⟩" : fnPat
 syntax "(" fnPat ")" : fnPat
 syntax "[" "]" : fnPat
@@ -125,10 +127,14 @@ partial def parsePat
   | `(fnPat| .$n:ident $args:fnPat*) => do
     let a ← args.mapM parsePat
     pure (.ctor (toString n.getId) a.toList)
+  | `(fnPat| $en:ident . $n:ident $args:fnPat*) => do
+    let a ← args.mapM parsePat
+    pure (.ctor s!"{en.getId}.{n.getId}" a.toList)
   | `(fnPat| ⟨$args:fnPat,*⟩) => do
     let a ← args.getElems.mapM parsePat
     pure (.ctor "⟨⟩" a.toList)
   | `(fnPat| ($p:fnPat)) => parsePat p
+  | `(fnPat| $n:num) => pure (.natLit n.getNat)
   | `(fnPat| [ ]) => pure .nil
   | `(fnPat| $h:fnPat :: $t:fnPat) =>
     pure (.cons (← parsePat h) (← parsePat t))
