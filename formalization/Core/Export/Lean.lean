@@ -132,7 +132,10 @@ partial def toLeanWith
   | .flatMap list param body =>
     s!"{go list}.flatMap fun {param} => \
        {go body}"
-  | .field recv name => s!"{go recv}.{name}"
+  | .field recv name =>
+    match recv with
+    | .call _ _ => s!"({go recv}).{name}"
+    | _ => s!"{go recv}.{name}"
   | .index list idx =>
     s!"{go list}[{go idx}]?"
   | .indexBang list idx =>

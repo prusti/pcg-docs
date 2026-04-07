@@ -29,13 +29,13 @@ namespace Allocation
 defFn endAddr (.plain "end")
   "The end address of an allocation."
   (alloc "The allocation." : Allocation)
-  : Nat := alloc↦address↦addr + alloc↦data·length
+  : Address := Address⟨alloc↦address↦addr + alloc↦data·length⟩
 
 defFn overlaps (.plain "overlaps")
   "Whether an address falls within the allocation."
   (alloc "The allocation." : Allocation)
   (a "The address." : Address)
-  : Bool := alloc↦address↦addr < a↦addr ∧ a↦addr ≤ endAddr ‹alloc›
+  : Bool := alloc↦address < a ∧ a ≤ endAddr ‹alloc›
 
 end Allocation
 
@@ -58,7 +58,7 @@ defFn top (.plain "top")
   : Address :=
   match last ‹m↦allocs› with
   | .none => Address⟨0⟩
-  | .some alloc => Address⟨endAddr ‹alloc› + 1⟩
+  | .some alloc => Address⟨(endAddr ‹alloc›)↦addr + 1⟩
   end
 
 open Allocation AbstractByte in
@@ -108,6 +108,6 @@ defProperty validMemory (.plain "validMemory")
            .plain ", ",
            .math (.raw "\\text{endAddr}(allocations[i]) < allocations[j].address.addr"),
            .plain "."])
-  := ∀∀ i, ∀∀ j, i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address↦addr
+  := ∀∀ i, ∀∀ j, i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address
 
 end Memory
