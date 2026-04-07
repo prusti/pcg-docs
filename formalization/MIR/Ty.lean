@@ -16,6 +16,24 @@ defStruct AliasTyName (.raw "A",
 where
   | name "The associated type name." : String
 
+defEnum Size (.raw "sz", .raw "Size")
+  "Integer Sizes"
+  "The size of an integer type."
+where
+  | bits (n : Nat)
+    "A fixed bit width."
+    (.doc (.plain "bits "), #n (.raw "n"))
+  | ptrSize
+    "Pointer-sized."
+    (.doc (.plain "ptrSize"))
+
+defStruct IntType (.raw "it", .raw "IntType")
+  "Integer Types"
+  "An integer type, parameterised by signedness and size."
+where
+  | signed "Whether the integer is signed." : Bool
+  | size "The size of the integer." : Size
+
 defEnum Mutability (.raw "m", .raw "M")
   "Mutabilities"
   "Mutability of a reference."
@@ -31,6 +49,9 @@ defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
   "A type in the MIR. See definitions/types.md."
 where
+  | int (it : IntType)
+    "An integer type."
+    (.doc (.plain "intTy "), #it (.raw "it"))
   | param (index : Nat)
     "A type parameter."
     (.doc (.plain "param "),
@@ -124,6 +145,7 @@ defFn regions (.plain "regions")
   "Regions occurring directly in a type."
   (τ "The type to extract regions from." : Ty)
   : List Region where
+  | .int _ => []
   | .param _ => []
   | .alias base _ args =>
       base·regions ++ (args·flatMap fun a => a·regions)
