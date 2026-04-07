@@ -41,15 +41,12 @@ defFn checkPtr (.plain "check_ptr")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (len "The access length in bytes." : Nat)
-  : Option AllocId :=
-    match ptr↦provenance with
-    | .none => None
-    | .some prov =>
-        let alloc := m↦allocs ! prov↦id↦index ;
-        match canAccess ‹alloc, ptr, len› with
-        | true => Some prov↦id
-        | false => None
-        end
-    end
+  : Option AllocId begin
+  let prov ← ptr↦provenance
+  let alloc := m↦allocs ! prov↦id↦index
+  return match canAccess ‹alloc, ptr, len› with
+  | true => Some prov↦id
+  | false => None
+  end
 
 end Memory
