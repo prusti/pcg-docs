@@ -528,11 +528,18 @@ elab_rules : command
             {allBinds} : {retRepr} :=\n\
             {"\n".intercalate allLines}"
       else
-        s!"def {name.getId} \
-          {allBinds} : {retRepr} := by\n\
-          exact do\n\
-          {"\n".intercalate allLines}\n\
-          <;> sorry"
+        if hasMonadicBind then
+          s!"def {name.getId} \
+            {allBinds} : {retRepr} := by\n\
+            exact do\n\
+            {"\n".intercalate allLines}\n\
+            <;> sorry"
+        else
+          s!"def {name.getId} \
+            {allBinds} : {retRepr} := by\n\
+            exact (\n\
+            {"\n".intercalate allLines}\n\
+            ) <;> sorry"
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with

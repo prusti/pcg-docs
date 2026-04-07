@@ -49,6 +49,7 @@ namespace Memory
 
 def last := @List.getLast?
 def replicate := @List.replicate
+def listSet := @List.set
 
 open Allocation in
 defFn top (.plain "top")
@@ -71,6 +72,28 @@ defFn allocate (.plain "allocate")
   let id := AllocId⟨m↦allocs·length⟩
   let alloc := Allocation⟨id, replicate ‹size, uninit›, addr, true⟩
   return ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
+
+defProperty validAllocId (.plain "validAllocId")
+  "The allocation identifier is in range."
+  (m "The memory." : Memory)
+  (id "The allocation identifier." : AllocId)
+  latex
+    (.seq [.plain "An allocation identifier is ",
+           .italic (.plain "valid"),
+           .plain " for a memory iff its index is less than the number of allocations."])
+  := id↦index < m↦allocs·length
+
+open Allocation in
+defFn deallocate (.plain "deallocate")
+  "Mark an allocation as dead."
+  (m "The memory." : Memory)
+  (id "The allocation identifier." : AllocId)
+  requires validAllocId(m, id)
+  : Memory begin
+  let alloc := m↦allocs ! id↦index
+  let dead := Allocation⟨alloc↦id, alloc↦data, alloc↦address, false⟩
+  let newAllocs := listSet ‹m↦allocs, id↦index, dead›
+  return Memory⟨newAllocs⟩
 
 open Allocation in
 
