@@ -41,7 +41,7 @@ def toRust : DSLType → RustTy
   | .list t => .adt ⟨[⟨"Vec"⟩]⟩ [t.toRust]
   | .set t => .adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust]
   | .tuple ts =>
-    .named (" × ".intercalate (ts.map fun t => t.toRust.render))
+    .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
 
 /-- Convert to a Rust parameter type. Lists become
     slices (`&[T]`) for pattern-matching support. -/
@@ -53,7 +53,7 @@ def toRustParam : DSLType → RustTy
   | .set t =>
     .ref false (.adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust])
   | .tuple ts =>
-    .named (" × ".intercalate (ts.map fun t => t.toRust.render))
+    .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
 
 /-- Render a type to a Rust type string. -/
 def toRustStr (t : DSLType) : String := t.toRust.render
@@ -358,6 +358,7 @@ def render : RustItem → String
   | .struct_ s => s.render
   | .impl_ i => i.render
   | .fn_ f => RustFn.render 0 f
+  | .raw s => s
 end RustItem
 
 namespace RustModule
@@ -570,9 +571,14 @@ partial def toRustPat (enumName : String)
       .pathArgs ⟨[⟨enumName⟩, ⟨capName⟩]⟩ rustArgs
   | .nil => .slice [] none
   | .cons h tail =>
+    let stripParens (s : String) : String :=
+      let s := s.trimAscii.toString
+      if s.startsWith "(" && s.endsWith ")" then
+        (s.drop 1 |>.dropEnd 1).trimAscii.toString
+      else s
     let elemName := if enumName.startsWith "List "
-      then enumName.drop 5 |>.toString
-      else enumName
+      then stripParens (enumName.drop 5).toString
+      else stripParens enumName
     let hPat := h.toRustPat elemName structFields
     let restPat := match tail with
       | .var rest => .ident (leanToRustIdent rest)
@@ -588,7 +594,7 @@ namespace BodyExpr
     `FreshM` monad (for generating fresh variable names). -/
 partial def toRustExpr : BodyExpr → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
-  | .natLit n => pure (.raw (toString n))
+  | .natLit n => pure (.raw s!"{n}usize")
   | .true_ => pure (.litBool true)
   | .false_ => pure (.litBool false)
   | .emptyList => pure .emptyVec
@@ -601,13 +607,18 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     | _ => return .some_ inner
   | .mkStruct sName args => do
     if sName.isEmpty then
-      return .tuple (← args.mapM fun a =>
-        a.toRustExpr)
+      return .tuple (← args.mapM fun a => do
+        match a with
+        | .var _ => return .clone (← a.toRustExpr)
+        | .field _ _ => return .clone (← a.toRustExpr)
+        | _ => a.toRustExpr)
     else
       return .call (.path ⟨[⟨sName⟩, ⟨"new"⟩]⟩)
         (← args.mapM fun a => do
           match a with
           | .var _ =>
+            return .clone (← a.toRustExpr)
+          | .field _ _ =>
             return .clone (← a.toRustExpr)
           | .some_ inner =>
             return .some_
@@ -629,7 +640,7 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     let rExpr ← r.toRustExpr
     let v ← fresh
     return .block
-      [ .«let» (.ident v) none lExpr
+      [ .«let» (.ident v) none (.clone lExpr)
           (mutable := true)
       , .expr (.methodCall (.ident v) ⟨"extend"⟩
           [rExpr]) ]
@@ -749,7 +760,7 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     pure (.binOp .and (← l.toRustExpr) (← r.toRustExpr))
   | .implies _ _ => pure (.raw "/* implication omitted */")
   | .forall_ _ _ =>
-    pure (.raw "/* forall omitted */")
+    pure (.raw "/* forall omitted */ true")
   | .sorryProof => pure (.raw "/* sorry */")
   | .leanProof _ => pure (.raw "/* proof omitted */")
   | .match_ scrut arms => do
@@ -758,14 +769,18 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       let pat := if pats.length == 1
         then pats.head!.toRustPat ""
         else .tuple (pats.map (·.toRustPat ""))
-      pure (RustMatchArm.mk pat (← rhs.toRustExpr))
+      let rhsExpr ← rhs.toRustExpr
+      let rhsExpr := match rhs with
+        | .var _ => RustExpr.clone rhsExpr
+        | _ => rhsExpr
+      pure (RustMatchArm.mk pat rhsExpr)
     pure (.«match» scrutExpr rustArms)
   | .letIn name val body => do
     let vExpr ← val.toRustExpr
     let bExpr ← body.toRustExpr
     pure (.block
-      [ .«let» (.ident (leanToRustIdent name)) none vExpr
-          (mutable := false) ]
+      [ .«let» (.ident (leanToRustIdent name)) none
+          (.borrow vExpr) (mutable := false) ]
       (some bExpr))
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
@@ -824,7 +839,7 @@ def toRustItem (f : FnDef)
             (.borrow (re v))
         | .letBind n v => RustStmt.«let»
             (.ident (leanToRustIdent n)) none
-            (.try_ (re v))
+            (.try_ (.clone (re v)))
       .block (assertStmts ++ rustStmts) (some (re ret))
     | .expr body =>
       .block assertStmts (some (re body))
@@ -843,10 +858,20 @@ namespace StructDef
     itself plus `From<Box<T>>` impls for its field
     types. -/
 def toRustItems (s : StructDef) : List RustItem :=
-  let fieldTys := s.fields.map fun f => f.ty.toRust
+  let selfTy : RustTy := .adt (.simple s.name) []
+  let fieldTys := [selfTy]
+  let isCopyPrim : DSLType → Bool
+    | .prim .string => false
+    | .prim .unit => false
+    | .prim _ => true
+    | _ => false
+  let allCopy := s.fields.all fun f => isCopyPrim f.ty
+  let derives := if allCopy
+    then defaultRustDerives ++ [⟨"Copy"⟩]
+    else defaultRustDerives
   let rs : RustStruct := {
     doc := s.doc.toPlainText
-    attrs := [.derive defaultRustDerives]
+    attrs := [.derive derives]
     vis := .pub
     name := ⟨s.name⟩
     fields := .named (s.fields.map fun f =>

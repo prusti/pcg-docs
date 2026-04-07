@@ -9,7 +9,88 @@ import Core.Dsl.Types.OrderDef
     `(cratePrefix, rustModuleName)`. -/
 def extraItems : List (String × String × RustItem) :=
   [ ("PCG", "capability",
-     Capability.orderDef.toRustPartialOrd) ]
+     Capability.orderDef.toRustPartialOrd)
+  , ("OpSem", "address", .raw
+"impl PartialOrd for Address {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Address {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.addr.cmp(&other.addr)
+    }
+}
+impl std::ops::Add<usize> for Address {
+    type Output = Address;
+    fn add(self, n: usize) -> Address { Address { addr: self.addr + n } }
+}
+impl std::ops::Add<&usize> for Address {
+    type Output = Address;
+    fn add(self, n: &usize) -> Address { Address { addr: self.addr + n } }
+}
+impl std::ops::Add<usize> for &Address {
+    type Output = Address;
+    fn add(self, n: usize) -> Address { Address { addr: self.addr + n } }
+}
+impl std::ops::Add<&usize> for &Address {
+    type Output = Address;
+    fn add(self, n: &usize) -> Address { Address { addr: self.addr + n } }
+}
+impl std::ops::Sub<&Address> for &Address {
+    type Output = usize;
+    fn sub(self, other: &Address) -> usize { self.addr - other.addr }
+}
+impl std::ops::Sub<Address> for Address {
+    type Output = usize;
+    fn sub(self, other: Address) -> usize { self.addr - other.addr }
+}
+impl std::ops::Sub<Address> for &Address {
+    type Output = usize;
+    fn sub(self, other: Address) -> usize { self.addr - other.addr }
+}
+impl std::ops::Sub<&Address> for Address {
+    type Output = usize;
+    fn sub(self, other: &Address) -> usize { self.addr - other.addr }
+}
+impl PartialEq<&Address> for Address {
+    fn eq(&self, other: &&Address) -> bool { self.addr == other.addr }
+}
+impl PartialEq<Address> for &Address {
+    fn eq(&self, other: &Address) -> bool { self.addr == other.addr }
+}
+impl PartialOrd<&Address> for Address {
+    fn partial_cmp(&self, other: &&Address) -> Option<std::cmp::Ordering> { Some(self.addr.cmp(&other.addr)) }
+}
+impl PartialOrd<Address> for &Address {
+    fn partial_cmp(&self, other: &Address) -> Option<std::cmp::Ordering> { Some(self.addr.cmp(&other.addr)) }
+}
+")
+  , ("OpSem", "abstractbyte", .raw
+"#[allow(non_upper_case_globals)]
+pub const uninit: AbstractByte = AbstractByte::Uninit;
+")
+  , ("OpSem", "allocation", .raw
+"pub fn last<T: Clone>(xs: &[T]) -> Option<T> { xs.last().cloned() }
+pub fn replicate<T: Clone>(n: &usize, x: &T) -> Vec<T> { vec![x.clone(); *n] }
+pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
+    let mut v: Vec<T> = xs.to_vec();
+    if *i < v.len() { v[*i] = x.clone(); }
+    v
+}
+")
+  , ("OpSem", "pointer", .raw
+"pub fn write_bytes_at(data: &[AbstractByte], offset: &usize, bytes: &[AbstractByte]) -> Vec<AbstractByte> {
+    let mut v: Vec<AbstractByte> = data.iter().take(*offset).cloned().collect();
+    v.extend(bytes.iter().cloned());
+    v.extend(data.iter().skip(*offset + bytes.len()).cloned());
+    v
+}
+pub fn read_bytes_at(data: &[AbstractByte], offset: &usize, len: &usize) -> Vec<AbstractByte> {
+    data.iter().skip(*offset).take(*len).cloned().collect()
+}
+")
+  ]
 
 /-- Build a `RustCrate` from the registry for a given Lean
     module prefix (e.g. `"MIR"` or `"PCG"`). -/

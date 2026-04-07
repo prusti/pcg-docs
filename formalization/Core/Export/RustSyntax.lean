@@ -232,6 +232,7 @@ inductive RustItem where
   | struct_ (s : RustStruct)
   | impl_ (i : RustImpl)
   | fn_ (f : RustFn)
+  | raw (s : String)
 
 /-- A Rust module containing items. -/
 structure RustModule where
