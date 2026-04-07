@@ -3,37 +3,48 @@ import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.PropertyDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
+import Core.LeanAST
+
+open LeanAST
 
 -- ══════════════════════════════════════════════
--- Lean rendering for DSLPrimTy / DSLType
+-- DSLPrimTy / DSLType → LeanAST
 -- ══════════════════════════════════════════════
 
 namespace DSLPrimTy
 
+/-- Lower a primitive type to a `LeanTy`. -/
+def toLeanAST : DSLPrimTy → LeanTy
+  | .nat => .const "Nat"
+  | .string => .const "String"
+  | .bool => .const "Bool"
+  | .unit => .const "Unit"
+  | .u8 => .const "UInt8"
+  | .u16 => .const "UInt16"
+  | .u32 => .const "UInt32"
+  | .u64 => .const "UInt64"
+  | .usize => .const "USize"
+
 /-- Render a primitive to Lean syntax. -/
-def toLean : DSLPrimTy → String
-  | .nat => "Nat"
-  | .string => "String"
-  | .bool => "Bool"
-  | .unit => "Unit"
-  | .u8 => "UInt8"
-  | .u16 => "UInt16"
-  | .u32 => "UInt32"
-  | .u64 => "UInt64"
-  | .usize => "USize"
+def toLean (p : DSLPrimTy) : String :=
+  toString p.toLeanAST
 
 end DSLPrimTy
 
 namespace DSLType
 
+/-- Lower a `DSLType` to a `LeanTy`. -/
+partial def toLeanAST : DSLType → LeanTy
+  | .prim p => p.toLeanAST
+  | .named n => .const n.name
+  | .option t => .app "Option" t.toLeanAST
+  | .list t => .app "List" t.toLeanAST
+  | .set t => .app "Set" t.toLeanAST
+  | .tuple ts => .product (ts.map toLeanAST)
+
 /-- Render a type to Lean syntax. -/
-partial def toLean : DSLType → String
-  | .prim p => p.toLean
-  | .named n => n.name
-  | .option t => s!"Option ({t.toLean})"
-  | .list t => s!"List ({t.toLean})"
-  | .set t => s!"Set ({t.toLean})"
-  | .tuple ts => " × ".intercalate (ts.map toLean)
+partial def toLean (t : DSLType) : String :=
+  toString t.toLeanAST
 
 /-- Collect all named type references. -/
 partial def namedTypes : DSLType → List String
@@ -54,10 +65,6 @@ partial def usesSet : DSLType → Bool
 
 end DSLType
 
--- ══════════════════════════════════════════════
--- Lean rendering for StructDef
--- ══════════════════════════════════════════════
-
 namespace FieldDef
 
 /-- Backward-compatible accessor. -/
@@ -67,152 +74,141 @@ def typeName (f : FieldDef) : String :=
 end FieldDef
 
 -- ══════════════════════════════════════════════
--- Lean rendering for BodyPat / BodyExpr / FnBody
+-- BodyPat → LeanPat
 -- ══════════════════════════════════════════════
 
 namespace BodyPat
 
-partial def toLean : BodyPat → String
-  | .wild => "_"
-  | .var n => n
-  | .ctor "⟨⟩" args =>
-    s!"⟨{", ".intercalate (args.map toLean)}⟩"
-  | .ctor n args =>
-    let prefix_ := if n.contains '.' then "" else "."
-    if args.isEmpty then s!"{prefix_}{n}"
-    else
-      let argStr := " ".intercalate
-        (args.map fun a => match a with
-          | .wild => "_" | .var v => v
-          | _ => s!"({a.toLean})")
-      s!"{prefix_}{n} {argStr}"
-  | .nil => "[]"
-  | .cons h t =>
-    let hStr := match h with
-      | .ctor _ (_ :: _) => s!"({h.toLean})"
-      | _ => h.toLean
-    s!"{hStr} :: {t.toLean}"
-  | .natLit n => toString n
+partial def toLeanAST : BodyPat → LeanPat
+  | .wild => .wild
+  | .var n => .var n
+  | .ctor "⟨⟩" args => .anonCtor (args.map toLeanAST)
+  | .ctor n args => .ctor n (args.map toLeanAST)
+  | .nil => .listNil
+  | .cons h t => .listCons h.toLeanAST t.toLeanAST
+  | .natLit n => .natLit n
+
+partial def toLean (p : BodyPat) : String :=
+  toString p.toLeanAST
 
 end BodyPat
 
+-- ══════════════════════════════════════════════
+-- BodyExpr → LeanExpr
+-- ══════════════════════════════════════════════
+
 namespace BodyExpr
 
-/-- Render a `BodyExpr` to Lean syntax.
+/-- Lower a `BodyExpr` to a `LeanExpr`.
     `selfName` is the current function name (for
     inserting proof arguments at recursive calls).
     `precondNames` lists the precondition function
     names. `calleeProofNames` lists callee functions
     that also require sorry proof arguments. -/
+partial def toLeanASTWith
+    (selfName : String)
+    (precondNames : List String)
+    (calleeProofNames : List String := [])
+    : BodyExpr → LeanExpr :=
+  let go := toLeanASTWith selfName precondNames
+    calleeProofNames
+  -- For self-recursive calls we need to attach
+  -- precondition proof terms; for known callees we
+  -- attach `sorry`. We render these as `raw` so the
+  -- atomic-arg logic in `LeanExpr.toAtom` doesn't
+  -- accidentally re-parenthesize them.
+  let proofArgs : List LeanExpr :=
+    precondNames.map fun pn =>
+      .raw s!"(by simp_all [{pn}])"
+  fun
+  | .var n => .ident n
+  | .natLit n => .natLit n
+  | .true_ => .boolLit true
+  | .false_ => .boolLit false
+  | .emptyList => .listNil
+  | .none_ => .noneE
+  | .some_ e => .someE (go e)
+  | .mkStruct _ args => .anonCtor (args.map go)
+  | .cons h t => .listCons (go h) (go t)
+  | .append l r => .listAppend (go l) (go r)
+  | .dot recv method => .dot (go recv) method []
+  | .flatMap list param body =>
+    .listFlatMap (go list) param (go body)
+  | .field recv name => .field (go recv) name
+  | .index list idx => .index (go list) (go idx)
+  | .indexBang list idx => .indexBang (go list) (go idx)
+  | .call fn args =>
+    let argEs := args.map go
+    if fn == selfName && !precondNames.isEmpty then
+      .app fn (argEs ++ proofArgs)
+    else if calleeProofNames.contains fn then
+      .app fn (argEs ++ [.raw "sorry"])
+    else
+      .app fn argEs
+  | .foldlM fn init list =>
+    .foldlM (go list) fn (go init)
+  | .lt l r => .binop "<" (go l) (go r)
+  | .le l r => .binop "≤" (go l) (go r)
+  | .ltChain es => .ltChain (es.map go)
+  | .add l r => .binop "+" (go l) (go r)
+  | .sub l r => .binop "-" (go l) (go r)
+  | .setAll set param body =>
+    .forallIn param (go set) (go body)
+  | .emptySet => .emptySet
+  | .setSingleton e => .app "Set.singleton" [go e]
+  | .setUnion l r => .listAppend (go l) (go r)
+  | .setFlatMap list param body =>
+    .setFlatMapList (go list) param (go body)
+  | .and l r => .binop "∧" (go l) (go r)
+  | .implies l r => .binop "→" (go l) (go r)
+  | .forall_ p b => .forall_ p (go b)
+  | .sorryProof => .raw "sorry"
+  | .leanProof t => .raw t
+  | .match_ scrut arms =>
+    .match_ (go scrut) <| arms.map fun (pats, rhs) =>
+      .mk (pats.map BodyPat.toLeanAST) (go rhs)
+  | .letIn name val body =>
+    .letIn name (go val) (go body)
+
+partial def toLeanAST (e : BodyExpr) : LeanExpr :=
+  e.toLeanASTWith "" []
+
 partial def toLeanWith
     (selfName : String)
     (precondNames : List String)
     (calleeProofNames : List String := [])
-    : BodyExpr → String :=
-  let go := toLeanWith selfName precondNames
-    calleeProofNames
-  let goArg (e : BodyExpr) : String :=
-    match e with
-    | .var n => n | .true_ => "true"
-    | .false_ => "false" | .none_ => "none"
-    | .emptyList => "[]"
-    | .emptySet => "(∅ : Set _)"
-    | e => s!"({go e})"
-  let proofArgs :=
-    " ".intercalate
-      (precondNames.map fun pn =>
-        s!"(by simp_all [{pn}])")
-  fun
-  | .var n => n
-  | .natLit n => toString n
-  | .true_ => "true"
-  | .false_ => "false"
-  | .emptyList => "[]"
-  | .none_ => "none"
-  | .some_ e => s!"some {goArg e}"
-  | .mkStruct _ args =>
-    s!"⟨{", ".intercalate (args.map go)}⟩"
-  | .cons h t => s!"{go h} :: {go t}"
-  | .append l r => s!"{go l} ++ {go r}"
-  | .dot recv "toSet" =>
-    s!"{goArg recv}.toSet"
-  | .dot recv method =>
-    s!"{goArg recv}.{method}"
-  | .flatMap list param body =>
-    s!"{go list}.flatMap fun {param} => \
-       {go body}"
-  | .field recv name =>
-    match recv with
-    | .call _ _ => s!"({go recv}).{name}"
-    | _ => s!"{go recv}.{name}"
-  | .index list idx =>
-    s!"{go list}[{go idx}]?"
-  | .indexBang list idx =>
-    s!"{go list}[{go idx}]!"
-  | .call fn args =>
-    let argStr := " ".intercalate (args.map goArg)
-    if fn == selfName && !precondNames.isEmpty then
-      s!"{fn} {argStr} {proofArgs}"
-    else if calleeProofNames.contains fn then
-      s!"{fn} {argStr} sorry"
-    else s!"{fn} {argStr}"
-  | .foldlM fn init list =>
-    s!"{go list}.foldlM {fn} {go init}"
-  | .lt l r => s!"{go l} < {go r}"
-  | .le l r => s!"{go l} ≤ {go r}"
-  | .ltChain es =>
-    let pairs := es.zip (es.drop 1)
-    " ∧ ".intercalate
-      (pairs.map fun (l, r) => s!"{go l} < {go r}")
-  | .add l r => s!"{go l} + {go r}"
-  | .sub l r => s!"{go l} - {go r}"
-  | .setAll set param body =>
-    s!"∀ {param} ∈ {go set}, {go body}"
-  | .emptySet => "(∅ : Set _)"
-  | .setSingleton e =>
-    s!"Set.singleton {goArg e}"
-  | .setUnion l r =>
-    s!"{go l} ++ {go r}"
-  | .setFlatMap list param body =>
-    s!"Set.flatMapList {goArg list} fun {param} => \
-       {go body}"
-  | .and l r => s!"{go l} ∧ {go r}"
-  | .implies l r => s!"{go l} → {go r}"
-  | .forall_ p b => s!"∀ {p}, {go b}"
-  | .sorryProof => "sorry"
-  | .leanProof t => t
-  | .match_ scrut arms =>
-    let armStrs := arms.map fun (pats, rhs) =>
-      let patStr := ", ".intercalate
-        (pats.map BodyPat.toLean)
-      s!"  | {patStr} => {go rhs}"
-    s!"(match {go scrut} with\n\
-       {"\n".intercalate armStrs})"
-  | .letIn name val body =>
-    s!"let {name} := {go val}\n{go body}"
+    (e : BodyExpr) : String :=
+  toString (e.toLeanASTWith selfName precondNames
+    calleeProofNames)
 
-partial def toLean : BodyExpr → String :=
-  toLeanWith "" []
+partial def toLean (e : BodyExpr) : String :=
+  toString e.toLeanAST
 
-partial def toLeanArg : BodyExpr → String
-  | .var n => n
-  | .natLit n => toString n
-  | .true_ => "true"
-  | .false_ => "false"
-  | .none_ => "none"
-  | .emptyList => "[]"
-  | .emptySet => "(∅ : Set _)"
-  | e => s!"({e.toLean})"
+partial def toLeanArg (e : BodyExpr) : String :=
+  LeanExpr.toAtom e.toLeanAST
 
 end BodyExpr
 
+-- ══════════════════════════════════════════════
+-- BodyStmt → LeanDoStmt
+-- ══════════════════════════════════════════════
+
 namespace BodyStmt
 
-def toLean : BodyStmt → String
-  | .let_ n v => s!"  let {n} := {v.toLean}"
-  | .letBind n v => s!"  let {n} ← {v.toLean}"
+def toLeanAST : BodyStmt → LeanDoStmt
+  | .let_ n v => .letE n v.toLeanAST
+  | .letBind n v => .letBind n v.toLeanAST
+
+def toLean (s : BodyStmt) : String :=
+  match s.toLeanAST with
+  | .letE n v => s!"  let {n} := {v}"
+  | .letBind n v => s!"  let {n} ← {v}"
 
 end BodyStmt
+
+-- ══════════════════════════════════════════════
+-- FnBody (rendered standalone, e.g. in DefFn)
+-- ══════════════════════════════════════════════
 
 namespace FnBody
 
@@ -232,121 +228,119 @@ def toLean : FnBody → String
 
 end FnBody
 
--- ═══════���════════════════════════��═════════════
--- Definition-level Lean rendering
+-- ══════════════════════════════════════════════
+-- StructDef / EnumDef → LeanDecl
 -- ══════════════════════════════════════════════
 
 namespace StructDef
 
+/-- Lower a struct definition to a `LeanDecl`. -/
+def toLeanAST (s : StructDef) : LeanDecl :=
+  .structure_ s.name <| s.fields.map fun f =>
+    { name := f.name, type := f.ty.toLeanAST }
+
 /-- Render a struct definition to Lean syntax. -/
 def toLean (s : StructDef) : String :=
-  let fieldStrs := s.fields.map fun f =>
-    s!"  {f.name} : {f.ty.toLean}"
-  s!"structure {s.name} where\n\
-     {"\n".intercalate fieldStrs}\n\
-     deriving Repr, BEq, Hashable, Inhabited"
+  toString s.toLeanAST
 
 end StructDef
 
 namespace EnumDef
 
+/-- Lower an enum definition to an `inductive` declaration. -/
+def toLeanAST (e : EnumDef) : LeanDecl :=
+  .inductive_ e.name.name <| e.variants.map fun v =>
+    { name := v.name.name
+      args := v.args.map fun a =>
+        { name := a.name, type := a.type.toLeanAST } }
+
 /-- Render an enum definition to a Lean `inductive`. -/
 def toLean (e : EnumDef) : String :=
-  let variantStrs := e.variants.map fun v =>
-    let argStr := v.args.map fun a =>
-      s!"({a.name} : {a.type.toLean})"
-    if argStr.isEmpty then s!"  | {v.name.name}"
-    else s!"  | {v.name.name} {" ".intercalate argStr}"
-  s!"inductive {e.name.name} where\n\
-     {"\n".intercalate variantStrs}\n\
-     deriving Repr, BEq, Hashable, Inhabited"
+  toString e.toLeanAST
 
 end EnumDef
 
-/-- Build precondition parameter bindings for a
-    generated Lean def. Each precondition `prop(a, b)`
-    becomes `(h_prop : prop a b)`. -/
-private def precondParamBinds
-    (preconds : List Precondition) : String :=
-  " ".intercalate
-    (preconds.map fun pc =>
-      let argStr := " ".intercalate pc.args
-      s!"(h_{pc.name} : {pc.name} {argStr})")
+-- ══════════════════════════════════════════════
+-- FnDef / PropertyDef → LeanDecl
+-- ══════════════════════════════════════════════
+
+/-- Build precondition binders for a generated def. Each
+    `prop(a, b)` becomes `(h_prop : prop a b)`. -/
+private def precondBinders
+    (preconds : List Precondition) : List LeanBinder :=
+  preconds.map fun pc =>
+    let argStr := " ".intercalate pc.args
+    { name := s!"h_{pc.name}"
+      type := .const s!"{pc.name} {argStr}" }
+
+/-- Convert FnDef params to AST binders. -/
+private def paramBinders
+    (params : List FieldDef) : List LeanBinder :=
+  params.map fun p =>
+    { name := p.name, type := p.ty.toLeanAST }
 
 namespace FnDef
 
-/-- Render a function definition to Lean syntax. -/
-def toLean
+/-- Lower a function definition to a `LeanDecl`.
+    If `isProperty` is true, the return type is `Prop`
+    and a catch-all `False` arm is appended for
+    pattern-matching bodies that don't already have one. -/
+def toLeanAST
     (f : FnDef)
     (isProperty : Bool := false)
-    : String :=
+    : LeanDecl :=
   let precondNames := f.preconditions.map (·.name)
-  let paramBinds := " ".intercalate
-    (f.params.map fun p =>
-      s!"({p.name} : {p.ty.toLean})")
-  let retRepr :=
-    if isProperty then "Prop"
-    else f.returnType.toLean
-  let precBinds := precondParamBinds f.preconditions
-  match f.body with
-  | .matchArms arms =>
-    let armStrs := arms.map fun arm =>
-      let patStr := ", ".intercalate
-        (arm.pat.map BodyPat.toLean)
-      let rhsStr := arm.rhs.toLeanWith
-        f.name precondNames
-      s!"  | {patStr} => {rhsStr}"
-    let lastIsCatchAll := match arms.getLast? with
-      | some arm => arm.pat.all fun p =>
-          match p with | .wild | .var _ => true | _ => false
-      | none => false
-    let armStrs :=
-      if isProperty && !lastIsCatchAll then
-        let wildPat := ", ".intercalate
-          (f.params.map fun _ => "_")
-        armStrs ++ [s!"  | {wildPat} => False"]
-      else armStrs
-    if f.preconditions.isEmpty then
-      let tyStr := " → ".intercalate
-        (f.params.map fun p => p.ty.toLean)
-        ++ s!" → {retRepr}"
-      s!"def {f.name} : {tyStr}\n\
-         {"\n".intercalate armStrs}"
-    else
-      let paramNames := ", ".intercalate
-        (f.params.map (·.name))
-      s!"def {f.name} {paramBinds} {precBinds} \
-         : {retRepr} :=\n\
-         match {paramNames} with\n\
-         {"\n".intercalate armStrs}"
-  | .doBlock stmts ret =>
-    let stmtStrs := stmts.map BodyStmt.toLean
-    let retStr := s!"  {ret.toLeanWith
-      f.name precondNames}"
-    let allLines := stmtStrs ++ [retStr]
-    let allBinds :=
-      if precBinds.isEmpty then paramBinds
-      else s!"{paramBinds} {precBinds}"
-    if f.preconditions.isEmpty then
-      s!"def {f.name} {allBinds} : {retRepr} := do\n\
-         {"\n".intercalate allLines}"
-    else
-      s!"def {f.name} {allBinds} : {retRepr} := by\n\
-         exact do\n\
-         {"\n".intercalate allLines}\n\
-         <;> sorry"
-  | .expr body =>
-    let rhsStr := body.toLeanWith f.name precondNames
-    s!"def {f.name} {paramBinds} {precBinds} \
-       : {retRepr} :=\n  {rhsStr}"
+  let retType : LeanTy :=
+    if isProperty then .const "Prop"
+    else f.returnType.toLeanAST
+  let params := paramBinders f.params
+  let precBinds := precondBinders f.preconditions
+  let body : LeanFnBody :=
+    match f.body with
+    | .matchArms arms =>
+      let armASTs : List LeanMatchArm := arms.map fun arm =>
+        .mk (arm.pat.map BodyPat.toLeanAST)
+            (arm.rhs.toLeanASTWith f.name precondNames)
+      let lastIsCatchAll := match arms.getLast? with
+        | some arm => arm.pat.all fun p =>
+            match p with | .wild | .var _ => true | _ => false
+        | none => false
+      let armASTs :=
+        if isProperty && !lastIsCatchAll then
+          let wildPats := f.params.map fun _ => LeanPat.wild
+          armASTs ++ [.mk wildPats (.ident "False")]
+        else armASTs
+      .matchArms armASTs
+    | .doBlock stmts ret =>
+      .doBlock (stmts.map BodyStmt.toLeanAST)
+               (ret.toLeanASTWith f.name precondNames)
+    | .expr body =>
+      .expr (body.toLeanASTWith f.name precondNames)
+  .def_ {
+    name := f.name
+    params
+    precondBinds := precBinds
+    retType
+    body
+    doRequiresProof := !f.preconditions.isEmpty
+  }
+
+/-- Render a function definition to Lean syntax. -/
+def toLean
+    (f : FnDef) (isProperty : Bool := false) : String :=
+  toString (f.toLeanAST isProperty)
 
 end FnDef
 
 namespace PropertyDef
 
+/-- Lower a property to a `LeanDecl`. -/
+def toLeanAST (p : PropertyDef) : LeanDecl :=
+  p.fnDef.toLeanAST (isProperty := true)
+
 /-- Render a property definition to Lean syntax. -/
 def toLean (p : PropertyDef) : String :=
-  p.fnDef.toLean (isProperty := true)
+  toString p.toLeanAST
 
 end PropertyDef
 

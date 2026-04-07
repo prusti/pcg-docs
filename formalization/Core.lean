@@ -2,6 +2,7 @@ import Core.Doc
 import Core.Set
 import Core.Order
 import Core.Export.RustSyntax
+import Core.LeanAST
 import Core.Dsl.DslType
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.StructDef

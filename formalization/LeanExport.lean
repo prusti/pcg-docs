@@ -2,6 +2,9 @@ import PCG.Capability.Order
 import MIR
 import OpSem
 import Core.Export.Lean
+import Core.LeanAST
+
+open LeanAST
 
 -- ══════════════════════════════════════════════
 -- Definition items
@@ -29,21 +32,19 @@ private def inferNamespace
     | _ => none
   | none => none
 
-private def LeanDefItem.toLean
+private def LeanDefItem.toLeanAST
     (definedTypes : List String)
-    : LeanDefItem → String
-  | .struct_ s => s.toLean
-  | .enum_ e => e.toLean
+    : LeanDefItem → LeanDecl
+  | .struct_ s => s.toLeanAST
+  | .enum_ e => e.toLeanAST
   | .fn_ f =>
     match inferNamespace f definedTypes with
-    | some ns =>
-      s!"namespace {ns}\n\n{f.toLean}\n\nend {ns}"
-    | none => f.toLean
+    | some ns => .namespaced ns f.toLeanAST
+    | none => f.toLeanAST
   | .property_ p =>
     match inferNamespace p.fnDef definedTypes with
-    | some ns =>
-      s!"namespace {ns}\n\n{p.toLean}\n\nend {ns}"
-    | none => p.toLean
+    | some ns => .namespaced ns p.toLeanAST
+    | none => p.toLeanAST
 
 /-- All names referenced by this item (types,
     preconditions, called functions). -/
@@ -166,20 +167,23 @@ private def computeImports
     if needsSet then [`Util.Set] else []
   setImport ++ unique
 
+/-- Build the `LeanModule` AST for a module. -/
+private def buildLeanModule
+    (items : List LeanDefItem)
+    (imports : List Lean.Name)
+    : LeanModule :=
+  let definedTypes := items.filterMap
+    LeanDefItem.definedTypeName
+  { imports := imports.map toString
+    decls := items.map
+      (LeanDefItem.toLeanAST definedTypes) }
+
 /-- Render a module to Lean source. -/
 private def renderModule
     (items : List LeanDefItem)
     (imports : List Lean.Name)
     : String :=
-  let importLines := imports.map
-    fun m => s!"import {m}"
-  let header := if importLines.isEmpty then ""
-    else "\n".intercalate importLines ++ "\n\n"
-  let definedTypes := items.filterMap
-    LeanDefItem.definedTypeName
-  let defs := items.map
-    (LeanDefItem.toLean definedTypes)
-  header ++ "\n\n".intercalate defs ++ "\n"
+  toString (buildLeanModule items imports)
 
 -- ══════════════════════════════════════════════
 -- Project scaffolding
