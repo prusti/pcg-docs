@@ -19,6 +19,7 @@ syntax fnPat " :: " fnPat : fnPat
 
 declare_syntax_cat fnExpr
 syntax "[" "]" : fnExpr
+syntax "[" fnExpr,+ "]" : fnExpr
 syntax num : fnExpr
 syntax ident : fnExpr
 syntax "(" fnExpr ")" : fnExpr
@@ -134,6 +135,9 @@ partial def parseExpr
     : Lean.Elab.Command.CommandElabM BodyExpr := do
   match stx with
   | `(fnExpr| [ ]) => pure .emptyList
+  | `(fnExpr| [ $es:fnExpr,* ]) => do
+    let elems ← es.getElems.mapM parseExpr
+    pure (elems.foldr BodyExpr.cons .emptyList)
   | `(fnExpr| $n:num) =>
     pure (.natLit n.getNat)
   | `(fnExpr| $n:ident) =>
@@ -511,11 +515,18 @@ elab_rules : command
     let allBinds :=
       if precBinds.isEmpty then paramBinds
       else s!"{paramBinds} {precBinds}"
+    let hasMonadicBind := parsedStmts.toList.any
+      fun | .letBind _ _ => true | _ => false
     let defStr :=
       if preconds.isEmpty then
-        s!"def {name.getId} \
-          {allBinds} : {retRepr} := do\n\
-          {"\n".intercalate allLines}"
+        if hasMonadicBind then
+          s!"def {name.getId} \
+            {allBinds} : {retRepr} := do\n\
+            {"\n".intercalate allLines}"
+        else
+          s!"def {name.getId} \
+            {allBinds} : {retRepr} :=\n\
+            {"\n".intercalate allLines}"
       else
         s!"def {name.getId} \
           {allBinds} : {retRepr} := by\n\

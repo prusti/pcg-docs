@@ -10,6 +10,7 @@ defStruct AllocId (.raw "id", .doc (.plain "AllocId"))
   note "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#data-structures"
 where
   | index "The allocation index." : Nat
+  deriving DecidableEq, Repr, Hashable, Inhabited
 
 defStruct Allocation (.raw "\\alpha",
     .doc (.plain "Allocation"))
@@ -17,6 +18,7 @@ defStruct Allocation (.raw "\\alpha",
   "An allocation {def} in the memory model."
   note "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md"
 where
+  | id "The allocation identifier." : AllocId
   | data "The byte contents." : List AbstractByte
   | address "The base address." : Address
   | live "Whether the allocation is live." : Bool
@@ -46,6 +48,7 @@ where
 namespace Memory
 
 def last := @List.getLast?
+def replicate := @List.replicate
 
 open Allocation in
 defFn top (.plain "top")
@@ -56,6 +59,18 @@ defFn top (.plain "top")
   | .none => Address⟨0⟩
   | .some alloc => Address⟨endAddr ‹alloc› + 1⟩
   end
+
+open Allocation AbstractByte in
+defFn allocate (.plain "allocate")
+  "Allocate a new block of memory, returning the \
+   updated memory and the new allocation's identifier."
+  (m "The memory." : Memory)
+  (size "The size in bytes." : Nat)
+  : Memory × AllocId begin
+  let addr := top ‹m›
+  let id := AllocId⟨m↦allocs·length⟩
+  let alloc := Allocation⟨id, replicate ‹size, uninit›, addr, true⟩
+  return ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
 
 open Allocation in
 

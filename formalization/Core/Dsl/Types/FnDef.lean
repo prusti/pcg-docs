@@ -81,7 +81,7 @@ inductive BodyExpr where
       right-hand side. -/
   | match_ (scrutinee : BodyExpr)
       (arms : List (List BodyPat × BodyExpr))
-  deriving Repr
+  deriving Repr, Inhabited
 
 /-- A statement in a do-block. -/
 inductive BodyStmt where
@@ -306,12 +306,27 @@ partial def toLatexMath
   | .none_ => .text (.raw "None")
   | .some_ e =>
     .seq [.text (.raw "Some"), .raw "(", go e, .raw ")"]
-  | .mkStruct _ args =>
-    .delimited "(" ")"
-      (LatexMath.intercalate (.raw ",~")
-        (args.map go))
+  | .mkStruct name args =>
+    if name != "" && args.length == 1 then
+      go args.head!
+    else
+      .delimited "(" ")"
+        (LatexMath.intercalate (.raw ",~")
+          (args.map go))
   | .cons h t =>
-    .seq [go h, .raw " :: ", go t]
+    -- Flatten cons chains ending in `emptyList` into a
+    -- list literal `[e₁, e₂, …]`.
+    let rec flatten : BodyExpr → Option (List BodyExpr)
+      | .emptyList => some []
+      | .cons h t => (flatten t).map (h :: ·)
+      | _ => none
+    match flatten (.cons h t) with
+    | some elems =>
+      .seq [ .raw "["
+           , LatexMath.intercalate (.raw ",~")
+               (elems.map go)
+           , .raw "]" ]
+    | none => .seq [go h, .raw " :: ", go t]
   | .append l r =>
     .seq [ go l, .raw " \\mathbin{\\texttt{++}} "
          , go r ]
@@ -497,7 +512,8 @@ def formalDefLatex
         let rhsMath := goExpr rhs
         .seq [ .raw "    "
              , Latex.state (.seq [
-                 .textbf (.raw "case"), .raw " "
+                 .raw "\\hskip1.5em "
+               , .textbf (.raw "case"), .raw " "
                , .inlineMath patMath
                , .raw ": "
                , .inlineMath rhsMath ]) ]
