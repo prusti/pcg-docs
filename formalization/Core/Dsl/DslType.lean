@@ -41,7 +41,24 @@ inductive DSLType where
   | list (inner : DSLType)
   /-- `Set T` (rendered as `HashSet` in Rust). -/
   | set (inner : DSLType)
-  deriving Repr, DecidableEq, Inhabited
+  /-- `A × B × ...`. -/
+  | tuple (parts : List DSLType)
+  deriving Repr
+
+instance : Inhabited DSLType := ⟨.prim .unit⟩
+
+partial def DSLType.beq : DSLType → DSLType → Bool
+  | .prim a, .prim b => a == b
+  | .named a, .named b => a == b
+  | .option a, .option b => DSLType.beq a b
+  | .list a, .list b => DSLType.beq a b
+  | .set a, .set b => DSLType.beq a b
+  | .tuple as, .tuple bs =>
+    as.length == bs.length &&
+      (as.zip bs).all fun (x, y) => DSLType.beq x y
+  | _, _ => false
+
+instance : BEq DSLType := ⟨DSLType.beq⟩
 
 namespace DSLPrimTy
 
@@ -68,7 +85,7 @@ end DSLPrimTy
 namespace DSLType
 
 /-- Render a type to a `Doc`. -/
-def toDoc : DSLType → OutputMode → Doc
+partial def toDoc : DSLType → OutputMode → Doc
   | .prim p, mode => p.toDoc mode
   | .named n, _ => .plain n.name
   | .option t, mode =>
@@ -77,11 +94,14 @@ def toDoc : DSLType → OutputMode → Doc
     .seq [.plain "List ", parenIfCompound t mode]
   | .set t, mode =>
     .seq [.plain "Set ", parenIfCompound t mode]
+  | .tuple parts, mode =>
+    Doc.intercalate (.plain " × ")
+      (parts.map fun t => t.toDoc mode)
 where
   isCompound : DSLType → Bool
     | .prim _ => false
     | .named n => n.name.any fun c => c == ' ' || c == '×'
-    | .option _ | .list _ | .set _ => true
+    | .option _ | .list _ | .set _ | .tuple _ => true
   parenIfCompound (t : DSLType) (mode : OutputMode) : Doc :=
     if isCompound t then
       .seq [.plain "(", t.toDoc mode, .plain ")"]
@@ -113,20 +133,42 @@ private def parsePrim : String → Option DSLPrimTy
   | "USize" => some .usize
   | _ => none
 
+/-- Split a type string on top-level `×` separators
+    (ignoring those nested inside parentheses). -/
+private def splitTopLevelTimes (s : String) : List String :=
+  let rec loop (cs : List Char) (depth : Nat)
+      (cur : String) (acc : List String) : List String :=
+    match cs with
+    | [] => acc.reverse ++ [cur.trimAscii.toString]
+    | c :: rest =>
+      if c == '(' then
+        loop rest (depth + 1) (cur.push c) acc
+      else if c == ')' then
+        loop rest (depth - 1) (cur.push c) acc
+      else if depth == 0 && c == '×' then
+        loop rest depth "" (cur.trimAscii.toString :: acc)
+      else
+        loop rest depth (cur.push c) acc
+  loop s.toList 0 "" []
+
 /-- Parse a Lean type string into a `DSLType`.
     Handles parenthesized types like
     `Option (Option Nat)`. -/
 partial def parse (s : String) : DSLType :=
   let s := stripParens s
-  match parsePrim s with
-  | some p => .prim p
-  | none =>
-    if s.startsWith "Option " then
-      .option (parse (s.drop 7).toString)
-    else if s.startsWith "List " then
-      .list (parse (s.drop 5).toString)
-    else if s.startsWith "Set " then
-      .set (parse (s.drop 4).toString)
-    else .named ⟨s⟩
+  let parts := splitTopLevelTimes s
+  if parts.length > 1 then
+    .tuple (parts.map parse)
+  else
+    match parsePrim s with
+    | some p => .prim p
+    | none =>
+      if s.startsWith "Option " then
+        .option (parse (s.drop 7).toString)
+      else if s.startsWith "List " then
+        .list (parse (s.drop 5).toString)
+      else if s.startsWith "Set " then
+        .set (parse (s.drop 4).toString)
+      else .named ⟨s⟩
 
 end DSLType

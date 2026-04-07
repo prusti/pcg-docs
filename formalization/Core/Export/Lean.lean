@@ -27,26 +27,29 @@ end DSLPrimTy
 namespace DSLType
 
 /-- Render a type to Lean syntax. -/
-def toLean : DSLType → String
+partial def toLean : DSLType → String
   | .prim p => p.toLean
   | .named n => n.name
   | .option t => s!"Option ({t.toLean})"
   | .list t => s!"List ({t.toLean})"
   | .set t => s!"Set ({t.toLean})"
+  | .tuple ts => " × ".intercalate (ts.map toLean)
 
 /-- Collect all named type references. -/
-def namedTypes : DSLType → List String
+partial def namedTypes : DSLType → List String
   | .prim _ => []
   | .named n => [n.name]
   | .option t => t.namedTypes
   | .list t => t.namedTypes
   | .set t => t.namedTypes
+  | .tuple ts => ts.flatMap namedTypes
 
 /-- Whether this type uses `Set`. -/
-def usesSet : DSLType → Bool
+partial def usesSet : DSLType → Bool
   | .set _ => true
   | .option t => t.usesSet
   | .list t => t.usesSet
+  | .tuple ts => ts.any usesSet
   | _ => false
 
 end DSLType

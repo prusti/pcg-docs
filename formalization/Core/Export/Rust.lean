@@ -40,6 +40,8 @@ def toRust : DSLType → RustTy
   | .option t => .option t.toRust
   | .list t => .adt ⟨[⟨"Vec"⟩]⟩ [t.toRust]
   | .set t => .adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust]
+  | .tuple ts =>
+    .named (" × ".intercalate (ts.map fun t => t.toRust.render))
 
 /-- Convert to a Rust parameter type. Lists become
     slices (`&[T]`) for pattern-matching support. -/
@@ -50,6 +52,8 @@ def toRustParam : DSLType → RustTy
   | .list t => .slice t.toRust
   | .set t =>
     .ref false (.adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust])
+  | .tuple ts =>
+    .named (" × ".intercalate (ts.map fun t => t.toRust.render))
 
 /-- Render a type to a Rust type string. -/
 def toRustStr (t : DSLType) : String := t.toRust.render
@@ -482,6 +486,7 @@ def needsRustBoxIn : DSLType → DSLType → Bool
   | .list _, _ => false  -- Vec handles indirection
   | .set _, _ => false   -- HashSet handles indirection
   | .prim _, _ => false
+  | .tuple _, _ => false
 
 end DSLType
 

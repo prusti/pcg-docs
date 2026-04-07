@@ -70,6 +70,8 @@ mutual
     deriving Repr
 end
 
+instance : Inhabited Doc := ⟨.plain ""⟩
+
 namespace MathSym
 
 /-- Render to plain text. -/
