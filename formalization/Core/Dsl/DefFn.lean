@@ -84,6 +84,9 @@ syntax "| " fnPat "; " fnPat "; " fnPat " => " fnExpr
 -- Match expression: match expr with | pat => expr end
 syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
 
+-- Let-in expression: let x := e1 ; e2
+syntax "let " ident " := " fnExpr " ; " fnExpr : fnExpr
+
 declare_syntax_cat fnStmt
 syntax "let " ident " := " fnExpr : fnStmt
 syntax "let " ident " ← " fnExpr : fnStmt
@@ -228,6 +231,9 @@ partial def parseExpr
         pure ([← parsePat p], ← parseExpr rhs)
       | _ => Lean.Elab.throwUnsupportedSyntax
     pure (.match_ scrutAst parsedArms.toList)
+  | `(fnExpr| let $n:ident := $v:fnExpr ; $b:fnExpr) => do
+    pure (.letIn (toString n.getId)
+      (← parseExpr v) (← parseExpr b))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 def parseStmt

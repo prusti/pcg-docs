@@ -81,6 +81,8 @@ inductive BodyExpr where
       right-hand side. -/
   | match_ (scrutinee : BodyExpr)
       (arms : List (List BodyPat × BodyExpr))
+  /-- `let name := val ; body`. -/
+  | letIn (name : String) (val : BodyExpr) (body : BodyExpr)
   deriving Repr, Inhabited
 
 /-- A statement in a do-block. -/
@@ -243,6 +245,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
         #[quote pats, quoteExpr rhs]
     Syntax.mkApp (mkIdent ``BodyExpr.match_)
       #[quoteExpr scrut, quote qArms]
+  | .letIn name val body =>
+    Syntax.mkApp (mkIdent ``BodyExpr.letIn)
+      #[quote name, quoteExpr val, quoteExpr body]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr
@@ -394,6 +399,10 @@ partial def toLatexMath
          , .raw ": "
          , .delimited "\\left\\{" "\\right."
              (.array Option.none "ll" rows) ]
+  | .letIn name val body =>
+    .seq [ .text (.raw "let~"), .escaped name
+         , .raw " := ", go val, .raw ";~"
+         , go body ]
 
 end BodyExpr
 
@@ -425,6 +434,56 @@ def shortSig (f : FnDef) : Doc :=
   .seq [ f.symbolDoc, .plain "(",
     Doc.intercalate (.plain ", ") paramDocs,
     .plain ") → ", f.returnType.toDoc .normal ]
+
+private partial def exprLinesTop
+    (fnName : String)
+    (ctorDisplay : String → Option LatexMath)
+    (isProperty : Bool)
+    (e : BodyExpr) (depth : Nat) : List Latex :=
+  let noDisp : String → Option LatexMath := fun _ => none
+  let goExpr := BodyExpr.toLatexMath fnName
+    noDisp ctorDisplay isProperty
+  let mkIndent (n : Nat) : LatexMath :=
+    .raw (String.join (List.replicate n "\\hskip1.5em "))
+  match e with
+  | .letIn name val rest =>
+    let letLine : Latex :=
+      .seq [ .raw "    "
+           , Latex.state (.inlineMath (.seq [
+               mkIndent depth
+             , .text (.raw "let~")
+             , .escaped name
+             , .raw " := "
+             , goExpr val ])) ]
+    letLine :: exprLinesTop fnName ctorDisplay isProperty
+      rest depth
+  | .match_ scrut matchArms =>
+    let headerLine : Latex :=
+      .seq [ .raw "    "
+           , Latex.state (.inlineMath (.seq [
+               mkIndent depth
+             , .text (.raw "match~")
+             , goExpr scrut
+             , .raw ":" ])) ]
+    let armBlocks := matchArms.flatMap
+      fun (pats, rhs) =>
+        let patMath := LatexMath.intercalate
+          (.raw ",~")
+          (pats.map (BodyPat.toLatexMath noDisp))
+        let caseLine : Latex :=
+          .seq [ .raw "    "
+               , Latex.state (.inlineMath (.seq [
+                   mkIndent (depth + 1)
+                 , .text (.raw "case~")
+                 , patMath
+                 , .raw ":" ])) ]
+        caseLine :: exprLinesTop fnName ctorDisplay
+          isProperty rhs (depth + 2)
+    headerLine :: armBlocks
+  | e =>
+    [.seq [ .raw "    "
+          , Latex.state (.inlineMath (.seq [
+              mkIndent depth, goExpr e ])) ]]
 
 /-- Render the function as a LaTeX algorithm. -/
 def formalDefLatex
@@ -494,37 +553,8 @@ def formalDefLatex
                  (ret.toLatexMath f.name noDisp
                     ctorDisplay isProperty)) ]
       stmtLines ++ [retLine]
-    | .expr (.match_ scrut matchArms) =>
-      let noDisp : String → Option LatexMath :=
-        fun _ => none
-      let goExpr := BodyExpr.toLatexMath f.name
-        noDisp ctorDisplay isProperty
-      let headerLine : Latex :=
-        .seq [ .raw "    "
-             , Latex.state (.seq [
-                 .textbf (.raw "match"), .raw " "
-               , .inlineMath (goExpr scrut)
-               , .raw ":" ]) ]
-      let armLines := matchArms.map fun (pats, rhs) =>
-        let patMath := LatexMath.intercalate
-          (.raw ",~")
-          (pats.map (BodyPat.toLatexMath noDisp))
-        let rhsMath := goExpr rhs
-        .seq [ .raw "    "
-             , Latex.state (.seq [
-                 .raw "\\hskip1.5em "
-               , .textbf (.raw "case"), .raw " "
-               , .inlineMath patMath
-               , .raw ": "
-               , .inlineMath rhsMath ]) ]
-      headerLine :: armLines
-    | .expr body =>
-      let noDisp : String → Option LatexMath :=
-        fun _ => none
-      [.seq [ .raw "    "
-            , Latex.state (.inlineMath
-                (body.toLatexMath f.name noDisp
-                   ctorDisplay isProperty)) ]]
+    | .expr body => exprLinesTop f.name ctorDisplay
+        isProperty body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argsMath := LatexMath.intercalate

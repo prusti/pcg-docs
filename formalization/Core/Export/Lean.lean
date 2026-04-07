@@ -30,9 +30,9 @@ namespace DSLType
 def toLean : DSLType → String
   | .prim p => p.toLean
   | .named n => n.name
-  | .option t => s!"Option {t.toLean}"
-  | .list t => s!"List {t.toLean}"
-  | .set t => s!"Set {t.toLean}"
+  | .option t => s!"Option ({t.toLean})"
+  | .list t => s!"List ({t.toLean})"
+  | .set t => s!"Set ({t.toLean})"
 
 /-- Collect all named type references. -/
 def namedTypes : DSLType → List String
@@ -175,6 +175,8 @@ partial def toLeanWith
       s!"  | {patStr} => {go rhs}"
     s!"match {go scrut} with\n\
        {"\n".intercalate armStrs}"
+  | .letIn name val body =>
+    s!"let {name} := {go val}\n{go body}"
 
 partial def toLean : BodyExpr → String :=
   toLeanWith "" []
@@ -399,6 +401,7 @@ partial def calledNames : BodyExpr → List String
   | .match_ scrut arms =>
     scrut.calledNames ++
       arms.flatMap fun (_, rhs) => rhs.calledNames
+  | .letIn _ v b => v.calledNames ++ b.calledNames
   | _ => []
 
 end BodyExpr

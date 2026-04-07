@@ -72,11 +72,20 @@ def toDoc : DSLType → OutputMode → Doc
   | .prim p, mode => p.toDoc mode
   | .named n, _ => .plain n.name
   | .option t, mode =>
-    .seq [.plain "Option ", t.toDoc mode]
+    .seq [.plain "Option ", parenIfCompound t mode]
   | .list t, mode =>
-    .seq [.plain "List ", t.toDoc mode]
+    .seq [.plain "List ", parenIfCompound t mode]
   | .set t, mode =>
-    .seq [.plain "Set ", t.toDoc mode]
+    .seq [.plain "Set ", parenIfCompound t mode]
+where
+  isCompound : DSLType → Bool
+    | .prim _ => false
+    | .named n => n.name.any fun c => c == ' ' || c == '×'
+    | .option _ | .list _ | .set _ => true
+  parenIfCompound (t : DSLType) (mode : OutputMode) : Doc :=
+    if isCompound t then
+      .seq [.plain "(", t.toDoc mode, .plain ")"]
+    else t.toDoc mode
 
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType

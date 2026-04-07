@@ -753,6 +753,13 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
         else .tuple (pats.map (·.toRustPat ""))
       pure (RustMatchArm.mk pat (← rhs.toRustExpr))
     pure (.«match» scrutExpr rustArms)
+  | .letIn name val body => do
+    let vExpr ← val.toRustExpr
+    let bExpr ← body.toRustExpr
+    pure (.block
+      [ .«let» (.ident (leanToRustIdent name)) none vExpr
+          (mutable := false) ]
+      (some bExpr))
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=
