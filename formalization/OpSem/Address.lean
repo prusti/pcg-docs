@@ -25,3 +25,6 @@ instance (a b : Address) : Decidable (a < b) :=
 
 instance : HSub Address Address Nat where
   hSub a b := a.addr - b.addr
+
+instance : HAdd Address Nat Address where
+  hAdd a n := ⟨a.addr + n⟩

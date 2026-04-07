@@ -26,7 +26,7 @@ defFn canAccess (.plain "can_access")
   : Bool :=
     alloc↦live
       ∧ alloc↦address ≤ ptr↦addr
-      ∧ ptr↦addr↦addr + len ≤ (endAddr ‹alloc›)↦addr
+      ∧ ptr↦addr + len ≤ endAddr ‹alloc›
 
 end Allocation
 
