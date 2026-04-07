@@ -32,6 +32,18 @@ end Allocation
 
 namespace Memory
 
+def sub := @Nat.sub
+
+def writeBytesAt
+    (data : List AbstractByte) (offset : Nat)
+    (bytes : List AbstractByte) : List AbstractByte :=
+  data.take offset ++ bytes ++ data.drop (offset + bytes.length)
+
+def readBytesAt
+    (data : List AbstractByte) (offset : Nat) (len : Nat)
+    : List AbstractByte :=
+  (data.drop offset).take len
+
 open Allocation in
 defFn checkPtr (.plain "check_ptr")
   "Check whether a pointer can be dereferenced to access `len` bytes, \
@@ -48,5 +60,46 @@ defFn checkPtr (.plain "check_ptr")
   | true => Some prov↦id
   | false => None
   end
+
+open Allocation in
+defFn store (.plain "store")
+  "Store a byte sequence into memory at the given pointer. \
+   If the pointer does not point to a live, in-bounds allocation, \
+   the memory is returned unchanged. \
+   Behaviour is based on the logic defined here: \
+   https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations"
+  (m "The memory." : Memory)
+  (ptr "The pointer." : ThinPointer)
+  (bytes "The bytes to store." : List AbstractByte)
+  : Memory :=
+    match checkPtr ‹m, ptr, bytes·length› with
+    | .none => m
+    | .some aid =>
+        let alloc := m↦allocs ! aid↦index ;
+        let offset := sub ‹ptr↦addr↦addr, alloc↦address↦addr› ;
+        let newData := writeBytesAt ‹alloc↦data, offset, bytes› ;
+        let newAlloc := Allocation⟨alloc↦id, newData, alloc↦address, alloc↦live⟩ ;
+        let newAllocs := listSet ‹m↦allocs, aid↦index, newAlloc› ;
+        Memory⟨newAllocs⟩
+    end
+
+open Allocation in
+defFn load (.plain "load")
+  "Load a byte sequence of length `len` from memory at the given pointer. \
+   If the pointer does not point to a live, in-bounds allocation, \
+   the empty list is returned. \
+   Behaviour is based on the logic defined here: \
+   https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations"
+  (m "The memory." : Memory)
+  (ptr "The pointer." : ThinPointer)
+  (len "The number of bytes to load." : Nat)
+  : List AbstractByte :=
+    match checkPtr ‹m, ptr, len› with
+    | .none => []
+    | .some aid =>
+        let alloc := m↦allocs ! aid↦index ;
+        let offset := sub ‹ptr↦addr↦addr, alloc↦address↦addr› ;
+        readBytesAt ‹alloc↦data, offset, len›
+    end
 
 end Memory

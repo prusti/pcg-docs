@@ -175,8 +175,12 @@ mutual
 
   /-- Render a math-mode LaTeX AST to a string. -/
   partial def LatexMath.render : LatexMath → String
-    | .var s => Doc.escapeLatexMath s
-    | .escaped s => Doc.escapeLatexMath s
+    | .var s =>
+      let e := Doc.escapeLatexMath s
+      if s.length > 1 then s!"\\mathit\{{e}}" else e
+    | .escaped s =>
+      let e := Doc.escapeLatexMath s
+      if s.length > 1 then s!"\\mathit\{{e}}" else e
     | .raw s => s
     | .seq ms =>
       String.join (ms.map LatexMath.render)
