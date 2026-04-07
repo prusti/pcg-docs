@@ -17,6 +17,7 @@ syntax num : fnPat
 syntax "⟨" fnPat,+ "⟩" : fnPat
 syntax "(" fnPat ")" : fnPat
 syntax "[" "]" : fnPat
+syntax "[" fnPat,+ "]" : fnPat
 syntax fnPat " :: " fnPat : fnPat
 
 declare_syntax_cat fnExpr
@@ -136,6 +137,9 @@ partial def parsePat
   | `(fnPat| ($p:fnPat)) => parsePat p
   | `(fnPat| $n:num) => pure (.natLit n.getNat)
   | `(fnPat| [ ]) => pure .nil
+  | `(fnPat| [ $ps:fnPat,* ]) => do
+    let parsed ← ps.getElems.mapM parsePat
+    pure (parsed.foldr BodyPat.cons .nil)
   | `(fnPat| $h:fnPat :: $t:fnPat) =>
     pure (.cons (← parsePat h) (← parsePat t))
   | _ => Lean.Elab.throwUnsupportedSyntax

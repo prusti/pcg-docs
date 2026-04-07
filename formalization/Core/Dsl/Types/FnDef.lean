@@ -276,19 +276,31 @@ partial def toLatexMath
       (LatexMath.intercalate (.raw ",~")
         (args.map (toLatexMath ctorDisplay)))
   | .ctor n args =>
-    match ctorDisplay n with
-    | some display => display
-    | none =>
+    if args.isEmpty then
+      match ctorDisplay n with
+      | some display => display
+      | none => .text (.raw n)
+    else
       let argParts := args.map (toLatexMath ctorDisplay)
-      if args.isEmpty then .text (.raw n)
-      else .seq [ .text (.raw n), .raw "("
-                , LatexMath.intercalate (.raw ",~") argParts
-                , .raw ")" ]
+      .seq [ .text (.raw n), .raw "("
+           , LatexMath.intercalate (.raw ",~") argParts
+           , .raw ")" ]
   | .nil => .raw "[]"
   | .cons h t =>
-    .seq [ h.toLatexMath ctorDisplay
-         , .raw " :: "
-         , t.toLatexMath ctorDisplay ]
+    let rec flatten : BodyPat → Option (List BodyPat)
+      | .nil => some []
+      | .cons h t => (flatten t).map (h :: ·)
+      | _ => none
+    match flatten (.cons h t) with
+    | some elems =>
+      .seq [ .raw "["
+           , LatexMath.intercalate (.raw ",~")
+               (elems.map (toLatexMath ctorDisplay))
+           , .raw "]" ]
+    | none =>
+      .seq [ h.toLatexMath ctorDisplay
+           , .raw " :: "
+           , t.toLatexMath ctorDisplay ]
   | .natLit n => .raw (toString n)
 
 end BodyPat

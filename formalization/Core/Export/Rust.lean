@@ -703,7 +703,9 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       let path : RustPath :=
         ⟨[⟨en⟩, ⟨capitalise v⟩]⟩
       return .call (.path path)
-        (← filteredArgs.mapM fun a => a.toRustExpr)
+        (← filteredArgs.mapM fun a => match a with
+          | .natLit n => pure (.raw (toString n))
+          | _ => a.toRustExpr)
     | _ =>
       return .call (.identStr (toSnakeCase fn))
         (← filteredArgs.mapM fun a => do

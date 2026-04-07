@@ -10,13 +10,17 @@ defFn decodeBool (.plain "decode_bool")
    Based on the logic defined here: \
    https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"
   (bytes "The bytes to decode." : List AbstractByte)
-  : Option Value :=
-    match bytes with
-    | b :: [] =>
-        match b with
-        | .init 0 => Some Value.bool ‹false›
-        | .init 1 => Some Value.bool ‹true›
-        | _ => None
-        end
-    | _ => None
-    end
+  : Option Value where
+  | [.init 0] => Some Value.bool ‹false›
+  | [.init 1] => Some Value.bool ‹true›
+  | _ => None
+
+open AbstractByte in
+defFn encodeBool (.plain "encode_bool")
+  "Encode a boolean value as a byte sequence. \
+   Based on the logic defined here: \
+   https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"
+  (b "The boolean to encode." : Bool)
+  : List AbstractByte where
+  | true => [AbstractByte.init‹1›]
+  | false => [AbstractByte.init‹0›]
