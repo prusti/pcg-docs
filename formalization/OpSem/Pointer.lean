@@ -53,11 +53,12 @@ defFn checkPtr (.plain "check_ptr")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (len "The access length in bytes." : Nat)
-  : Option AllocId begin
+  : Option (AllocId × Nat) begin
   let prov ← ptr↦provenance
   let alloc := m↦allocs ! prov↦id↦index
+  let offset := ptr↦addr - alloc↦address
   return match canAccess ‹alloc, ptr, len› with
-  | true => Some prov↦id
+  | true => Some ⟨prov↦id, offset⟩
   | false => None
   end
 
@@ -74,9 +75,8 @@ defFn store (.plain "store")
   : Memory :=
     match checkPtr ‹m, ptr, bytes·length› with
     | .none => m
-    | .some aid =>
+    | .some ⟨aid, offset⟩ =>
         let alloc := m↦allocs ! aid↦index ;
-        let offset := sub ‹ptr↦addr↦addr, alloc↦address↦addr› ;
         let newData := writeBytesAt ‹alloc↦data, offset, bytes› ;
         let newAlloc := Allocation⟨alloc↦id, newData, alloc↦address, alloc↦live⟩ ;
         let newAllocs := listSet ‹m↦allocs, aid↦index, newAlloc› ;
@@ -96,9 +96,8 @@ defFn load (.plain "load")
   : List AbstractByte :=
     match checkPtr ‹m, ptr, len› with
     | .none => []
-    | .some aid =>
+    | .some ⟨aid, offset⟩ =>
         let alloc := m↦allocs ! aid↦index ;
-        let offset := sub ‹ptr↦addr↦addr, alloc↦address↦addr› ;
         readBytesAt ‹alloc↦data, offset, len›
     end
 

@@ -22,3 +22,6 @@ instance (a b : Address) : Decidable (a ≤ b) :=
 
 instance (a b : Address) : Decidable (a < b) :=
   inferInstanceAs (Decidable (a.addr < b.addr))
+
+instance : HSub Address Address Nat where
+  hSub a b := a.addr - b.addr

@@ -50,6 +50,7 @@ inductive BodyExpr where
   | ltChain (exprs : List BodyExpr)
   /-- Addition: `lhs + rhs`. -/
   | add (lhs : BodyExpr) (rhs : BodyExpr)
+  | sub (lhs : BodyExpr) (rhs : BodyExpr)
   /-- Universal quantifier over a set:
       `∀ x ∈ s, body`. -/
   | setAll (set : BodyExpr) (param : String)
@@ -212,6 +213,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .add l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.add)
       #[quoteExpr l, quoteExpr r]
+  | .sub l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.sub)
+      #[quoteExpr l, quoteExpr r]
   | .setAll set param body =>
     Syntax.mkApp (mkIdent ``BodyExpr.setAll)
       #[quoteExpr set, quote param, quoteExpr body]
@@ -364,6 +368,7 @@ partial def toLatexMath
   | .ltChain es =>
     LatexMath.intercalate (.raw " < ") (es.map go)
   | .add l r => .binop "+" (go l) (go r)
+  | .sub l r => .binop "-" (go l) (go r)
   | .setAll set param body =>
     .seq [ .cmd "forall", .raw " "
          , .escaped param, .raw " "

@@ -47,7 +47,7 @@ inductive RustUnaryOp where
 
 /-- A binary operator. -/
 inductive RustBinOp where
-  | eq | ne | lt | le | gt | ge | and | or | add
+  | eq | ne | lt | le | gt | ge | and | or | add | sub
   deriving Repr
 
 /-- A Rust pattern. -/

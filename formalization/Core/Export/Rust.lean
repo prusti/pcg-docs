@@ -76,7 +76,7 @@ namespace RustBinOp
 def render : RustBinOp → String
   | .eq => "==" | .ne => "!=" | .lt => "<"
   | .le => "<=" | .gt => ">" | .ge => ">="
-  | .and => "&&" | .or => "||" | .add => "+"
+  | .and => "&&" | .or => "||" | .add => "+" | .sub => "-"
 
 end RustBinOp
 
@@ -699,6 +699,8 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
         (fun acc x => .binOp .and acc x) c)
   | .add l r => do
     pure (.binOp .add (← l.toRustExpr) (← r.toRustExpr))
+  | .sub l r => do
+    pure (.binOp .sub (← l.toRustExpr) (← r.toRustExpr))
   | .setAll set param body => do
     let setE ← set.toRustExpr
     let bodyE ← body.toRustExpr

@@ -156,6 +156,7 @@ partial def toLeanWith
     " ∧ ".intercalate
       (pairs.map fun (l, r) => s!"{go l} < {go r}")
   | .add l r => s!"{go l} + {go r}"
+  | .sub l r => s!"{go l} - {go r}"
   | .setAll set param body =>
     s!"∀ {param} ∈ {go set}, {go body}"
   | .emptySet => "(∅ : Set _)"
@@ -397,6 +398,7 @@ partial def calledNames : BodyExpr → List String
   | .le l r => l.calledNames ++ r.calledNames
   | .ltChain es => es.flatMap calledNames
   | .add l r => l.calledNames ++ r.calledNames
+  | .sub l r => l.calledNames ++ r.calledNames
   | .mkStruct _ args => args.flatMap calledNames
   | .index l i => l.calledNames ++ i.calledNames
   | .indexBang l i => l.calledNames ++ i.calledNames
