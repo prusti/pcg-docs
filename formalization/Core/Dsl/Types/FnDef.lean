@@ -360,6 +360,9 @@ partial def toLatexMath
     .seq [go list, .raw "[", go idx, .raw "]"]
   | .indexBang list idx =>
     .seq [go list, .raw "[", go idx, .raw "]"]
+  | .call "listSet" [a, b, c] =>
+    .seq [ go a, .raw "[", go b, .raw " \\mapsto "
+         , go c, .raw "]" ]
   | .call fn args =>
     .seq [ .text (.raw fn), .raw "("
          , LatexMath.intercalate (.raw ",~")
