@@ -141,6 +141,9 @@ inductive LeanExpr where
   /-- `let n := v\nbody`. -/
   | letIn (name : String) (val : LeanExpr)
           (body : LeanExpr)
+  /-- `do let n ← v; body` (Option monad bind). -/
+  | letBindIn (name : String) (val : LeanExpr)
+              (body : LeanExpr)
   /-- `list.flatMap fun param => body`. -/
   | listFlatMap (list : LeanExpr) (param : String)
                 (body : LeanExpr)
@@ -223,6 +226,8 @@ partial def LeanExpr.toString : LeanExpr → String
        {"\n".intercalate armStrs})"
   | .letIn name val body =>
     s!"let {name} := {val.toString}\n{body.toString}"
+  | .letBindIn name val body =>
+    s!"({val.toAtom}.bind (fun {name} => {body.toString}))"
   | .listFlatMap list param body =>
     s!"{list.toString}.flatMap fun {param} => \
        {body.toString}"

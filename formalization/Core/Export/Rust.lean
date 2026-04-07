@@ -805,6 +805,13 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       [ .«let» (.ident (leanToRustIdent name)) none
           (.borrow vExpr) (mutable := false) ]
       (some bExpr))
+  | .letBindIn name val body => do
+    let vExpr ← val.toRustExpr
+    let bExpr ← body.toRustExpr
+    pure (.block
+      [ .«let» (.ident (leanToRustIdent name)) none
+          (.try_ (.clone vExpr)) (mutable := false) ]
+      (some bExpr))
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=

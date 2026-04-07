@@ -16,6 +16,18 @@ defFn decodeBool (.plain "decode_bool")
   | _ => None
 
 open AbstractByte in
+defFn data (.plain "data")
+  "Extract the concrete byte values from a sequence of \
+   abstract bytes. Returns `None` if any byte is uninitialised."
+  (bs "The abstract bytes." : List AbstractByte)
+  : Option (List UInt8) where
+  | [] => Some []
+  | .uninit :: _ => None
+  | .init v :: rest =>
+      let vs ← data ‹rest› ;
+      Some (v :: vs)
+
+open AbstractByte in
 defFn encodeBool (.plain "encode_bool")
   "Encode a boolean value as a byte sequence. \
    Based on the logic defined here: \

@@ -169,6 +169,8 @@ partial def toLeanASTWith
       .mk (pats.map BodyPat.toLeanAST) (go rhs)
   | .letIn name val body =>
     .letIn name (go val) (go body)
+  | .letBindIn name val body =>
+    .letBindIn name (go val) (go body)
 
 partial def toLeanAST (e : BodyExpr) : LeanExpr :=
   e.toLeanASTWith "" []
@@ -410,6 +412,7 @@ partial def calledNames : BodyExpr → List String
     scrut.calledNames ++
       arms.flatMap fun (_, rhs) => rhs.calledNames
   | .letIn _ v b => v.calledNames ++ b.calledNames
+  | .letBindIn _ v b => v.calledNames ++ b.calledNames
   | _ => []
 
 end BodyExpr

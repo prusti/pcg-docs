@@ -86,6 +86,8 @@ inductive BodyExpr where
       (arms : List (List BodyPat × BodyExpr))
   /-- `let name := val ; body`. -/
   | letIn (name : String) (val : BodyExpr) (body : BodyExpr)
+  /-- `let name ← val ; body` (monadic bind on Option). -/
+  | letBindIn (name : String) (val : BodyExpr) (body : BodyExpr)
   deriving Repr, Inhabited
 
 /-- A statement in a do-block. -/
@@ -255,6 +257,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
       #[quoteExpr scrut, quote qArms]
   | .letIn name val body =>
     Syntax.mkApp (mkIdent ``BodyExpr.letIn)
+      #[quote name, quoteExpr val, quoteExpr body]
+  | .letBindIn name val body =>
+    Syntax.mkApp (mkIdent ``BodyExpr.letBindIn)
       #[quote name, quoteExpr val, quoteExpr body]
 
 open Lean in
@@ -428,6 +433,10 @@ partial def toLatexMath
     .seq [ .text (.raw "let~"), .escaped name
          , .raw " := ", go val, .raw ";~"
          , go body ]
+  | .letBindIn name val body =>
+    .seq [ .text (.raw "let~"), .escaped name
+         , .raw " ", .cmd "leftarrow", .raw " "
+         , go val, .raw ";~", go body ]
 
 end BodyExpr
 
@@ -482,6 +491,17 @@ private partial def exprLinesTop
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
       rest depth
+  | .letBindIn name val rest =>
+    let letLine : Latex :=
+      .seq [ .raw "    "
+           , Latex.state (.inlineMath (.seq [
+               mkIndent depth
+             , .text (.raw "let~")
+             , .escaped name
+             , .raw " ", .cmd "leftarrow", .raw " "
+             , goExpr val ])) ]
+    letLine :: exprLinesTop fnName ctorDisplay isProperty
+      rest depth
   | .match_ scrut matchArms =>
     let headerLine : Latex :=
       .seq [ .raw "    "
@@ -497,6 +517,7 @@ private partial def exprLinesTop
           (pats.map (BodyPat.toLatexMath noDisp))
         let isSimple := match rhs with
           | .letIn .. => false
+          | .letBindIn .. => false
           | .match_ .. => false
           | _ => true
         if isSimple then
@@ -549,7 +570,7 @@ def formalDefLatex
             .inlineMath (.cmd "to"), .raw " ",
             retTy]
   let bodyLines : List Latex := match f.body with
-    | .matchArms arms => arms.map fun arm =>
+    | .matchArms arms => arms.flatMap fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>
         match p with | .ctor n _ => some n | _ => none
       let varDisplay : String → Option LatexMath :=
@@ -571,14 +592,52 @@ def formalDefLatex
       let patMath := LatexMath.intercalate (.raw ",~")
         (arm.pat.map
           (BodyPat.toLatexMath ctorDisplay))
-      let rhsMath := arm.rhs.toLatexMath f.name
+      let goExpr := BodyExpr.toLatexMath f.name
         varDisplay ctorDisplay isProperty
-      .seq [ .raw "    "
-           , Latex.state (.seq [
-               .textbf (.raw "case"), .raw " "
-             , .inlineMath patMath
-             , .raw ": "
-             , .inlineMath rhsMath ]) ]
+      let rec rhsLines : BodyExpr → List Latex
+        | .letBindIn name val rest =>
+          .seq [ .raw "    "
+               , Latex.state (.inlineMath (.seq [
+                   .raw "\\hskip1.5em "
+                 , .text (.raw "let~")
+                 , .escaped name
+                 , .raw " ", .cmd "leftarrow", .raw " "
+                 , goExpr val ])) ]
+          :: rhsLines rest
+        | .letIn name val rest =>
+          .seq [ .raw "    "
+               , Latex.state (.inlineMath (.seq [
+                   .raw "\\hskip1.5em "
+                 , .text (.raw "let~")
+                 , .escaped name
+                 , .raw " := "
+                 , goExpr val ])) ]
+          :: rhsLines rest
+        | e =>
+          [.seq [ .raw "    "
+                , Latex.state (.inlineMath (.seq [
+                    .raw "\\hskip1.5em ", goExpr e ])) ]]
+      let isSimple := match arm.rhs with
+        | .letBindIn .. => false
+        | .letIn .. => false
+        | _ => true
+      if isSimple then
+        let rhsMath := arm.rhs.toLatexMath f.name
+          varDisplay ctorDisplay isProperty
+        [.seq [ .raw "    "
+             , Latex.state (.seq [
+                 .textbf (.raw "case"), .raw " "
+               , .inlineMath patMath
+               , .raw ": "
+               , .inlineMath rhsMath ]) ]]
+      else
+        let caseLine : Latex :=
+          .seq [ .raw "    "
+               , Latex.state (.seq [
+                   .textbf (.raw "case"), .raw " "
+                 , .inlineMath patMath
+                 , .raw ":" ]) ]
+        caseLine :: rhsLines arm.rhs
     | .doBlock stmts ret =>
       let noDisp : String → Option LatexMath :=
         fun _ => none

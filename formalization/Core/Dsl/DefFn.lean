@@ -9,10 +9,19 @@ declare_syntax_cat fnParam
 syntax "(" ident str ":" term ")" : fnParam
 
 declare_syntax_cat fnPat
+declare_syntax_cat fnPatAtom
+syntax "_" : fnPatAtom
+syntax ident : fnPatAtom
+syntax num : fnPatAtom
+syntax "[" "]" : fnPatAtom
+syntax "[" fnPat,+ "]" : fnPatAtom
+syntax "⟨" fnPat,+ "⟩" : fnPatAtom
+syntax "(" fnPat ")" : fnPatAtom
+syntax fnPatAtom : fnPat
 syntax "_" : fnPat
 syntax ident : fnPat
-syntax "." ident fnPat* : fnPat
-syntax ident "." ident fnPat* : fnPat
+syntax "." ident fnPatAtom* : fnPat
+syntax ident "." ident fnPatAtom* : fnPat
 syntax num : fnPat
 syntax "⟨" fnPat,+ "⟩" : fnPat
 syntax "(" fnPat ")" : fnPat
@@ -90,6 +99,8 @@ syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
 
 -- Let-in expression: let x := e1 ; e2
 syntax "let " ident " := " fnExpr " ; " fnExpr : fnExpr
+-- Option bind: let x ← e1 ; e2
+syntax "let " ident " ← " fnExpr " ; " fnExpr : fnExpr
 
 declare_syntax_cat fnStmt
 syntax "let " ident " := " fnExpr : fnStmt
@@ -118,18 +129,37 @@ syntax "defFn " ident "(" term ")" str
 -- Parsing helpers
 -- ══════════════════════════════════════════════
 
+mutual
+partial def parsePatAtom
+    (stx : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM BodyPat := do
+  match stx with
+  | `(fnPatAtom| _) => pure .wild
+  | `(fnPatAtom| $n:ident) => pure (.var (toString n.getId))
+  | `(fnPatAtom| $n:num) => pure (.natLit n.getNat)
+  | `(fnPatAtom| [ ]) => pure .nil
+  | `(fnPatAtom| [ $ps:fnPat,* ]) => do
+    let parsed ← ps.getElems.mapM parsePat
+    pure (parsed.foldr BodyPat.cons .nil)
+  | `(fnPatAtom| ⟨ $args:fnPat,* ⟩) => do
+    let a ← args.getElems.mapM parsePat
+    pure (.ctor "⟨⟩" a.toList)
+  | `(fnPatAtom| ( $p:fnPat )) => parsePat p
+  | _ => Lean.Elab.throwUnsupportedSyntax
+
 partial def parsePat
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM BodyPat := do
   match stx with
+  | `(fnPat| $a:fnPatAtom) => parsePatAtom a
   | `(fnPat| _) => pure .wild
   | `(fnPat| $n:ident) =>
     pure (.var (toString n.getId))
-  | `(fnPat| .$n:ident $args:fnPat*) => do
-    let a ← args.mapM parsePat
+  | `(fnPat| .$n:ident $args:fnPatAtom*) => do
+    let a ← args.mapM parsePatAtom
     pure (.ctor (toString n.getId) a.toList)
-  | `(fnPat| $en:ident . $n:ident $args:fnPat*) => do
-    let a ← args.mapM parsePat
+  | `(fnPat| $en:ident . $n:ident $args:fnPatAtom*) => do
+    let a ← args.mapM parsePatAtom
     pure (.ctor s!"{en.getId}.{n.getId}" a.toList)
   | `(fnPat| ⟨$args:fnPat,*⟩) => do
     let a ← args.getElems.mapM parsePat
@@ -143,6 +173,7 @@ partial def parsePat
   | `(fnPat| $h:fnPat :: $t:fnPat) =>
     pure (.cons (← parsePat h) (← parsePat t))
   | _ => Lean.Elab.throwUnsupportedSyntax
+end
 
 partial def parseExpr
     (stx : Lean.Syntax)
@@ -246,6 +277,9 @@ partial def parseExpr
     pure (.match_ scrutAst parsedArms.toList)
   | `(fnExpr| let $n:ident := $v:fnExpr ; $b:fnExpr) => do
     pure (.letIn (toString n.getId)
+      (← parseExpr v) (← parseExpr b))
+  | `(fnExpr| let $n:ident ← $v:fnExpr ; $b:fnExpr) => do
+    pure (.letBindIn (toString n.getId)
       (← parseExpr v) (← parseExpr b))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
