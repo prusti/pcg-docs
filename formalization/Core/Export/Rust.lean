@@ -861,16 +861,6 @@ def toRustItem (f : FnDef)
         .block assertStmts
           (some (.«match» scrutinee
             (rustArms ++ [unreachableArm])))
-    | .doBlock stmts ret =>
-      let rustStmts := stmts.map fun s =>
-        match s with
-        | .let_ n v => RustStmt.«let»
-            (.ident (leanToRustIdent n)) none
-            (.borrow (re v))
-        | .letBind n v => RustStmt.«let»
-            (.ident (leanToRustIdent n)) none
-            (.try_ (.clone (re v)))
-      .block (assertStmts ++ rustStmts) (some (re ret))
     | .expr body =>
       .block assertStmts (some (re body))
   .fn_

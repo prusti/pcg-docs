@@ -192,23 +192,6 @@ partial def toLeanArg (e : BodyExpr) : String :=
 end BodyExpr
 
 -- ══════════════════════════════════════════════
--- BodyStmt → LeanDoStmt
--- ══════════════════════════════════════════════
-
-namespace BodyStmt
-
-def toLeanAST : BodyStmt → LeanDoStmt
-  | .let_ n v => .letE n v.toLeanAST
-  | .letBind n v => .letBind n v.toLeanAST
-
-def toLean (s : BodyStmt) : String :=
-  match s.toLeanAST with
-  | .letE n v => s!"  let {n} := {v}"
-  | .letBind n v => s!"  let {n} ← {v}"
-
-end BodyStmt
-
--- ══════════════════════════════════════════════
 -- FnBody (rendered standalone, e.g. in DefFn)
 -- ══════════════════════════════════════════════
 
@@ -221,11 +204,6 @@ def toLean : FnBody → String
         (arm.pat.map BodyPat.toLean)
       let rhsStr := arm.rhs.toLean
       acc ++ s!"  | {patStr} => {rhsStr}\n") ""
-  | .doBlock stmts ret =>
-    let body := stmts.map BodyStmt.toLean
-    let retStr := ret.toLean
-    (body ++ [s!"  {retStr}"]).foldl
-      (fun acc l => acc ++ l ++ "\n") ""
   | .expr body => s!"  {body.toLean}\n"
 
 end FnBody
@@ -313,9 +291,6 @@ def toLeanAST
           armASTs ++ [.mk wildPats (.ident "False")]
         else armASTs
       .matchArms armASTs
-    | .doBlock stmts ret =>
-      .doBlock (stmts.map BodyStmt.toLeanAST)
-               (ret.toLeanASTWith f.name precondNames)
     | .expr body =>
       .expr (body.toLeanASTWith f.name precondNames)
   .def_ {
@@ -423,11 +398,6 @@ namespace FnBody
 def calledNames : FnBody → List String
   | .matchArms arms =>
     arms.flatMap fun a => a.rhs.calledNames
-  | .doBlock stmts ret =>
-    (stmts.flatMap fun
-      | .let_ _ v => v.calledNames
-      | .letBind _ v => v.calledNames)
-    ++ ret.calledNames
   | .expr body => body.calledNames
 
 end FnBody

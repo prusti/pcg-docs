@@ -164,21 +164,17 @@ elab_rules : command
        $ps:fnParam* latex $defnDoc:term begin
        $stmts:fnStmt* return $ret:fnExpr) => do
     let paramData ← ps.mapM parseFnParam
-    let parsedStmts ← stmts.mapM parseStmt
     let parsedRet ← parseExpr ret
+    let rhsAst ← parseStmtsAsExpr stmts parsedRet
     let paramBinds := " ".intercalate
       (paramData.toList.map fun (pn, _, pt) =>
         let tyStr :=
           if pt.isIdent then toString pt.getId
           else pt.reprint.getD (toString pt)
         s!"({pn.getId} : {tyStr})")
-    let stmtStrs := parsedStmts.toList.map
-      BodyStmt.toLean
-    let retStr := s!"  {parsedRet.toLean}"
-    let allLines := stmtStrs ++ [retStr]
+    let rhsStr := rhsAst.toLean
     let defStr := s!"def {name.getId} \
-      {paramBinds} : Prop := do\n\
-      {"\n".intercalate allLines}"
+      {paramBinds} : Prop :=\n  {rhsStr}"
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with
@@ -186,15 +182,7 @@ elab_rules : command
     | .error e =>
       throwError s!"defProperty: parse error: {e}\n\
         ---\n{defStr}\n---"
-    let stmtDefs ← parsedStmts.mapM fun s => do
-      match s with
-      | .let_ n v =>
-        `(BodyStmt.let_ $(quote n) $(quoteExpr v))
-      | .letBind n v =>
-        `(BodyStmt.letBind $(quote n) $(quoteExpr v))
-    let stmtList ← `([$[$stmtDefs],*])
-    let retQ := quoteExpr parsedRet
     let bodyTerm ←
-      `(FnBody.doBlock $stmtList $retQ)
+      `(FnBody.expr $(quoteExpr rhsAst))
     buildPropertyDef name symDoc doc paramData
       bodyTerm defnDoc

@@ -90,27 +90,17 @@ inductive BodyExpr where
   | letBindIn (name : String) (val : BodyExpr) (body : BodyExpr)
   deriving Repr, Inhabited
 
-/-- A statement in a do-block. -/
-inductive BodyStmt where
-  /-- `let name := val`. -/
-  | let_ (name : String) (val : BodyExpr)
-  /-- `let name ← val` (monadic bind). -/
-  | letBind (name : String) (val : BodyExpr)
-  deriving Repr
-
 /-- A match arm: patterns → expression. -/
 structure BodyArm where
   pat : List BodyPat
   rhs : BodyExpr
   deriving Repr
 
-/-- A function body: either pattern-matching arms or an
-    imperative do-block. -/
+/-- A function body: either pattern-matching arms or
+    a direct expression. -/
 inductive FnBody where
   /-- Pattern-matching function. -/
   | matchArms (arms : List BodyArm)
-  /-- Imperative do-block with let bindings. -/
-  | doBlock (stmts : List BodyStmt) (ret : BodyExpr)
   /-- Direct expression (no pattern match needed). -/
   | expr (body : BodyExpr)
   deriving Repr
@@ -440,26 +430,6 @@ partial def toLatexMath
 
 end BodyExpr
 
-namespace BodyStmt
-
-def toLatexMath (fnName : String)
-    (varDisplay ctorDisplay
-      : String → Option LatexMath)
-    (isProperty : Bool := false)
-    : BodyStmt → LatexMath
-  | .let_ n v =>
-    .seq [ .text (.raw "let "), .escaped n
-         , .raw " := "
-         , v.toLatexMath fnName varDisplay
-             ctorDisplay isProperty ]
-  | .letBind n v =>
-    .seq [ .text (.raw "let "), .escaped n
-         , .raw " ", .cmd "leftarrow", .raw " "
-         , v.toLatexMath fnName varDisplay
-             ctorDisplay isProperty ]
-
-end BodyStmt
-
 namespace FnDef
 
 def shortSig (f : FnDef) : Doc :=
@@ -638,20 +608,6 @@ def formalDefLatex
                  , .inlineMath patMath
                  , .raw ":" ]) ]
         caseLine :: rhsLines arm.rhs
-    | .doBlock stmts ret =>
-      let noDisp : String → Option LatexMath :=
-        fun _ => none
-      let stmtLines := stmts.map fun s =>
-        .seq [ .raw "    "
-             , Latex.state (.inlineMath
-                 (s.toLatexMath f.name noDisp
-                    ctorDisplay isProperty)) ]
-      let retLine :=
-        .seq [ .raw "    "
-             , Latex.state (.inlineMath
-                 (ret.toLatexMath f.name noDisp
-                    ctorDisplay isProperty)) ]
-      stmtLines ++ [retLine]
     | .expr body => exprLinesTop f.name ctorDisplay
         isProperty body 0
   let precondLines : List Latex :=
@@ -685,7 +641,6 @@ def algorithmDoc (f : FnDef) : Doc :=
       let rhsStr := (arm.rhs.toLatexMath f.name
         noDisplay noDisplay).render
       Doc.plain s!"case {patStr}: return {rhsStr}"
-    | .doBlock _ _ => [Doc.plain "(imperative body)"]
     | .expr body =>
       let rhsStr := (body.toLatexMath f.name
         noDisplay noDisplay).render

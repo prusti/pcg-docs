@@ -283,15 +283,22 @@ partial def parseExpr
       (← parseExpr v) (← parseExpr b))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
-def parseStmt
-    (stx : Lean.Syntax)
-    : Lean.Elab.Command.CommandElabM BodyStmt := do
-  match stx with
-  | `(fnStmt| let $n:ident := $e:fnExpr) =>
-    pure (.let_ (toString n.getId) (← parseExpr e))
-  | `(fnStmt| let $n:ident ← $e:fnExpr) =>
-    pure (.letBind (toString n.getId) (← parseExpr e))
-  | _ => Lean.Elab.throwUnsupportedSyntax
+/-- Fold a sequence of `fnStmt` syntax nodes followed by a
+    return expression into a chained `letIn`/`letBindIn`
+    `BodyExpr`. -/
+def parseStmtsAsExpr
+    (stmts : Array Lean.Syntax) (ret : BodyExpr)
+    : Lean.Elab.Command.CommandElabM BodyExpr := do
+  let mut acc := ret
+  for stx in stmts.reverse do
+    match stx with
+    | `(fnStmt| let $n:ident := $e:fnExpr) =>
+      acc := .letIn (toString n.getId) (← parseExpr e) acc
+    | `(fnStmt| let $n:ident ← $e:fnExpr) =>
+      acc := .letBindIn (toString n.getId)
+        (← parseExpr e) acc
+    | _ => Lean.Elab.throwUnsupportedSyntax
+  pure acc
 
 def parseFnParam
     (stx : Lean.Syntax)
@@ -543,21 +550,12 @@ elab_rules : command
         pcs.getElems.toList.mapM
           (parsePrecond ·.raw)
       | none => pure []
-    let parsedStmts ← stmts.mapM parseStmt
     let parsedRet ← parseExpr ret
-    -- Generate Lean def via string parsing
-    let retRaw :=
-      if retTy.raw.isIdent
-      then toString retTy.raw.getId
-      else retTy.raw.reprint.getD (toString retTy)
-    let retRepr := normaliseLeanType retRaw
+    let rhsAst ← parseStmtsAsExpr stmts parsedRet
     let fnNameStr := toString name.getId
-    let stmtStrs := parsedStmts.toList.map
-      BodyStmt.toLean
     let precondNames := preconds.map (·.1)
-    let retStr := s!"  {parsedRet.toLeanWith
-      fnNameStr precondNames}"
-    let allLines := stmtStrs ++ [retStr]
+    let rhsStr := rhsAst.toLeanWith
+      fnNameStr precondNames
     let paramBinds := " ".intercalate
       (paramData.toList.map fun (pn, _, pt) =>
         let tyStr :=
@@ -565,34 +563,14 @@ elab_rules : command
           else pt.reprint.getD (toString pt)
         s!"({pn.getId} : {normaliseLeanType tyStr})")
     let precBinds := precondParamBinds preconds
-    let allBinds :=
-      if precBinds.isEmpty then paramBinds
-      else s!"{paramBinds} {precBinds}"
-    let hasMonadicBind := parsedStmts.toList.any
-      fun | .letBind _ _ => true | _ => false
+    let retRaw :=
+      if retTy.raw.isIdent
+      then toString retTy.raw.getId
+      else retTy.raw.reprint.getD (toString retTy)
+    let retRepr := normaliseLeanType retRaw
     let defStr :=
-      if preconds.isEmpty then
-        if hasMonadicBind then
-          s!"def {name.getId} \
-            {allBinds} : {retRepr} := do\n\
-            {"\n".intercalate allLines}"
-        else
-          s!"def {name.getId} \
-            {allBinds} : {retRepr} :=\n\
-            {"\n".intercalate allLines}"
-      else
-        if hasMonadicBind then
-          s!"def {name.getId} \
-            {allBinds} : {retRepr} := by\n\
-            exact do\n\
-            {"\n".intercalate allLines}\n\
-            <;> sorry"
-        else
-          s!"def {name.getId} \
-            {allBinds} : {retRepr} := by\n\
-            exact (\n\
-            {"\n".intercalate allLines}\n\
-            ) <;> sorry"
+      s!"def {name.getId} {paramBinds} \
+         {precBinds} : {retRepr} :=\n  {rhsStr}"
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with
@@ -600,16 +578,7 @@ elab_rules : command
     | .error e =>
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
-    -- Build FnBody metadata
-    let stmtDefs ← parsedStmts.mapM fun s => do
-      match s with
-      | .let_ n v =>
-        `(BodyStmt.let_ $(quote n) $(quoteExpr v))
-      | .letBind n v =>
-        `(BodyStmt.letBind $(quote n) $(quoteExpr v))
-    let stmtList ← `([$[$stmtDefs],*])
-    let retQ := quoteExpr parsedRet
     let bodyTerm ←
-      `(FnBody.doBlock $stmtList $retQ)
+      `(FnBody.expr $(quoteExpr rhsAst))
     buildFnDef name symDoc doc paramData retTy
       bodyTerm preconds
