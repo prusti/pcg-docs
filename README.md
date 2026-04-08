@@ -7,7 +7,7 @@ paper describing the PCG is probably a better resource currently:
 https://arxiv.org/pdf/2503.21691.
 
 
-**Live documentation**: https://viperproject.github.io/pcg-docs
+**Live documentation**: https://prusti.github.io/pcg-docs
 
 ## Quick Start
 
