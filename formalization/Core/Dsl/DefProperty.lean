@@ -17,8 +17,52 @@ syntax "defProperty " ident "(" term ")" str
     "return " fnExpr : command
 
 -- ══════════════════════════════════════════════
--- Shared elaboration helper
+-- Shared helpers
 -- ══════════════════════════════════════════════
+
+open LeanAST in
+/-- Convert raw syntax type to a `LeanTy`. -/
+private def syntaxToLeanTy (pt : Lean.Syntax) : LeanTy :=
+  let raw :=
+    if pt.isIdent then toString pt.getId
+    else pt.reprint.getD (toString pt)
+  (DSLType.parse raw).toLeanAST
+
+open LeanAST in
+/-- Build `LeanBinder` list from parsed parameter data. -/
+private def paramToLeanBinders
+    (paramData : Array (Lean.Ident × Lean.TSyntax `str
+      × Lean.Syntax))
+    : List LeanBinder :=
+  paramData.toList.map fun (pn, _, pt) =>
+    { name := toString pn.getId
+      type := syntaxToLeanTy pt }
+
+open LeanAST in
+open Lean Elab Command in
+/-- Build a `LeanDecl` string from a property definition
+    and parse+elaborate it. -/
+private def elabPropertyDecl
+    (name : Ident)
+    (params : List LeanBinder)
+    (body : LeanFnBody)
+    : CommandElabM Unit := do
+  let decl := LeanDecl.def_ {
+    name := toString name.getId
+    params
+    precondBinds := []
+    retType := .const "Prop"
+    body
+  }
+  let defStr := toString decl
+  let env ← getEnv
+  match Parser.runParserCategory env `command
+    defStr with
+  | .ok stx => elabCommand stx
+  | .error e =>
+    throwError
+      s!"defProperty: parse error: {e}\n\
+        ---\n{defStr}\n---"
 
 open Lean Elab Command in
 private def buildPropertyDef
@@ -64,6 +108,7 @@ private def buildPropertyDef
 -- ══════════════════════════════════════════════
 
 open Lean Elab Command Term in
+open LeanAST in
 elab_rules : command
   | `(defProperty $name:ident ($symDoc:term) $doc:str
        $ps:fnParam* latex $defnDoc:term where
@@ -81,36 +126,22 @@ elab_rules : command
       | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
         pure (#[← parsePat p], ← parseExpr rhs)
       | _ => throwError "invalid fnArm"
-    let paramTypeStrs := paramData.map fun (_, _, pt) =>
-      if pt.isIdent then toString pt.getId
-      else pt.reprint.getD (toString pt)
-    let tyStr := " → ".intercalate paramTypeStrs.toList
-      ++ " → Prop"
-    let armStrs := parsed.toList.map
-      fun (patAst, rhsAst) =>
-        let patStr := ", ".intercalate
-          (patAst.toList.map BodyPat.toLean)
-        s!"  | {patStr} => {rhsAst.toLean}"
+    let params := paramToLeanBinders paramData
+    let armASTs : List LeanMatchArm :=
+      parsed.toList.map fun (patAst, rhsAst) =>
+        .mk (patAst.toList.map BodyPat.toLeanAST)
+            rhsAst.toLeanAST
     let lastIsCatchAll := match parsed.back? with
       | some (pats, _) => pats.all fun p =>
-          match p with | .wild | .var _ => true | _ => false
+          match p with
+          | .wild | .var _ => true | _ => false
       | none => false
-    let allArmStrs :=
-      if lastIsCatchAll then armStrs
+    let allArms :=
+      if lastIsCatchAll then armASTs
       else
-        let wildPat := ", ".intercalate
-          (paramData.toList.map fun _ => "_")
-        armStrs ++ [s!"  | {wildPat} => False"]
-    let defKw := "def"
-    let defStr := s!"{defKw} {name.getId} : {tyStr}\n\
-      {"\n".intercalate allArmStrs}"
-    let env ← getEnv
-    match Parser.runParserCategory env `command
-      defStr with
-    | .ok stx => elabCommand stx
-    | .error e =>
-      throwError s!"defProperty: parse error: {e}\n\
-        ---\n{defStr}\n---"
+        let wildPats := params.map fun _ => LeanPat.wild
+        armASTs ++ [.mk wildPats (.ident "False")]
+    elabPropertyDecl name params (.matchArms allArms)
     let armDefs ← parsed.mapM
       fun (patAst, rhsAst) => do
         let pq : TSyntax `term := quote patAst.toList
@@ -122,8 +153,26 @@ elab_rules : command
       bodyTerm defnDoc
 
 -- ══════════════════════════════════════════════
--- Direct expression form
+-- Expression form (direct and do-block)
 -- ══════════════════════════════════════════════
+
+open Lean Elab Command Term in
+/-- Shared elaboration for expression-bodied properties. -/
+private def elabExprProperty
+    (name : Ident)
+    (symDoc : TSyntax `term)
+    (doc : TSyntax `str)
+    (paramData : Array (Ident × TSyntax `str × Syntax))
+    (rhsAst : BodyExpr)
+    (defnDoc : TSyntax `term)
+    : CommandElabM Unit := do
+  let params := paramToLeanBinders paramData
+  let body := LeanAST.LeanFnBody.expr rhsAst.toLeanAST
+  elabPropertyDecl name params body
+  let bodyTerm ←
+    `(FnBody.expr $(quoteExpr rhsAst))
+  buildPropertyDef name symDoc doc paramData
+    bodyTerm defnDoc
 
 open Lean Elab Command Term in
 elab_rules : command
@@ -132,31 +181,8 @@ elab_rules : command
        $rhs:fnExpr) => do
     let paramData ← ps.mapM parseFnParam
     let rhsAst ← parseExpr rhs
-    let paramBinds := " ".intercalate
-      (paramData.toList.map fun (pn, _, pt) =>
-        let tyStr :=
-          if pt.isIdent then toString pt.getId
-          else pt.reprint.getD (toString pt)
-        s!"({pn.getId} : {tyStr})")
-    let rhsStr := rhsAst.toLean
-    let defStr :=
-      s!"def {name.getId} {paramBinds} : Prop :=\n\
-         {rhsStr}"
-    let env ← getEnv
-    match Parser.runParserCategory env `command
-      defStr with
-    | .ok stx => elabCommand stx
-    | .error e =>
-      throwError s!"defProperty: parse error: {e}\n\
-        ---\n{defStr}\n---"
-    let bodyTerm ←
-      `(FnBody.expr $(quoteExpr rhsAst))
-    buildPropertyDef name symDoc doc paramData
-      bodyTerm defnDoc
-
--- ══════════════════════════════════════════════
--- Do-block form
--- ══════════════════════════════════════════════
+    elabExprProperty name symDoc doc paramData
+      rhsAst defnDoc
 
 open Lean Elab Command Term in
 elab_rules : command
@@ -164,25 +190,6 @@ elab_rules : command
        $ps:fnParam* latex $defnDoc:term begin
        $stmts:fnStmt* return $ret:fnExpr) => do
     let paramData ← ps.mapM parseFnParam
-    let parsedRet ← parseExpr ret
-    let rhsAst ← parseStmtsAsExpr stmts parsedRet
-    let paramBinds := " ".intercalate
-      (paramData.toList.map fun (pn, _, pt) =>
-        let tyStr :=
-          if pt.isIdent then toString pt.getId
-          else pt.reprint.getD (toString pt)
-        s!"({pn.getId} : {tyStr})")
-    let rhsStr := rhsAst.toLean
-    let defStr := s!"def {name.getId} \
-      {paramBinds} : Prop :=\n  {rhsStr}"
-    let env ← getEnv
-    match Parser.runParserCategory env `command
-      defStr with
-    | .ok stx => elabCommand stx
-    | .error e =>
-      throwError s!"defProperty: parse error: {e}\n\
-        ---\n{defStr}\n---"
-    let bodyTerm ←
-      `(FnBody.expr $(quoteExpr rhsAst))
-    buildPropertyDef name symDoc doc paramData
-      bodyTerm defnDoc
+    let rhsAst ← parseStmtsAsExpr stmts (← parseExpr ret)
+    elabExprProperty name symDoc doc paramData
+      rhsAst defnDoc

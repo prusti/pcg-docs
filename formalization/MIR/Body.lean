@@ -9,6 +9,14 @@ defStruct BasicBlockIdx (.doc (.plain "bb"),
 where
   | index "The basic block index." : Nat
 
+defStruct Location (.raw "\\ell", .doc (.plain "Location"))
+  "Locations"
+  "A location in the MIR, identifying a statement \
+   within a basic block."
+where
+  | block "The basic block." : BasicBlockIdx
+  | stmtIdx "The statement index within the block." : Nat
+
 defEnum Operand (.raw "o", .raw "O")
   "Operands"
   "An operand in a MIR statement or terminator."
