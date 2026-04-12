@@ -38,6 +38,8 @@ syntax "(" fnExpr ")" : fnExpr
 syntax fnExpr "·" ident : fnExpr
 syntax fnExpr "·flatMap" "fun" ident "=>" fnExpr
     : fnExpr
+syntax fnExpr "·map" "fun" ident "=>" fnExpr
+    : fnExpr
 syntax fnExpr " :: " fnExpr : fnExpr
 syntax fnExpr " ++ " fnExpr : fnExpr
 syntax "Some" fnExpr : fnExpr
@@ -205,6 +207,10 @@ partial def parseExpr
   | `(fnExpr| $r:fnExpr ·flatMap fun $p:ident =>
         $b:fnExpr) => do
     pure (.flatMap (← parseExpr r)
+      (toString p.getId) (← parseExpr b))
+  | `(fnExpr| $r:fnExpr ·map fun $p:ident =>
+        $b:fnExpr) => do
+    pure (.map (← parseExpr r)
       (toString p.getId) (← parseExpr b))
   | `(fnExpr| $h:fnExpr :: $t:fnExpr) =>
     pure (.cons (← parseExpr h) (← parseExpr t))

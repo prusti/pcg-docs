@@ -1,5 +1,5 @@
 import OpSem.AbstractByte
-import MIR.Ty
+import MIR.ConstValue
 import Core.Dsl.DefFn
 
 open AbstractByte in
@@ -10,9 +10,9 @@ defFn decodeBool (.plain "decode_bool")
    Based on the logic defined here: \
    https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"
   (bytes "The bytes to decode." : List AbstractByte)
-  : Option Value where
-  | [.init 0] => Some Value.bool ‹false›
-  | [.init 1] => Some Value.bool ‹true›
+  : Option ConstValue where
+  | [.init 0] => Some ConstValue.bool ‹false›
+  | [.init 1] => Some ConstValue.bool ‹true›
   | _ => None
 
 open AbstractByte in

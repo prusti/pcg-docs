@@ -134,6 +134,8 @@ partial def toLeanASTWith
   | .dot recv method => .dot (go recv) method []
   | .flatMap list param body =>
     .listFlatMap (go list) param (go body)
+  | .map list param body =>
+    .listMap (go list) param (go body)
   | .field recv name => .field (go recv) name
   | .index list idx => .index (go list) (go idx)
   | .indexBang list idx => .indexBang (go list) (go idx)
@@ -369,6 +371,8 @@ partial def calledNames : BodyExpr → List String
   | .setFlatMap list _ body =>
     list.calledNames ++ body.calledNames
   | .flatMap list _ body =>
+    list.calledNames ++ body.calledNames
+  | .map list _ body =>
     list.calledNames ++ body.calledNames
   | .and l r => l.calledNames ++ r.calledNames
   | .implies l r => l.calledNames ++ r.calledNames

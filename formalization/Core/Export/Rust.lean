@@ -692,6 +692,16 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
         ⟨"flat_map"⟩ [.closure [⟨param⟩] bodyE])
       ⟨"collect"⟩ []
       (typeArgs := [vecWild]))
+  | .map list param body => do
+    let listE ← list.toRustExpr
+    let bodyE ← body.toRustExpr
+    let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
+    pure (.methodCall
+      (.methodCall
+        (.methodCall listE ⟨"iter"⟩ [])
+        ⟨"map"⟩ [.closure [⟨param⟩] bodyE])
+      ⟨"collect"⟩ []
+      (typeArgs := [vecWild]))
   | .field recv name => do
     return .field (← recv.toRustExpr)
       ⟨toSnakeCase name⟩

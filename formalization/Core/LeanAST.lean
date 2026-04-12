@@ -150,6 +150,9 @@ inductive LeanExpr where
   /-- `list.flatMap fun param => body`. -/
   | listFlatMap (list : LeanExpr) (param : String)
                 (body : LeanExpr)
+  /-- `list.map fun param => body`. -/
+  | listMap (list : LeanExpr) (param : String)
+            (body : LeanExpr)
   /-- `Set.flatMapList list fun param => body`. -/
   | setFlatMapList (list : LeanExpr) (param : String)
                    (body : LeanExpr)
@@ -235,6 +238,9 @@ partial def LeanExpr.toString : LeanExpr → String
     s!"if {c.toString} then {t.toString} else {e.toString}"
   | .listFlatMap list param body =>
     s!"{list.toString}.flatMap fun {param} => \
+       {body.toString}"
+  | .listMap list param body =>
+    s!"{list.toString}.map fun {param} => \
        {body.toString}"
   | .setFlatMapList list param body =>
     s!"Set.flatMapList {list.toAtom} fun {param} => \

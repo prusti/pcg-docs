@@ -80,7 +80,8 @@ pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
 }
 ")
   , ("OpSem", "decode", .raw
-"use formal_mir::ty::{IntType, IntValue, Size, Value};
+"use formal_mir::ty::{IntType, IntValue, Size};
+use formal_mir::constvalue::*;
 use crate::abstractbyte::AbstractByte::*;
 
 pub fn bytes(sz: &Size) -> usize {
@@ -128,8 +129,13 @@ pub fn int_value_bytes(iv: &IntValue) -> usize {
     }
 }
 ")
-  , ("OpSem", "program", .raw
+  , ("OpSem", "value", .raw
+"use formal_mir::ty::*;
+")
+  , ("OpSem", "machine", .raw
 "use formal_mir::body::*;
+use formal_mir::constvalue::*;
+use crate::value::*;
 ")
   , ("OpSem", "pointer", .raw
 "pub fn write_bytes_at(data: &[AbstractByte], offset: &usize, bytes: &[AbstractByte]) -> Vec<AbstractByte> {

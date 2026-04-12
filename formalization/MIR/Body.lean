@@ -1,4 +1,5 @@
 import MIR.Place
+import MIR.ConstValue
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 
@@ -27,7 +28,7 @@ where
   | move (place : Place)
     "Move the value out of a place."
     (.doc (.plain "move "), #place)
-  | const (val : Value)
+  | const (val : ConstValue)
     "A constant value."
     (.doc (.plain "const "), #val)
   deriving Repr, BEq, Hashable
