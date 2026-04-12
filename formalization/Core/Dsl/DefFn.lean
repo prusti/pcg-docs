@@ -79,6 +79,8 @@ syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
     : fnExpr
 -- Logical conjunction: expr ∧ expr
 syntax fnExpr " ∧ " fnExpr : fnExpr
+-- Logical disjunction: expr ∨ expr
+syntax fnExpr " ∨ " fnExpr : fnExpr
 -- Implication: expr → expr
 syntax fnExpr " → " fnExpr : fnExpr
 -- Universal quantifier: ∀ ident, expr
@@ -96,6 +98,11 @@ syntax "| " fnPat "; " fnPat "; " fnPat " => " fnExpr
 
 -- Match expression: match expr with | pat => expr end
 syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
+
+-- If-then-else expression: if cond then t else e
+syntax "if " fnExpr " then " fnExpr " else " fnExpr : fnExpr
+-- Inequality: expr ≠ expr
+syntax fnExpr " ≠ " fnExpr : fnExpr
 
 -- Let-in expression: let x := e1 ; e2
 syntax "let " ident " := " fnExpr " ; " fnExpr : fnExpr
@@ -251,6 +258,8 @@ partial def parseExpr
       (toString p.getId) (← parseExpr b))
   | `(fnExpr| $l:fnExpr ∧ $r:fnExpr) =>
     pure (.and (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr ∨ $r:fnExpr) =>
+    pure (.or (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr → $r:fnExpr) =>
     pure (.implies (← parseExpr l) (← parseExpr r))
   | `(fnExpr| ∀∀ $p:ident , $b:fnExpr) =>
@@ -281,6 +290,11 @@ partial def parseExpr
   | `(fnExpr| let $n:ident ← $v:fnExpr ; $b:fnExpr) => do
     pure (.letBindIn (toString n.getId)
       (← parseExpr v) (← parseExpr b))
+  | `(fnExpr| if $c:fnExpr then $t:fnExpr else $e:fnExpr) =>
+    pure (.ifThenElse (← parseExpr c) (← parseExpr t)
+      (← parseExpr e))
+  | `(fnExpr| $l:fnExpr ≠ $r:fnExpr) =>
+    pure (.neq (← parseExpr l) (← parseExpr r))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 /-- Fold a sequence of `fnStmt` syntax nodes followed by a

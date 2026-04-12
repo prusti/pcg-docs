@@ -32,6 +32,7 @@ private def moduleLatex
     (properties : List RegisteredProperty)
     (ctorDisplay : String → Option LatexMath)
     (allVariants : List VariantDef)
+    (knownFns : String → Bool)
     : Latex :=
   let header := Latex.subsection (.raw modName)
   let structParts := structs.map fun s =>
@@ -51,10 +52,12 @@ private def moduleLatex
     def_ :: orderParts
   let fnParts := fns.map fun f =>
     Latex.seq [f.fnDef.formalDefLatex ctorDisplay
-                 allVariants, .newline, .newline]
+                 allVariants (knownFns := knownFns),
+               .newline, .newline]
   let propParts := properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex ctorDisplay
-                 allVariants, .newline, .newline]
+                 allVariants (knownFns := knownFns),
+               .newline, .newline]
   .seq ([header, .newline] ++
     structParts ++ enumParts ++ fnParts ++ propParts)
 
@@ -69,6 +72,7 @@ private def crateLatex
     (properties : List RegisteredProperty)
     (ctorDisplay : String → Option LatexMath)
     (allVariants : List VariantDef)
+    (knownFns : String → Bool)
     : Latex :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
@@ -103,7 +107,7 @@ private def crateLatex
     let modProps := crateProps.filter
       (moduleName ·.leanModule == mn)
     moduleLatex mn modEnums modStructs modOrders
-      modFns modProps ctorDisplay allVariants
+      modFns modProps ctorDisplay allVariants knownFns
   .seq ([sectionHeader, .newline] ++ modules)
 
 /-- Build the full presentation LaTeX body. -/
@@ -125,9 +129,14 @@ def buildPresentationLatex
   let ctorDisplay := mkCtorDisplay enums
   let allVariants := enums.flatMap
     (·.enumDef.variants)
+  let fnNameSet : List String :=
+    fns.map (·.fnDef.name) ++
+      properties.map (·.propertyDef.fnDef.name)
+  let knownFns : String → Bool :=
+    fun n => fnNameSet.contains n
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
-      properties ctorDisplay allVariants
+      properties ctorDisplay allVariants knownFns
   .seq body
 
 /-- LaTeX packages needed by the presentation. -/

@@ -210,6 +210,8 @@ mutual
     | .index recv idx =>
       s!"{renderExpr d recv}[{renderExpr d idx}]"
     | .raw s => s
+    | .cast e ty =>
+      s!"({renderExpr d e} as {ty.render})"
 
   /-- Render a match arm. -/
   partial def renderMatchArm : (d : Nat) → RustMatchArm → String
@@ -662,6 +664,9 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
   | .dot recv method => do
     let rustRecv ← recv.toRustExpr
     match method with
+    | "toNat" =>
+      return .cast (.unaryOp .deref rustRecv)
+        (.builtin .usize)
     | "length" =>
       return .methodCall rustRecv ⟨"len"⟩ []
     | "toList" =>
@@ -781,6 +786,8 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
 
   | .and l r => do
     pure (.binOp .and (← l.toRustExpr) (← r.toRustExpr))
+  | .or l r => do
+    pure (.binOp .or (← l.toRustExpr) (← r.toRustExpr))
   | .implies _ _ => pure (.raw "/* implication omitted */")
   | .forall_ _ _ =>
     pure (.raw "/* forall omitted */ true")
@@ -812,6 +819,19 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       [ .«let» (.ident (leanToRustIdent name)) none
           (.try_ (.clone vExpr)) (mutable := false) ]
       (some bExpr))
+  | .ifThenElse c t e => do
+    let cExpr ← c.toRustExpr
+    let tExpr ← t.toRustExpr
+    let eExpr ← e.toRustExpr
+    let tBlock : RustExpr := match tExpr with
+      | .block _ _ => tExpr
+      | _ => .block [] (some tExpr)
+    let eBlock : RustExpr := match eExpr with
+      | .block _ _ => eExpr
+      | _ => .block [] (some eExpr)
+    pure (.«if» cExpr tBlock (some eBlock))
+  | .neq l r => do
+    pure (.binOp .ne (← l.toRustExpr) (← r.toRustExpr))
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : BodyExpr) : RustExpr :=

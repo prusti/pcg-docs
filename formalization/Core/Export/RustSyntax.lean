@@ -125,6 +125,8 @@ mutual
     /-- Raw string (for macros like `vec![]`,
         `todo!()`). -/
     | raw (s : String)
+    /-- Cast expression: `expr as ty`. -/
+    | cast (e : RustExpr) (ty : RustTy)
 
   /-- A match arm: `pat => expr`. -/
   inductive RustMatchArm where

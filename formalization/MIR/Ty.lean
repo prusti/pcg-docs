@@ -27,6 +27,12 @@ where
     "Pointer-sized."
     (.doc (.plain "ptrSize"))
 
+/-- Number of bytes occupied by an integer of this size.
+    `ptrSize` is hardcoded to 8 bytes (64-bit target). -/
+def Size.bytes : Size → Nat
+  | .bits n => (n + 7) / 8
+  | .ptrSize => 8
+
 defStruct IntType (.raw "it", .raw "IntType")
   "Integer Types"
   "An integer type, parameterised by signedness and size."
@@ -88,13 +94,11 @@ where
 instance : Inhabited Ty where
   default := .param 0
 
-defEnum Value (.raw "v", .cal (.raw "V"))
-  "Values"
-  "A concrete runtime value."
+defEnum IntValue (.raw "iv", .cal (.raw "IV"))
+  "Integer Values"
+  "A concrete runtime integer value, carrying both its width \
+   and its payload."
 where
-  | bool (val : Bool)
-    "A boolean value."
-    (.doc (.plain "bool "), #val (.raw "b"))
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
     (.doc (.plain "u8 "), #val (.raw "n"))
@@ -110,6 +114,24 @@ where
   | usize (val : USize)
     "A pointer-sized unsigned integer."
     (.doc (.plain "usize "), #val (.raw "n"))
+  deriving Repr, BEq, Hashable
+
+defEnum Value (.raw "v", .cal (.raw "V"))
+  "Values"
+  "A concrete runtime value."
+where
+  | bool (val : Bool)
+    "A boolean value."
+    (.doc (.plain "bool "), #val (.raw "b"))
+  | int (val : IntValue)
+    "An integer value."
+    (.doc (.plain "int "), #val (.raw "iv"))
+  | tuple (elems : List Value)
+    "A tuple value."
+    (.doc (.plain "tuple "), #elems (.raw "\\bar{v}"))
+  | array (elems : List Value)
+    "An array value."
+    (.doc (.plain "array "), #elems (.raw "\\bar{v}"))
   deriving Repr, BEq, Hashable
 
 /-- A generalized type is either a type or a region.

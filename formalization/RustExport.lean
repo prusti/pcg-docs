@@ -80,8 +80,53 @@ pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
 }
 ")
   , ("OpSem", "decode", .raw
-"use formal_mir::ty::Value;
+"use formal_mir::ty::{IntType, IntValue, Size, Value};
 use crate::abstractbyte::AbstractByte::*;
+
+pub fn bytes(sz: &Size) -> usize {
+    match sz {
+        Size::Bits(n) => (n + 7) / 8,
+        Size::PtrSize => 8,
+    }
+}
+
+pub fn decode_le_unsigned(bs: &[u8]) -> usize {
+    let mut acc: usize = 0;
+    for (i, b) in bs.iter().enumerate() {
+        acc |= (*b as usize) << (8 * i);
+    }
+    acc
+}
+
+pub fn encode_le_unsigned(n: &usize, num_bytes: &usize) -> Vec<AbstractByte> {
+    let mut out = Vec::with_capacity(*num_bytes);
+    let mut cur = *n;
+    for _ in 0..*num_bytes {
+        out.push(AbstractByte::Init((cur & 0xff) as u8));
+        cur >>= 8;
+    }
+    out
+}
+
+pub fn int_value_of_nat(nbytes: &usize, n: &usize) -> Option<IntValue> {
+    match *nbytes {
+        1 => Some(IntValue::U8(*n as u8)),
+        2 => Some(IntValue::U16(*n as u16)),
+        4 => Some(IntValue::U32(*n as u32)),
+        8 => Some(IntValue::U64(*n as u64)),
+        _ => None,
+    }
+}
+
+pub fn int_value_bytes(iv: &IntValue) -> usize {
+    match iv {
+        IntValue::U8(_) => 1,
+        IntValue::U16(_) => 2,
+        IntValue::U32(_) => 4,
+        IntValue::U64(_) => 8,
+        IntValue::Usize(_) => 8,
+    }
+}
 ")
   , ("OpSem", "pointer", .raw
 "pub fn write_bytes_at(data: &[AbstractByte], offset: &usize, bytes: &[AbstractByte]) -> Vec<AbstractByte> {

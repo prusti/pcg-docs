@@ -144,6 +144,9 @@ inductive LeanExpr where
   /-- `do let n ← v; body` (Option monad bind). -/
   | letBindIn (name : String) (val : LeanExpr)
               (body : LeanExpr)
+  /-- `if c then t else e`. -/
+  | ifThenElse (cond : LeanExpr) (then_ : LeanExpr)
+               (else_ : LeanExpr)
   /-- `list.flatMap fun param => body`. -/
   | listFlatMap (list : LeanExpr) (param : String)
                 (body : LeanExpr)
@@ -228,6 +231,8 @@ partial def LeanExpr.toString : LeanExpr → String
     s!"let {name} := {val.toString}\n{body.toString}"
   | .letBindIn name val body =>
     s!"({val.toAtom}.bind (fun {name} => {body.toString}))"
+  | .ifThenElse c t e =>
+    s!"if {c.toString} then {t.toString} else {e.toString}"
   | .listFlatMap list param body =>
     s!"{list.toString}.flatMap fun {param} => \
        {body.toString}"

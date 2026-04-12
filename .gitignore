@@ -25,3 +25,5 @@ formalization/generated
 *.synctex.gz
 *.toc
 *.pdf
+
+.DS_Store

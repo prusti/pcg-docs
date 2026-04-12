@@ -68,6 +68,8 @@ inductive BodyExpr where
       (body : BodyExpr)
   /-- Logical conjunction: `lhs ∧ rhs`. -/
   | and (lhs : BodyExpr) (rhs : BodyExpr)
+  /-- Logical disjunction: `lhs ∨ rhs`. -/
+  | or (lhs : BodyExpr) (rhs : BodyExpr)
   /-- Implication: `lhs → rhs`. -/
   | implies (lhs : BodyExpr) (rhs : BodyExpr)
   /-- Universal quantifier: `∀ x, body`. -/
@@ -88,6 +90,10 @@ inductive BodyExpr where
   | letIn (name : String) (val : BodyExpr) (body : BodyExpr)
   /-- `let name ← val ; body` (monadic bind on Option). -/
   | letBindIn (name : String) (val : BodyExpr) (body : BodyExpr)
+  /-- `if cond then t else e`. -/
+  | ifThenElse (cond : BodyExpr) (t : BodyExpr) (e : BodyExpr)
+  /-- Inequality: `lhs ≠ rhs`. -/
+  | neq (lhs : BodyExpr) (rhs : BodyExpr)
   deriving Repr, Inhabited
 
 /-- A match arm: patterns → expression. -/
@@ -229,6 +235,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .and l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.and)
       #[quoteExpr l, quoteExpr r]
+  | .or l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.or)
+      #[quoteExpr l, quoteExpr r]
   | .implies l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.implies)
       #[quoteExpr l, quoteExpr r]
@@ -251,6 +260,12 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .letBindIn name val body =>
     Syntax.mkApp (mkIdent ``BodyExpr.letBindIn)
       #[quote name, quoteExpr val, quoteExpr body]
+  | .ifThenElse c t e =>
+    Syntax.mkApp (mkIdent ``BodyExpr.ifThenElse)
+      #[quoteExpr c, quoteExpr t, quoteExpr e]
+  | .neq l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.neq)
+      #[quoteExpr l, quoteExpr r]
 
 open Lean in
 instance : Quote BodyExpr where quote := quoteExpr
@@ -309,9 +324,14 @@ partial def toLatexMath
     (ctorDisplay : String → Option LatexMath :=
       fun _ => none)
     (isProperty : Bool := false)
+    (knownFns : String → Bool := fun _ => false)
     : BodyExpr → LatexMath :=
   let go := toLatexMath fnName varDisplay ctorDisplay
-    isProperty
+    isProperty knownFns
+  let fnRef (fn : String) : LatexMath :=
+    if knownFns fn then
+      .raw s!"\\text\{\\hyperref[fn:{fn}]\{{fn}}}"
+    else .text (.raw fn)
   fun
   | .var n => match varDisplay n with
     | some sym => sym
@@ -353,6 +373,8 @@ partial def toLatexMath
          , go r ]
   | .dot recv "length" =>
     .seq [.raw "|", go recv, .raw "|"]
+  | .dot recv "toNat" =>
+    .seq [go recv, .raw "~\\text{as}~", .mathbb (.raw "N")]
   | .dot recv method =>
     .seq [.text (.raw method), .raw "(", go recv
          , .raw ")"]
@@ -371,12 +393,12 @@ partial def toLatexMath
     .seq [ go a, .raw "[", go b, .raw " \\mapsto "
          , go c, .raw "]" ]
   | .call fn args =>
-    .seq [ .text (.raw fn), .raw "("
+    .seq [ fnRef fn, .raw "("
          , LatexMath.intercalate (.raw ",~")
              (args.map go)
          , .raw ")" ]
   | .foldlM fn init list =>
-    .seq [ .text (.raw fn), .raw "^*(", go init
+    .seq [ fnRef fn, .raw "^*(", go init
          , .raw ",~", go list, .raw ")" ]
   | .lt l r => .binop "<" (go l) (go r)
   | .le l r => .binop "\\leqslant" (go l) (go r)
@@ -400,6 +422,7 @@ partial def toLatexMath
                    , .cmd "in", .raw " ", go list])
          , .raw " ", go body ]
   | .and l r => .binop "\\land" (go l) (go r)
+  | .or l r => .binop "\\lor" (go l) (go r)
   | .implies l r => .binop "\\to" (go l) (go r)
   | .forall_ p b =>
     .seq [ .cmd "forall", .raw " "
@@ -427,6 +450,11 @@ partial def toLatexMath
     .seq [ .text (.raw "let~"), .escaped name
          , .raw " ", .cmd "leftarrow", .raw " "
          , go val, .raw ";~", go body ]
+  | .ifThenElse c t e =>
+    .seq [ .text (.raw "if~"), go c
+         , .raw "~", .text (.raw "then~"), go t
+         , .raw "~", .text (.raw "else~"), go e ]
+  | .neq l r => .binop "\\neq" (go l) (go r)
 
 end BodyExpr
 
@@ -443,10 +471,11 @@ private partial def exprLinesTop
     (fnName : String)
     (ctorDisplay : String → Option LatexMath)
     (isProperty : Bool)
+    (knownFns : String → Bool)
     (e : BodyExpr) (depth : Nat) : List Latex :=
   let noDisp : String → Option LatexMath := fun _ => none
   let goExpr := BodyExpr.toLatexMath fnName
-    noDisp ctorDisplay isProperty
+    noDisp ctorDisplay isProperty knownFns
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   match e with
@@ -460,7 +489,7 @@ private partial def exprLinesTop
              , .raw " := "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      rest depth
+      knownFns rest depth
   | .letBindIn name val rest =>
     let letLine : Latex :=
       .seq [ .raw "    "
@@ -471,7 +500,25 @@ private partial def exprLinesTop
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      rest depth
+      knownFns rest depth
+  | .ifThenElse cond t e =>
+    let ifLine : Latex :=
+      .seq [ .raw "    "
+           , Latex.state (.inlineMath (.seq [
+               mkIndent depth
+             , .text (.raw "if~")
+             , goExpr cond
+             , .raw "~", .text (.raw "then") ])) ]
+    let thenLines := exprLinesTop fnName ctorDisplay
+      isProperty knownFns t (depth + 1)
+    let elseLine : Latex :=
+      .seq [ .raw "    "
+           , Latex.state (.inlineMath (.seq [
+               mkIndent depth
+             , .text (.raw "else") ])) ]
+    let elseLines := exprLinesTop fnName ctorDisplay
+      isProperty knownFns e (depth + 1)
+    ifLine :: thenLines ++ elseLine :: elseLines
   | .match_ scrut matchArms =>
     let headerLine : Latex :=
       .seq [ .raw "    "
@@ -489,6 +536,7 @@ private partial def exprLinesTop
           | .letIn .. => false
           | .letBindIn .. => false
           | .match_ .. => false
+          | .ifThenElse .. => false
           | _ => true
         if isSimple then
           let caseLine : Latex :=
@@ -509,7 +557,7 @@ private partial def exprLinesTop
                    , patMath
                    , .raw ":" ])) ]
           caseLine :: exprLinesTop fnName ctorDisplay
-            isProperty rhs (depth + 2)
+            isProperty knownFns rhs (depth + 2)
     headerLine :: armBlocks
   | e =>
     [.seq [ .raw "    "
@@ -523,6 +571,7 @@ def formalDefLatex
       fun _ => none)
     (variants : List VariantDef := [])
     (isProperty : Bool := false)
+    (knownFns : String → Bool := fun _ => false)
     : Latex :=
   let paramParts : List Latex := f.params.map fun p =>
     Latex.seq [.text p.name, .raw " : ",
@@ -563,7 +612,7 @@ def formalDefLatex
         (arm.pat.map
           (BodyPat.toLatexMath ctorDisplay))
       let goExpr := BodyExpr.toLatexMath f.name
-        varDisplay ctorDisplay isProperty
+        varDisplay ctorDisplay isProperty knownFns
       let rec rhsLines : BodyExpr → List Latex
         | .letBindIn name val rest =>
           .seq [ .raw "    "
@@ -583,6 +632,28 @@ def formalDefLatex
                  , .raw " := "
                  , goExpr val ])) ]
           :: rhsLines rest
+        | .ifThenElse cond t e =>
+          let ifLine : Latex := .seq
+            [ .raw "    "
+            , Latex.state (.inlineMath (.seq [
+                .raw "\\hskip1.5em "
+              , .text (.raw "if~")
+              , goExpr cond
+              , .raw "~", .text (.raw "then") ])) ]
+          let branchLine (label : String)
+              (body : BodyExpr) : Latex :=
+            .seq [ .raw "    "
+                 , Latex.state (.inlineMath (.seq [
+                     .raw "\\hskip3em "
+                   , .text (.raw label)
+                   , goExpr body ])) ]
+          let elseHeader : Latex := .seq
+            [ .raw "    "
+            , Latex.state (.inlineMath (.seq [
+                .raw "\\hskip1.5em "
+              , .text (.raw "else") ])) ]
+          [ ifLine, branchLine "" t, elseHeader
+          , branchLine "" e ]
         | e =>
           [.seq [ .raw "    "
                 , Latex.state (.inlineMath (.seq [
@@ -590,10 +661,12 @@ def formalDefLatex
       let isSimple := match arm.rhs with
         | .letBindIn .. => false
         | .letIn .. => false
+        | .ifThenElse .. => false
+        | .match_ .. => false
         | _ => true
       if isSimple then
         let rhsMath := arm.rhs.toLatexMath f.name
-          varDisplay ctorDisplay isProperty
+          varDisplay ctorDisplay isProperty knownFns
         [.seq [ .raw "    "
              , Latex.state (.seq [
                  .textbf (.raw "case"), .raw " "
@@ -609,7 +682,7 @@ def formalDefLatex
                  , .raw ":" ]) ]
         caseLine :: rhsLines arm.rhs
     | .expr body => exprLinesTop f.name ctorDisplay
-        isProperty body 0
+        isProperty knownFns body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argsMath := LatexMath.intercalate
@@ -622,6 +695,7 @@ def formalDefLatex
   let allLines := precondLines ++ bodyLines
   .env "algorithm" (.seq [
     Latex.caption caption, .newline,
+    .raw s!"\\label\{fn:{f.name}}", .newline,
     .env "algorithmic"
       (.seq [Latex.lines allLines, .newline]),
     .newline

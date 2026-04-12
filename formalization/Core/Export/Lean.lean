@@ -160,6 +160,7 @@ partial def toLeanASTWith
   | .setFlatMap list param body =>
     .setFlatMapList (go list) param (go body)
   | .and l r => .binop "∧" (go l) (go r)
+  | .or l r => .binop "∨" (go l) (go r)
   | .implies l r => .binop "→" (go l) (go r)
   | .forall_ p b => .forall_ p (go b)
   | .sorryProof => .raw "sorry"
@@ -171,6 +172,9 @@ partial def toLeanASTWith
     .letIn name (go val) (go body)
   | .letBindIn name val body =>
     .letBindIn name (go val) (go body)
+  | .ifThenElse c t e =>
+    .ifThenElse (go c) (go t) (go e)
+  | .neq l r => .binop "≠" (go l) (go r)
 
 partial def toLeanAST (e : BodyExpr) : LeanExpr :=
   e.toLeanASTWith "" []
