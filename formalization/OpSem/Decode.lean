@@ -1,4 +1,5 @@
 import OpSem.AbstractByte
+import OpSem.Value
 import MIR.ConstValue
 import Core.Dsl.DefFn
 
@@ -85,6 +86,20 @@ defFn encodeInt (.plain "encode_int")
   (iv "The integer value to encode." : IntValue)
   : List AbstractByte :=
     encodeLeUnsigned ‹intValueToNat ‹iv›, intValueBytes ‹iv››
+
+defFn decode (.plain "decode")
+  "Decode a byte sequence as a runtime value of the \
+   given type. Returns `None` if the type is not \
+   decodable or the bytes cannot be decoded."
+  (ty "The type to decode as." : Ty)
+  (bs "The bytes to decode." : List AbstractByte)
+  : Option Value where
+  | .bool ; [.init 0] => Some (Value.bool‹false›)
+  | .bool ; [.init 1] => Some (Value.bool‹true›)
+  | .int it ; bs =>
+      let iv ← decodeInt ‹it, bs› ;
+      Some (Value.int‹iv›)
+  | _ ; _ => None
 
 open AbstractByte in
 defFn encodeBool (.plain "encode_bool")

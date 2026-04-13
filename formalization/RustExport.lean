@@ -80,9 +80,10 @@ pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
 }
 ")
   , ("OpSem", "decode", .raw
-"use formal_mir::ty::{IntType, IntValue, Size};
+"use formal_mir::ty::{IntType, IntValue, Size, Ty};
 use formal_mir::constvalue::*;
 use crate::abstractbyte::AbstractByte::*;
+use crate::value::*;
 
 pub fn bytes(sz: &Size) -> usize {
     match sz {

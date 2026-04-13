@@ -35,11 +35,9 @@ defFn typedLoad (.plain "typedLoad")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (ty "The type to load." : Ty)
-  : Option Value where
-  | m ; ptr ; .int it =>
-      let bytes := Memory.load ‹m, ptr, it↦size·bytes› ;
-      let iv ← decodeInt ‹it, bytes› ;
-      Some (Value.int‹iv›)
-  | _ ; _ ; _ => None
+  : Option Value begin
+  let sz ← Ty.bytes ‹ty›
+  let rawBytes := Memory.load ‹m, ptr, sz›
+  return decode ‹ty, rawBytes›
 
 end Machine

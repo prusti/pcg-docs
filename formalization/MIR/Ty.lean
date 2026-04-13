@@ -55,6 +55,9 @@ defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
   "A type in the MIR. See definitions/types.md."
 where
+  | bool
+    "The boolean type."
+    (.doc (.plain "bool"))
   | int (it : IntType)
     "An integer type."
     (.doc (.plain "intTy "), #it (.raw "it"))
@@ -146,10 +149,19 @@ abbrev ParamEnv := List Constraint
 
 namespace Ty
 
+defFn bytes (.plain "bytes")
+  "The size of a type in bytes, if known."
+  (τ "The type." : Ty)
+  : Option Nat where
+  | .bool => Some 1
+  | .int it => Some (it↦size·bytes)
+  | _ => None
+
 defFn regions (.plain "regions")
   "Regions occurring directly in a type."
   (τ "The type to extract regions from." : Ty)
   : List Region where
+  | .bool => []
   | .int _ => []
   | .param _ => []
   | .alias base _ args =>
