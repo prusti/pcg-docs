@@ -159,6 +159,7 @@ partial def toLeanASTWith
   | .ltChain es => .ltChain (es.map go)
   | .add l r => .binop "+" (go l) (go r)
   | .sub l r => .binop "-" (go l) (go r)
+  | .div l r => .binop "/" (go l) (go r)
   | .setAll set param body =>
     .forallIn param (go set) (go body)
   | .emptySet => .emptySet
@@ -394,6 +395,7 @@ partial def calledNames : BodyExpr → List String
   | .ltChain es => es.flatMap calledNames
   | .add l r => l.calledNames ++ r.calledNames
   | .sub l r => l.calledNames ++ r.calledNames
+  | .div l r => l.calledNames ++ r.calledNames
   | .mkStruct _ args => args.flatMap calledNames
   | .index l i => l.calledNames ++ i.calledNames
   | .indexBang l i => l.calledNames ++ i.calledNames
@@ -403,6 +405,10 @@ partial def calledNames : BodyExpr → List String
       arms.flatMap fun (_, rhs) => rhs.calledNames
   | .letIn _ v b => v.calledNames ++ b.calledNames
   | .letBindIn _ v b => v.calledNames ++ b.calledNames
+  | .ifThenElse c t e =>
+    c.calledNames ++ t.calledNames ++ e.calledNames
+  | .neq l r => l.calledNames ++ r.calledNames
+  | .or l r => l.calledNames ++ r.calledNames
   | _ => []
 
 end BodyExpr

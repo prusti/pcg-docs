@@ -67,6 +67,7 @@ syntax fnExpr " ≤ " fnExpr : fnExpr
 -- Addition: expr + expr
 syntax fnExpr " + " fnExpr : fnExpr
 syntax fnExpr " - " fnExpr : fnExpr
+syntax fnExpr " / " fnExpr : fnExpr
 -- Empty set: ∅
 syntax "∅" : fnExpr
 -- Set singleton: ⦃ expr ���
@@ -253,6 +254,8 @@ partial def parseExpr
     pure (.add (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr - $r:fnExpr) =>
     pure (.sub (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr / $r:fnExpr) =>
+    pure (.div (← parseExpr l) (← parseExpr r))
   | `(fnExpr| ∅) => pure .emptySet
   | `(fnExpr| ⦃ $e:fnExpr ⦄) =>
     pure (.setSingleton (← parseExpr e))

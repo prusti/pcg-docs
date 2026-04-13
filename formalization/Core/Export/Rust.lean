@@ -85,6 +85,7 @@ def render : RustBinOp → String
   | .eq => "==" | .ne => "!=" | .lt => "<"
   | .le => "<=" | .gt => ">" | .ge => ">="
   | .and => "&&" | .or => "||" | .add => "+" | .sub => "-"
+  | .div => "/"
 
 end RustBinOp
 
@@ -161,7 +162,15 @@ mutual
         | .deref => "*" | .neg => "-" | .not => "!"
       s!"{opStr}{renderExpr d e}"
     | .binOp op lhs rhs =>
-      s!"{renderExpr d lhs} {op.render} {renderExpr d rhs}"
+      let isArith (o : RustBinOp) :=
+        o == .add || o == .sub || o == .div
+      let wrap (e : RustExpr) :=
+        match e with
+        | .binOp op' .. =>
+          if isArith op && isArith op'
+          then s!"({renderExpr d e})" else renderExpr d e
+        | _ => renderExpr d e
+      s!"{wrap lhs} {op.render} {wrap rhs}"
     | .tuple elems =>
       let inner := elems.map (renderExpr d)
       s!"({String.intercalate ", " inner})"
@@ -729,8 +738,9 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       | _ => true
     match fn.splitOn "." with
     | [en, v] =>
+      let vStr := capitalise v
       let path : RustPath :=
-        ⟨[⟨en⟩, ⟨capitalise v⟩]⟩
+        ⟨[⟨en⟩, ⟨vStr⟩]⟩
       return .call (.path path)
         (← filteredArgs.mapM fun a => do
           match a with
@@ -772,6 +782,8 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     pure (.binOp .add (← l.toRustExpr) (← r.toRustExpr))
   | .sub l r => do
     pure (.binOp .sub (← l.toRustExpr) (← r.toRustExpr))
+  | .div l r => do
+    pure (.binOp .div (← l.toRustExpr) (← r.toRustExpr))
   | .setAll set param body => do
     let setE ← set.toRustExpr
     let bodyE ← body.toRustExpr

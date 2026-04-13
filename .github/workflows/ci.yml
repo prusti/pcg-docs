@@ -74,6 +74,10 @@ jobs:
       working-directory: formalization
       run: lake build
 
+    - name: Export and build generated Lean project
+      working-directory: formalization
+      run: lake exe lean_export
+
     - name: Export Rust crate
       working-directory: formalization
       run: lake exe rust_export

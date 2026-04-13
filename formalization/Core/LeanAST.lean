@@ -218,7 +218,16 @@ partial def LeanExpr.toString : LeanExpr → String
     let argStr := " ".intercalate (args.map LeanExpr.toAtom)
     s!"{fn} {argStr}"
   | .binop op l r =>
-    s!"{l.toString} {op} {r.toString}"
+    let isArith := op == "+" || op == "-" || op == "/"
+    let wrapIfNeeded (e : LeanExpr) :=
+      match e with
+      | .binop op' .. =>
+        let childArith := op' == "+" || op' == "-"
+            || op' == "/"
+        if isArith && childArith
+        then s!"({e.toString})" else e.toString
+      | _ => e.toString
+    s!"{wrapIfNeeded l} {op} {wrapIfNeeded r}"
   | .ltChain es =>
     let pairs := es.zip (es.drop 1)
     " ∧ ".intercalate
@@ -415,9 +424,14 @@ private def renderDef (d : LeanDef) : String :=
 partial def LeanDecl.toString : LeanDecl → String
   | .structure_ name fields =>
     let fieldStrs := fields.map renderField
+    let usesMap := fields.any fun f =>
+      (f.type.toString).find? "HashMap" |>.isSome
+    let derives := if usesMap
+      then "Repr, Inhabited"
+      else "Repr, BEq, Hashable, Inhabited"
     s!"structure {name} where\n\
        {"\n".intercalate fieldStrs}\n\
-       deriving Repr, BEq, Hashable, Inhabited"
+       deriving {derives}"
   | .inductive_ name ctors =>
     let ctorStrs := ctors.map renderCtor
     s!"inductive {name} where\n\

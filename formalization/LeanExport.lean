@@ -6,6 +6,120 @@ import Core.LeanAST
 
 open LeanAST
 
+/-- Position of extra Lean code relative to auto-generated
+    definitions. `middle` inserts between type definitions
+    (structs/enums) and function definitions. -/
+private inductive ExtraPos where
+  | before | middle | after
+  deriving BEq
+
+/-- Extra raw Lean code for specific generated modules.
+    Each entry is `(moduleName, position, rawLeanCode)`. -/
+private def extraLeanItems :
+    List (Lean.Name × ExtraPos × String) :=
+  [ (`MIR.Ty, .middle,
+"namespace Size
+
+def bytes : Size → Nat
+  | .bits n => (n + 7) / 8
+  | .ptrSize => 8
+
+end Size
+
+def sizeBytes : Size → Nat := Size.bytes
+")
+  , (`OpSem.Decode, .before,
+"/-- Decode a little-endian unsigned integer from a list
+    of bytes (least-significant byte first). -/
+def decodeLeUnsigned : List UInt8 → Nat
+  | [] => 0
+  | b :: rest => b.toNat + 256 * decodeLeUnsigned rest
+
+/-- Encode a natural number as `numBytes` little-endian
+    abstract bytes (least-significant byte first). -/
+def encodeLeUnsigned (n : Nat) : Nat → List AbstractByte
+  | 0 => []
+  | k + 1 =>
+    .init (UInt8.ofNat (n % 256)) ::
+      encodeLeUnsigned (n / 256) k
+
+/-- Build an `IntValue` from a decoded natural number
+    based on the target size (in bytes). -/
+def intValueOfNat : Nat → Nat → Option IntValue
+  | 1, n => some (.u8 (UInt8.ofNat n))
+  | 2, n => some (.u16 (UInt16.ofNat n))
+  | 4, n => some (.u32 (UInt32.ofNat n))
+  | 8, n => some (.u64 (UInt64.ofNat n))
+  | _, _ => none
+
+/-- Number of bytes in an `IntValue`'s representation. -/
+def intValueBytes : IntValue → Nat
+  | .u8 _ => 1
+  | .u16 _ => 2
+  | .u32 _ => 4
+  | .u64 _ => 8
+  | .usize _ => 8
+")
+  , (`OpSem.Address, .after,
+"instance : LT Address where
+  lt a b := a.addr < b.addr
+
+instance : LE Address where
+  le a b := a.addr ≤ b.addr
+
+instance (a b : Address) : Decidable (a < b) :=
+  inferInstanceAs (Decidable (a.addr < b.addr))
+
+instance (a b : Address) : Decidable (a ≤ b) :=
+  inferInstanceAs (Decidable (a.addr ≤ b.addr))
+
+instance : DecidableEq Address :=
+  fun a b => if h : a.addr = b.addr
+    then isTrue (by cases a; cases b; simp_all)
+    else isFalse (by intro heq; cases heq; exact h rfl)
+
+instance : HSub Address Address Nat where
+  hSub a b := a.addr - b.addr
+
+instance : HAdd Address Nat Address where
+  hAdd a n := ⟨a.addr + n⟩
+")
+  , (`OpSem.Memory, .before,
+"def last := @List.getLast?
+def replicate := @List.replicate
+def listSet := @List.set
+
+def writeBytesAt
+    (data : List AbstractByte) (offset : Nat)
+    (bytes : List AbstractByte) : List AbstractByte :=
+  data.take offset ++ bytes ++
+    data.drop (offset + bytes.length)
+
+def readBytesAt
+    (data : List AbstractByte) (offset : Nat)
+    (len : Nat) : List AbstractByte :=
+  (data.drop offset).take len
+
+open AbstractByte
+")
+  , (`OpSem.Expressions, .before,
+"def mapGet {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
+    (m : Std.HashMap κ ν) (k : κ) : Option ν :=
+  m.get? k
+")
+  , (`OpSem.Machine, .middle,
+"def tyBytes : Ty → Option Nat := Ty.bytes
+
+def memLoad : Memory → ThinPointer → Nat →
+    List AbstractByte :=
+  Memory.load
+
+def memStore : Memory → ThinPointer →
+    List AbstractByte → Memory :=
+  Memory.store
+")
+  ]
+
 -- ══════════════════════════════════════════════
 -- Definition items
 -- ══════════════════════════════════════════════
@@ -18,16 +132,15 @@ private inductive LeanDefItem where
   | property_ (p : PropertyDef)
 
 /-- Infer a namespace for a function from its first
-    parameter type, if it matches a known defined type
-    in the same module. -/
+    parameter type, if it matches a known type. -/
 private def inferNamespace
-    (f : FnDef) (definedTypes : List String)
+    (f : FnDef) (allTypes : List String)
     : Option String :=
   match f.params.head? with
   | some p =>
     match p.ty with
     | .named n =>
-      if definedTypes.contains n.name then some n.name
+      if allTypes.contains n.name then some n.name
       else none
     | _ => none
   | none => none
@@ -61,6 +174,20 @@ private def LeanDefItem.usesSet : LeanDefItem → Bool
   | .enum_ e => e.usesSet
   | .fn_ f => f.usesSet
   | .property_ p => p.fnDef.usesSet
+
+/-- Whether this item is a type definition (struct/enum)
+    as opposed to a function/property. -/
+private def LeanDefItem.isTypeDef : LeanDefItem → Bool
+  | .struct_ _ => true
+  | .enum_ _ => true
+  | .fn_ _ => false
+  | .property_ _ => false
+
+/-- Get the FnDef for function/property items. -/
+private def LeanDefItem.fnDef? : LeanDefItem → Option FnDef
+  | .fn_ f => some f
+  | .property_ p => some p.fnDef
+  | _ => none
 
 /-- The type or definition name this item defines. -/
 private def LeanDefItem.definedTypeName
@@ -167,23 +294,70 @@ private def computeImports
     if needsSet then [`Util.Set] else []
   setImport ++ unique
 
-/-- Build the `LeanModule` AST for a module. -/
-private def buildLeanModule
-    (items : List LeanDefItem)
-    (imports : List Lean.Name)
-    : LeanModule :=
-  let definedTypes := items.filterMap
-    LeanDefItem.definedTypeName
-  { imports := imports.map toString
-    decls := items.map
-      (LeanDefItem.toLeanAST definedTypes) }
+/-- Build a map from function name to its inferred
+    namespace, across all modules. -/
+private def fnNamespaceMap
+    (modules : List (Lean.Name × List LeanDefItem))
+    (allTypes : List String)
+    : List (String × String) :=
+  modules.flatMap fun (_, items) =>
+    items.filterMap fun item =>
+      item.fnDef?.bind fun f =>
+        (inferNamespace f allTypes).map (f.name, ·)
 
-/-- Render a module to Lean source. -/
+/-- Compute which namespaces need to be opened in a
+    module so that cross-namespace calls resolve. -/
+private def computeOpens
+    (items : List LeanDefItem)
+    (nsMap : List (String × String))
+    : List String :=
+  let calledFns := items.flatMap fun item =>
+    match item with
+    | .fn_ f => f.body.calledNames
+    | .property_ p => p.fnDef.body.calledNames
+    | _ => []
+  let needed := calledFns.filterMap fun fn =>
+    nsMap.find? (·.1 == fn) |>.map (·.2)
+  needed.foldl (init := []) fun acc ns =>
+    if acc.contains ns then acc else acc ++ [ns]
+
+/-- Render a module to Lean source, with optional
+    extra code before/between/after auto-generated defs.
+    `middle` extras are inserted between type definitions
+    (structs/enums) and function/property definitions. -/
 private def renderModule
     (items : List LeanDefItem)
     (imports : List Lean.Name)
+    (allTypes : List String)
+    (opens : List String := [])
+    (extrasBefore : List String := [])
+    (extrasMiddle : List String := [])
+    (extrasAfter : List String := [])
     : String :=
-  toString (buildLeanModule items imports)
+  let toLeanAST := LeanDefItem.toLeanAST allTypes
+  let importStr := imports.map toString |>.map
+    (s!"import {·}") |> "\n".intercalate
+  let openStr := if opens.isEmpty then ""
+    else "\nopen " ++ " ".intercalate opens ++ "\n"
+  let beforeStr := if extrasBefore.isEmpty then ""
+    else "\n" ++ "\n".intercalate extrasBefore ++ "\n"
+  let afterStr := if extrasAfter.isEmpty then ""
+    else "\n\n" ++ "\n".intercalate extrasAfter
+  -- Split items into types (structs/enums) and code
+  -- (fns/properties) so opens and middle extras can be
+  -- placed after types but before code.
+  let (typeDefs, codeDefs) :=
+    items.partition LeanDefItem.isTypeDef
+  let typeStr := typeDefs.map (toString ∘ toLeanAST)
+    |> "\n\n".intercalate
+  let middleStr := if extrasMiddle.isEmpty then ""
+    else "\n" ++ "\n".intercalate extrasMiddle ++ "\n"
+  let codeStr := codeDefs.map (toString ∘ toLeanAST)
+    |> "\n\n".intercalate
+  let codeBlock := if codeDefs.isEmpty then ""
+    else s!"\n{codeStr}\n"
+  s!"{importStr}\n{beforeStr}\n{typeStr}\n\
+     {openStr}{middleStr}{codeBlock}{afterStr}\n"
 
 -- ══════════════════════════════════════════════
 -- Project scaffolding
@@ -276,6 +450,8 @@ def main (args : List String) : IO Unit := do
   let props ← getRegisteredProperties
   let modules := buildModules enums structs fns props
   let typeMap := typeToModuleMap modules
+  let allTypes := typeMap.map (·.1)
+  let nsMap := fnNamespaceMap modules allTypes
   -- Collect top-level lib names (e.g. MIR, PCG, OpSem)
   let topLibs := modules.map
     fun (m, _) => m.getRoot.toString
@@ -290,8 +466,14 @@ def main (args : List String) : IO Unit := do
   -- Write module files
   for (mod, items) in modules do
     let imports := computeImports mod items typeMap
+    let extrasFor (pos : ExtraPos) :=
+      extraLeanItems.filterMap fun (m, p, code) =>
+        if m == mod && p == pos then some code else none
+    let opens := computeOpens items nsMap
     let path := s!"{outDir}/{moduleToPath mod}"
-    let contents := renderModule items imports
+    let contents := renderModule items imports allTypes
+      opens (extrasFor .before) (extrasFor .middle)
+      (extrasFor .after)
     writeFile path contents
   -- Write root files for each lean_lib
   for lib in uniqueLibs do

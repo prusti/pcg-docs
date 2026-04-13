@@ -58,6 +58,7 @@ inductive BodyExpr where
   /-- Addition: `lhs + rhs`. -/
   | add (lhs : BodyExpr) (rhs : BodyExpr)
   | sub (lhs : BodyExpr) (rhs : BodyExpr)
+  | div (lhs : BodyExpr) (rhs : BodyExpr)
   /-- Universal quantifier over a set:
       `∀ x ∈ s, body`. -/
   | setAll (set : BodyExpr) (param : String)
@@ -228,6 +229,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
       #[quoteExpr l, quoteExpr r]
   | .sub l r =>
     Syntax.mkApp (mkIdent ``BodyExpr.sub)
+      #[quoteExpr l, quoteExpr r]
+  | .div l r =>
+    Syntax.mkApp (mkIdent ``BodyExpr.div)
       #[quoteExpr l, quoteExpr r]
   | .setAll set param body =>
     Syntax.mkApp (mkIdent ``BodyExpr.setAll)
@@ -428,6 +432,7 @@ partial def toLatexMath
     LatexMath.intercalate (.raw " < ") (es.map go)
   | .add l r => .binop "+" (go l) (go r)
   | .sub l r => .binop "-" (go l) (go r)
+  | .div l r => .binop "/" (go l) (go r)
   | .setAll set param body =>
     .seq [ .cmd "forall", .raw " "
          , .escaped param, .raw " "
