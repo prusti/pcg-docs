@@ -715,9 +715,13 @@ def formalDefLatex
                      , .raw "(", argsMath
                      , .raw ")"])) ]
   let allLines := precondLines ++ bodyLines
+  let descBlock : List Latex :=
+    if f.doc.isEmpty then []
+    else [.textit (.text f.doc), .newline]
   .env "algorithm" (.seq [
     Latex.caption caption, .newline,
     .raw s!"\\label\{fn:{f.name}}", .newline,
+    .seq descBlock,
     .env "algorithmic"
       (.seq [Latex.lines allLines, .newline]),
     .newline

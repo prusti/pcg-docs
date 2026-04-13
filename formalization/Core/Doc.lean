@@ -113,7 +113,10 @@ def interpolateDef
     `(unicode, textMode, mathMode)`. -/
 private def latexReplacements :
     List (String × String × String) :=
-  [ ("`", "'", "'")
+  [ ("_", "\\_", "_")
+  , ("#", "\\#", "\\#")
+  , ("%", "\\%", "\\%")
+  , ("`", "'", "'")
   , (" ", " ", "~")
   , ("&", "\\&", "\\&")
   , ("ℕ", "$\\mathbb{N}$", "\\mathbb{N}")
@@ -137,6 +140,7 @@ private def latexReplacements :
   , ("₀", "$_0$", "_0")
   , ("⟨", "$\\langle$", "\\langle")
   , ("⟩", "$\\rangle$", "\\rangle")
+  , ("Δ", "$\\Delta$", "\\Delta")
   ]
 
 /-- Translate Unicode symbols to LaTeX commands (text mode). -/
