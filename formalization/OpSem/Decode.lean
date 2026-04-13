@@ -101,6 +101,18 @@ defFn decode (.plain "decode")
       Some (Value.int‹iv›)
   | _ ; _ => None
 
+defFn encode (.plain "encode")
+  "Encode a runtime value as a byte sequence. \
+   Returns the empty list for values that cannot \
+   be encoded (tuples, arrays)."
+  (v "The value to encode." : Value)
+  : List AbstractByte where
+  | .bool true => [AbstractByte.init‹1›]
+  | .bool false => [AbstractByte.init‹0›]
+  | .int iv => encodeInt ‹iv›
+  | .tuple _ => []
+  | .array _ => []
+
 open AbstractByte in
 defFn encodeBool (.plain "encode_bool")
   "Encode a boolean value as a byte sequence. \

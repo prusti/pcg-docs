@@ -40,4 +40,13 @@ defFn typedLoad (.plain "typedLoad")
   let rawBytes := Memory.load ‹m, ptr, sz›
   return decode ‹ty, rawBytes›
 
+defFn typedStore (.plain "typedStore")
+  "Store a value into memory at the given pointer. \
+   Encodes the value as bytes and writes them to memory."
+  (m "The memory." : Memory)
+  (ptr "The pointer." : ThinPointer)
+  (v "The value to store." : Value)
+  : Memory :=
+    Memory.store ‹m, ptr, encode ‹v››
+
 end Machine
