@@ -2,7 +2,7 @@ import OpSem.Machine
 import OpSem.RuntimePlace
 
 /-- Look up a key in a HashMap. -/
-def mapGet? {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
+def mapGet {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     (m : Map κ ν) (k : κ) : Option ν :=
   m.get? k
 
@@ -14,7 +14,7 @@ defFn evalLocal (.plain "evalLocal")
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
   : Option RuntimePlace begin
-  let ptr ← mapGet? ‹machine↦locals, lcl›
+  let ptr ← mapGet ‹machine↦locals, lcl›
   return Some (RuntimePlace⟨ptr⟩)
 
 end Machine

@@ -33,6 +33,11 @@ def Size.bytes : Size → Nat
   | .bits n => (n + 7) / 8
   | .ptrSize => 8
 
+/-- Alias for `Size.bytes`, used in `defFn` bodies so
+    the Rust export emits `size_bytes(…)` instead of an
+    unresolvable `bytes(…)` call. -/
+def sizeBytes : Size → Nat := Size.bytes
+
 defStruct IntType (.raw "it", .raw "IntType")
   "Integer Types"
   "An integer type, parameterised by signedness and size."
@@ -154,7 +159,7 @@ defFn bytes (.plain "bytes")
   (τ "The type." : Ty)
   : Option Nat where
   | .bool => Some 1
-  | .int it => Some (it↦size·bytes)
+  | .int it => Some (sizeBytes ‹it↦size›)
   | _ => None
 
 defFn regions (.plain "regions")

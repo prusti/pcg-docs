@@ -7,7 +7,7 @@ where
   | id "The allocation identifier." : AllocId
   deriving DecidableEq, Repr, Hashable, Inhabited
 
-defStruct ThinPointer (.raw "p", .doc (.plain "ThinPointer"))
+defStruct ThinPointer (.raw "ptr", .doc (.plain "ThinPointer"))
   "Thin Pointers"
   "A thin pointer {def}: an address together with optional provenance."
 where

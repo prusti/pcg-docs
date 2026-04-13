@@ -8,7 +8,15 @@ import Core.Dsl.Types.OrderDef
     `defEnum` / `defStruct` (e.g. trait impls). Keyed by
     `(cratePrefix, rustModuleName)`. -/
 def extraItems : List (String × String × RustItem) :=
-  [ ("PCG", "capability",
+  [ ("MIR", "ty", .raw
+"pub fn size_bytes(sz: &Size) -> usize {
+    match sz {
+        Size::Bits(n) => (n + 7) / 8,
+        Size::PtrSize => 8,
+    }
+}
+")
+  , ("PCG", "capability",
      Capability.orderDef.toRustPartialOrd)
   , ("OpSem", "address", .raw
 "impl PartialOrd for Address {
@@ -133,10 +141,28 @@ pub fn int_value_bytes(iv: &IntValue) -> usize {
   , ("OpSem", "value", .raw
 "use formal_mir::ty::*;
 ")
+  , ("OpSem", "expressions", .raw
+"use formal_mir::place::*;
+
+pub fn map_get<'a, K: Eq + std::hash::Hash, V>(m: &'a std::collections::HashMap<K, V>, k: &K) -> Option<&'a V> {
+    m.get(k)
+}
+")
   , ("OpSem", "machine", .raw
 "use formal_mir::body::*;
 use formal_mir::constvalue::*;
+use formal_mir::place::*;
+use formal_mir::ty::Ty;
+use formal_mir::ty::bytes as ty_bytes;
 use crate::value::*;
+
+pub fn mem_load(m: &Memory, ptr: &ThinPointer, len: &usize) -> Vec<AbstractByte> {
+    load(m, ptr, len)
+}
+
+pub fn mem_store(m: &Memory, ptr: &ThinPointer, bytes: &Vec<AbstractByte>) -> Memory {
+    store(m, ptr, bytes)
+}
 ")
   , ("OpSem", "pointer", .raw
 "pub fn write_bytes_at(data: &[AbstractByte], offset: &usize, bytes: &[AbstractByte]) -> Vec<AbstractByte> {

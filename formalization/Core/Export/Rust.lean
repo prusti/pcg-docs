@@ -732,8 +732,11 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       let path : RustPath :=
         ⟨[⟨en⟩, ⟨capitalise v⟩]⟩
       return .call (.path path)
-        (← filteredArgs.mapM fun a => match a with
+        (← filteredArgs.mapM fun a => do
+          match a with
           | .natLit n => pure (.raw (toString n))
+          | .var _ => pure (.clone (← a.toRustExpr))
+          | .field _ _ => pure (.clone (← a.toRustExpr))
           | _ => a.toRustExpr)
     | _ =>
       return .call (.identStr (toSnakeCase fn))
@@ -930,9 +933,15 @@ def toRustItems (s : StructDef) : List RustItem :=
     | .prim _ => true
     | _ => false
   let allCopy := s.fields.all fun f => isCopyPrim f.ty
-  let derives := if allCopy
-    then defaultRustDerives ++ [⟨"Copy"⟩]
+  let hasUnhashable := s.fields.any fun f =>
+    match f.ty with
+    | .map _ _ | .set _ => true | _ => false
+  let baseDerives := if hasUnhashable
+    then defaultRustDerives.filter (·.val != "Hash")
     else defaultRustDerives
+  let derives := if allCopy
+    then baseDerives ++ [⟨"Copy"⟩]
+    else baseDerives
   let rs : RustStruct := {
     doc := s.doc.toPlainText
     attrs := [.derive derives]
