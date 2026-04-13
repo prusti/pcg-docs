@@ -359,12 +359,15 @@ partial def toLatexMath
   | .some_ e =>
     .seq [.text (.raw "Some"), .raw "(", go e, .raw ")"]
   | .mkStruct name args =>
-    if name != "" && args.length == 1 then
-      go args.head!
-    else
+    if name == "" then
       .delimited "(" ")"
         (LatexMath.intercalate (.raw ",~")
           (args.map go))
+    else
+      .seq [ .text (.raw name), .raw "("
+           , LatexMath.intercalate (.raw ",~")
+               (args.map go)
+           , .raw ")" ]
   | .cons h t =>
     -- Flatten cons chains ending in `emptyList` into a
     -- list literal `[e₁, e₂, …]`.
