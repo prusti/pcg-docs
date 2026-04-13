@@ -1,9 +1,15 @@
 import Std.Data.HashSet
+import Std.Data.HashMap
 
 /-- A set backed by `Std.HashSet`.
     In generated Rust code this becomes `HashSet<T>`. -/
 abbrev Set (α : Type) [BEq α] [Hashable α] :=
   Std.HashSet α
+
+/-- A map backed by `Std.HashMap`.
+    In generated Rust code this becomes `HashMap<K, V>`. -/
+abbrev Map (κ : Type) [BEq κ] [Hashable κ] (ν : Type) :=
+  Std.HashMap κ ν
 
 namespace Set
 

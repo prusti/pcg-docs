@@ -40,6 +40,8 @@ def toRust : DSLType → RustTy
   | .option t => .option t.toRust
   | .list t => .adt ⟨[⟨"Vec"⟩]⟩ [t.toRust]
   | .set t => .adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust]
+  | .map k v =>
+    .adt ⟨[⟨"HashMap"⟩]⟩ [k.toRust, v.toRust]
   | .tuple ts =>
     .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
 
@@ -52,6 +54,8 @@ def toRustParam : DSLType → RustTy
   | .list t => .slice t.toRust
   | .set t =>
     .ref false (.adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust])
+  | .map k v =>
+    .ref false (.adt ⟨[⟨"HashMap"⟩]⟩ [k.toRust, v.toRust])
   | .tuple ts =>
     .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
 
@@ -488,6 +492,7 @@ def needsRustBoxIn : DSLType → DSLType → Bool
   | .option t, enumTy => t.needsRustBoxIn enumTy
   | .list _, _ => false  -- Vec handles indirection
   | .set _, _ => false   -- HashSet handles indirection
+  | .map _ _, _ => false -- HashMap handles indirection
   | .prim _, _ => false
   | .tuple _, _ => false
 
@@ -700,6 +705,15 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
       (.methodCall
         (.methodCall listE ⟨"iter"⟩ [])
         ⟨"map"⟩ [.closure [⟨param⟩] bodyE])
+      ⟨"collect"⟩ []
+      (typeArgs := [vecWild]))
+  | .mapFn list fn => do
+    let listE ← list.toRustExpr
+    let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
+    pure (.methodCall
+      (.methodCall
+        (.methodCall listE ⟨"iter"⟩ [])
+        ⟨"map"⟩ [.identStr (toSnakeCase fn)])
       ⟨"collect"⟩ []
       (typeArgs := [vecWild]))
   | .field recv name => do
@@ -1019,14 +1033,30 @@ def buildModules
       | none => match modStructs.head? with
         | some s => s.structDef.doc.toPlainText
         | none => modName
+    let usesHashCollection (t : DSLType) : Bool :=
+      match t with
+      | .set .. => true | .map .. => true | _ => false
     let usesSet := modFns.any
-      fun f => f.fnDef.returnType matches .set ..
+      fun f => usesHashCollection f.fnDef.returnType
     let usesSetProp := modProps.any
-      fun p => p.propertyDef.fnDef.returnType matches
-        .set ..
-    let extraUses := if usesSet || usesSetProp
-      then ["std::collections::HashSet"]
-      else []
+      fun p => usesHashCollection
+        p.propertyDef.fnDef.returnType
+    let usesMap := modStructs.any fun s =>
+      s.structDef.fields.any fun f =>
+        match f.ty with | .map .. => true | _ => false
+    let extraUses :=
+      let needsHashSet := usesSet || usesSetProp
+      let needsHashMap := usesMap ||
+        modFns.any fun f =>
+          match f.fnDef.returnType with
+          | .map .. => true | _ => false
+      match needsHashSet, needsHashMap with
+      | false, false => []
+      | true, false => ["std::collections::HashSet"]
+      | false, true => ["std::collections::HashMap"]
+      | true, true =>
+        [ "std::collections::HashSet"
+        , "std::collections::HashMap" ]
     { name := ⟨modName⟩, doc := doc, items := items,
       extraUses := extraUses }
 

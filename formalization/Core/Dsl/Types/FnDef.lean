@@ -36,6 +36,8 @@ inductive BodyExpr where
   /-- List map: `list.map fun param => body`. -/
   | map (list : BodyExpr) (param : String)
       (body : BodyExpr)
+  /-- List map with a named function: `list.map fn`. -/
+  | mapFn (list : BodyExpr) (fn : String)
   /-- Struct field access: `recv.fieldName`. -/
   | field (recv : BodyExpr) (name : String)
   /-- Fallible list indexing: `list[idx]?`. -/
@@ -194,6 +196,9 @@ partial def quoteExpr : BodyExpr → TSyntax `term
   | .map list param body =>
     Syntax.mkApp (mkIdent ``BodyExpr.map)
       #[quoteExpr list, quote param, quoteExpr body]
+  | .mapFn list fn =>
+    Syntax.mkApp (mkIdent ``BodyExpr.mapFn)
+      #[quoteExpr list, quote fn]
   | .field recv name =>
     Syntax.mkApp (mkIdent ``BodyExpr.field)
       #[quoteExpr recv, quote name]
@@ -394,6 +399,9 @@ partial def toLatexMath
          , .cmd "lambda", .raw " "
          , .escaped param, .raw ".~", go body
          , .raw ")" ]
+  | .mapFn list fn =>
+    .seq [ go list, .raw ".\\text{map}("
+         , fnRef fn, .raw ")" ]
   | .field recv name =>
     .seq [go recv, .raw ".", .text (.raw name)]
   | .index list idx =>

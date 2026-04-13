@@ -1,5 +1,6 @@
 import OpSem.Memory
 import OpSem.Value
+import OpSem.Decode
 import MIR.Body
 import Core.Dsl.DefFn
 
@@ -10,8 +11,9 @@ defStruct Machine (.raw "\\mu", .doc (.plain "Machine"))
 where
   | body "The function body." : Body
   | pc "The program counter." : Location
+  | locals "The local variable pointers." : Map Local ThinPointer
   | mem "The memory." : Memory
-  deriving Repr, Hashable
+  deriving Repr
 
 namespace Machine
 
@@ -22,8 +24,22 @@ defFn evalConstant (.plain "evalConstant")
   | .bool b => Value.bool‹b›
   | .int iv => Value.int‹iv›
   | .tuple es =>
-      Value.tuple‹es ·map fun e => evalConstant‹e››
+      Value.tuple‹es ·map evalConstant›
   | .array es =>
-      Value.array‹es ·map fun e => evalConstant‹e››
+      Value.array‹es ·map evalConstant›
+
+defFn typedLoad (.plain "typedLoad")
+  "Load a value of the given type from memory at \
+   the given pointer. Returns `None` if the pointer \
+   is invalid or the bytes cannot be decoded."
+  (m "The memory." : Memory)
+  (ptr "The pointer." : ThinPointer)
+  (ty "The type to load." : Ty)
+  : Option Value where
+  | m ; ptr ; .int it =>
+      let bytes := Memory.load ‹m, ptr, it↦size·bytes› ;
+      let iv ← decodeInt ‹it, bytes› ;
+      Some (Value.int‹iv›)
+  | _ ; _ ; _ => None
 
 end Machine

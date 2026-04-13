@@ -24,6 +24,8 @@ inductive LeanTy where
   /-- Type application: `head arg`. The argument is
       always parenthesized when rendered. -/
   | app (head : String) (arg : LeanTy)
+  /-- Two-argument type application: `head arg1 arg2`. -/
+  | app2 (head : String) (arg1 : LeanTy) (arg2 : LeanTy)
   /-- Function arrow: `from → to`. -/
   | arrow (from_ : LeanTy) (to_ : LeanTy)
   /-- Cartesian product: `a × b × …`. -/
@@ -35,6 +37,8 @@ mutual
 partial def LeanTy.toString : LeanTy → String
   | .const n => n
   | .app head arg => s!"{head} ({arg.toString})"
+  | .app2 head a b =>
+    s!"{head} ({a.toString}) ({b.toString})"
   | .arrow a b => s!"{a.toString} → {b.toString}"
   | .product ts => " × ".intercalate (ts.map LeanTy.toString)
 
@@ -153,6 +157,8 @@ inductive LeanExpr where
   /-- `list.map fun param => body`. -/
   | listMap (list : LeanExpr) (param : String)
             (body : LeanExpr)
+  /-- `list.map fn`. -/
+  | listMapFn (list : LeanExpr) (fn : String)
   /-- `Set.flatMapList list fun param => body`. -/
   | setFlatMapList (list : LeanExpr) (param : String)
                    (body : LeanExpr)
@@ -242,6 +248,8 @@ partial def LeanExpr.toString : LeanExpr → String
   | .listMap list param body =>
     s!"{list.toString}.map fun {param} => \
        {body.toString}"
+  | .listMapFn list fn =>
+    s!"{list.toString}.map {fn}"
   | .setFlatMapList list param body =>
     s!"Set.flatMapList {list.toAtom} fun {param} => \
        {body.toString}"

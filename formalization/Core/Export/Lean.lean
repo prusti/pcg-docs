@@ -40,6 +40,7 @@ partial def toLeanAST : DSLType → LeanTy
   | .option t => .app "Option" t.toLeanAST
   | .list t => .app "List" t.toLeanAST
   | .set t => .app "Set" t.toLeanAST
+  | .map k v => .app2 "Std.HashMap" k.toLeanAST v.toLeanAST
   | .tuple ts => .product (ts.map toLeanAST)
 
 /-- Render a type to Lean syntax. -/
@@ -53,6 +54,7 @@ partial def namedTypes : DSLType → List String
   | .option t => t.namedTypes
   | .list t => t.namedTypes
   | .set t => t.namedTypes
+  | .map k v => k.namedTypes ++ v.namedTypes
   | .tuple ts => ts.flatMap namedTypes
 
 /-- Whether this type uses `Set`. -/
@@ -60,6 +62,7 @@ partial def usesSet : DSLType → Bool
   | .set _ => true
   | .option t => t.usesSet
   | .list t => t.usesSet
+  | .map k v => k.usesSet || v.usesSet
   | .tuple ts => ts.any usesSet
   | _ => false
 
@@ -136,6 +139,8 @@ partial def toLeanASTWith
     .listFlatMap (go list) param (go body)
   | .map list param body =>
     .listMap (go list) param (go body)
+  | .mapFn list fn =>
+    .listMapFn (go list) fn
   | .field recv name => .field (go recv) name
   | .index list idx => .index (go list) (go idx)
   | .indexBang list idx => .indexBang (go list) (go idx)
@@ -374,6 +379,8 @@ partial def calledNames : BodyExpr → List String
     list.calledNames ++ body.calledNames
   | .map list _ body =>
     list.calledNames ++ body.calledNames
+  | .mapFn list fn =>
+    fn :: list.calledNames
   | .and l r => l.calledNames ++ r.calledNames
   | .implies l r => l.calledNames ++ r.calledNames
   | .forall_ _ b => b.calledNames
