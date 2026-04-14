@@ -16,23 +16,6 @@ where
   | mem "The memory." : Memory
   deriving Repr
 
-/-- Alias for `Ty.bytes`, used in `defFn` bodies so
-    the Rust export emits `ty_bytes(…)` instead of the
-    incorrectly-capitalised `Ty::Bytes(…)`. -/
-def tyBytes : Ty → Option Nat := Ty.bytes
-
-/-- Alias for `Memory.load`, used in `defFn` bodies so
-    the Rust export emits `mem_load(…)` instead of
-    `Memory::Load(…)`. -/
-def memLoad : Memory → ThinPointer → Nat → List AbstractByte :=
-  Memory.load
-
-/-- Alias for `Memory.store`, used in `defFn` bodies so
-    the Rust export emits `mem_store(…)` instead of
-    `Memory::Store(…)`. -/
-def memStore : Memory → ThinPointer → List AbstractByte → Memory :=
-  Memory.store
-
 namespace Machine
 
 defFn evalConstant (.plain "evalConstant")
@@ -54,8 +37,8 @@ defFn typedLoad (.plain "typedLoad")
   (ptr "The pointer." : ThinPointer)
   (ty "The type to load." : Ty)
   : Option Value begin
-  let sz ← tyBytes ‹ty›
-  let rawBytes := memLoad ‹m, ptr, sz›
+  let sz ← Ty.bytes ‹ty›
+  let rawBytes := Memory.load ‹m, ptr, sz›
   return decode ‹ty, rawBytes›
 
 defFn typedStore (.plain "typedStore")
@@ -65,6 +48,6 @@ defFn typedStore (.plain "typedStore")
   (ptr "The pointer." : ThinPointer)
   (v "The value to store." : Value)
   : Memory :=
-    memStore ‹m, ptr, encode ‹v››
+    Memory.store ‹m, ptr, encode ‹v››
 
 end Machine

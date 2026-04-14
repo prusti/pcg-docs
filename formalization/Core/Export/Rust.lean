@@ -385,9 +385,11 @@ def render (m : RustModule)
     (siblings : List String := []) : String :=
   let header := s!"//! {m.doc}\n"
   let siblingImports := siblings.filter (· != m.name.val)
-  let uses := siblingImports.map fun s =>
-    s!"#[allow(unused_imports)]\n\
-       use crate::{s}::*;"
+  let uses := siblingImports.flatMap fun s =>
+    [ s!"#[allow(unused_imports)]\n\
+         use crate::{s}::*;"
+    , s!"#[allow(unused_imports)]\n\
+         use crate::{s};" ]
   let extraUseLines := m.extraUses.map fun u =>
     s!"use {u};"
   let allUses := uses ++ extraUseLines
@@ -539,6 +541,33 @@ def toRust (d : EnumDef) : String :=
   d.toRustItem.render
 
 end EnumDef
+
+/-- Information about a registered function's
+    qualified Rust location. -/
+structure QualifiedFn where
+  /-- The Lean module root prefix (e.g. "MIR"). -/
+  leanPrefix : String
+  /-- The Rust module name (e.g. "ty"). -/
+  rustModule : String
+  /-- The Rust function name in snake_case. -/
+  rustFnName : String
+
+/-- Context for Rust expression generation. -/
+structure RustExprCtxt where
+  /-- Known qualified function calls
+      (e.g. "Ty.bytes" → its Rust location). -/
+  knownFns : List (String × QualifiedFn) := []
+  /-- The current crate's Lean prefix
+      (e.g. "MIR", "OpSem"). -/
+  currentPrefix : String := ""
+  /-- The current module name (e.g. "ty"). -/
+  currentModule : String := ""
+
+instance : Inhabited RustExprCtxt where
+  default :=
+    { knownFns := []
+      currentPrefix := ""
+      currentModule := "" }
 
 /-- State monad for generating fresh identifiers. -/
 abbrev FreshM := StateM Nat
@@ -876,6 +905,111 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
 def toRust (e : BodyExpr) : RustExpr :=
   e.toRustExpr.run' 0
 
+/-- Resolve a qualified function call name to its Rust
+    path given the context. Returns the original name
+    unchanged if not a known function. -/
+private def resolveQualifiedCall
+    (fn : String) (ctx : RustExprCtxt)
+    : String :=
+  match ctx.knownFns.find? (·.1 == fn) with
+  | some (_, qfn) =>
+    if qfn.rustModule == ctx.currentModule then
+      qfn.rustFnName
+    else if qfn.leanPrefix == ctx.currentPrefix then
+      s!"{qfn.rustModule}::{qfn.rustFnName}"
+    else
+      let c := s!"formal_{qfn.leanPrefix.toLower}"
+      s!"{c}::{qfn.rustModule}::{qfn.rustFnName}"
+  | none => fn
+
+/-- Rewrite dotted function calls in a `BodyExpr` tree.
+    Known qualified function names (e.g. `"Ty.bytes"`) are
+    replaced with their Rust-qualified path (e.g.
+    `"ty::bytes"`), converting them from the dotted-call
+    branch (enum variant) to the fallback branch (function
+    call) in `toRustExpr`. -/
+partial def qualifyFnCalls
+    (ctx : RustExprCtxt) : BodyExpr → BodyExpr
+  | .call fn args =>
+    let args' := args.map (qualifyFnCalls ctx)
+    match fn.splitOn "." with
+    | [_, _] =>
+      let resolved := resolveQualifiedCall fn ctx
+      if resolved == fn then .call fn args'
+      else .call resolved args'
+    | _ => .call fn args'
+  | .some_ e => .some_ (qualifyFnCalls ctx e)
+  | .cons h t =>
+    .cons (qualifyFnCalls ctx h) (qualifyFnCalls ctx t)
+  | .field e n => .field (qualifyFnCalls ctx e) n
+  | .index l i =>
+    .index (qualifyFnCalls ctx l) (qualifyFnCalls ctx i)
+  | .indexBang l i =>
+    .indexBang (qualifyFnCalls ctx l)
+      (qualifyFnCalls ctx i)
+  | .dot e m => .dot (qualifyFnCalls ctx e) m
+  | .lt l r =>
+    .lt (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .le l r =>
+    .le (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .ltChain es => .ltChain (es.map (qualifyFnCalls ctx))
+  | .add l r =>
+    .add (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .sub l r =>
+    .sub (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .div l r =>
+    .div (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .and l r =>
+    .and (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .implies l r =>
+    .implies (qualifyFnCalls ctx l)
+      (qualifyFnCalls ctx r)
+  | .or l r =>
+    .or (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .neq l r =>
+    .neq (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
+  | .append l r =>
+    .append (qualifyFnCalls ctx l)
+      (qualifyFnCalls ctx r)
+  | .setUnion l r =>
+    .setUnion (qualifyFnCalls ctx l)
+      (qualifyFnCalls ctx r)
+  | .mkStruct n args =>
+    .mkStruct n (args.map (qualifyFnCalls ctx))
+  | .letIn n v b =>
+    .letIn n (qualifyFnCalls ctx v)
+      (qualifyFnCalls ctx b)
+  | .letBindIn n v b =>
+    .letBindIn n (qualifyFnCalls ctx v)
+      (qualifyFnCalls ctx b)
+  | .ifThenElse c t e =>
+    .ifThenElse (qualifyFnCalls ctx c)
+      (qualifyFnCalls ctx t) (qualifyFnCalls ctx e)
+  | .match_ s arms =>
+    .match_ (qualifyFnCalls ctx s)
+      (arms.map fun (p, rhs) =>
+        (p, qualifyFnCalls ctx rhs))
+  | .flatMap l n b =>
+    .flatMap (qualifyFnCalls ctx l) n
+      (qualifyFnCalls ctx b)
+  | .map l n b =>
+    .map (qualifyFnCalls ctx l) n
+      (qualifyFnCalls ctx b)
+  | .mapFn l fn =>
+    .mapFn (qualifyFnCalls ctx l) fn
+  | .foldlM fn init list =>
+    .foldlM fn (qualifyFnCalls ctx init)
+      (qualifyFnCalls ctx list)
+  | .setAll s n b =>
+    .setAll (qualifyFnCalls ctx s) n
+      (qualifyFnCalls ctx b)
+  | .setFlatMap l n b =>
+    .setFlatMap (qualifyFnCalls ctx l) n
+      (qualifyFnCalls ctx b)
+  | .setSingleton e => .setSingleton (qualifyFnCalls ctx e)
+  | .forall_ n b => .forall_ n (qualifyFnCalls ctx b)
+  | other => other
+
 end BodyExpr
 
 namespace FnDef
@@ -885,13 +1019,15 @@ namespace FnDef
 def toRustItem (f : FnDef)
     (structFields : String → Option (List String)
       := fun _ => none)
+    (ctx : RustExprCtxt := default)
     : RustItem :=
   let params := f.params.map fun p =>
     RustParam.named (.ident (leanToRustIdent p.name))
       (.ref false p.ty.toRustParam)
   let retTy := f.returnType.toRust
   let rustName : RustIdent := ⟨toSnakeCase f.name⟩
-  let re (b : BodyExpr) := b.toRust
+  let qualify := BodyExpr.qualifyFnCalls ctx
+  let re (b : BodyExpr) := (qualify b).toRust
   let paramNames := f.params.map
     fun p => leanToRustIdent p.name
   let assertStmts := f.preconditions.map fun pc =>
@@ -980,6 +1116,42 @@ def rustModuleNameOf (mod : Lean.Name) : String :=
   | .str _ s => s.toLower
   | _ => "unknown"
 
+/-- Build a `RustExprCtxt` from all registered items. -/
+def buildRustExprCtxt
+    (enums : List RegisteredEnum)
+    (structs : List RegisteredStruct)
+    (fns : List RegisteredFn)
+    (properties : List RegisteredProperty)
+    : RustExprCtxt :=
+  let allTypes : List String :=
+    (enums.map (·.enumDef.name.name)) ++
+    (structs.map (·.structDef.name))
+  let addFn (acc : List (String × QualifiedFn))
+      (f : FnDef) (leanMod : Lean.Name)
+      : List (String × QualifiedFn) :=
+    match f.params.head? with
+    | some p => match p.ty with
+      | .named n =>
+        if allTypes.contains n.name then
+          let prefix_ := leanMod.getRoot.toString
+          let modName := rustModuleNameOf leanMod
+          let qfn : QualifiedFn :=
+            { leanPrefix := prefix_
+              rustModule := modName
+              rustFnName := toSnakeCase f.name }
+          acc ++ [(s!"{n.name}.{f.name}", qfn)]
+        else acc
+      | _ => acc
+    | none => acc
+  let knownFns := fns.foldl
+    (fun acc rf => addFn acc rf.fnDef rf.leanModule)
+    []
+  let knownFns := properties.foldl
+    (fun acc rp => addFn acc rp.propertyDef.fnDef
+      rp.leanModule)
+    knownFns
+  { knownFns }
+
 /-- Group registered enums by Lean module prefix. -/
 def groupEnumsByCrate
     (enums : List RegisteredEnum)
@@ -1016,6 +1188,7 @@ def buildModules
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
     (extraItems : List (String × RustItem))
+    (ctx : RustExprCtxt := default)
     : List RustModule :=
   let allModNames :=
     (enums.map fun e => rustModuleNameOf e.leanModule) ++
@@ -1042,12 +1215,15 @@ def buildModules
           some (s.structDef.fields.map fun f =>
             toSnakeCase f.name)
         else none
+    let modCtx := { ctx with
+      currentModule := modName }
     let items :=
       modStructs.flatMap (·.structDef.toRustItems) ++
       modEnums.map (·.enumDef.toRustItem) ++
-      modFns.map (·.fnDef.toRustItem structFieldLookup) ++
-      modProps.map
-        (·.propertyDef.fnDef.toRustItem structFieldLookup) ++
+      modFns.map
+        (·.fnDef.toRustItem structFieldLookup modCtx) ++
+      modProps.map (·.propertyDef.fnDef.toRustItem
+        structFieldLookup modCtx) ++
       modExtras
     let doc := match modEnums.head? with
       | some e => e.enumDef.doc.toPlainText

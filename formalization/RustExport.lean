@@ -153,16 +153,7 @@ pub fn map_get<'a, K: Eq + std::hash::Hash, V>(m: &'a std::collections::HashMap<
 use formal_mir::constvalue::*;
 use formal_mir::place::*;
 use formal_mir::ty::Ty;
-use formal_mir::ty::bytes as ty_bytes;
 use crate::value::*;
-
-pub fn mem_load(m: &Memory, ptr: &ThinPointer, len: &usize) -> Vec<AbstractByte> {
-    load(m, ptr, len)
-}
-
-pub fn mem_store(m: &Memory, ptr: &ThinPointer, bytes: &Vec<AbstractByte>) -> Memory {
-    store(m, ptr, bytes)
-}
 ")
   , ("OpSem", "pointer", .raw
 "pub fn write_bytes_at(data: &[AbstractByte], offset: &usize, bytes: &[AbstractByte]) -> Vec<AbstractByte> {
@@ -187,6 +178,7 @@ def buildCrate
     (properties : List RegisteredProperty)
     (deps : List RustCrateDep := [])
     (reexports : List String := [])
+    (ctx : RustExprCtxt := {})
     : RustCrate :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
@@ -198,6 +190,7 @@ def buildCrate
     (·.leanModule.getRoot.toString == prefix_)
   let extras := extraItems.filterMap fun (p, m, item) =>
     if p == prefix_ then some (m, item) else none
+  let crateCtx := { ctx with currentPrefix := prefix_ }
   { name := crateNameOf prefix_
     version := "0.1.0"
     description := s!"Auto-generated {prefix_} types \
@@ -207,7 +200,7 @@ def buildCrate
     deps := deps
     reexports := reexports
     modules := buildModules crateEnums crateStructs
-      crateFns crateProps extras }
+      crateFns crateProps extras crateCtx }
 
 /-- The workspace containing all generated crates. -/
 def workspace : RustWorkspace :=
@@ -229,18 +222,21 @@ def main (args : List String) : IO Unit := do
   let structs ← getRegisteredStructs
   let fns ← getRegisteredFns
   let props ← getRegisteredProperties
+  let ctx := buildRustExprCtxt enums structs fns props
   let mirCrate := buildCrate "MIR" enums structs fns
-    props
+    props (ctx := ctx)
   let opSemCrate := buildCrate "OpSem" enums structs fns
     props
     (deps := [{ name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])
+    (ctx := ctx)
   let pcgCrate := buildCrate "PCG" enums structs fns
     props
     (deps := [{ name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])
+    (ctx := ctx)
   writeFile s!"{outDir}/Cargo.toml" workspace.cargoToml
   for c in [mirCrate, opSemCrate, pcgCrate] do
     for (path, contents) in c.files do

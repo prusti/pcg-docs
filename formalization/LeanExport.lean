@@ -107,17 +107,6 @@ open AbstractByte
     (m : Std.HashMap κ ν) (k : κ) : Option ν :=
   m.get? k
 ")
-  , (`OpSem.Machine, .middle,
-"def tyBytes : Ty → Option Nat := Ty.bytes
-
-def memLoad : Memory → ThinPointer → Nat →
-    List AbstractByte :=
-  Memory.load
-
-def memStore : Memory → ThinPointer →
-    List AbstractByte → Memory :=
-  Memory.store
-")
   ]
 
 -- ══════════════════════════════════════════════
