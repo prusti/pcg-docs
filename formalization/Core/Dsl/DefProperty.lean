@@ -2,13 +2,17 @@ import Core.Dsl.DefFn
 
 open Lean in
 
-/-- LaTeX description of a property, parameterised by
-    one `Doc` binder per input parameter. -/
-syntax latexDescr := "latex" "(" ident,* ")" "=>" term
+/-- Human-readable `Doc` description of a property,
+    parameterised by one `Doc` binder per input parameter.
+    Placed right after the symbol doc in a `defProperty`
+    declaration. The body must be wrapped in parentheses so
+    the grammar is unambiguous. -/
+syntax docDescr :=
+  "(" ident,* ")" "=>" "(" term ")"
 
 /-- Pattern-matching property. -/
-syntax "defProperty " ident "(" term ")" "(" term ")"
-    fnParam* latexDescr "where" fnArm*
+syntax "defProperty " ident "(" term ")" docDescr
+    fnParam* "where" fnArm*
     : command
 
 /-- Body of an expression-form property: either direct
@@ -18,8 +22,9 @@ syntax ":=" fnExpr : propertyBody
 syntax "begin" fnStmt* "return " fnExpr : propertyBody
 
 /-- Expression-form property (direct or do-block). -/
-syntax "defProperty " ident "(" term ")" "(" term ")"
-    fnParam* latexDescr propertyBody : command
+syntax "defProperty " ident "(" term ")" docDescr
+    fnParam* propertyBody
+    : command
 
 -- ══════════════════════════════════════════════
 -- Shared helpers
@@ -73,12 +78,11 @@ open Lean Elab Command in
 private def buildPropertyDef
     (name : Ident)
     (symDoc : TSyntax `term)
-    (doc : TSyntax `term)
     (paramData : Array (Ident × TSyntax `str
       × Syntax))
     (body : TSyntax `term)
-    (defnBinders : Array Ident)
-    (defnDoc : TSyntax `term)
+    (docBinders : Array Ident)
+    (docExpr : TSyntax `term)
     : CommandElabM Unit := do
   let paramDefs ← paramData.mapM
     fun (pn, pd, pt) => do
@@ -95,20 +99,20 @@ private def buildPropertyDef
   let retTn ← `(DSLType.prim .bool)
   let paramList ← `([$[$paramDefs],*])
   let propDefId := mkIdent (name.getId ++ `propertyDef)
-  let defnFn ← `(fun (ds : List Doc) =>
+  let docFn ← `(fun (ds : List Doc) =>
       match ds with
-      | [$[$defnBinders:ident],*] => ($defnDoc : Doc)
+      | [$[$docBinders:ident],*] => ($docExpr : Doc)
       | _ => Doc.plain "")
   elabCommand (← `(command|
     def $propDefId : PropertyDef :=
       { fnDef :=
           { name := $ns,
             symbolDoc := ($symDoc : Doc),
-            doc := ($doc : Doc),
+            doc := Doc.plain "",
             params := $paramList,
             returnType := $retTn,
             body := $body },
-        definition := $defnFn }))
+        doc := $docFn }))
   let mod ← getMainModule
   let modName : TSyntax `term := quote mod
   elabCommand (← `(command|
@@ -121,12 +125,12 @@ private def buildPropertyDef
 open Lean Elab Command Term in
 open LeanAST in
 elab_rules : command
-  | `(defProperty $name:ident ($symDoc:term) ($doc:term)
+  | `(defProperty $name:ident ($symDoc:term)
+       ( $docBinders:ident,* ) => ($docExpr:term)
        $ps:fnParam*
-       latex ( $defnBinders:ident,* ) => $defnDoc:term
        where $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
-    let defnBinders := defnBinders.getElems
+    let docBinders := docBinders.getElems
     let parsed ← arms.mapM fun arm => match arm with
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
             => $rhs:fnExpr) => do
@@ -162,8 +166,8 @@ elab_rules : command
         `({ pat := $pq, rhs := $rq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
-    buildPropertyDef name symDoc doc paramData
-      bodyTerm defnBinders defnDoc
+    buildPropertyDef name symDoc paramData
+      bodyTerm docBinders docExpr
 
 -- ══════════════════════════════════════════════
 -- Expression form (direct and do-block)
@@ -174,33 +178,32 @@ open Lean Elab Command Term in
 private def elabExprProperty
     (name : Ident)
     (symDoc : TSyntax `term)
-    (doc : TSyntax `term)
     (paramData : Array (Ident × TSyntax `str × Syntax))
     (rhsAst : DslExpr)
-    (defnBinders : Array Ident)
-    (defnDoc : TSyntax `term)
+    (docBinders : Array Ident)
+    (docExpr : TSyntax `term)
     : CommandElabM Unit := do
   let params := paramToLeanBinders paramData
   let body := LeanAST.LeanFnBody.expr rhsAst.toLeanAST
   elabPropertyDecl name params body
   let bodyTerm ←
     `(FnBody.expr $(quoteExpr rhsAst))
-  buildPropertyDef name symDoc doc paramData
-    bodyTerm defnBinders defnDoc
+  buildPropertyDef name symDoc paramData
+    bodyTerm docBinders docExpr
 
 open Lean Elab Command Term in
 elab_rules : command
-  | `(defProperty $name:ident ($symDoc:term) ($doc:term)
+  | `(defProperty $name:ident ($symDoc:term)
+       ( $docBinders:ident,* ) => ($docExpr:term)
        $ps:fnParam*
-       latex ( $defnBinders:ident,* ) => $defnDoc:term
        $body:propertyBody) => do
     let paramData ← ps.mapM parseFnParam
-    let defnBinders := defnBinders.getElems
+    let docBinders := docBinders.getElems
     let rhsAst ← match body with
       | `(propertyBody| := $rhs:fnExpr) => parseExpr rhs
       | `(propertyBody|
           begin $stmts:fnStmt* return $ret:fnExpr) =>
         parseStmtsAsExpr stmts (← parseExpr ret)
       | _ => throwError "invalid propertyBody"
-    elabExprProperty name symDoc doc paramData
-      rhsAst defnBinders defnDoc
+    elabExprProperty name symDoc paramData
+      rhsAst docBinders docExpr

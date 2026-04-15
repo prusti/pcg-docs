@@ -163,6 +163,9 @@ def formalDefLatex
     (knownFns : String → Bool := fun _ => false)
     (knownCtors : String → Bool := fun _ => false)
     (knownTypes : String → Bool := fun _ => false)
+    (precondShortUsage :
+        String → List Doc → Option Doc :=
+      fun _ _ => none)
     : Latex :=
   let paramParts : List Latex := f.params.map fun p =>
     Latex.seq [.text p.name, .raw " : ",
@@ -278,20 +281,29 @@ def formalDefLatex
         isProperty knownFns knownCtors knownTypes body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
-      let argsMath := LatexMath.intercalate
-        (.raw ", ") (pc.args.map LatexMath.escaped)
-      -- Link the property name to its definition (registered
-      -- under the shared `fn:` label via `knownFns`).
-      let nameMath : LatexMath :=
-        if knownFns pc.name then
-          .raw s!"\\text\{\\hyperref[fn:{pc.name}]\
-                  \{\\dashuline\{{pc.name}}}}"
-        else .escaped pc.name
-      .seq [ .raw "    "
-           , Latex.require_ (.inlineMath
-               (.seq [nameMath
-                     , .raw "(", argsMath
-                     , .raw ")"])) ]
+      let argDocs : List Doc :=
+        pc.args.map (fun a => Doc.plain a)
+      match precondShortUsage pc.name argDocs with
+      | some doc =>
+        .seq [ .raw "    "
+             , Latex.require_ doc.toLatex ]
+      | none =>
+        let argsMath := LatexMath.intercalate
+          (.raw ", ")
+          (pc.args.map LatexMath.escaped)
+        -- Link the property name to its definition
+        -- (registered under the shared `fn:` label via
+        -- `knownFns`).
+        let nameMath : LatexMath :=
+          if knownFns pc.name then
+            .raw s!"\\text\{\\hyperref[fn:{pc.name}]\
+                    \{\\dashuline\{{pc.name}}}}"
+          else .escaped pc.name
+        .seq [ .raw "    "
+             , Latex.require_ (.inlineMath
+                 (.seq [nameMath
+                       , .raw "(", argsMath
+                       , .raw ")"])) ]
   let allLines := precondLines ++ bodyLines
   let descBlock : List Latex :=
     if f.doc.toPlainText.isEmpty then []

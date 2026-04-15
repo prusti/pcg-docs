@@ -35,6 +35,8 @@ private def moduleLatex
     (knownFns : String → Bool)
     (knownCtors : String → Bool)
     (knownTypes : String → Bool)
+    (precondShortUsage :
+      String → List Doc → Option Doc)
     : Latex :=
   let header := Latex.subsection (.raw modName)
   let structParts := structs.map fun s =>
@@ -56,13 +58,15 @@ private def moduleLatex
     Latex.seq [f.fnDef.formalDefLatex ctorDisplay
                  allVariants (knownFns := knownFns)
                  (knownCtors := knownCtors)
-                 (knownTypes := knownTypes),
+                 (knownTypes := knownTypes)
+                 (precondShortUsage := precondShortUsage),
                .newline, .newline]
   let propParts := properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex ctorDisplay
                  allVariants (knownFns := knownFns)
                  (knownCtors := knownCtors)
-                 (knownTypes := knownTypes),
+                 (knownTypes := knownTypes)
+                 (precondShortUsage := precondShortUsage),
                .newline, .newline]
   .seq ([header, .newline] ++
     structParts ++ enumParts ++ fnParts ++ propParts)
@@ -81,6 +85,8 @@ private def crateLatex
     (knownFns : String → Bool)
     (knownCtors : String → Bool)
     (knownTypes : String → Bool)
+    (precondShortUsage :
+      String → List Doc → Option Doc)
     : Latex :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
@@ -116,7 +122,7 @@ private def crateLatex
       (moduleName ·.leanModule == mn)
     moduleLatex mn modEnums modStructs modOrders
       modFns modProps ctorDisplay allVariants knownFns
-      knownCtors knownTypes
+      knownCtors knownTypes precondShortUsage
   .seq ([sectionHeader, .newline] ++ modules)
 
 /-- Build the full presentation LaTeX body. -/
@@ -156,10 +162,16 @@ def buildPresentationLatex
       structs.map (·.structDef.name)
   let knownTypes : String → Bool :=
     fun n => typeNameSet.contains n
+  let precondShortUsage :
+      String → List Doc → Option Doc :=
+    fun nm args =>
+      (properties.find?
+          (·.propertyDef.fnDef.name == nm)).map fun rp =>
+        rp.propertyDef.doc args
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
       properties ctorDisplay allVariants knownFns
-      knownCtors knownTypes
+      knownCtors knownTypes precondShortUsage
   .seq body
 
 /-- LaTeX packages needed by the presentation.

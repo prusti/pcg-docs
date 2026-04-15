@@ -205,15 +205,11 @@ where
   deriving Repr, BEq, Hashable
 
 defProperty validProjTy (.plain "validProjTy")
-  (.plain "A type is valid for a projection list.")
+  (τDoc, projsDoc) =>
+    (.seq [τDoc, .plain " is a valid type for projection list ",
+           projsDoc])
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
-  latex (τDoc, projsDoc) =>
-    (.seq [.plain "A type ", τDoc,
-           .plain " is ",
-           .italic (.plain "valid"),
-           .plain " for a projection list ", projsDoc,
-           .plain "."])
   where
   | _ ; [] => true
   | .ref _ _ pointee ; .deref :: π =>
@@ -271,37 +267,19 @@ defFn placeTy' (.plain "placeTy'")
       placeTy' ‹τ, Some v, π›
 
 defProperty validPlace (.plain "valid")
-  (.plain "A place is valid for a body.")
+  (bodyDoc, pDoc) =>
+    (.seq [pDoc, .plain " is a valid place in body ",
+           bodyDoc])
   (body "The function body." : Body)
   (p "The place." : Place)
-  latex (bodyDoc, pDoc) =>
-    (.seq [.plain "A place ", pDoc,
-           .plain " is ",
-           .italic (.plain "valid"),
-           .plain " for a body ", bodyDoc,
-           .plain " iff its local index ",
-           .code "p.base.index",
-           .plain " is less than ",
-           .code "|body.decls|",
-           .plain " and ",
-           .code "validProjTy(body.decls[p.base.index], p.projection)",
-           .plain " holds."])
   :=
     p↦base↦index < body↦decls·length ∧
     validProjTy ‹body↦decls ! p↦base↦index, p↦projection›
 
 defProperty validBody (.plain "validBody")
-  (.plain "A body is valid iff all places in it are valid.")
+  (bodyDoc) =>
+    (.seq [bodyDoc, .plain " is valid"])
   (body "The function body." : Body)
-  latex (bodyDoc) =>
-    (.seq [.plain "A body ", bodyDoc,
-           .plain " is ",
-           .italic (.plain "valid"),
-           .plain " iff every place in ",
-           .code "bodyPlaces",
-           .plain "(", bodyDoc,
-           .plain ") is valid for ", bodyDoc,
-           .plain "."])
   where
     | body =>
         body·bodyPlaces·forAll fun p => validPlace ‹body, p›

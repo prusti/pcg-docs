@@ -36,16 +36,11 @@ defFn allocate (.plain "allocate")
   return ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
 
 defProperty validAllocId (.plain "validAllocId")
-  (.plain "The allocation identifier is in range.")
+  (mDoc, idDoc) =>
+    (.seq [idDoc, .plain " is a valid allocation id in ",
+           mDoc])
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
-  latex (mDoc, idDoc) =>
-    (.seq [.plain "An allocation identifier ", idDoc,
-           .plain " is ",
-           .italic (.plain "valid"),
-           .plain " for a memory ", mDoc,
-           .plain " iff its index is less than the number of allocations in ",
-           mDoc, .plain "."])
   := id↦index < m↦allocs·length
 
 open Allocation in
@@ -63,17 +58,9 @@ defFn deallocate (.plain "deallocate")
 open Allocation in
 
 defProperty validMemory (.plain "validMemory")
-  (.plain "Allocations are ordered and non-overlapping.")
+  (mDoc) =>
+    (.seq [mDoc, .plain " is a valid memory"])
   (m "The memory." : Memory)
-  latex (mDoc) =>
-    (.seq [.plain "A memory ", mDoc,
-           .plain " is ",
-           .italic (.plain "valid"),
-           .plain " iff for all ",
-           .math (.raw "i < j < |allocations|"),
-           .plain ", ",
-           .math (.raw "\\text{endAddr}(allocations[i]) < allocations[j].address.addr"),
-           .plain "."])
   := ∀∀ i, ∀∀ j, i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address
 
 def sub := @Nat.sub
