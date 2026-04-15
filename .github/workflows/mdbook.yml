@@ -26,7 +26,7 @@ jobs:
   # Build job
   build:
     if: github.repository_owner == 'prusti'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,7 +72,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     if: github.repository_owner == 'prusti'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     needs: build
     steps:
       - name: Deploy to GitHub Pages

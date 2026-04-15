@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
 
     steps:
     - uses: actions/checkout@v3
@@ -31,7 +31,7 @@ jobs:
       run: npm run build:js
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
 
     steps:
     - uses: actions/checkout@v3
@@ -49,7 +49,7 @@ jobs:
       run: npx tsc --noEmit
 
   lean:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
 
     steps:
     - uses: actions/checkout@v3
