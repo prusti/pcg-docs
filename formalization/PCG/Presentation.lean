@@ -146,4 +146,8 @@ def latexPackages : List String :=
 
 /-- Extra LaTeX preamble (theorem definitions, etc). -/
 def latexPreamble : Latex :=
-  .raw "\\newtheorem{definition}{Definition}\n"
+  .seq [
+    .raw "\\newtheorem{definition}{Definition}\n",
+    .raw ("\\hypersetup{colorlinks=true, linkcolor=blue, "
+      ++ "urlcolor=blue, citecolor=blue}\n")
+  ]
