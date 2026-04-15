@@ -162,7 +162,7 @@ elab_rules : command
     let armDefs ← parsed.mapM
       fun (patAst, rhsAst) => do
         let pq : TSyntax `term := quote patAst.toList
-        let rq : TSyntax `term := quoteExpr rhsAst
+        let rq : TSyntax `term := quote rhsAst
         `({ pat := $pq, rhs := $rq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
@@ -187,7 +187,7 @@ private def elabExprProperty
   let body := LeanAST.LeanFnBody.expr rhsAst.toLeanAST
   elabPropertyDecl name params body
   let bodyTerm ←
-    `(FnBody.expr $(quoteExpr rhsAst))
+    `(FnBody.expr $(quote rhsAst))
   buildPropertyDef name symDoc paramData
     bodyTerm docBinders docExpr
 
