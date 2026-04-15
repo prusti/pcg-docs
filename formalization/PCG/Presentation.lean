@@ -148,6 +148,7 @@ def latexPackages : List String :=
 def latexPreamble : Latex :=
   .seq [
     .raw "\\newtheorem{definition}{Definition}\n",
-    .raw ("\\hypersetup{colorlinks=true, linkcolor=blue, "
-      ++ "urlcolor=blue, citecolor=blue}\n")
+    .raw "\\usepackage[normalem]{ulem}\n",
+    .raw ("\\hypersetup{colorlinks=false, "
+      ++ "pdfborder={0 0 0}}\n")
   ]

@@ -250,7 +250,7 @@ mutual
     | .raw latex _ _ => .raw latex
     | .link text url =>
       .cmd "href" [.raw (url.replace "#" "\\#"),
-        text.toLatex]
+        .cmd "dashuline" [text.toLatex]]
     | .math m => .inlineMath m.toLatexMath
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
@@ -277,7 +277,8 @@ mutual
     | .raw latex _ _ => .raw latex
     | .link text url =>
       .text (.cmd "href"
-        [.raw (url.replace "#" "\\#"), text.toLatex])
+        [.raw (url.replace "#" "\\#"),
+          .cmd "dashuline" [text.toLatex]])
     | .math m => MathDoc.toLatexMath m
 
   /-- Convert `MathDoc` to math-mode `LatexMath` AST. -/

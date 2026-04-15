@@ -409,8 +409,13 @@ partial def toLatexMath
   let go := toLatexMath fnName varDisplay ctorDisplay
     isProperty knownFns
   let fnRef (fn : String) : LatexMath :=
-    if knownFns fn then
-      .raw s!"\\text\{\\hyperref[fn:{fn}]\{{fn}}}"
+    -- Strip any namespace prefix (e.g. `Memory.store` →
+    -- `store`) so qualified calls still resolve to the
+    -- labelled function.
+    let shortName := (fn.splitOn ".").getLast?.getD fn
+    if knownFns shortName then
+      .raw s!"\\text\{\\hyperref[fn:{shortName}]\
+              \{\\dashuline\{{fn}}}}"
     else .text (.raw fn)
   fun
   | .var n => match varDisplay n with
@@ -483,6 +488,8 @@ partial def toLatexMath
   | .call "listSet" [a, b, c] =>
     .seq [ go a, .raw "[", go b, .raw " \\mapsto "
          , go c, .raw "]" ]
+  | .call "mapGet" [a, b] =>
+    .seq [ go a, .raw "[", go b, .raw "]" ]
   | .call fn args =>
     .seq [ fnRef fn, .raw "("
          , LatexMath.intercalate (.raw ",~")

@@ -42,15 +42,17 @@ def docLinkTests : TestSeq :=
     test "toTypst renders #link(...)[...]"
       (sampleLink.toTypst ==
         "#link(\"https://www.rust-lang.org\")[Rust]") $
-    test "toLatex renders \\href{...}{...}"
+    test "toLatex renders \\href{...}{\\dashuline{...}}"
       (sampleLink.toLatex.render ==
-        "\\href{https://www.rust-lang.org}{Rust}") $
+        "\\href{https://www.rust-lang.org}\
+         {\\dashuline{Rust}}") $
     test "toHTML preserves nested formatting"
       (styledLink.toHTML ==
         "<a href=\"https://example.com\"><b>Click</b></a>") $
     test "toLatex preserves nested formatting"
       (styledLink.toLatex.render ==
-        "\\href{https://example.com}{\\textbf{Click}}") $
+        "\\href{https://example.com}\
+         {\\dashuline{\\textbf{Click}}}") $
     .done
 
 def main (args : List String) : IO UInt32 :=
