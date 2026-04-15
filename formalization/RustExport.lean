@@ -171,7 +171,8 @@ def buildCrate
     description := s!"Auto-generated {prefix_} types \
       for the PCG formalization."
     edition := "2021"
-    crateAttrs := ["allow(unused_parens)"]
+    crateAttrs := ["allow(unused_parens)",
+                   "allow(unreachable_patterns)"]
     deps := deps
     reexports := reexports
     modules := buildModules crateEnums crateStructs
