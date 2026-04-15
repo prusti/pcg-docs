@@ -16,4 +16,17 @@ defFn placeStore (.plain "placeStore")
   : Memory :=
     typedStore ‹m, place↦ptr, v›
 
+defFn placeLoad (.plain "placeLoad")
+  (.seq [.plain "Load a value from the location \
+    designated by a runtime place. Alignment and \
+    atomicity are not currently modelled, so this \
+    simply delegates to ",
+    .code "typedLoad",
+    .plain " using the place's thin pointer."])
+  (m "The memory." : Memory)
+  (place "The place to load from." : RuntimePlace)
+  (ty "The type to load." : Ty)
+  : Option Value :=
+    typedLoad ‹m, place↦ptr, ty›
+
 end Machine
