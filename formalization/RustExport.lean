@@ -117,8 +117,10 @@ pub fn int_value_of_nat(nbytes: &usize, n: &usize) -> Option<IntValue> {
 "use formal_mir::ty::*;
 ")
   , ("OpSem", "expressions", .raw
+"use formal_mir::ty::Ty;
+")
+  , ("OpSem", "place", .raw
 "use formal_mir::place::*;
-use formal_mir::ty::Ty;
 
 pub fn map_get<'a, K: Eq + std::hash::Hash, V>(m: &'a std::collections::HashMap<K, V>, k: &K) -> Option<&'a V> {
     m.get(k)

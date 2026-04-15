@@ -22,9 +22,31 @@ private def moduleName (n : Lean.Name) : String :=
   | .str _ s => s
   | _ => "Unknown"
 
-/-- Build the LaTeX for a single module subsection. -/
-private def moduleLatex
-    (modName : String)
+/-- Number of dotted components in a module name. -/
+private def modDepth (n : Lean.Name) : Nat :=
+  n.components.length
+
+/-- Whether `m` is an immediate child module of `p`. -/
+private def isChildOf (p m : Lean.Name) : Bool :=
+  let pComps := p.components
+  let mComps := m.components
+  mComps.length == pComps.length + 1 &&
+    pComps == mComps.take pComps.length
+
+/-- Subsubsection title for a nested module: combine the
+    module's own last component with its parent's last
+    component (e.g. `OpSem.Expressions.Place` →
+    `"Place Expressions"`). -/
+private def subsubTitle (n : Lean.Name) : String :=
+  let parent := match n.components.dropLast.getLast? with
+    | some p => moduleName p
+    | none => ""
+  s!"{moduleName n} {parent}"
+
+/-- Build the LaTeX body (no header) for a single module:
+    its struct, enum, function, and property definitions in
+    order, each followed by two newlines. -/
+private def moduleBodyLatex
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
@@ -38,7 +60,6 @@ private def moduleLatex
     (precondShortUsage :
       String → List Doc → Option Doc)
     : Latex :=
-  let header := Latex.subsection (.raw modName)
   let structParts := structs.map fun s =>
     Latex.seq [s.structDef.formalDefLatex knownTypes,
                .newline, .newline]
@@ -68,8 +89,7 @@ private def moduleLatex
                  (knownTypes := knownTypes)
                  (precondShortUsage := precondShortUsage),
                .newline, .newline]
-  .seq ([header, .newline] ++
-    structParts ++ enumParts ++ fnParts ++ propParts)
+  .seq (structParts ++ enumParts ++ fnParts ++ propParts)
 
 /-- Build the LaTeX sections for a single crate prefix,
     grouped by module. -/
@@ -98,31 +118,52 @@ private def crateLatex
     (·.leanModule.getRoot.toString == prefix_)
   let crateProps := properties.filter
     (·.leanModule.getRoot.toString == prefix_)
-  let allModNames := (
-    crateStructs.map (moduleName ·.leanModule) ++
-    crateEnums.map (moduleName ·.leanModule) ++
-    crateFns.map (moduleName ·.leanModule) ++
-    crateProps.map (moduleName ·.leanModule)
+  -- Collect all module `Lean.Name`s in registration order,
+  -- de-duplicated. We keep the full `Lean.Name` so the
+  -- hierarchy (e.g. `OpSem.Expressions.Place` nested under
+  -- `OpSem.Expressions`) is recoverable.
+  let allMods : List Lean.Name := (
+    crateStructs.map (·.leanModule) ++
+    crateEnums.map (·.leanModule) ++
+    crateFns.map (·.leanModule) ++
+    crateProps.map (·.leanModule)
   ).foldl (init := [])
     fun acc m =>
       if acc.contains m then acc else acc ++ [m]
-  let sectionHeader := Latex.section (.raw prefix_)
-  let modules := allModNames.map fun mn =>
+  -- Subsections are modules directly under the crate
+  -- (depth 2), e.g. `OpSem.Expressions`. Anything deeper
+  -- becomes a subsubsection within its depth-2 ancestor.
+  let topMods := allMods.filter fun m => modDepth m == 2
+  let buildBody := fun (mod : Lean.Name) =>
     let modEnums := crateEnums.filter
-      (moduleName ·.leanModule == mn)
+      (·.leanModule == mod)
     let modStructs := crateStructs.filter
-      (moduleName ·.leanModule == mn)
+      (·.leanModule == mod)
     let modEnumNames := modEnums.map
       (·.enumDef.name.name)
     let modOrders := crateOrders.filter
       fun o => modEnumNames.contains o.enumName
     let modFns := crateFns.filter
-      (moduleName ·.leanModule == mn)
+      (·.leanModule == mod)
     let modProps := crateProps.filter
-      (moduleName ·.leanModule == mn)
-    moduleLatex mn modEnums modStructs modOrders
+      (·.leanModule == mod)
+    moduleBodyLatex modEnums modStructs modOrders
       modFns modProps ctorDisplay allVariants knownFns
       resolveCtor knownTypes precondShortUsage
+  let sectionHeader := Latex.section (.raw prefix_)
+  let modules := topMods.map fun topMod =>
+    let header :=
+      Latex.subsection (.raw (moduleName topMod))
+    let body := buildBody topMod
+    -- Nested submodules whose immediate parent is this
+    -- top-level module become subsubsections.
+    let nestedMods := allMods.filter (isChildOf topMod)
+    let nestedParts := nestedMods.map fun nm =>
+      Latex.seq [
+        Latex.subsubsection (.raw (subsubTitle nm)),
+        .newline,
+        buildBody nm ]
+    .seq ([header, .newline, body] ++ nestedParts)
   .seq ([sectionHeader, .newline] ++ modules)
 
 /-- Build the full presentation LaTeX body. -/

@@ -1,5 +1,4 @@
 import Core.Doc
-import Core.Set
 import Core.Order
 import Core.Export.RustSyntax
 import Core.LeanAST

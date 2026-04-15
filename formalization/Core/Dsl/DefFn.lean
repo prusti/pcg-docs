@@ -1,6 +1,6 @@
 import Core.Registry
 import Core.Export.Lean
-import Core.Set
+import Runtime
 import Lean
 
 open Lean in

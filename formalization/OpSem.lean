@@ -8,4 +8,5 @@ import OpSem.Value
 import OpSem.Machine
 import OpSem.Decode
 import OpSem.Expressions
+import OpSem.Expressions.Place
 import OpSem.Statements

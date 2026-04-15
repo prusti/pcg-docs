@@ -91,11 +91,6 @@ def readBytesAt
 
 open AbstractByte
 ")
-  , (`OpSem.Expressions, .before,
-"def mapGet {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
-    (m : Std.HashMap κ ν) (k : κ) : Option ν :=
-  m.get? k
-")
   ]
 
 -- ══════════════════════════════════════════════
@@ -262,15 +257,17 @@ private def computeImports
   let refdTypes := items.flatMap
     LeanDefItem.referencedNames
   let needsSet := items.any LeanDefItem.usesSet
+  let needsMap := refdTypes.contains "mapGet"
   let depMods := refdTypes.filterMap fun tn =>
     typeMap.find? (·.1 == tn) |>.map (·.2)
   let depMods := depMods.filter (· != mod)
   let unique := depMods.foldl (init := [])
     fun acc m => if acc.contains m then acc
       else acc ++ [m]
-  let setImport :=
-    if needsSet then [`Util.Set] else []
-  setImport ++ unique
+  let runtimeImports :=
+    (if needsSet then [`Runtime.Set] else []) ++
+    (if needsMap then [`Runtime.Map] else [])
+  runtimeImports ++ unique
 
 /-- Build a map from function name to its inferred
     namespace, across all modules. -/
@@ -396,12 +393,21 @@ def main (args : List String) : IO Unit := do
   let uniqueLibs := topLibs.foldl (init := [])
     fun acc l => if acc.contains l then acc
       else acc ++ [l]
-  let libs := ["Util"] ++ uniqueLibs
+  let libs := ["Runtime"] ++ uniqueLibs
   -- Write project scaffolding
   writeFile s!"{outDir}/lean-toolchain" leanToolchain
   writeFile s!"{outDir}/lakefile.lean" (genLakefile libs)
-  let setContents ← IO.FS.readFile ⟨"Core/Set.lean"⟩
-  writeFile s!"{outDir}/Util/Set.lean" setContents
+  -- Copy the entire `Runtime/` folder (source-of-truth for
+  -- `Set`, `Map`, `mapGet`, and related helpers) into the
+  -- generated project.
+  let runtimeDir : System.FilePath := "Runtime"
+  let outRuntime : System.FilePath := s!"{outDir}/Runtime"
+  IO.FS.createDirAll outRuntime
+  for entry in ← runtimeDir.readDir do
+    if entry.path.extension == some "lean" then
+      let contents ← IO.FS.readFile entry.path
+      writeFile s!"{outDir}/Runtime/{entry.fileName}"
+        contents
   -- Write module files
   for (mod, items) in modules do
     let imports := computeImports mod items typeMap
@@ -423,8 +429,9 @@ def main (args : List String) : IO Unit := do
     let rootContents :=
       "\n".intercalate importLines ++ "\n"
     writeFile s!"{outDir}/{lib}.lean" rootContents
-  -- Write root file for Util
-  writeFile s!"{outDir}/Util.lean" "import Util.Set\n"
+  -- Write root file for Runtime
+  writeFile s!"{outDir}/Runtime.lean"
+    "import Runtime.Set\nimport Runtime.Map\n"
   -- Build the generated project
   IO.println "  building generated project..."
   let buildResult ← IO.Process.output {

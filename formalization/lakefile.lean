@@ -17,6 +17,10 @@ require LSpec from
     @ "main"
 
 @[default_target]
+lean_lib Runtime where
+  srcDir := "."
+
+@[default_target]
 lean_lib Core where
   srcDir := "."
 
