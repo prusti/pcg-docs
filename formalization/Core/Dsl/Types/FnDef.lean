@@ -510,9 +510,15 @@ partial def toLatexMath
   | .call "mapGet" [a, b] =>
     .seq [ go a, .raw "[", go b, .raw "]" ]
   | .call fn args =>
+    -- Drop proof arguments: they render as empty math
+    -- and would otherwise leave a trailing comma.
+    let visibleArgs := args.filter fun
+      | .sorryProof => false
+      | .leanProof _ => false
+      | _ => true
     .seq [ fnRef fn, .raw "("
          , LatexMath.intercalate (.raw ",~")
-             (args.map go)
+             (visibleArgs.map go)
          , .raw ")" ]
   | .foldlM fn init list =>
     .seq [ fnRef fn, .raw "^*(", go init
