@@ -22,13 +22,14 @@ def formalDefLatex
       fun _ => none)
     (variants : List VariantDef := [])
     (knownFns : String → Bool := fun _ => false)
+    (knownCtors : String → Bool := fun _ => false)
     : Latex :=
   let defBlock : Latex :=
     .envOpts "definition" p.fnDef.name
       (.seq [p.definition.toLatex, .newline])
   let algoBlock := p.fnDef.formalDefLatex
     ctorDisplay variants (isProperty := true)
-    (knownFns := knownFns)
+    (knownFns := knownFns) (knownCtors := knownCtors)
   .seq [defBlock, .newline, .newline, algoBlock]
 
 end PropertyDef

@@ -356,23 +356,37 @@ instance : Quote BodyExpr where quote := quoteExpr
 
 namespace BodyPat
 
+/-- Render a constructor name as a hyperlinked `\dashuline`
+    reference when it matches a known variant. Accepts
+    either short (`int`) or qualified (`Value.int`) forms;
+    the label uses the short name. -/
+private def ctorRef
+    (knownCtors : String → Bool) (n : String) : LatexMath :=
+  let shortName := (n.splitOn ".").getLast?.getD n
+  if knownCtors shortName then
+    .raw s!"\\text\{\\hyperlink\{ctor:{shortName}}\
+            \{\\dashuline\{{n}}}}"
+  else .text (.raw n)
+
 partial def toLatexMath
     (ctorDisplay : String → Option LatexMath)
+    (knownCtors : String → Bool := fun _ => false)
     : BodyPat → LatexMath
   | .wild => .raw "\\_"
   | .var n => .escaped n
   | .ctor "⟨⟩" args =>
     .delimited "(" ")"
       (LatexMath.intercalate (.raw ",~")
-        (args.map (toLatexMath ctorDisplay)))
+        (args.map (toLatexMath ctorDisplay knownCtors)))
   | .ctor n args =>
     if args.isEmpty then
       match ctorDisplay n with
       | some display => display
-      | none => .text (.raw n)
+      | none => ctorRef knownCtors n
     else
-      let argParts := args.map (toLatexMath ctorDisplay)
-      .seq [ .text (.raw n), .raw "("
+      let argParts :=
+        args.map (toLatexMath ctorDisplay knownCtors)
+      .seq [ ctorRef knownCtors n, .raw "("
            , LatexMath.intercalate (.raw ",~") argParts
            , .raw ")" ]
   | .nil => .raw "[]"
@@ -385,12 +399,13 @@ partial def toLatexMath
     | some elems =>
       .seq [ .raw "["
            , LatexMath.intercalate (.raw ",~")
-               (elems.map (toLatexMath ctorDisplay))
+               (elems.map
+                 (toLatexMath ctorDisplay knownCtors))
            , .raw "]" ]
     | none =>
-      .seq [ h.toLatexMath ctorDisplay
+      .seq [ h.toLatexMath ctorDisplay knownCtors
            , .raw " :: "
-           , t.toLatexMath ctorDisplay ]
+           , t.toLatexMath ctorDisplay knownCtors ]
   | .natLit n => .raw (toString n)
 
 end BodyPat
@@ -405,18 +420,22 @@ partial def toLatexMath
       fun _ => none)
     (isProperty : Bool := false)
     (knownFns : String → Bool := fun _ => false)
+    (knownCtors : String → Bool := fun _ => false)
     : BodyExpr → LatexMath :=
   let go := toLatexMath fnName varDisplay ctorDisplay
-    isProperty knownFns
+    isProperty knownFns knownCtors
+  let ctorRef := BodyPat.ctorRef knownCtors
   let fnRef (fn : String) : LatexMath :=
     -- Strip any namespace prefix (e.g. `Memory.store` →
     -- `store`) so qualified calls still resolve to the
-    -- labelled function.
+    -- labelled function. Fall back to a constructor
+    -- reference (e.g. `Value.int`) when the name does
+    -- not match a known function.
     let shortName := (fn.splitOn ".").getLast?.getD fn
     if knownFns shortName then
       .raw s!"\\text\{\\hyperref[fn:{shortName}]\
               \{\\dashuline\{{fn}}}}"
-    else .text (.raw fn)
+    else ctorRef fn
   fun
   | .var n => match varDisplay n with
     | some sym => sym
@@ -438,7 +457,7 @@ partial def toLatexMath
         (LatexMath.intercalate (.raw ",~")
           (args.map go))
     else
-      .seq [ .text (.raw name), .raw "("
+      .seq [ ctorRef name, .raw "("
            , LatexMath.intercalate (.raw ",~")
                (args.map go)
            , .raw ")" ]
@@ -571,10 +590,11 @@ private partial def exprLinesTop
     (ctorDisplay : String → Option LatexMath)
     (isProperty : Bool)
     (knownFns : String → Bool)
+    (knownCtors : String → Bool)
     (e : BodyExpr) (depth : Nat) : List Latex :=
   let noDisp : String → Option LatexMath := fun _ => none
   let goExpr := BodyExpr.toLatexMath fnName
-    noDisp ctorDisplay isProperty knownFns
+    noDisp ctorDisplay isProperty knownFns knownCtors
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   match e with
@@ -588,7 +608,7 @@ private partial def exprLinesTop
              , .raw " := "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns rest depth
+      knownFns knownCtors rest depth
   | .letBindIn name val rest =>
     let letLine : Latex :=
       .seq [ .raw "    "
@@ -599,7 +619,7 @@ private partial def exprLinesTop
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns rest depth
+      knownFns knownCtors rest depth
   | .ifThenElse cond t e =>
     let ifLine : Latex :=
       .seq [ .raw "    "
@@ -609,14 +629,14 @@ private partial def exprLinesTop
              , goExpr cond
              , .raw "~", .text (.raw "then") ])) ]
     let thenLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns t (depth + 1)
+      isProperty knownFns knownCtors t (depth + 1)
     let elseLine : Latex :=
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
                mkIndent depth
              , .text (.raw "else") ])) ]
     let elseLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns e (depth + 1)
+      isProperty knownFns knownCtors e (depth + 1)
     ifLine :: thenLines ++ elseLine :: elseLines
   | .match_ scrut matchArms =>
     let headerLine : Latex :=
@@ -630,7 +650,8 @@ private partial def exprLinesTop
       fun (pats, rhs) =>
         let patMath := LatexMath.intercalate
           (.raw ",~")
-          (pats.map (BodyPat.toLatexMath noDisp))
+          (pats.map
+            (BodyPat.toLatexMath noDisp knownCtors))
         let isSimple := match rhs with
           | .letIn .. => false
           | .letBindIn .. => false
@@ -656,7 +677,7 @@ private partial def exprLinesTop
                    , patMath
                    , .raw ":" ])) ]
           caseLine :: exprLinesTop fnName ctorDisplay
-            isProperty knownFns rhs (depth + 2)
+            isProperty knownFns knownCtors rhs (depth + 2)
     headerLine :: armBlocks
   | e =>
     [.seq [ .raw "    "
@@ -671,6 +692,7 @@ def formalDefLatex
     (variants : List VariantDef := [])
     (isProperty : Bool := false)
     (knownFns : String → Bool := fun _ => false)
+    (knownCtors : String → Bool := fun _ => false)
     : Latex :=
   let paramParts : List Latex := f.params.map fun p =>
     Latex.seq [.text p.name, .raw " : ",
@@ -709,9 +731,10 @@ def formalDefLatex
               | _ => none
       let patMath := LatexMath.intercalate (.raw ",~")
         (arm.pat.map
-          (BodyPat.toLatexMath ctorDisplay))
+          (BodyPat.toLatexMath ctorDisplay knownCtors))
       let goExpr := BodyExpr.toLatexMath f.name
         varDisplay ctorDisplay isProperty knownFns
+        knownCtors
       let rec rhsLines : BodyExpr → List Latex
         | .letBindIn name val rest =>
           .seq [ .raw "    "
@@ -766,6 +789,7 @@ def formalDefLatex
       if isSimple then
         let rhsMath := arm.rhs.toLatexMath f.name
           varDisplay ctorDisplay isProperty knownFns
+          knownCtors
         [.seq [ .raw "    "
              , Latex.state (.seq [
                  .textbf (.raw "case"), .raw " "
@@ -781,7 +805,7 @@ def formalDefLatex
                  , .raw ":" ]) ]
         caseLine :: rhsLines arm.rhs
     | .expr body => exprLinesTop f.name ctorDisplay
-        isProperty knownFns body 0
+        isProperty knownFns knownCtors body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argsMath := LatexMath.intercalate

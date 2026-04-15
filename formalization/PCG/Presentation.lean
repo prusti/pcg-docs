@@ -33,6 +33,7 @@ private def moduleLatex
     (ctorDisplay : String → Option LatexMath)
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
+    (knownCtors : String → Bool)
     : Latex :=
   let header := Latex.subsection (.raw modName)
   let structParts := structs.map fun s =>
@@ -52,11 +53,13 @@ private def moduleLatex
     def_ :: orderParts
   let fnParts := fns.map fun f =>
     Latex.seq [f.fnDef.formalDefLatex ctorDisplay
-                 allVariants (knownFns := knownFns),
+                 allVariants (knownFns := knownFns)
+                 (knownCtors := knownCtors),
                .newline, .newline]
   let propParts := properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex ctorDisplay
-                 allVariants (knownFns := knownFns),
+                 allVariants (knownFns := knownFns)
+                 (knownCtors := knownCtors),
                .newline, .newline]
   .seq ([header, .newline] ++
     structParts ++ enumParts ++ fnParts ++ propParts)
@@ -73,6 +76,7 @@ private def crateLatex
     (ctorDisplay : String → Option LatexMath)
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
+    (knownCtors : String → Bool)
     : Latex :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
@@ -108,6 +112,7 @@ private def crateLatex
       (moduleName ·.leanModule == mn)
     moduleLatex mn modEnums modStructs modOrders
       modFns modProps ctorDisplay allVariants knownFns
+      knownCtors
   .seq ([sectionHeader, .newline] ++ modules)
 
 /-- Build the full presentation LaTeX body. -/
@@ -134,21 +139,48 @@ def buildPresentationLatex
       properties.map (·.propertyDef.fnDef.name)
   let knownFns : String → Bool :=
     fun n => fnNameSet.contains n
+  let ctorNameSet : List String :=
+    allVariants.map (·.name.name)
+  -- Accept either short (`int`) or qualified
+  -- (`Value.int`) ctor references.
+  let knownCtors : String → Bool :=
+    fun n =>
+      let shortName := (n.splitOn ".").getLast?.getD n
+      ctorNameSet.contains shortName
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
       properties ctorDisplay allVariants knownFns
+      knownCtors
   .seq body
 
 /-- LaTeX packages needed by the presentation. -/
 def latexPackages : List String :=
   ["tikz", "amsmath", "amssymb", "amsthm",
-   "algorithm", "algpseudocode", "hyperref"]
+   "algorithm", "algpseudocode", "hyperref", "xcolor"]
 
 /-- Extra LaTeX preamble (theorem definitions, etc). -/
 def latexPreamble : Latex :=
   .seq [
     .raw "\\newtheorem{definition}{Definition}\n",
     .raw "\\usepackage[normalem]{ulem}\n",
+    -- Redefine `\dashuline` so hyperlinks get a denser,
+    -- grey dashed underline instead of ulem's default
+    -- (wider, black) dashes. The definition mirrors
+    -- ulem's own (including `\leavevmode`, ULdepth
+    -- handling, and the protected robust wrapper) so
+    -- `\dashuline` keeps working inside fragile
+    -- contexts like `\hyperref`/`\hyperlink`.
+    .raw ("\\makeatletter\n"
+      ++ "\\UL@protected\\def\\dashuline{"
+      ++ "\\leavevmode \\bgroup\n"
+      ++ "  \\UL@setULdepth\n"
+      ++ "  \\ifx\\UL@on\\UL@onin "
+      ++ "\\advance\\ULdepth2\\p@\\fi\n"
+      ++ "  \\markoverwith{\\kern.04em\n"
+      ++ "    \\textcolor{gray}{\\vtop{"
+      ++ "\\kern\\ULdepth \\hrule width .08em}}%\n"
+      ++ "    \\kern.04em}\\ULon}\n"
+      ++ "\\makeatother\n"),
     .raw ("\\hypersetup{colorlinks=false, "
       ++ "pdfborder={0 0 0}}\n")
   ]

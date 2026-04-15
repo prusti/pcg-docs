@@ -122,8 +122,13 @@ def formalDefLatex (d : EnumDef) : Latex :=
     let sep : LatexMath :=
       if i == 0 then .raw "  "
       else .cmd "mid"
+    -- Place an invisible hypertarget so cross-references
+    -- (e.g. `Value.int`, `AbstractByte.init`) can link
+    -- here via `\hyperlink{ctor:<variantName>}{...}`.
+    let target : LatexMath :=
+      .raw s!"\\hypertarget\{ctor:{v.name.name}}\{}"
     let variant : LatexMath :=
-      .seq [.raw " ", v.displayLatexMath]
+      .seq [.raw " ", target, v.displayLatexMath]
     let desc : LatexMath :=
       .seq [.raw " ", .text (.seq [
         .raw "(", .text v.doc, .raw ")"])]
