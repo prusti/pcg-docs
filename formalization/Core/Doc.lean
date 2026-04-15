@@ -65,6 +65,11 @@ mutual
     /-- Backend-specific raw content. Each backend picks its own
         string; backends without a match render the fallback. -/
     | raw (latex : String) (typst : String) (html : String)
+    /-- Hyperlink: `text` is the visible content, `url` is the
+        destination. Rendered backend-appropriately (e.g.
+        `\href{url}{text}` in LaTeX, `<a href="url">text</a>`
+        in HTML). -/
+    | link (text : Doc) (url : String)
     /-- Mathematical content. -/
     | math (m : MathDoc)
     deriving Repr
@@ -175,6 +180,8 @@ mutual
       String.join
         (items.map fun d => s!"- {d.toPlainText}\n")
     | raw _ _ _ => ""
+    | link text url =>
+      s!"{text.toPlainText} ({url})"
     | math m => mathToPlainText m
 
   /-- Extract plain text from a math fragment. -/
@@ -201,6 +208,8 @@ mutual
         s!"- {d.toTypst}"
       String.intercalate "\n" body
     | raw _ typst _ => typst
+    | link text url =>
+      s!"#link(\"{url}\")[{text.toTypst}]"
     | math m => mathToTypst m
 
   /-- Render a math fragment to Typst. -/
@@ -229,6 +238,8 @@ mutual
         s!"<li>{d.toHTML}</li>"
       s!"<ul>\n{String.intercalate "\n" body}\n</ul>"
     | raw _ _ html => html
+    | link text url =>
+      s!"<a href=\"{url}\">{text.toHTML}</a>"
     | math m => mathToHTML m
 
   /-- Render a math fragment to HTML. -/

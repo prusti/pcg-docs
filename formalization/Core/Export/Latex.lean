@@ -248,6 +248,8 @@ mutual
       .env "itemize" (.seq (items.map fun d =>
         .seq [Latex.item d.toLatex, .newline]))
     | .raw latex _ _ => .raw latex
+    | .link text url =>
+      .cmd "href" [.raw url, text.toLatex]
     | .math m => .inlineMath m.toLatexMath
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
@@ -272,6 +274,8 @@ mutual
     | .itemize items =>
       .seq (items.map Doc.toLatexMath)
     | .raw latex _ _ => .raw latex
+    | .link text url =>
+      .text (.cmd "href" [.raw url, text.toLatex])
     | .math m => MathDoc.toLatexMath m
 
   /-- Convert `MathDoc` to math-mode `LatexMath` AST. -/

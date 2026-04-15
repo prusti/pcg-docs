@@ -928,87 +928,14 @@ private def resolveQualifiedCall
     `"ty::bytes"`), converting them from the dotted-call
     branch (enum variant) to the fallback branch (function
     call) in `toRustExpr`. -/
-partial def qualifyFnCalls
-    (ctx : RustExprCtxt) : BodyExpr → BodyExpr
-  | .call fn args =>
-    let args' := args.map (qualifyFnCalls ctx)
-    match fn.splitOn "." with
-    | [_, _] =>
-      let resolved := resolveQualifiedCall fn ctx
-      if resolved == fn then .call fn args'
-      else .call resolved args'
-    | _ => .call fn args'
-  | .some_ e => .some_ (qualifyFnCalls ctx e)
-  | .cons h t =>
-    .cons (qualifyFnCalls ctx h) (qualifyFnCalls ctx t)
-  | .field e n => .field (qualifyFnCalls ctx e) n
-  | .index l i =>
-    .index (qualifyFnCalls ctx l) (qualifyFnCalls ctx i)
-  | .indexBang l i =>
-    .indexBang (qualifyFnCalls ctx l)
-      (qualifyFnCalls ctx i)
-  | .dot e m => .dot (qualifyFnCalls ctx e) m
-  | .lt l r =>
-    .lt (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .le l r =>
-    .le (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .ltChain es => .ltChain (es.map (qualifyFnCalls ctx))
-  | .add l r =>
-    .add (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .sub l r =>
-    .sub (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .div l r =>
-    .div (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .and l r =>
-    .and (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .implies l r =>
-    .implies (qualifyFnCalls ctx l)
-      (qualifyFnCalls ctx r)
-  | .or l r =>
-    .or (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .neq l r =>
-    .neq (qualifyFnCalls ctx l) (qualifyFnCalls ctx r)
-  | .append l r =>
-    .append (qualifyFnCalls ctx l)
-      (qualifyFnCalls ctx r)
-  | .setUnion l r =>
-    .setUnion (qualifyFnCalls ctx l)
-      (qualifyFnCalls ctx r)
-  | .mkStruct n args =>
-    .mkStruct n (args.map (qualifyFnCalls ctx))
-  | .letIn n v b =>
-    .letIn n (qualifyFnCalls ctx v)
-      (qualifyFnCalls ctx b)
-  | .letBindIn n v b =>
-    .letBindIn n (qualifyFnCalls ctx v)
-      (qualifyFnCalls ctx b)
-  | .ifThenElse c t e =>
-    .ifThenElse (qualifyFnCalls ctx c)
-      (qualifyFnCalls ctx t) (qualifyFnCalls ctx e)
-  | .match_ s arms =>
-    .match_ (qualifyFnCalls ctx s)
-      (arms.map fun (p, rhs) =>
-        (p, qualifyFnCalls ctx rhs))
-  | .flatMap l n b =>
-    .flatMap (qualifyFnCalls ctx l) n
-      (qualifyFnCalls ctx b)
-  | .map l n b =>
-    .map (qualifyFnCalls ctx l) n
-      (qualifyFnCalls ctx b)
-  | .mapFn l fn =>
-    .mapFn (qualifyFnCalls ctx l) fn
-  | .foldlM fn init list =>
-    .foldlM fn (qualifyFnCalls ctx init)
-      (qualifyFnCalls ctx list)
-  | .setAll s n b =>
-    .setAll (qualifyFnCalls ctx s) n
-      (qualifyFnCalls ctx b)
-  | .setFlatMap l n b =>
-    .setFlatMap (qualifyFnCalls ctx l) n
-      (qualifyFnCalls ctx b)
-  | .setSingleton e => .setSingleton (qualifyFnCalls ctx e)
-  | .forall_ n b => .forall_ n (qualifyFnCalls ctx b)
-  | other => other
+def qualifyFnCalls
+    (ctx : RustExprCtxt) (e : BodyExpr) : BodyExpr :=
+  e.transform fun
+    | .call fn args =>
+      match fn.splitOn "." with
+      | [_, _] => .call (resolveQualifiedCall fn ctx) args
+      | _ => .call fn args
+    | other => other
 
 end BodyExpr
 

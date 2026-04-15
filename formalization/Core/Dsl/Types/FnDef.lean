@@ -102,6 +102,71 @@ inductive BodyExpr where
   | neq (lhs : BodyExpr) (rhs : BodyExpr)
   deriving Repr, Inhabited
 
+namespace BodyExpr
+
+/-- Apply `f` to every immediate `BodyExpr` child of a
+    node, leaving non-`BodyExpr` fields unchanged. -/
+def mapChildren (f : BodyExpr → BodyExpr)
+    : BodyExpr → BodyExpr
+  -- Leaves (no BodyExpr children)
+  | .var n => .var n
+  | .natLit n => .natLit n
+  | .true_ => .true_
+  | .false_ => .false_
+  | .emptyList => .emptyList
+  | .none_ => .none_
+  | .emptySet => .emptySet
+  | .sorryProof => .sorryProof
+  | .leanProof t => .leanProof t
+  -- Unary
+  | .some_ e => .some_ (f e)
+  | .dot e m => .dot (f e) m
+  | .field e n => .field (f e) n
+  | .setSingleton e => .setSingleton (f e)
+  | .forall_ p b => .forall_ p (f b)
+  | .mapFn l fn => .mapFn (f l) fn
+  -- Binary
+  | .cons h t => .cons (f h) (f t)
+  | .append l r => .append (f l) (f r)
+  | .index l i => .index (f l) (f i)
+  | .indexBang l i => .indexBang (f l) (f i)
+  | .lt l r => .lt (f l) (f r)
+  | .le l r => .le (f l) (f r)
+  | .add l r => .add (f l) (f r)
+  | .sub l r => .sub (f l) (f r)
+  | .div l r => .div (f l) (f r)
+  | .setUnion l r => .setUnion (f l) (f r)
+  | .and l r => .and (f l) (f r)
+  | .or l r => .or (f l) (f r)
+  | .implies l r => .implies (f l) (f r)
+  | .neq l r => .neq (f l) (f r)
+  -- Ternary (with String parameter)
+  | .flatMap l p b => .flatMap (f l) p (f b)
+  | .map l p b => .map (f l) p (f b)
+  | .setAll s p b => .setAll (f s) p (f b)
+  | .setFlatMap l p b => .setFlatMap (f l) p (f b)
+  | .letIn n v b => .letIn n (f v) (f b)
+  | .letBindIn n v b => .letBindIn n (f v) (f b)
+  | .ifThenElse c t e => .ifThenElse (f c) (f t) (f e)
+  | .foldlM fn init list => .foldlM fn (f init) (f list)
+  -- List children
+  | .mkStruct n args => .mkStruct n (args.map f)
+  | .call fn args => .call fn (args.map f)
+  | .ltChain es => .ltChain (es.map f)
+  -- Match (recurse into scrutinee and arm RHSs)
+  | .match_ s arms =>
+    .match_ (f s) (arms.map fun (p, rhs) => (p, f rhs))
+
+/-- Bottom-up rewrite: recurse into all children first,
+    then apply `f` to the rebuilt node. Equivalent to
+    `transform` from Haskell's `uniplate` library. -/
+partial def transform
+    (f : BodyExpr → BodyExpr) (e : BodyExpr)
+    : BodyExpr :=
+  f (e.mapChildren (transform f))
+
+end BodyExpr
+
 /-- A match arm: patterns → expression. -/
 structure BodyArm where
   pat : List BodyPat
