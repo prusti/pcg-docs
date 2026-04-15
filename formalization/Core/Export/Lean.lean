@@ -157,6 +157,7 @@ partial def toLeanASTWith
   | .lt l r => .binop "<" (go l) (go r)
   | .le l r => .binop "≤" (go l) (go r)
   | .ltChain es => .ltChain (es.map go)
+  | .leChain es => .leChain (es.map go)
   | .add l r => .binop "+" (go l) (go r)
   | .sub l r => .binop "-" (go l) (go r)
   | .div l r => .binop "/" (go l) (go r)
@@ -393,6 +394,7 @@ partial def calledNames : DslExpr → List String
   | .lt l r => l.calledNames ++ r.calledNames
   | .le l r => l.calledNames ++ r.calledNames
   | .ltChain es => es.flatMap calledNames
+  | .leChain es => es.flatMap calledNames
   | .add l r => l.calledNames ++ r.calledNames
   | .sub l r => l.calledNames ++ r.calledNames
   | .div l r => l.calledNames ++ r.calledNames

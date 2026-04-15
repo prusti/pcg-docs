@@ -33,8 +33,7 @@ defFn canAccess (.plain "can_access")
   (len "The access length in bytes." : Nat)
   : Bool :=
     alloc↦live
-      ∧ alloc↦address ≤ ptr↦addr
-      ∧ ptr↦addr + len ≤ endAddr ‹alloc›
+      ∧ alloc↦address ≤ ptr↦addr ≤ ptr↦addr + len ≤ endAddr ‹alloc›
 
 end Allocation
 

@@ -135,6 +135,8 @@ inductive LeanExpr where
   | binop (op : String) (lhs : LeanExpr) (rhs : LeanExpr)
   /-- Chain of `<`: `a < b ∧ b < c ∧ …`. -/
   | ltChain (es : List LeanExpr)
+  /-- Chain of `≤`: `a ≤ b ∧ b ≤ c ∧ …`. -/
+  | leChain (es : List LeanExpr)
   /-- Bounded `∀ x ∈ s, body`. -/
   | forallIn (binder : String) (set : LeanExpr)
              (body : LeanExpr)
@@ -233,6 +235,11 @@ partial def LeanExpr.toString : LeanExpr → String
     " ∧ ".intercalate
       (pairs.map fun (l, r) =>
         s!"{l.toString} < {r.toString}")
+  | .leChain es =>
+    let pairs := es.zip (es.drop 1)
+    " ∧ ".intercalate
+      (pairs.map fun (l, r) =>
+        s!"{l.toString} ≤ {r.toString}")
   | .forallIn binder set body =>
     s!"∀ {binder} ∈ {set.toString}, {body.toString}"
   | .forall_ binder body =>

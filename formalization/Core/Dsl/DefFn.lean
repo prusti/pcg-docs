@@ -62,12 +62,21 @@ syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 syntax fnExpr " < " fnExpr : fnExpr
 -- Chained less-than: expr < expr < expr
 syntax fnExpr " < " fnExpr " < " fnExpr : fnExpr
--- Less-than-or-equal: expr ≤ expr
-syntax fnExpr " ≤ " fnExpr : fnExpr
--- Addition: expr + expr
-syntax fnExpr " + " fnExpr : fnExpr
-syntax fnExpr " - " fnExpr : fnExpr
-syntax fnExpr " / " fnExpr : fnExpr
+-- Less-than-or-equal: expr ≤ expr.
+-- All `≤` rules are non-associative (own prec 50, arg prec 51) so
+-- that Lean unambiguously picks the longest matching chain rule.
+syntax:50 fnExpr:51 " ≤ " fnExpr:51 : fnExpr
+-- Chained ≤ (3 elements): expr ≤ expr ≤ expr
+syntax:50 fnExpr:51 " ≤ " fnExpr:51 " ≤ " fnExpr:51 : fnExpr
+-- Chained ≤ (4 elements): expr ≤ expr ≤ expr ≤ expr
+syntax:50 fnExpr:51 " ≤ " fnExpr:51 " ≤ " fnExpr:51
+    " ≤ " fnExpr:51 : fnExpr
+-- Arithmetic: bind tighter than `≤` so that
+-- `a + b ≤ c` parses as `(a + b) ≤ c` and chains like
+-- `a ≤ b + c ≤ d` work as expected.
+syntax:65 fnExpr:65 " + " fnExpr:66 : fnExpr
+syntax:65 fnExpr:65 " - " fnExpr:66 : fnExpr
+syntax:70 fnExpr:70 " / " fnExpr:71 : fnExpr
 -- Empty set: ∅
 syntax "∅" : fnExpr
 -- Set singleton: ⦃ expr ���
@@ -248,6 +257,12 @@ partial def parseExpr
       ← parseExpr c])
   | `(fnExpr| $l:fnExpr < $r:fnExpr) =>
     pure (.lt (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $a:fnExpr ≤ $b:fnExpr ≤ $c:fnExpr ≤ $d:fnExpr) =>
+    pure (.leChain [← parseExpr a, ← parseExpr b,
+      ← parseExpr c, ← parseExpr d])
+  | `(fnExpr| $a:fnExpr ≤ $b:fnExpr ≤ $c:fnExpr) =>
+    pure (.leChain [← parseExpr a, ← parseExpr b,
+      ← parseExpr c])
   | `(fnExpr| $l:fnExpr ≤ $r:fnExpr) =>
     pure (.le (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr + $r:fnExpr) =>

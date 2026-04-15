@@ -44,6 +44,8 @@ inductive DslExpr where
   | le (lhs : DslExpr) (rhs : DslExpr)
   /-- Chained less-than: `a < b < c < …`. -/
   | ltChain (exprs : List DslExpr)
+  /-- Chained less-than-or-equal: `a ≤ b ≤ c ≤ …`. -/
+  | leChain (exprs : List DslExpr)
   /-- Addition: `lhs + rhs`. -/
   | add (lhs : DslExpr) (rhs : DslExpr)
   | sub (lhs : DslExpr) (rhs : DslExpr)
@@ -142,6 +144,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .mkStruct n args => .mkStruct n (args.map f)
   | .call fn args => .call fn (args.map f)
   | .ltChain es => .ltChain (es.map f)
+  | .leChain es => .leChain (es.map f)
   -- Match (recurse into scrutinee and arm RHSs)
   | .match_ s arms =>
     .match_ (f s) (arms.map fun (p, rhs) => (p, f rhs))
@@ -296,6 +299,7 @@ partial def toDoc
   | .lt l r => .seq [go l, .sym .lt, go r]
   | .le l r => .seq [go l, .sym .le, go r]
   | .ltChain es => mathIntercalate (.sym .lt) (es.map go)
+  | .leChain es => mathIntercalate (.sym .le) (es.map go)
   | .add l r => .seq [go l, .sym .add, go r]
   | .sub l r => .seq [go l, .sym .sub, go r]
   | .div l r => .seq [go l, .sym .div, go r]

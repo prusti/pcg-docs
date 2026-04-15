@@ -807,6 +807,16 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
     | [c] => pure c
     | c :: cs => pure (cs.foldl
         (fun acc x => .binOp .and acc x) c)
+  | .leChain es => do
+    let rExprs ← es.mapM (·.toRustExpr)
+    let pairs := rExprs.zip (rExprs.drop 1)
+    let comparisons := pairs.map fun (l, r) =>
+      RustExpr.binOp .le l r
+    match comparisons with
+    | [] => pure (.raw "true")
+    | [c] => pure c
+    | c :: cs => pure (cs.foldl
+        (fun acc x => .binOp .and acc x) c)
   | .add l r => do
     pure (.binOp .add (← l.toRustExpr) (← r.toRustExpr))
   | .sub l r => do
