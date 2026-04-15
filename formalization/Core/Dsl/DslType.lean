@@ -1,4 +1,5 @@
 import Core.Doc
+import Core.Export.Latex
 
 /-- Output mode for rendering types. -/
 inductive OutputMode where
@@ -114,6 +115,43 @@ where
     if isCompound t then
       .seq [.plain "(", t.toDoc mode, .plain ")"]
     else t.toDoc mode
+
+/-- Render a type to a text-mode `Latex` AST, inserting a
+    `\hyperlink{type:<name>}{...}` for any named type whose
+    name satisfies `knownTypes`. Non-linked types fall back
+    to the `Doc`-based rendering. -/
+partial def toLatex
+    (knownTypes : String → Bool) : DSLType → Latex
+  | .prim p => (p.toDoc .normal).toLatex
+  | .named n =>
+    if knownTypes n.name then
+      -- `\protect` so the fragile `\hyperlink` survives
+      -- moving arguments like `\caption{...}`.
+      .raw s!"\\protect\\hyperlink\{type:{n.name}}\
+             \{\\protect\\dashuline\{{n.name}}}"
+    else .text n.name
+  | .option t =>
+    .seq [.raw "Option ", parenIfCompound knownTypes t]
+  | .list t =>
+    .seq [.raw "List ", parenIfCompound knownTypes t]
+  | .set t =>
+    .seq [.raw "Set ", parenIfCompound knownTypes t]
+  | .map k v =>
+    .seq [.raw "Map ",
+          parenIfCompound knownTypes k, .raw " ",
+          parenIfCompound knownTypes v]
+  | .tuple parts =>
+    .seq ((parts.map (toLatex knownTypes)).intersperse
+      (.raw " × "))
+where
+  isCompound : DSLType → Bool
+    | .prim _ => false
+    | .named n => n.name.any fun c => c == ' ' || c == '×'
+    | .option _ | .list _ | .set _ | .map _ _ | .tuple _ => true
+  parenIfCompound (kt : String → Bool) (t : DSLType) : Latex :=
+    if isCompound t then
+      .seq [.raw "(", toLatex kt t, .raw ")"]
+    else toLatex kt t
 
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType

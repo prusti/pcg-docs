@@ -157,10 +157,11 @@ def formalDefLatex
     (isProperty : Bool := false)
     (knownFns : String → Bool := fun _ => false)
     (knownCtors : String → Bool := fun _ => false)
+    (knownTypes : String → Bool := fun _ => false)
     : Latex :=
   let paramParts : List Latex := f.params.map fun p =>
     Latex.seq [.text p.name, .raw " : ",
-               (p.ty.toDoc .normal).toLatex]
+               p.ty.toLatex knownTypes]
   let paramSig : Latex :=
     .seq (paramParts.intersperse (.raw ", "))
   let caption : Latex :=
@@ -168,7 +169,7 @@ def formalDefLatex
       .seq [.raw "Property ", .text f.name,
             .raw "(", paramSig, .raw ")"]
     else
-      let retTy := (f.returnType.toDoc .normal).toLatex
+      let retTy := f.returnType.toLatex knownTypes
       .seq [.text f.name, .raw "(",
             paramSig, .raw ") ",
             .inlineMath (.cmd "to"), .raw " ",
@@ -274,9 +275,16 @@ def formalDefLatex
     f.preconditions.map fun pc =>
       let argsMath := LatexMath.intercalate
         (.raw ", ") (pc.args.map LatexMath.escaped)
+      -- Link the property name to its definition (registered
+      -- under the shared `fn:` label via `knownFns`).
+      let nameMath : LatexMath :=
+        if knownFns pc.name then
+          .raw s!"\\text\{\\hyperref[fn:{pc.name}]\
+                  \{\\dashuline\{{pc.name}}}}"
+        else .escaped pc.name
       .seq [ .raw "    "
            , Latex.require_ (.inlineMath
-               (.seq [.escaped pc.name
+               (.seq [nameMath
                      , .raw "(", argsMath
                      , .raw ")"])) ]
   let allLines := precondLines ++ bodyLines

@@ -133,7 +133,13 @@ def formalDefLatex (d : EnumDef) : Latex :=
       .seq [.raw " ", .text (.seq [
         .raw "(", .text v.doc, .raw ")"])]
     [sep, variant, desc]
+  -- Invisible hypertarget so cross-references to this type
+  -- (e.g. from function signatures) can link here via
+  -- `\hyperlink{type:<name>}{...}`.
+  let typeTarget : Latex :=
+    .raw s!"\\hypertarget\{type:{d.name.name}}\{}"
   .envOpts "definition" d.defnName (.seq [
+    typeTarget,
     d.doc.toLatex, .newline,
     .displayMath (.seq [
       sym, .raw " ", .cmd "in", .raw " ",

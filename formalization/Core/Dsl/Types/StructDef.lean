@@ -84,7 +84,13 @@ def formalDefLatex (s : StructDef) : Latex :=
       let escaped := url.replace "#" "\\#"
       .cmd "footnote" [.cmd "url" [.raw escaped]]
     | none => .seq []
+  -- Invisible hypertarget so cross-references to this type
+  -- (e.g. from function signatures) can link here via
+  -- `\hyperlink{type:<name>}{...}`.
+  let typeTarget : Latex :=
+    .raw s!"\\hypertarget\{type:{s.name}}\{}"
   .envOpts "definition" s.docParam (.seq [
+    typeTarget,
     s.doc.toLatex, noteFootnote,
     defLine,
     whereBlock

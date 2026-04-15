@@ -34,6 +34,7 @@ private def moduleLatex
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
     (knownCtors : String → Bool)
+    (knownTypes : String → Bool)
     : Latex :=
   let header := Latex.subsection (.raw modName)
   let structParts := structs.map fun s =>
@@ -54,12 +55,14 @@ private def moduleLatex
   let fnParts := fns.map fun f =>
     Latex.seq [f.fnDef.formalDefLatex ctorDisplay
                  allVariants (knownFns := knownFns)
-                 (knownCtors := knownCtors),
+                 (knownCtors := knownCtors)
+                 (knownTypes := knownTypes),
                .newline, .newline]
   let propParts := properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex ctorDisplay
                  allVariants (knownFns := knownFns)
-                 (knownCtors := knownCtors),
+                 (knownCtors := knownCtors)
+                 (knownTypes := knownTypes),
                .newline, .newline]
   .seq ([header, .newline] ++
     structParts ++ enumParts ++ fnParts ++ propParts)
@@ -77,6 +80,7 @@ private def crateLatex
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
     (knownCtors : String → Bool)
+    (knownTypes : String → Bool)
     : Latex :=
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
@@ -112,7 +116,7 @@ private def crateLatex
       (moduleName ·.leanModule == mn)
     moduleLatex mn modEnums modStructs modOrders
       modFns modProps ctorDisplay allVariants knownFns
-      knownCtors
+      knownCtors knownTypes
   .seq ([sectionHeader, .newline] ++ modules)
 
 /-- Build the full presentation LaTeX body. -/
@@ -147,10 +151,15 @@ def buildPresentationLatex
     fun n =>
       let shortName := (n.splitOn ".").getLast?.getD n
       ctorNameSet.contains shortName
+  let typeNameSet : List String :=
+    enums.map (·.enumDef.name.name) ++
+      structs.map (·.structDef.name)
+  let knownTypes : String → Bool :=
+    fun n => typeNameSet.contains n
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
       properties ctorDisplay allVariants knownFns
-      knownCtors
+      knownCtors knownTypes
   .seq body
 
 /-- LaTeX packages needed by the presentation. -/
