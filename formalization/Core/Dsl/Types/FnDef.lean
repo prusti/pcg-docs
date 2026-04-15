@@ -483,7 +483,7 @@ partial def toLatexMath
   | .dot recv "toNat" =>
     .seq [go recv, .raw "~\\text{as}~", .mathbb (.raw "N")]
   | .dot recv method =>
-    .seq [.text (.raw method), .raw "(", go recv
+    .seq [fnRef method, .raw "(", go recv
          , .raw ")"]
   | .flatMap list param body =>
     .seq [ go list, .raw ".\\text{flatMap}("
