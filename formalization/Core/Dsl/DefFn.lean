@@ -188,12 +188,12 @@ end
 
 partial def parseExpr
     (stx : Lean.Syntax)
-    : Lean.Elab.Command.CommandElabM BodyExpr := do
+    : Lean.Elab.Command.CommandElabM DslExpr := do
   match stx with
   | `(fnExpr| [ ]) => pure .emptyList
   | `(fnExpr| [ $es:fnExpr,* ]) => do
     let elems ← es.getElems.mapM parseExpr
-    pure (elems.foldr BodyExpr.cons .emptyList)
+    pure (elems.foldr DslExpr.cons .emptyList)
   | `(fnExpr| $n:num) =>
     pure (.natLit n.getNat)
   | `(fnExpr| $n:ident) =>
@@ -312,10 +312,10 @@ partial def parseExpr
 
 /-- Fold a sequence of `fnStmt` syntax nodes followed by a
     return expression into a chained `letIn`/`letBindIn`
-    `BodyExpr`. -/
+    `DslExpr`. -/
 def parseStmtsAsExpr
-    (stmts : Array Lean.Syntax) (ret : BodyExpr)
-    : Lean.Elab.Command.CommandElabM BodyExpr := do
+    (stmts : Array Lean.Syntax) (ret : DslExpr)
+    : Lean.Elab.Command.CommandElabM DslExpr := do
   let mut acc := ret
   for stx in stmts.reverse do
     match stx with

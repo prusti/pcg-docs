@@ -97,12 +97,12 @@ partial def toLean (p : BodyPat) : String :=
 end BodyPat
 
 -- ══════════════════════════════════════════════
--- BodyExpr → LeanExpr
+-- DslExpr → LeanExpr
 -- ══════════════════════════════════════════════
 
-namespace BodyExpr
+namespace DslExpr
 
-/-- Lower a `BodyExpr` to a `LeanExpr`.
+/-- Lower a `DslExpr` to a `LeanExpr`.
     `selfName` is the current function name (for
     inserting proof arguments at recursive calls).
     `precondNames` lists the precondition function
@@ -112,7 +112,7 @@ partial def toLeanASTWith
     (selfName : String)
     (precondNames : List String)
     (calleeProofNames : List String := [])
-    : BodyExpr → LeanExpr :=
+    : DslExpr → LeanExpr :=
   let go := toLeanASTWith selfName precondNames
     calleeProofNames
   -- For self-recursive calls we need to attach
@@ -184,24 +184,24 @@ partial def toLeanASTWith
     .ifThenElse (go c) (go t) (go e)
   | .neq l r => .binop "≠" (go l) (go r)
 
-partial def toLeanAST (e : BodyExpr) : LeanExpr :=
+partial def toLeanAST (e : DslExpr) : LeanExpr :=
   e.toLeanASTWith "" []
 
 partial def toLeanWith
     (selfName : String)
     (precondNames : List String)
     (calleeProofNames : List String := [])
-    (e : BodyExpr) : String :=
+    (e : DslExpr) : String :=
   toString (e.toLeanASTWith selfName precondNames
     calleeProofNames)
 
-partial def toLean (e : BodyExpr) : String :=
+partial def toLean (e : DslExpr) : String :=
   toString e.toLeanAST
 
-partial def toLeanArg (e : BodyExpr) : String :=
+partial def toLeanArg (e : DslExpr) : String :=
   LeanExpr.toAtom e.toLeanAST
 
-end BodyExpr
+end DslExpr
 
 -- ══════════════════════════════════════════════
 -- FnBody (rendered standalone, e.g. in DefFn)
@@ -363,10 +363,10 @@ def usesSet (e : EnumDef) : Bool :=
 
 end EnumDef
 
-namespace BodyExpr
+namespace DslExpr
 
 /-- Collect all function/method names called. -/
-partial def calledNames : BodyExpr → List String
+partial def calledNames : DslExpr → List String
   | .dot _ method => [method]
   | .call fn args =>
     fn :: args.flatMap calledNames
@@ -411,7 +411,7 @@ partial def calledNames : BodyExpr → List String
   | .or l r => l.calledNames ++ r.calledNames
   | _ => []
 
-end BodyExpr
+end DslExpr
 
 namespace FnBody
 

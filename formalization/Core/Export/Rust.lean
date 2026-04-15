@@ -647,11 +647,11 @@ partial def toRustPat (enumName : String)
 
 end BodyPat
 
-namespace BodyExpr
+namespace DslExpr
 
-/-- Convert a `BodyExpr` to a typed `RustExpr` in the
+/-- Convert a `DslExpr` to a typed `RustExpr` in the
     `FreshM` monad (for generating fresh variable names). -/
-partial def toRustExpr : BodyExpr → FreshM RustExpr
+partial def toRustExpr : DslExpr → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
   | .natLit n => pure (.raw s!"{n}usize")
   | .true_ => pure (.litBool true)
@@ -902,7 +902,7 @@ partial def toRustExpr : BodyExpr → FreshM RustExpr
     pure (.binOp .ne (← l.toRustExpr) (← r.toRustExpr))
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
-def toRust (e : BodyExpr) : RustExpr :=
+def toRust (e : DslExpr) : RustExpr :=
   e.toRustExpr.run' 0
 
 /-- Resolve a qualified function call name to its Rust
@@ -922,14 +922,14 @@ private def resolveQualifiedCall
       s!"{c}::{qfn.rustModule}::{qfn.rustFnName}"
   | none => fn
 
-/-- Rewrite dotted function calls in a `BodyExpr` tree.
+/-- Rewrite dotted function calls in a `DslExpr` tree.
     Known qualified function names (e.g. `"Ty.bytes"`) are
     replaced with their Rust-qualified path (e.g.
     `"ty::bytes"`), converting them from the dotted-call
     branch (enum variant) to the fallback branch (function
     call) in `toRustExpr`. -/
 def qualifyFnCalls
-    (ctx : RustExprCtxt) (e : BodyExpr) : BodyExpr :=
+    (ctx : RustExprCtxt) (e : DslExpr) : DslExpr :=
   e.transform fun
     | .call fn args =>
       match fn.splitOn "." with
@@ -937,7 +937,7 @@ def qualifyFnCalls
       | _ => .call fn args
     | other => other
 
-end BodyExpr
+end DslExpr
 
 namespace FnDef
 
@@ -953,8 +953,8 @@ def toRustItem (f : FnDef)
       (.ref false p.ty.toRustParam)
   let retTy := f.returnType.toRust
   let rustName : RustIdent := ⟨toSnakeCase f.name⟩
-  let qualify := BodyExpr.qualifyFnCalls ctx
-  let re (b : BodyExpr) := (qualify b).toRust
+  let qualify := DslExpr.qualifyFnCalls ctx
+  let re (b : DslExpr) := (qualify b).toRust
   let paramNames := f.params.map
     fun p => leanToRustIdent p.name
   let assertStmts := f.preconditions.map fun pc =>

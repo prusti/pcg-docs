@@ -176,7 +176,7 @@ private def elabExprProperty
     (symDoc : TSyntax `term)
     (doc : TSyntax `term)
     (paramData : Array (Ident × TSyntax `str × Syntax))
-    (rhsAst : BodyExpr)
+    (rhsAst : DslExpr)
     (defnBinders : Array Ident)
     (defnDoc : TSyntax `term)
     : CommandElabM Unit := do
