@@ -60,7 +60,7 @@ jobs:
         echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
     - name: Install Rust (self-hosted runners only)
-      if: runner.environment == 'self-hosted'
+      if: vars.RUNNER != ''
       run: |
         if ! command -v cargo >/dev/null 2>&1; then
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
