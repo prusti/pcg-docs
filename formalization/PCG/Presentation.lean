@@ -162,10 +162,16 @@ def buildPresentationLatex
       knownCtors knownTypes
   .seq body
 
-/-- LaTeX packages needed by the presentation. -/
+/-- LaTeX packages needed by the presentation.
+
+    `placeins` provides `\FloatBarrier`, which the
+    `section`/`subsection` helpers emit before each heading
+    so that all content of a (sub)section appears before the
+    next (sub)section begins. -/
 def latexPackages : List String :=
   ["tikz", "amsmath", "amssymb", "amsthm",
-   "algorithm", "algpseudocode", "hyperref", "xcolor"]
+   "algorithm", "algpseudocode", "hyperref", "xcolor",
+   "placeins"]
 
 /-- Extra LaTeX preamble (theorem definitions, etc). -/
 def latexPreamble : Latex :=

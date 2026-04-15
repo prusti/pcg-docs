@@ -86,13 +86,24 @@ def lines (ls : List Latex) : Latex :=
 /-- `\cmd` with no arguments. -/
 def cmd0 (name : String) : Latex := .cmd name []
 
-/-- `\section{title}`. -/
-def «section» (title : Latex) : Latex :=
-  .cmd "section" [title]
+/-- `\FloatBarrier` (from the `placeins` package). Flushes
+    pending floats so they cannot escape past this point
+    into a later (sub)section. -/
+def floatBarrier : Latex := cmd0 "FloatBarrier"
 
-/-- `\subsection{title}`. -/
+/-- `\section{title}`, preceded by a `\FloatBarrier` so that
+    any pending floats from the previous section are flushed
+    before the new section begins. -/
+def «section» (title : Latex) : Latex :=
+  .seq [floatBarrier, .newline, .cmd "section" [title]]
+
+/-- `\subsection{title}`, preceded by a `\FloatBarrier` so
+    that any pending floats from the previous subsection are
+    flushed before the new subsection begins. This ensures
+    all content in a subsection appears before the next
+    subsection header, even if it results in whitespace. -/
 def «subsection» (title : Latex) : Latex :=
-  .cmd "subsection" [title]
+  .seq [floatBarrier, .newline, .cmd "subsection" [title]]
 
 /-- `\subsubsection{title}`. -/
 def «subsubsection» (title : Latex) : Latex :=
