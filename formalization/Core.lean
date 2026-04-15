@@ -3,6 +3,7 @@ import Core.Order
 import Core.Export.RustSyntax
 import Core.LeanAST
 import Core.Dsl.DslType
+import Core.Dsl.Types.BodyPat
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.FnDef
