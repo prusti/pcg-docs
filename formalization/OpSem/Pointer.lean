@@ -15,6 +15,13 @@ where
   | provenance "The optional provenance." : Option Provenance
   deriving DecidableEq, Repr, Hashable, Inhabited
 
+defStruct Pointer (.raw "\\hat{p}", .doc (.plain "Pointer"))
+  "Pointers"
+  "A pointer {def}, represented as a wrapper around a thin pointer."
+where
+  | thin "The underlying thin pointer." : ThinPointer
+  deriving DecidableEq, Repr, Hashable, Inhabited
+
 namespace Allocation
 
 defFn canAccess (.plain "can_access")
