@@ -76,6 +76,7 @@ mutual
 end
 
 instance : Inhabited Doc := ⟨.plain ""⟩
+instance : Inhabited MathDoc := ⟨.raw ""⟩
 
 namespace MathSym
 

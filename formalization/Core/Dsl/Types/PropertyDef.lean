@@ -27,7 +27,7 @@ def defaultDoc (p : PropertyDef) : Doc :=
     environment followed by an algorithm block. -/
 def formalDefLatex
     (p : PropertyDef)
-    (ctorDisplay : String → Option LatexMath :=
+    (ctorDisplay : String → Option MathDoc :=
       fun _ => none)
     (variants : List VariantDef := [])
     (knownFns : String → Bool := fun _ => false)

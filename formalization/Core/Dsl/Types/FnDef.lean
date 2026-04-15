@@ -51,16 +51,18 @@ def shortSig (f : FnDef) : Doc :=
 
 private partial def exprLinesTop
     (fnName : String)
-    (ctorDisplay : String → Option LatexMath)
+    (ctorDisplay : String → Option MathDoc)
     (isProperty : Bool)
     (knownFns : String → Bool)
     (knownCtors : String → Bool)
     (knownTypes : String → Bool)
     (e : DslExpr) (depth : Nat) : List Latex :=
-  let noDisp : String → Option LatexMath := fun _ => none
-  let goExpr := DslExpr.toLatexMath fnName
-    noDisp ctorDisplay isProperty knownFns knownCtors
-    knownTypes
+  let noDisp : String → Option MathDoc := fun _ => none
+  let goExpr (e : DslExpr) : LatexMath :=
+    (DslExpr.toDoc fnName noDisp ctorDisplay isProperty
+      knownFns knownCtors knownTypes e).toLatexMath
+  let goPat (p : BodyPat) : LatexMath :=
+    (BodyPat.toDoc noDisp knownCtors p).toLatexMath
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   match e with
@@ -118,8 +120,7 @@ private partial def exprLinesTop
       fun (pats, rhs) =>
         let patMath := LatexMath.intercalate
           (.raw ",~")
-          (pats.map
-            (BodyPat.toLatexMath noDisp knownCtors))
+          (pats.map goPat)
         let isSimple := match rhs with
           | .letIn .. => false
           | .letBindIn .. => false
@@ -156,7 +157,7 @@ private partial def exprLinesTop
 /-- Render the function as a LaTeX algorithm. -/
 def formalDefLatex
     (f : FnDef)
-    (ctorDisplay : String → Option LatexMath :=
+    (ctorDisplay : String → Option MathDoc :=
       fun _ => none)
     (variants : List VariantDef := [])
     (isProperty : Bool := false)
@@ -186,7 +187,7 @@ def formalDefLatex
     | .matchArms arms => arms.flatMap fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>
         match p with | .ctor n _ => some n | _ => none
-      let varDisplay : String → Option LatexMath :=
+      let varDisplay : String → Option MathDoc :=
         fun varName =>
           match ctorName with
           | none => none
@@ -199,15 +200,15 @@ def formalDefLatex
               match dp with
               | .arg n sym =>
                 if n == varName then
-                  some (MathDoc.toLatexMath sym)
+                  some sym
                 else none
               | _ => none
       let patMath := LatexMath.intercalate (.raw ",~")
-        (arm.pat.map
-          (BodyPat.toLatexMath ctorDisplay knownCtors))
-      let goExpr := DslExpr.toLatexMath f.name
-        varDisplay ctorDisplay isProperty knownFns
-        knownCtors knownTypes
+        (arm.pat.map fun p =>
+          (BodyPat.toDoc ctorDisplay knownCtors p).toLatexMath)
+      let goExpr (e : DslExpr) : LatexMath :=
+        (DslExpr.toDoc f.name varDisplay ctorDisplay
+          isProperty knownFns knownCtors knownTypes e).toLatexMath
       let rec rhsLines : DslExpr → List Latex
         | .letBindIn name val rest =>
           .seq [ .raw "    "
@@ -260,9 +261,9 @@ def formalDefLatex
         | .match_ .. => false
         | _ => true
       if isSimple then
-        let rhsMath := arm.rhs.toLatexMath f.name
+        let rhsMath := (arm.rhs.toDoc f.name
           varDisplay ctorDisplay isProperty knownFns
-          knownCtors knownTypes
+          knownCtors knownTypes).toLatexMath
         [.seq [ .raw "    "
              , Latex.state (.seq [
                  .textbf (.raw "case"), .raw " "
@@ -319,7 +320,7 @@ def formalDefLatex
 
 /-- Render for non-LaTeX (Doc-based). -/
 def algorithmDoc (f : FnDef) : Doc :=
-  let noDisplay : String → Option LatexMath :=
+  let noDisplay : String → Option MathDoc :=
     fun _ => none
   let header := Doc.seq
     [ f.doc, .plain " ", f.shortSig ]
@@ -327,13 +328,13 @@ def algorithmDoc (f : FnDef) : Doc :=
     | .matchArms arms => arms.map fun arm =>
       let patStr := ", ".intercalate
         (arm.pat.map fun p =>
-          (p.toLatexMath noDisplay).render)
-      let rhsStr := (arm.rhs.toLatexMath f.name
-        noDisplay noDisplay).render
+          (p.toDoc noDisplay).toLatexMath.render)
+      let rhsStr := (arm.rhs.toDoc f.name
+        noDisplay noDisplay).toLatexMath.render
       Doc.plain s!"case {patStr}: return {rhsStr}"
     | .expr body =>
-      let rhsStr := (body.toLatexMath f.name
-        noDisplay noDisplay).render
+      let rhsStr := (body.toDoc f.name
+        noDisplay noDisplay).toLatexMath.render
       [Doc.plain s!"return {rhsStr}"]
   .seq [header, .line, .itemize cases]
 

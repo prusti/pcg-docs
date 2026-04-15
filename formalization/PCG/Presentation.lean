@@ -4,15 +4,15 @@ import Core.Dsl.Types.OrderDef
 import Core.Registry
 
 /-- Build a lookup function that maps enum constructor
-    names to their LaTeX display form. -/
+    names to their `MathDoc` display form. -/
 private def mkCtorDisplay
     (enums : List RegisteredEnum)
-    : String → Option LatexMath :=
+    : String → Option MathDoc :=
   fun ctorName =>
     let found := enums.flatMap fun e =>
       e.enumDef.variants.filterMap fun v =>
         if v.name.name == ctorName then
-          some v.displayLatexMath
+          some v.displayMathDoc
         else none
     found.head?
 
@@ -30,7 +30,7 @@ private def moduleLatex
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
-    (ctorDisplay : String → Option LatexMath)
+    (ctorDisplay : String → Option MathDoc)
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
     (knownCtors : String → Bool)
@@ -80,7 +80,7 @@ private def crateLatex
     (orders : List RegisteredOrder)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
-    (ctorDisplay : String → Option LatexMath)
+    (ctorDisplay : String → Option MathDoc)
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
     (knownCtors : String → Bool)

@@ -315,8 +315,19 @@ open Lean in
 instance : Quote DslExpr where quote := quoteExpr
 
 -- ══════════════════════════════════════════════
--- LaTeX rendering
+-- Doc rendering
 -- ══════════════════════════════════════════════
+
+/-- Embed verbatim LaTeX math content into a `MathDoc`. -/
+private def rawMath (s : String) : MathDoc :=
+  .doc (.raw s "" "")
+
+/-- Intercalate a separator between math doc fragments. -/
+private def mathIntercalate (sep : MathDoc)
+    : List MathDoc → MathDoc
+  | [] => .seq []
+  | [m] => m
+  | ms => .seq (ms.intersperse sep)
 
 namespace BodyPat
 
@@ -325,23 +336,24 @@ namespace BodyPat
     either short (`int`) or qualified (`Value.int`) forms;
     the label uses the short name. -/
 private def ctorRef
-    (knownCtors : String → Bool) (n : String) : LatexMath :=
+    (knownCtors : String → Bool) (n : String) : MathDoc :=
   let shortName := (n.splitOn ".").getLast?.getD n
   if knownCtors shortName then
-    .raw s!"\\text\{\\hyperlink\{ctor:{shortName}}\
-            \{\\dashuline\{{n}}}}"
-  else .text (.raw n)
+    rawMath s!"\\text\{\\hyperlink\{ctor:{shortName}}\
+               \{\\dashuline\{{n}}}}"
+  else rawMath s!"\\text\{{n}}"
 
-partial def toLatexMath
-    (ctorDisplay : String → Option LatexMath)
+partial def toDoc
+    (ctorDisplay : String → Option MathDoc)
     (knownCtors : String → Bool := fun _ => false)
-    : BodyPat → LatexMath
-  | .wild => .raw "\\_"
-  | .var n => .escaped n
+    : BodyPat → MathDoc
+  | .wild => rawMath "\\_"
+  | .var n => .raw n
   | .ctor "⟨⟩" args =>
-    .delimited "(" ")"
-      (LatexMath.intercalate (.raw ",~")
-        (args.map (toLatexMath ctorDisplay knownCtors)))
+    .seq [ rawMath "("
+         , mathIntercalate (rawMath ",~")
+             (args.map (toDoc ctorDisplay knownCtors))
+         , rawMath ")" ]
   | .ctor n args =>
     if args.isEmpty then
       match ctorDisplay n with
@@ -349,11 +361,11 @@ partial def toLatexMath
       | none => ctorRef knownCtors n
     else
       let argParts :=
-        args.map (toLatexMath ctorDisplay knownCtors)
-      .seq [ ctorRef knownCtors n, .raw "("
-           , LatexMath.intercalate (.raw ",~") argParts
-           , .raw ")" ]
-  | .nil => .raw "[]"
+        args.map (toDoc ctorDisplay knownCtors)
+      .seq [ ctorRef knownCtors n, rawMath "("
+           , mathIntercalate (rawMath ",~") argParts
+           , rawMath ")" ]
+  | .nil => rawMath "[]"
   | .cons h t =>
     let rec flatten : BodyPat → Option (List BodyPat)
       | .nil => some []
@@ -361,45 +373,45 @@ partial def toLatexMath
       | _ => none
     match flatten (.cons h t) with
     | some elems =>
-      .seq [ .raw "["
-           , LatexMath.intercalate (.raw ",~")
+      .seq [ rawMath "["
+           , mathIntercalate (rawMath ",~")
                (elems.map
-                 (toLatexMath ctorDisplay knownCtors))
-           , .raw "]" ]
+                 (toDoc ctorDisplay knownCtors))
+           , rawMath "]" ]
     | none =>
-      .seq [ h.toLatexMath ctorDisplay knownCtors
-           , .raw " :: "
-           , t.toLatexMath ctorDisplay knownCtors ]
-  | .natLit n => .raw (toString n)
+      .seq [ h.toDoc ctorDisplay knownCtors
+           , rawMath " :: "
+           , t.toDoc ctorDisplay knownCtors ]
+  | .natLit n => rawMath (toString n)
 
 end BodyPat
 
 namespace DslExpr
 
-partial def toLatexMath
+partial def toDoc
     (fnName : String)
-    (varDisplay : String → Option LatexMath :=
+    (varDisplay : String → Option MathDoc :=
       fun _ => none)
-    (ctorDisplay : String → Option LatexMath :=
+    (ctorDisplay : String → Option MathDoc :=
       fun _ => none)
     (isProperty : Bool := false)
     (knownFns : String → Bool := fun _ => false)
     (knownCtors : String → Bool := fun _ => false)
     (knownTypes : String → Bool := fun _ => false)
-    : DslExpr → LatexMath :=
-  let go := toLatexMath fnName varDisplay ctorDisplay
+    : DslExpr → MathDoc :=
+  let go := toDoc fnName varDisplay ctorDisplay
     isProperty knownFns knownCtors knownTypes
   let ctorRef := BodyPat.ctorRef knownCtors
   -- Link a struct constructor to its type definition via
   -- `\hyperlink{type:<name>}`. Falls back to `ctorRef` so
   -- that enum-variant constructors remain linked to their
   -- ctor target.
-  let structRef (n : String) : LatexMath :=
+  let structRef (n : String) : MathDoc :=
     if knownTypes n then
-      .raw s!"\\text\{\\hyperlink\{type:{n}}\
-              \{\\dashuline\{{n}}}}"
+      rawMath s!"\\text\{\\hyperlink\{type:{n}}\
+                 \{\\dashuline\{{n}}}}"
     else ctorRef n
-  let fnRef (fn : String) : LatexMath :=
+  let fnRef (fn : String) : MathDoc :=
     -- Strip any namespace prefix (e.g. `Memory.store` →
     -- `store`) so qualified calls still resolve to the
     -- labelled function. Fall back to a constructor
@@ -407,34 +419,36 @@ partial def toLatexMath
     -- not match a known function.
     let shortName := (fn.splitOn ".").getLast?.getD fn
     if knownFns shortName then
-      .raw s!"\\text\{\\hyperref[fn:{shortName}]\
-              \{\\dashuline\{{fn}}}}"
+      rawMath s!"\\text\{\\hyperref[fn:{shortName}]\
+                 \{\\dashuline\{{fn}}}}"
     else ctorRef fn
   fun
   | .var n => match varDisplay n with
     | some sym => sym
-    | none => .escaped n
-  | .natLit n => .raw (toString n)
+    | none => .raw n
+  | .natLit n => rawMath (toString n)
   | .true_ =>
-    if isProperty then .cmd "top"
-    else .text (.raw "true")
+    if isProperty then rawMath "\\top"
+    else rawMath "\\text{true}"
   | .false_ =>
-    if isProperty then .cmd "bot"
-    else .text (.raw "false")
-  | .emptyList => .raw "[]"
-  | .none_ => .text (.raw "None")
+    if isProperty then rawMath "\\bot"
+    else rawMath "\\text{false}"
+  | .emptyList => rawMath "[]"
+  | .none_ => rawMath "\\text{None}"
   | .some_ e =>
-    .seq [.text (.raw "Some"), .raw "(", go e, .raw ")"]
+    .seq [ rawMath "\\text{Some}", rawMath "("
+         , go e, rawMath ")" ]
   | .mkStruct name args =>
     if name == "" then
-      .delimited "(" ")"
-        (LatexMath.intercalate (.raw ",~")
-          (args.map go))
-    else
-      .seq [ structRef name, .raw "("
-           , LatexMath.intercalate (.raw ",~")
+      .seq [ rawMath "("
+           , mathIntercalate (rawMath ",~")
                (args.map go)
-           , .raw ")" ]
+           , rawMath ")" ]
+    else
+      .seq [ structRef name, rawMath "("
+           , mathIntercalate (rawMath ",~")
+               (args.map go)
+           , rawMath ")" ]
   | .cons h t =>
     -- Flatten cons chains ending in `emptyList` into a
     -- list literal `[e₁, e₂, …]`.
@@ -444,45 +458,45 @@ partial def toLatexMath
       | _ => none
     match flatten (.cons h t) with
     | some elems =>
-      .seq [ .raw "["
-           , LatexMath.intercalate (.raw ",~")
+      .seq [ rawMath "["
+           , mathIntercalate (rawMath ",~")
                (elems.map go)
-           , .raw "]" ]
-    | none => .seq [go h, .raw " :: ", go t]
+           , rawMath "]" ]
+    | none => .seq [go h, rawMath " :: ", go t]
   | .append l r =>
-    .seq [ go l, .raw " \\mathbin{\\texttt{++}} "
+    .seq [ go l, rawMath " \\mathbin{\\texttt{++}} "
          , go r ]
   | .dot recv "length" =>
-    .seq [.raw "|", go recv, .raw "|"]
+    .seq [rawMath "|", go recv, rawMath "|"]
   | .dot recv "toNat" =>
-    .seq [go recv, .raw "~\\text{as}~", .mathbb (.raw "N")]
+    .seq [go recv, rawMath "~\\text{as}~",
+          .bb (rawMath "N")]
   | .dot recv method =>
-    .seq [fnRef method, .raw "(", go recv
-         , .raw ")"]
+    .seq [fnRef method, rawMath "(", go recv,
+          rawMath ")"]
   | .flatMap list param body =>
-    .seq [ go list, .raw ".\\text{flatMap}("
-         , .cmd "lambda", .raw " "
-         , .escaped param, .raw ".~", go body
-         , .raw ")" ]
+    .seq [ go list, rawMath ".\\text{flatMap}(\\lambda "
+         , .raw param, rawMath ".~", go body
+         , rawMath ")" ]
   | .map list param body =>
-    .seq [ go list, .raw ".\\text{map}("
-         , .cmd "lambda", .raw " "
-         , .escaped param, .raw ".~", go body
-         , .raw ")" ]
+    .seq [ go list, rawMath ".\\text{map}(\\lambda "
+         , .raw param, rawMath ".~", go body
+         , rawMath ")" ]
   | .mapFn list fn =>
-    .seq [ go list, .raw ".\\text{map}("
-         , fnRef fn, .raw ")" ]
+    .seq [ go list, rawMath ".\\text{map}("
+         , fnRef fn, rawMath ")" ]
   | .field recv name =>
-    .seq [go recv, .raw ".", .text (.raw name)]
+    .seq [go recv, rawMath ".",
+          rawMath s!"\\text\{{name}}"]
   | .index list idx =>
-    .seq [go list, .raw "[", go idx, .raw "]"]
+    .seq [go list, rawMath "[", go idx, rawMath "]"]
   | .indexBang list idx =>
-    .seq [go list, .raw "[", go idx, .raw "]"]
+    .seq [go list, rawMath "[", go idx, rawMath "]"]
   | .call "listSet" [a, b, c] =>
-    .seq [ go a, .raw "[", go b, .raw " \\mapsto "
-         , go c, .raw "]" ]
+    .seq [ go a, rawMath "[", go b, rawMath " \\mapsto "
+         , go c, rawMath "]" ]
   | .call "mapGet" [a, b] =>
-    .seq [ go a, .raw "[", go b, .raw "]" ]
+    .seq [ go a, rawMath "[", go b, rawMath "]" ]
   | .call fn args =>
     -- Drop proof arguments: they render as empty math
     -- and would otherwise leave a trailing comma.
@@ -490,68 +504,68 @@ partial def toLatexMath
       | .sorryProof => false
       | .leanProof _ => false
       | _ => true
-    .seq [ fnRef fn, .raw "("
-         , LatexMath.intercalate (.raw ",~")
+    .seq [ fnRef fn, rawMath "("
+         , mathIntercalate (rawMath ",~")
              (visibleArgs.map go)
-         , .raw ")" ]
+         , rawMath ")" ]
   | .foldlM fn init list =>
-    .seq [ fnRef fn, .raw "^*(", go init
-         , .raw ",~", go list, .raw ")" ]
-  | .lt l r => .binop "<" (go l) (go r)
-  | .le l r => .binop "\\leqslant" (go l) (go r)
+    .seq [ fnRef fn, rawMath "^*(", go init
+         , rawMath ",~", go list, rawMath ")" ]
+  | .lt l r => .seq [go l, rawMath " < ", go r]
+  | .le l r => .seq [go l, rawMath " \\leqslant ", go r]
   | .ltChain es =>
-    LatexMath.intercalate (.raw " < ") (es.map go)
-  | .add l r => .binop "+" (go l) (go r)
-  | .sub l r => .binop "-" (go l) (go r)
-  | .div l r => .binop "/" (go l) (go r)
+    mathIntercalate (rawMath " < ") (es.map go)
+  | .add l r => .seq [go l, rawMath " + ", go r]
+  | .sub l r => .seq [go l, rawMath " - ", go r]
+  | .div l r => .seq [go l, rawMath " / ", go r]
   | .setAll set param body =>
-    .seq [ .cmd "forall", .raw " "
-         , .escaped param, .raw " "
-         , .cmd "in", .raw " ", go set
-         , .raw ",~", go body ]
-  | .emptySet => .cmd "emptyset"
+    .seq [ rawMath "\\forall ", .raw param
+         , rawMath " \\in ", go set
+         , rawMath ",~", go body ]
+  | .emptySet => rawMath "\\emptyset"
   | .setSingleton e =>
-    .delimited "\\{" "\\}" (go e)
+    .seq [rawMath "\\{", go e, rawMath "\\}"]
   | .setUnion l r =>
-    .binop "\\cup" (go l) (go r)
+    .seq [go l, rawMath " \\cup ", go r]
   | .setFlatMap list param body =>
-    .seq [ .sub (.cmd "bigcup")
-             (.seq [.escaped param, .raw " "
-                   , .cmd "in", .raw " ", go list])
-         , .raw " ", go body ]
-  | .and l r => .binop "\\land" (go l) (go r)
-  | .or l r => .binop "\\lor" (go l) (go r)
-  | .implies l r => .binop "\\to" (go l) (go r)
+    .seq [ rawMath "\\bigcup_{", .raw param
+         , rawMath " \\in ", go list, rawMath "} "
+         , go body ]
+  | .and l r => .seq [go l, rawMath " \\land ", go r]
+  | .or l r => .seq [go l, rawMath " \\lor ", go r]
+  | .implies l r => .seq [go l, rawMath " \\to ", go r]
   | .forall_ p b =>
-    .seq [ .cmd "forall", .raw " "
-         , .escaped p, .raw ",~", go b ]
+    .seq [ rawMath "\\forall ", .raw p
+         , rawMath ",~", go b ]
   | .sorryProof => .seq []
   | .leanProof _ => .seq []
   | .match_ scrut arms =>
-    let noCtor : String → Option LatexMath :=
+    let noCtor : String → Option MathDoc :=
       fun _ => Option.none
-    let rows := arms.map fun (pats, rhs) =>
-      let patMath := LatexMath.intercalate (.raw ",~")
-        (pats.map (BodyPat.toLatexMath noCtor))
-      [go rhs, .seq [ .text (.raw "if~")
-                     , patMath ]]
-    .seq [ .text (.raw "match~")
+    let rowsMath : List MathDoc :=
+      arms.map fun (pats, rhs) =>
+        let patMath := mathIntercalate (rawMath ",~")
+          (pats.map (BodyPat.toDoc noCtor))
+        .seq [ rawMath "  ", go rhs
+             , rawMath " &\\text{if~}", patMath
+             , rawMath " \\\\" ]
+    .seq [ rawMath "\\text{match~}"
          , go scrut
-         , .raw ": "
-         , .delimited "\\left\\{" "\\right."
-             (.array Option.none "ll" rows) ]
+         , rawMath ": \\left\\{\\begin{array}{ll}\n"
+         , mathIntercalate (rawMath "\n") rowsMath
+         , rawMath "\n\\end{array}\\right." ]
   | .letIn name val body =>
-    .seq [ .text (.raw "let~"), .escaped name
-         , .raw " := ", go val, .raw ";~"
+    .seq [ rawMath "\\text{let~}", .raw name
+         , rawMath " := ", go val, rawMath ";~"
          , go body ]
   | .letBindIn name val body =>
-    .seq [ .text (.raw "let~"), .escaped name
-         , .raw " ", .cmd "leftarrow", .raw " "
-         , go val, .raw ";~", go body ]
+    .seq [ rawMath "\\text{let~}", .raw name
+         , rawMath " \\leftarrow "
+         , go val, rawMath ";~", go body ]
   | .ifThenElse c t e =>
-    .seq [ .text (.raw "if~"), go c
-         , .raw "~", .text (.raw "then~"), go t
-         , .raw "~", .text (.raw "else~"), go e ]
-  | .neq l r => .binop "\\neq" (go l) (go r)
+    .seq [ rawMath "\\text{if~}", go c
+         , rawMath "~\\text{then~}", go t
+         , rawMath "~\\text{else~}", go e ]
+  | .neq l r => .seq [go l, rawMath " \\neq ", go r]
 
 end DslExpr

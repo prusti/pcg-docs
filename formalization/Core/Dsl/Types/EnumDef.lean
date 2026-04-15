@@ -111,6 +111,13 @@ namespace VariantDef
 def displayLatexMath (v : VariantDef) : LatexMath :=
   .seq (v.display.map DisplayPart.toLatexMath)
 
+/-- Render the variant's display template as a `MathDoc`
+    (using the symbolic form of each argument). -/
+def displayMathDoc (v : VariantDef) : MathDoc :=
+  .seq (v.display.map fun
+    | .lit d => d
+    | .arg _ sym => sym)
+
 end VariantDef
 
 namespace EnumDef
