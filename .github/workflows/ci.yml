@@ -59,6 +59,14 @@ jobs:
         curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
         echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
+    - name: Install Rust (self-hosted runners only)
+      if: runner.environment == 'self-hosted'
+      run: |
+        if ! command -v cargo >/dev/null 2>&1; then
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+        fi
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
     - name: Install LaTeX
       run: |
         sudo apt-get update
