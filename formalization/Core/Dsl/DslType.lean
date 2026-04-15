@@ -153,6 +153,44 @@ where
       .seq [.raw "(", toLatex kt t, .raw ")"]
     else toLatex kt t
 
+/-- Render a type to a `LatexMath` AST (for use inside math
+    mode), inserting a `\text{\hyperlink{type:<name>}{...}}`
+    for any named type whose name satisfies `knownTypes`.
+    Non-linked types fall back to the `Doc`-based rendering. -/
+partial def toLatexMath
+    (knownTypes : String → Bool) : DSLType → LatexMath
+  | .prim p => (p.toDoc .math).toLatexMath
+  | .named n =>
+    if knownTypes n.name then
+      .raw s!"\\text\{\\hyperlink\{type:{n.name}}\
+              \{\\dashuline\{{n.name}}}}"
+    else .text (.text n.name)
+  | .option t =>
+    .seq [.text (.raw "Option "),
+          parenIfCompound knownTypes t]
+  | .list t =>
+    .seq [.text (.raw "List "),
+          parenIfCompound knownTypes t]
+  | .set t =>
+    .seq [.text (.raw "Set "),
+          parenIfCompound knownTypes t]
+  | .map k v =>
+    .seq [.text (.raw "Map "),
+          parenIfCompound knownTypes k, .raw "~",
+          parenIfCompound knownTypes v]
+  | .tuple parts =>
+    .seq ((parts.map (toLatexMath knownTypes)).intersperse
+      (.raw " \\times "))
+where
+  isCompound : DSLType → Bool
+    | .prim _ => false
+    | .named n => n.name.any fun c => c == ' ' || c == '×'
+    | .option _ | .list _ | .set _ | .map _ _ | .tuple _ => true
+  parenIfCompound (kt : String → Bool) (t : DSLType) : LatexMath :=
+    if isCompound t then
+      .seq [.raw "(", toLatexMath kt t, .raw ")"]
+    else toLatexMath kt t
+
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType
   | .option t => t

@@ -385,10 +385,20 @@ partial def toLatexMath
     (isProperty : Bool := false)
     (knownFns : String → Bool := fun _ => false)
     (knownCtors : String → Bool := fun _ => false)
+    (knownTypes : String → Bool := fun _ => false)
     : DslExpr → LatexMath :=
   let go := toLatexMath fnName varDisplay ctorDisplay
-    isProperty knownFns knownCtors
+    isProperty knownFns knownCtors knownTypes
   let ctorRef := BodyPat.ctorRef knownCtors
+  -- Link a struct constructor to its type definition via
+  -- `\hyperlink{type:<name>}`. Falls back to `ctorRef` so
+  -- that enum-variant constructors remain linked to their
+  -- ctor target.
+  let structRef (n : String) : LatexMath :=
+    if knownTypes n then
+      .raw s!"\\text\{\\hyperlink\{type:{n}}\
+              \{\\dashuline\{{n}}}}"
+    else ctorRef n
   let fnRef (fn : String) : LatexMath :=
     -- Strip any namespace prefix (e.g. `Memory.store` →
     -- `store`) so qualified calls still resolve to the
@@ -421,7 +431,7 @@ partial def toLatexMath
         (LatexMath.intercalate (.raw ",~")
           (args.map go))
     else
-      .seq [ ctorRef name, .raw "("
+      .seq [ structRef name, .raw "("
            , LatexMath.intercalate (.raw ",~")
                (args.map go)
            , .raw ")" ]

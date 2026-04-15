@@ -55,10 +55,12 @@ private partial def exprLinesTop
     (isProperty : Bool)
     (knownFns : String → Bool)
     (knownCtors : String → Bool)
+    (knownTypes : String → Bool)
     (e : DslExpr) (depth : Nat) : List Latex :=
   let noDisp : String → Option LatexMath := fun _ => none
   let goExpr := DslExpr.toLatexMath fnName
     noDisp ctorDisplay isProperty knownFns knownCtors
+    knownTypes
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   match e with
@@ -72,7 +74,7 @@ private partial def exprLinesTop
              , .raw " := "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns knownCtors rest depth
+      knownFns knownCtors knownTypes rest depth
   | .letBindIn name val rest =>
     let letLine : Latex :=
       .seq [ .raw "    "
@@ -83,7 +85,7 @@ private partial def exprLinesTop
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns knownCtors rest depth
+      knownFns knownCtors knownTypes rest depth
   | .ifThenElse cond t e =>
     let ifLine : Latex :=
       .seq [ .raw "    "
@@ -93,14 +95,16 @@ private partial def exprLinesTop
              , goExpr cond
              , .raw "~", .text (.raw "then") ])) ]
     let thenLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns knownCtors t (depth + 1)
+      isProperty knownFns knownCtors knownTypes t
+      (depth + 1)
     let elseLine : Latex :=
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
                mkIndent depth
              , .text (.raw "else") ])) ]
     let elseLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns knownCtors e (depth + 1)
+      isProperty knownFns knownCtors knownTypes e
+      (depth + 1)
     ifLine :: thenLines ++ elseLine :: elseLines
   | .match_ scrut matchArms =>
     let headerLine : Latex :=
@@ -141,7 +145,8 @@ private partial def exprLinesTop
                    , patMath
                    , .raw ":" ])) ]
           caseLine :: exprLinesTop fnName ctorDisplay
-            isProperty knownFns knownCtors rhs (depth + 2)
+            isProperty knownFns knownCtors knownTypes rhs
+            (depth + 2)
     headerLine :: armBlocks
   | e =>
     [.seq [ .raw "    "
@@ -199,7 +204,7 @@ def formalDefLatex
           (BodyPat.toLatexMath ctorDisplay knownCtors))
       let goExpr := DslExpr.toLatexMath f.name
         varDisplay ctorDisplay isProperty knownFns
-        knownCtors
+        knownCtors knownTypes
       let rec rhsLines : DslExpr → List Latex
         | .letBindIn name val rest =>
           .seq [ .raw "    "
@@ -254,7 +259,7 @@ def formalDefLatex
       if isSimple then
         let rhsMath := arm.rhs.toLatexMath f.name
           varDisplay ctorDisplay isProperty knownFns
-          knownCtors
+          knownCtors knownTypes
         [.seq [ .raw "    "
              , Latex.state (.seq [
                  .textbf (.raw "case"), .raw " "
@@ -270,7 +275,7 @@ def formalDefLatex
                  , .raw ":" ]) ]
         caseLine :: rhsLines arm.rhs
     | .expr body => exprLinesTop f.name ctorDisplay
-        isProperty knownFns knownCtors body 0
+        isProperty knownFns knownCtors knownTypes body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argsMath := LatexMath.intercalate

@@ -42,7 +42,8 @@ structure StructDef where
 namespace StructDef
 
 /-- Render the struct as a LaTeX `definition` environment. -/
-def formalDefLatex (s : StructDef) : Latex :=
+def formalDefLatex (s : StructDef)
+    (knownTypes : String → Bool := fun _ => false) : Latex :=
   let sym := s.symbolDoc.toLatexMath
   let sp := MathSym.space.toLatex
   let fieldSym (f : FieldDef) : LatexMath :=
@@ -73,7 +74,7 @@ def formalDefLatex (s : StructDef) : Latex :=
       let fieldRows := s.fields.map fun f =>
         [ fieldSym f
         , .seq [.raw ": ",
-                (f.ty.toDoc .math).toLatexMath]
+                f.ty.toLatexMath knownTypes]
         , .seq [.raw " ", .text (.text s!"({f.doc})")]
         ]
       .seq [.raw "where", .newline,

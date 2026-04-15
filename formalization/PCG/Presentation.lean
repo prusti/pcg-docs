@@ -38,7 +38,7 @@ private def moduleLatex
     : Latex :=
   let header := Latex.subsection (.raw modName)
   let structParts := structs.map fun s =>
-    Latex.seq [s.structDef.formalDefLatex,
+    Latex.seq [s.structDef.formalDefLatex knownTypes,
                .newline, .newline]
   let enumParts := enums.flatMap fun e =>
     let def_ := Latex.seq
