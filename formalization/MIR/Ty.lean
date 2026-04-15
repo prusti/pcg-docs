@@ -27,16 +27,14 @@ where
     "Pointer-sized."
     (.doc (.plain "ptrSize"))
 
-/-- Number of bytes occupied by an integer of this size.
-    `ptrSize` is hardcoded to 8 bytes (64-bit target). -/
-def Size.bytes : Size → Nat
+defFn sizeBytes (.plain "size_bytes")
+  (.plain "Number of bytes occupied by an integer of \
+    this size. `ptrSize` is hardcoded to 8 bytes \
+    (64-bit target).")
+  (sz "The integer size." : Size)
+  : Nat where
   | .bits n => (n + 7) / 8
   | .ptrSize => 8
-
-/-- Alias for `Size.bytes`, used in `defFn` bodies so
-    the Rust export emits `size_bytes(…)` instead of an
-    unresolvable `bytes(…)` call. -/
-def sizeBytes : Size → Nat := Size.bytes
 
 defStruct IntType (.raw "it", .raw "IntType")
   "Integer Types"

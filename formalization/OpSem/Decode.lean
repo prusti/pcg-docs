@@ -66,8 +66,11 @@ defFn intValueToNat (.plain "int_value_to_nat")
   | .u64 x => x · toNat
   | .usize x => x · toNat
 
-/-- Number of bytes in an `IntValue`'s representation. -/
-def intValueBytes : IntValue → Nat
+defFn intValueBytes (.plain "int_value_bytes")
+  (.plain "Number of bytes in an `IntValue`'s \
+    representation.")
+  (iv "The integer value." : IntValue)
+  : Nat where
   | .u8 _ => 1
   | .u16 _ => 2
   | .u32 _ => 4
@@ -83,10 +86,10 @@ defFn decodeInt (.plain "decode_int")
   (it "The target integer type." : IntType)
   (bs "The bytes to decode." : List AbstractByte)
   : Option IntValue :=
-    if it↦signed ∨ bs·length ≠ it↦size·bytes then None
+    if it↦signed ∨ bs·length ≠ sizeBytes ‹it↦size› then None
     else
       let raw ← data ‹bs› ;
-      intValueOfNat ‹it↦size·bytes, decodeLeUnsigned ‹raw››
+      intValueOfNat ‹sizeBytes ‹it↦size›, decodeLeUnsigned ‹raw››
 
 defFn encodeInt (.plain "encode_int")
   (.seq [.plain "Encode an ", .code "IntValue",

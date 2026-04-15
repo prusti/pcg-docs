@@ -8,15 +8,7 @@ import Core.Dsl.Types.OrderDef
     `defEnum` / `defStruct` (e.g. trait impls). Keyed by
     `(cratePrefix, rustModuleName)`. -/
 def extraItems : List (String × String × RustItem) :=
-  [ ("MIR", "ty", .raw
-"pub fn size_bytes(sz: &Size) -> usize {
-    match sz {
-        Size::Bits(n) => (n + 7) / 8,
-        Size::PtrSize => 8,
-    }
-}
-")
-  , ("PCG", "capability",
+  [ ("PCG", "capability",
      Capability.orderDef.toRustPartialOrd)
   , ("OpSem", "address", .raw
 "impl PartialOrd for Address {
@@ -88,17 +80,10 @@ pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
 }
 ")
   , ("OpSem", "decode", .raw
-"use formal_mir::ty::{IntType, IntValue, Size, Ty};
+"use formal_mir::ty::{size_bytes, IntType, IntValue, Size, Ty};
 use formal_mir::constvalue::*;
 use crate::abstractbyte::AbstractByte::*;
 use crate::value::*;
-
-pub fn bytes(sz: &Size) -> usize {
-    match sz {
-        Size::Bits(n) => (n + 7) / 8,
-        Size::PtrSize => 8,
-    }
-}
 
 pub fn decode_le_unsigned(bs: &[u8]) -> usize {
     let mut acc: usize = 0;
@@ -125,16 +110,6 @@ pub fn int_value_of_nat(nbytes: &usize, n: &usize) -> Option<IntValue> {
         4 => Some(IntValue::U32(*n as u32)),
         8 => Some(IntValue::U64(*n as u64)),
         _ => None,
-    }
-}
-
-pub fn int_value_bytes(iv: &IntValue) -> usize {
-    match iv {
-        IntValue::U8(_) => 1,
-        IntValue::U16(_) => 2,
-        IntValue::U32(_) => 4,
-        IntValue::U64(_) => 8,
-        IntValue::Usize(_) => 8,
     }
 }
 ")

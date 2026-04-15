@@ -14,21 +14,18 @@ private inductive ExtraPos where
   deriving BEq
 
 /-- Extra raw Lean code for specific generated modules.
-    Each entry is `(moduleName, position, rawLeanCode)`. -/
+    Each entry is `(moduleName, position, rawLeanCode)`.
+
+    Entries here should be added only in exceptional cases:
+    anything that can be expressed as a `defFn` (or
+    `defStruct`/`defEnum`/`defProperty`) belongs in the DSL
+    source so that it participates in Rust/LaTeX export as
+    well. Reserve this list for constructs the DSL cannot
+    represent — typeclass instances, Lean-only helpers that
+    use features outside the DSL grammar, etc. -/
 private def extraLeanItems :
     List (Lean.Name × ExtraPos × String) :=
-  [ (`MIR.Ty, .middle,
-"namespace Size
-
-def bytes : Size → Nat
-  | .bits n => (n + 7) / 8
-  | .ptrSize => 8
-
-end Size
-
-def sizeBytes : Size → Nat := Size.bytes
-")
-  , (`OpSem.Decode, .before,
+  [ (`OpSem.Decode, .before,
 "/-- Decode a little-endian unsigned integer from a list
     of bytes (least-significant byte first). -/
 def decodeLeUnsigned : List UInt8 → Nat
@@ -51,14 +48,6 @@ def intValueOfNat : Nat → Nat → Option IntValue
   | 4, n => some (.u32 (UInt32.ofNat n))
   | 8, n => some (.u64 (UInt64.ofNat n))
   | _, _ => none
-
-/-- Number of bytes in an `IntValue`'s representation. -/
-def intValueBytes : IntValue → Nat
-  | .u8 _ => 1
-  | .u16 _ => 2
-  | .u32 _ => 4
-  | .u64 _ => 8
-  | .usize _ => 8
 ")
   , (`OpSem.Address, .after,
 "instance : LT Address where
