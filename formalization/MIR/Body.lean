@@ -208,13 +208,11 @@ defProperty validProjTy (.plain "validProjTy")
   (.plain "A type is valid for a projection list.")
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
-  latex
-    (.seq [.plain "A type ",
-           .math (.raw "\\tau"),
+  latex (τDoc, projsDoc) =>
+    (.seq [.plain "A type ", τDoc,
            .plain " is ",
            .italic (.plain "valid"),
-           .plain " for a projection list ",
-           .math (.raw "\\pi"),
+           .plain " for a projection list ", projsDoc,
            .plain "."])
   where
   | _ ; [] => true
@@ -276,12 +274,11 @@ defProperty validPlace (.plain "valid")
   (.plain "A place is valid for a body.")
   (body "The function body." : Body)
   (p "The place." : Place)
-  latex
-    (.seq [.plain "A place ", .math (.raw "p"),
+  latex (bodyDoc, pDoc) =>
+    (.seq [.plain "A place ", pDoc,
            .plain " is ",
            .italic (.plain "valid"),
-           .plain " for a body ",
-           .math (.raw "body"),
+           .plain " for a body ", bodyDoc,
            .plain " iff its local index ",
            .code "p.base.index",
            .plain " is less than ",
@@ -296,17 +293,14 @@ defProperty validPlace (.plain "valid")
 defProperty validBody (.plain "validBody")
   (.plain "A body is valid iff all places in it are valid.")
   (body "The function body." : Body)
-  latex
-    (.seq [.plain "A body ",
-           .math (.raw "body"),
+  latex (bodyDoc) =>
+    (.seq [.plain "A body ", bodyDoc,
            .plain " is ",
            .italic (.plain "valid"),
            .plain " iff every place in ",
            .code "bodyPlaces",
-           .plain "(",
-           .math (.raw "body"),
-           .plain ") is valid for ",
-           .math (.raw "body"),
+           .plain "(", bodyDoc,
+           .plain ") is valid for ", bodyDoc,
            .plain "."])
   where
     | body =>

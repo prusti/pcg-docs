@@ -122,7 +122,6 @@ structure RegisteredProperty where
   propertyDef : PropertyDef
   /-- The Lean module where this property was defined. -/
   leanModule : Lean.Name
-  deriving Repr
 
 /-- Global registry of all `defProperty`-defined
     predicates. -/

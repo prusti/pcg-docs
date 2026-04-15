@@ -39,10 +39,13 @@ defProperty validAllocId (.plain "validAllocId")
   (.plain "The allocation identifier is in range.")
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
-  latex
-    (.seq [.plain "An allocation identifier is ",
+  latex (mDoc, idDoc) =>
+    (.seq [.plain "An allocation identifier ", idDoc,
+           .plain " is ",
            .italic (.plain "valid"),
-           .plain " for a memory iff its index is less than the number of allocations."])
+           .plain " for a memory ", mDoc,
+           .plain " iff its index is less than the number of allocations in ",
+           mDoc, .plain "."])
   := id↦index < m↦allocs·length
 
 open Allocation in
@@ -62,8 +65,9 @@ open Allocation in
 defProperty validMemory (.plain "validMemory")
   (.plain "Allocations are ordered and non-overlapping.")
   (m "The memory." : Memory)
-  latex
-    (.seq [.plain "A memory is ",
+  latex (mDoc) =>
+    (.seq [.plain "A memory ", mDoc,
+           .plain " is ",
            .italic (.plain "valid"),
            .plain " iff for all ",
            .math (.raw "i < j < |allocations|"),
