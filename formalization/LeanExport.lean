@@ -364,46 +364,6 @@ private def genLakefile
      \n\
      {"\n\n".intercalate libDecls}\n"
 
-private def setModule : String :=
-  "import Std.Data.HashSet\n\
-   \n\
-   abbrev Set (α : Type) [BEq α] [Hashable α] :=\n\
-     Std.HashSet α\n\
-   \n\
-   namespace Set\n\
-   \n\
-   def singleton {α : Type} [BEq α] [Hashable α]\n\
-       (a : α) : Set α :=\n\
-     (∅ : Std.HashSet α).insert a\n\
-   \n\
-   def union {α : Type} [BEq α] [Hashable α]\n\
-       (s₁ s₂ : Set α) : Set α :=\n\
-     Std.HashSet.union s₁ s₂\n\
-   \n\
-   instance (α : Type) [BEq α] [Hashable α]\n\
-       : Append (Set α) := ⟨union⟩\n\
-   \n\
-   def ofOption {α : Type} [BEq α] [Hashable α]\n\
-       : Option α → Set α\n\
-     | some a => singleton a\n\
-     | none => ∅\n\
-   \n\
-   def flatMapList {α : Type} {β : Type}\n\
-       [BEq β] [Hashable β]\n\
-       (l : List α) (f : α → Set β) : Set β :=\n\
-     l.foldl (fun (acc : Std.HashSet β) x =>\n\
-       Std.HashSet.union acc (f x)) ∅\n\
-   \n\
-   end Set\n\
-   \n\
-   namespace Option\n\
-   \n\
-   def toSet {α : Type} [BEq α] [Hashable α]\n\
-       (o : Option α) : Set α :=\n\
-     Set.ofOption o\n\
-   \n\
-   end Option\n"
-
 -- ══════════════════════════════════════════════
 -- File I/O
 -- ══════════════════════════════════════════════
@@ -440,7 +400,8 @@ def main (args : List String) : IO Unit := do
   -- Write project scaffolding
   writeFile s!"{outDir}/lean-toolchain" leanToolchain
   writeFile s!"{outDir}/lakefile.lean" (genLakefile libs)
-  writeFile s!"{outDir}/Util/Set.lean" setModule
+  let setContents ← IO.FS.readFile ⟨"Core/Set.lean"⟩
+  writeFile s!"{outDir}/Util/Set.lean" setContents
   -- Write module files
   for (mod, items) in modules do
     let imports := computeImports mod items typeMap
