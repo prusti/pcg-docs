@@ -194,7 +194,7 @@ structure Precondition where
 structure FnDef where
   name : String
   symbolDoc : Doc
-  doc : String
+  doc : Doc
   params : List FieldDef
   returnType : DSLType
   /-- Preconditions that must hold before calling
@@ -786,8 +786,8 @@ def formalDefLatex
                      , .raw ")"])) ]
   let allLines := precondLines ++ bodyLines
   let descBlock : List Latex :=
-    if f.doc.isEmpty then []
-    else [.textit (.text f.doc), .newline]
+    if f.doc.toPlainText.isEmpty then []
+    else [.textit f.doc.toLatex, .newline]
   .env "algorithm" (.seq [
     Latex.caption caption, .newline,
     .raw s!"\\label\{fn:{f.name}}", .newline,
@@ -802,7 +802,7 @@ def algorithmDoc (f : FnDef) : Doc :=
   let noDisplay : String → Option LatexMath :=
     fun _ => none
   let header := Doc.seq
-    [ .plain f.doc, .plain " ", f.shortSig ]
+    [ f.doc, .plain " ", f.shortSig ]
   let cases := match f.body with
     | .matchArms arms => arms.map fun arm =>
       let patStr := ", ".intercalate

@@ -27,12 +27,12 @@ where
 namespace Allocation
 
 defFn endAddr (.plain "end")
-  "The end address of an allocation."
+  (.plain "The end address of an allocation.")
   (alloc "The allocation." : Allocation)
   : Address := Address⟨alloc↦address↦addr + alloc↦data·length⟩
 
 defFn overlaps (.plain "overlaps")
-  "Whether an address falls within the allocation."
+  (.plain "Whether an address falls within the allocation.")
   (alloc "The allocation." : Allocation)
   (a "The address." : Address)
   : Bool := alloc↦address < a ∧ a ≤ endAddr ‹alloc›

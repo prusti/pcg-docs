@@ -36,7 +36,7 @@ where
 namespace Operand
 
 defFn operandPlace (.plain "operandPlace")
-  "Extract the place from an operand, if any."
+  (.plain "Extract the place from an operand, if any.")
   (o "The operand." : Operand)
   : Option Place where
   | .copy p => Some p
@@ -63,7 +63,7 @@ where
 namespace Rvalue
 
 defFn rvaluePlace (.plain "rvaluePlace")
-  "Extract the place from an rvalue, if any."
+  (.plain "Extract the place from an rvalue, if any.")
   (rv "The rvalue." : Rvalue)
   : Option Place where
   | .use o => o·operandPlace
@@ -91,7 +91,7 @@ where
 namespace Statement
 
 defFn statementPlaces (.plain "statementPlaces")
-  "Extract all places referenced by a statement."
+  (.plain "Extract all places referenced by a statement.")
   (s "The statement." : Statement)
   : Set Place where
   | .assign lhs rhs =>
@@ -137,7 +137,7 @@ where
 namespace Terminator
 
 defFn terminatorPlaces (.plain "terminatorPlaces")
-  "Extract all places referenced by a terminator."
+  (.plain "Extract all places referenced by a terminator.")
   (t "The terminator." : Terminator)
   : Set Place where
   | .goto _ => ∅
@@ -164,7 +164,7 @@ where
 namespace BasicBlock
 
 defFn basicBlockPlaces (.plain "basicBlockPlaces")
-  "All places referenced in a basic block."
+  (.plain "All places referenced in a basic block.")
   (bb "The basic block." : BasicBlock)
   : Set Place where
   | ⟨stmts, t⟩ =>
@@ -185,7 +185,7 @@ where
 namespace Body
 
 defFn bodyPlaces (.plain "bodyPlaces")
-  "All places referenced in a function body."
+  (.plain "All places referenced in a function body.")
   (body "The function body." : Body)
   : Set Place where
   | ⟨_, bbs⟩ =>
@@ -205,7 +205,7 @@ where
   deriving Repr, BEq, Hashable
 
 defProperty validProjTy (.plain "validProjTy")
-  "A type is valid for a projection list."
+  (.plain "A type is valid for a projection list.")
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
   latex
@@ -230,11 +230,12 @@ defProperty validProjTy (.plain "validProjTy")
       validProjTy ‹τ, π›
 
 defFn isOwned' (.plain "isOwned'")
-  "Check whether a place is owned by walking its \
-   projection list. Returns false as soon as a \
-   dereference of a reference is encountered, \
-   true if all projections are traversed without \
-   dereferencing a reference."
+  (.seq [.plain "Check whether a place is owned by walking \
+    its projection list. Returns ", .code "false",
+    .plain " as soon as a dereference of a reference is \
+    encountered, ", .code "true", .plain " if all \
+    projections are traversed without dereferencing a \
+    reference."])
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
   requires validProjTy(τ, projs)
@@ -251,9 +252,9 @@ defFn isOwned' (.plain "isOwned'")
       isOwned' ‹τ, π›
 
 defFn placeTy' (.plain "placeTy'")
-  "Project a type through a list of projection \
-   elements. Returns the final PlaceTy after all \
-   projections."
+  (.seq [.plain "Project a type through a list of \
+    projection elements. Returns the final ",
+    .code "PlaceTy", .plain " after all projections."])
   (τ "The current type." : Ty)
   (v "The variant index." : Option VariantIdx)
   (projs "The projection elements." : List ProjElem)
@@ -272,7 +273,7 @@ defFn placeTy' (.plain "placeTy'")
       placeTy' ‹τ, Some v, π›
 
 defProperty validPlace (.plain "valid")
-  "A place is valid for a body."
+  (.plain "A place is valid for a body.")
   (body "The function body." : Body)
   (p "The place." : Place)
   latex
@@ -293,7 +294,7 @@ defProperty validPlace (.plain "valid")
     validProjTy ‹body↦decls ! p↦base↦index, p↦projection›
 
 defProperty validBody (.plain "validBody")
-  "A body is valid iff all places in it are valid."
+  (.plain "A body is valid iff all places in it are valid.")
   (body "The function body." : Body)
   latex
     (.seq [.plain "A body ",
@@ -312,8 +313,9 @@ defProperty validBody (.plain "validBody")
         body·bodyPlaces·forAll fun p => validPlace ‹body, p›
 
 defFn placeTy (.plain "ty")
-  "Compute the type of a place: look up the base \
-   local in Δ, then project through projections."
+  (.seq [.plain "Compute the type of a place: look up the \
+    base local in ", .math (.raw "\\Delta"),
+    .plain ", then project through projections."])
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
@@ -321,9 +323,10 @@ defFn placeTy (.plain "ty")
     placeTy' ‹body↦decls ! place↦base↦index, None, place↦projection, lean_proof("h_validPlace.2")›
 
 defFn isOwned (.plain "isOwned")
-  "Returns true iff a place is owned, i.e. it does \
-   not project from the dereference of a \
-   reference-typed place. See definitions/places.md."
+  (.seq [.plain "Returns ", .code "true",
+    .plain " iff a place is owned, i.e. it does not project \
+    from the dereference of a reference-typed place. See ",
+    .code "definitions/places.md", .plain "."])
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace(body, place)

@@ -3,16 +3,16 @@ import Core.Dsl.DefFn
 open Lean in
 
 /-- Pattern-matching property. -/
-syntax "defProperty " ident "(" term ")" str
+syntax "defProperty " ident "(" term ")" "(" term ")"
     fnParam* "latex" term "where" fnArm*
     : command
 
 /-- Direct expression property. -/
-syntax "defProperty " ident "(" term ")" str
+syntax "defProperty " ident "(" term ")" "(" term ")"
     fnParam* "latex" term ":=" fnExpr : command
 
 /-- Do-block property. -/
-syntax "defProperty " ident "(" term ")" str
+syntax "defProperty " ident "(" term ")" "(" term ")"
     fnParam* "latex" term "begin" fnStmt*
     "return " fnExpr : command
 
@@ -68,7 +68,7 @@ open Lean Elab Command in
 private def buildPropertyDef
     (name : Ident)
     (symDoc : TSyntax `term)
-    (doc : TSyntax `str)
+    (doc : TSyntax `term)
     (paramData : Array (Ident × TSyntax `str
       × Syntax))
     (body : TSyntax `term)
@@ -93,7 +93,8 @@ private def buildPropertyDef
     def $propDefId : PropertyDef :=
       { fnDef :=
           { name := $ns,
-            symbolDoc := ($symDoc : Doc), doc := $doc,
+            symbolDoc := ($symDoc : Doc),
+            doc := ($doc : Doc),
             params := $paramList,
             returnType := $retTn,
             body := $body },
@@ -110,7 +111,7 @@ private def buildPropertyDef
 open Lean Elab Command Term in
 open LeanAST in
 elab_rules : command
-  | `(defProperty $name:ident ($symDoc:term) $doc:str
+  | `(defProperty $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* latex $defnDoc:term where
        $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
@@ -161,7 +162,7 @@ open Lean Elab Command Term in
 private def elabExprProperty
     (name : Ident)
     (symDoc : TSyntax `term)
-    (doc : TSyntax `str)
+    (doc : TSyntax `term)
     (paramData : Array (Ident × TSyntax `str × Syntax))
     (rhsAst : BodyExpr)
     (defnDoc : TSyntax `term)
@@ -176,7 +177,7 @@ private def elabExprProperty
 
 open Lean Elab Command Term in
 elab_rules : command
-  | `(defProperty $name:ident ($symDoc:term) $doc:str
+  | `(defProperty $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* latex $defnDoc:term :=
        $rhs:fnExpr) => do
     let paramData ← ps.mapM parseFnParam
@@ -186,7 +187,7 @@ elab_rules : command
 
 open Lean Elab Command Term in
 elab_rules : command
-  | `(defProperty $name:ident ($symDoc:term) $doc:str
+  | `(defProperty $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* latex $defnDoc:term begin
        $stmts:fnStmt* return $ret:fnExpr) => do
     let paramData ← ps.mapM parseFnParam

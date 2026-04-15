@@ -19,7 +19,7 @@ where
 namespace Machine
 
 defFn evalConstant (.plain "evalConstant")
-  "Convert a compile-time constant to a runtime value."
+  (.plain "Convert a compile-time constant to a runtime value.")
   (cv "The constant value." : ConstValue)
   : Value where
   | .bool b => Value.bool‹b›
@@ -30,9 +30,10 @@ defFn evalConstant (.plain "evalConstant")
       Value.array‹es ·map evalConstant›
 
 defFn typedLoad (.plain "typedLoad")
-  "Load a value of the given type from memory at \
-   the given pointer. Returns `None` if the pointer \
-   is invalid or the bytes cannot be decoded."
+  (.seq [.plain "Load a value of the given type from \
+    memory at the given pointer. Returns ", .code "None",
+    .plain " if the pointer is invalid or the bytes \
+    cannot be decoded."])
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (ty "The type to load." : Ty)
@@ -42,8 +43,8 @@ defFn typedLoad (.plain "typedLoad")
   return decode ‹ty, rawBytes›
 
 defFn typedStore (.plain "typedStore")
-  "Store a value into memory at the given pointer. \
-   Encodes the value as bytes and writes them to memory."
+  (.plain "Store a value into memory at the given pointer. \
+   Encodes the value as bytes and writes them to memory.")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (v "The value to store." : Value)

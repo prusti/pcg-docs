@@ -5,11 +5,14 @@ import Core.Dsl.DefFn
 
 open AbstractByte in
 defFn decodeBool (.plain "decode_bool")
-  "Decode a byte sequence as a boolean value. \
-   Returns `None` if the sequence is not exactly one byte, \
-   or if the byte is not `0` or `1`. \
-   Based on the logic defined here: \
-   https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"
+  (.seq [.plain "Decode a byte sequence as a boolean value. \
+    Returns ", .code "None", .plain " if the sequence is \
+    not exactly one byte, or if the byte is not ",
+    .code "0", .plain " or ", .code "1", .plain ". Based \
+    on the logic defined ",
+    .link (.plain "here")
+      "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool",
+    .plain "."])
   (bytes "The bytes to decode." : List AbstractByte)
   : Option ConstValue where
   | [.init 0] => Some ConstValue.bool ‹false›
@@ -18,8 +21,9 @@ defFn decodeBool (.plain "decode_bool")
 
 open AbstractByte in
 defFn data (.plain "data")
-  "Extract the concrete byte values from a sequence of \
-   abstract bytes. Returns `None` if any byte is uninitialised."
+  (.seq [.plain "Extract the concrete byte values from a \
+    sequence of abstract bytes. Returns ", .code "None",
+    .plain " if any byte is uninitialised."])
   (bs "The abstract bytes." : List AbstractByte)
   : Option (List UInt8) where
   | [] => Some []
@@ -52,7 +56,8 @@ def intValueOfNat : Nat → Nat → Option IntValue
   | _, _ => none
 
 defFn intValueToNat (.plain "int_value_to_nat")
-  "Extract the nat payload of an `IntValue`."
+  (.seq [.plain "Extract the nat payload of an ",
+    .code "IntValue", .plain "."])
   (iv "The integer value." : IntValue)
   : Nat where
   | .u8 x => x · toNat
@@ -70,9 +75,11 @@ def intValueBytes : IntValue → Nat
   | .usize _ => 8
 
 defFn decodeInt (.plain "decode_int")
-  "Decode a byte sequence as an `IntValue`. Endianness is \
-   hardcoded to little-endian. Returns `None` on length \
-   mismatch, uninit bytes, signed types, or unsupported sizes."
+  (.seq [.plain "Decode a byte sequence as an ",
+    .code "IntValue", .plain ". Endianness is hardcoded \
+    to little-endian. Returns ", .code "None",
+    .plain " on length mismatch, uninit bytes, signed \
+    types, or unsupported sizes."])
   (it "The target integer type." : IntType)
   (bs "The bytes to decode." : List AbstractByte)
   : Option IntValue :=
@@ -82,15 +89,17 @@ defFn decodeInt (.plain "decode_int")
       intValueOfNat ‹it↦size·bytes, decodeLeUnsigned ‹raw››
 
 defFn encodeInt (.plain "encode_int")
-  "Encode an `IntValue` as a little-endian byte sequence."
+  (.seq [.plain "Encode an ", .code "IntValue",
+    .plain " as a little-endian byte sequence."])
   (iv "The integer value to encode." : IntValue)
   : List AbstractByte :=
     encodeLeUnsigned ‹intValueToNat ‹iv›, intValueBytes ‹iv››
 
 defFn decode (.plain "decode")
-  "Decode a byte sequence as a runtime value of the \
-   given type. Returns `None` if the type is not \
-   decodable or the bytes cannot be decoded."
+  (.seq [.plain "Decode a byte sequence as a runtime \
+    value of the given type. Returns ", .code "None",
+    .plain " if the type is not decodable or the bytes \
+    cannot be decoded."])
   (ty "The type to decode as." : Ty)
   (bs "The bytes to decode." : List AbstractByte)
   : Option Value where
@@ -102,9 +111,9 @@ defFn decode (.plain "decode")
   | _ ; _ => None
 
 defFn encode (.plain "encode")
-  "Encode a runtime value as a byte sequence. \
+  (.plain "Encode a runtime value as a byte sequence. \
    Returns the empty list for values that cannot \
-   be encoded (tuples, arrays)."
+   be encoded (tuples, arrays).")
   (v "The value to encode." : Value)
   : List AbstractByte where
   | .bool true => [AbstractByte.init‹1›]
@@ -115,9 +124,11 @@ defFn encode (.plain "encode")
 
 open AbstractByte in
 defFn encodeBool (.plain "encode_bool")
-  "Encode a boolean value as a byte sequence. \
-   Based on the logic defined here: \
-   https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"
+  (.seq [.plain "Encode a boolean value as a byte \
+    sequence. Based on the logic defined ",
+    .link (.plain "here")
+      "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool",
+    .plain "."])
   (b "The boolean to encode." : Bool)
   : List AbstractByte where
   | true => [AbstractByte.init‹1›]

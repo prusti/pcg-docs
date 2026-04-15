@@ -18,8 +18,9 @@ where
 namespace Allocation
 
 defFn canAccess (.plain "can_access")
-  "Whether the allocation is live and can be accessed at \
-   the given pointer for `len` bytes."
+  (.seq [.plain "Whether the allocation is live and can \
+    be accessed at the given pointer for ", .code "len",
+    .plain " bytes."])
   (alloc "The allocation." : Allocation)
   (ptr "The pointer." : ThinPointer)
   (len "The access length in bytes." : Nat)

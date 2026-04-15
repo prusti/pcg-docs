@@ -9,8 +9,9 @@ def mapGet {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
 namespace Machine
 
 defFn evalLocal (.plain "evalLocal")
-  "Evaluate a local variable, returning its runtime \
-   place. Returns `None` if the local is dead."
+  (.seq [.plain "Evaluate a local variable, returning its \
+    runtime place. Returns ", .code "None",
+    .plain " if the local is dead."])
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
   : Option RuntimePlace begin

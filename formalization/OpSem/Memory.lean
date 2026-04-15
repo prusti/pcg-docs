@@ -15,7 +15,7 @@ def listSet := @List.set
 
 open Allocation in
 defFn top (.plain "top")
-  "The next available address after all allocations."
+  (.plain "The next available address after all allocations.")
   (m "The memory." : Memory)
   : Address :=
   match last ‹m↦allocs› with
@@ -25,8 +25,8 @@ defFn top (.plain "top")
 
 open Allocation AbstractByte in
 defFn allocate (.plain "allocate")
-  "Allocate a new block of memory, returning the \
-   updated memory and the new allocation's identifier."
+  (.plain "Allocate a new block of memory, returning the \
+   updated memory and the new allocation's identifier.")
   (m "The memory." : Memory)
   (size "The size in bytes." : Nat)
   : Memory × AllocId begin
@@ -36,7 +36,7 @@ defFn allocate (.plain "allocate")
   return ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
 
 defProperty validAllocId (.plain "validAllocId")
-  "The allocation identifier is in range."
+  (.plain "The allocation identifier is in range.")
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
   latex
@@ -47,7 +47,7 @@ defProperty validAllocId (.plain "validAllocId")
 
 open Allocation in
 defFn deallocate (.plain "deallocate")
-  "Mark an allocation as dead."
+  (.plain "Mark an allocation as dead.")
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
   requires validAllocId(m, id)
@@ -60,7 +60,7 @@ defFn deallocate (.plain "deallocate")
 open Allocation in
 
 defProperty validMemory (.plain "validMemory")
-  "Allocations are ordered and non-overlapping."
+  (.plain "Allocations are ordered and non-overlapping.")
   (m "The memory." : Memory)
   latex
     (.seq [.plain "A memory is ",
@@ -86,10 +86,12 @@ def readBytesAt
 
 open Allocation in
 defFn checkPtr (.plain "check_ptr")
-  "Check whether a pointer can be dereferenced to access `len` bytes, \
-   returning the allocation identifier on success. \
-   Returns `None` if the pointer has no provenance, the allocation is dead, \
-   or the access is out of bounds."
+  (.seq [.plain "Check whether a pointer can be \
+    dereferenced to access ", .code "len",
+    .plain " bytes, returning the allocation identifier \
+    on success. Returns ", .code "None", .plain " if the \
+    pointer has no provenance, the allocation is dead, \
+    or the access is out of bounds."])
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (len "The access length in bytes." : Nat)
@@ -104,11 +106,13 @@ defFn checkPtr (.plain "check_ptr")
 
 open Allocation in
 defFn store (.plain "store")
-  "Store a byte sequence into memory at the given pointer. \
-   If the pointer does not point to a live, in-bounds allocation, \
-   the memory is returned unchanged. \
-   Behaviour is based on the logic defined here: \
-   https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations"
+  (.seq [.plain "Store a byte sequence into memory at \
+    the given pointer. If the pointer does not point to \
+    a live, in-bounds allocation, the memory is returned \
+    unchanged. Behaviour is based on the logic defined ",
+    .link (.plain "here")
+      "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations",
+    .plain "."])
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (bytes "The bytes to store." : List AbstractByte)
@@ -125,11 +129,14 @@ defFn store (.plain "store")
 
 open Allocation in
 defFn load (.plain "load")
-  "Load a byte sequence of length `len` from memory at the given pointer. \
-   If the pointer does not point to a live, in-bounds allocation, \
-   the empty list is returned. \
-   Behaviour is based on the logic defined here: \
-   https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations"
+  (.seq [.plain "Load a byte sequence of length ",
+    .code "len", .plain " from memory at the given \
+    pointer. If the pointer does not point to a live, \
+    in-bounds allocation, the empty list is returned. \
+    Behaviour is based on the logic defined ",
+    .link (.plain "here")
+      "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations",
+    .plain "."])
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (len "The number of bytes to load." : Nat)

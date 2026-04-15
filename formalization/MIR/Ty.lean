@@ -155,7 +155,7 @@ abbrev ParamEnv := List Constraint
 namespace Ty
 
 defFn bytes (.plain "bytes")
-  "The size of a type in bytes, if known."
+  (.plain "The size of a type in bytes, if known.")
   (τ "The type." : Ty)
   : Option Nat where
   | .bool => Some 1
@@ -163,7 +163,7 @@ defFn bytes (.plain "bytes")
   | _ => None
 
 defFn regions (.plain "regions")
-  "Regions occurring directly in a type."
+  (.plain "Regions occurring directly in a type.")
   (τ "The type to extract regions from." : Ty)
   : List Region where
   | .bool => []

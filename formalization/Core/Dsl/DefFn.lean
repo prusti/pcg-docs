@@ -121,17 +121,17 @@ declare_syntax_cat fnPrecond
 syntax ident "(" ident,+ ")" : fnPrecond
 
 /-- Pattern-matching function. -/
-syntax "defFn " ident "(" term ")" str
+syntax "defFn " ident "(" term ")" "(" term ")"
     fnParam* ("requires " fnPrecond,+)?
     ":" term " where" fnArm* : command
 
 /-- Direct expression function (no pattern match). -/
-syntax "defFn " ident "(" term ")" str
+syntax "defFn " ident "(" term ")" "(" term ")"
     fnParam* ("requires " fnPrecond,+)?
     ":" term " :=" fnExpr : command
 
 /-- Imperative do-block function. -/
-syntax "defFn " ident "(" term ")" str
+syntax "defFn " ident "(" term ")" "(" term ")"
     fnParam* ("requires " fnPrecond,+)?
     ":" term " begin" fnStmt*
     "return " fnExpr : command
@@ -378,7 +378,7 @@ open Lean Elab Command in
 def buildFnDef
     (name : Ident)
     (symDoc : TSyntax `term)
-    (doc : TSyntax `str)
+    (doc : TSyntax `term)
     (paramData : Array (Ident × TSyntax `str
       × Syntax))
     (retTy : TSyntax `term)
@@ -411,7 +411,8 @@ def buildFnDef
   elabCommand (← `(command|
     def $fnDefId : FnDef :=
       { name := $ns,
-        symbolDoc := ($symDoc : Doc), doc := $doc,
+        symbolDoc := ($symDoc : Doc),
+        doc := ($doc : Doc),
         params := $paramList,
         returnType := $retTn,
         preconditions := $precondList,
@@ -438,7 +439,7 @@ private def precondParamBinds
 
 open Lean Elab Command Term in
 elab_rules : command
-  | `(defFn $name:ident ($symDoc:term) $doc:str
+  | `(defFn $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[requires $reqs:fnPrecond,*]?
        : $retTy:term where
        $arms:fnArm*) => do
@@ -520,7 +521,7 @@ elab_rules : command
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defFn $name:ident ($symDoc:term) $doc:str
+  | `(defFn $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[requires $reqs:fnPrecond,*]?
        : $retTy:term := $rhs:fnExpr) => do
     let paramData ← ps.mapM parseFnParam
@@ -567,7 +568,7 @@ elab_rules : command
 
 open Lean Elab Command Term in
 elab_rules : command
-  | `(defFn $name:ident ($symDoc:term) $doc:str
+  | `(defFn $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[requires $reqs:fnPrecond,*]?
        : $retTy:term begin
        $stmts:fnStmt* return $ret:fnExpr) => do
