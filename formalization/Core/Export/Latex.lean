@@ -240,9 +240,35 @@ def toLatex : MathSym → LatexMath
   | .rbracket => .raw "]"
   | .lparen => .raw "("
   | .rparen => .raw ")"
+  | .lbrace => .raw "\\{"
+  | .rbrace => .raw "\\}"
   | .emptySet => .raw "\\emptyset"
   | .setContains => .raw " \\in "
   | .space => .raw "~"
+  | .lt => .raw " < "
+  | .le => .raw " \\leqslant "
+  | .neq => .raw " \\neq "
+  | .add => .raw " + "
+  | .sub => .raw " - "
+  | .div => .raw " / "
+  | .land => .raw " \\land "
+  | .lor => .raw " \\lor "
+  | .implies => .raw " \\to "
+  | .forall_ => .raw "\\forall "
+  | .top => .raw "\\top"
+  | .bot => .raw "\\bot"
+  | .comma => .raw ",~"
+  | .dot => .raw "."
+  | .cons => .raw " :: "
+  | .underscore => .raw "\\_"
+  | .mapsto => .raw " \\mapsto "
+  | .cup => .raw " \\cup "
+  | .leftarrow => .raw " \\leftarrow "
+  | .assign => .raw " := "
+  | .append => .raw " \\mathbin{\\texttt{++}} "
+  | .pipe => .raw "|"
+  | .lambda => .raw "\\lambda "
+  | .semicolon => .raw ";"
 
 end MathSym
 
@@ -261,7 +287,11 @@ mutual
     | .raw latex _ _ => .raw latex
     | .link text url =>
       .cmd "href" [.raw (url.replace "#" "\\#"),
-        .cmd "dashuline" [text.toLatex]]
+        text.toLatex]
+    | .underline .solid body =>
+      .cmd "uline" [body.toLatex]
+    | .underline .dashed body =>
+      .cmd "dashuline" [body.toLatex]
     | .math m => .inlineMath m.toLatexMath
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
@@ -288,8 +318,11 @@ mutual
     | .raw latex _ _ => .raw latex
     | .link text url =>
       .text (.cmd "href"
-        [.raw (url.replace "#" "\\#"),
-          .cmd "dashuline" [text.toLatex]])
+        [.raw (url.replace "#" "\\#"), text.toLatex])
+    | .underline .solid body =>
+      .text (.cmd "uline" [body.toLatex])
+    | .underline .dashed body =>
+      .text (.cmd "dashuline" [body.toLatex])
     | .math m => MathDoc.toLatexMath m
 
   /-- Convert `MathDoc` to math-mode `LatexMath` AST. -/

@@ -10,7 +10,7 @@ defFn decodeBool (.plain "decode_bool")
     not exactly one byte, or if the byte is not ",
     .code "0", .plain " or ", .code "1", .plain ". Based \
     on the logic defined ",
-    .link (.plain "here")
+    .link (.underline .dashed (.plain "here"))
       "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool",
     .plain "."])
   (bytes "The bytes to decode." : List AbstractByte)
@@ -129,7 +129,7 @@ open AbstractByte in
 defFn encodeBool (.plain "encode_bool")
   (.seq [.plain "Encode a boolean value as a byte \
     sequence. Based on the logic defined ",
-    .link (.plain "here")
+    .link (.underline .dashed (.plain "here"))
       "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool",
     .plain "."])
   (b "The boolean to encode." : Bool)

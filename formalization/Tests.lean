@@ -31,6 +31,10 @@ private def sampleLink : Doc :=
 private def styledLink : Doc :=
   .link (.bold (.plain "Click")) "https://example.com"
 
+private def dashedLink : Doc :=
+  .link (.underline .dashed (.plain "Rust"))
+    "https://www.rust-lang.org"
+
 def docLinkTests : TestSeq :=
   group "Doc.link" $
     test "toPlainText renders text (url)"
@@ -42,17 +46,19 @@ def docLinkTests : TestSeq :=
     test "toTypst renders #link(...)[...]"
       (sampleLink.toTypst ==
         "#link(\"https://www.rust-lang.org\")[Rust]") $
-    test "toLatex renders \\href{...}{\\dashuline{...}}"
+    test "toLatex renders \\href{...}{...}"
       (sampleLink.toLatex.render ==
-        "\\href{https://www.rust-lang.org}\
-         {\\dashuline{Rust}}") $
+        "\\href{https://www.rust-lang.org}{Rust}") $
     test "toHTML preserves nested formatting"
       (styledLink.toHTML ==
         "<a href=\"https://example.com\"><b>Click</b></a>") $
     test "toLatex preserves nested formatting"
       (styledLink.toLatex.render ==
-        "\\href{https://example.com}\
-         {\\dashuline{\\textbf{Click}}}") $
+        "\\href{https://example.com}{\\textbf{Click}}") $
+    test "toLatex renders dashed underline with \\dashuline"
+      (dashedLink.toLatex.render ==
+        "\\href{https://www.rust-lang.org}\
+         {\\dashuline{Rust}}") $
     .done
 
 def main (args : List String) : IO UInt32 :=

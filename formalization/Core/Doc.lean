@@ -12,13 +12,73 @@ inductive MathSym where
   | lparen
   /-- Right parenthesis: ) -/
   | rparen
+  /-- Left brace: { -/
+  | lbrace
+  /-- Right brace: } -/
+  | rbrace
   /-- Empty set: ∅ -/
   | emptySet
   /-- Set membership: ∈ -/
   | setContains
   /-- Non-breaking space. -/
   | space
+  /-- Less-than: `<` (with surrounding spaces). -/
+  | lt
+  /-- Less-than-or-equal: `≤` (with surrounding spaces). -/
+  | le
+  /-- Not-equal: `≠` (with surrounding spaces). -/
+  | neq
+  /-- Addition: `+` (with surrounding spaces). -/
+  | add
+  /-- Subtraction: `-` (with surrounding spaces). -/
+  | sub
+  /-- Division: `/` (with surrounding spaces). -/
+  | div
+  /-- Logical AND: `∧` (with surrounding spaces). -/
+  | land
+  /-- Logical OR: `∨` (with surrounding spaces). -/
+  | lor
+  /-- Implication: `→` (with surrounding spaces). -/
+  | implies
+  /-- Universal quantifier: `∀` (with trailing space). -/
+  | forall_
+  /-- Top: `⊤`. -/
+  | top
+  /-- Bottom: `⊥`. -/
+  | bot
+  /-- Comma separator: `, `. -/
+  | comma
+  /-- Dot: `.`. -/
+  | dot
+  /-- List cons: ` :: `. -/
+  | cons
+  /-- Underscore wildcard: `_`. -/
+  | underscore
+  /-- Map-to: `↦` (with surrounding spaces). -/
+  | mapsto
+  /-- Set union: `∪` (with surrounding spaces). -/
+  | cup
+  /-- Left arrow (monadic bind): `←` (with surrounding spaces). -/
+  | leftarrow
+  /-- Definition / assignment: ` := `. -/
+  | assign
+  /-- List append: ` ++ ` (typeset in typewriter). -/
+  | append
+  /-- Vertical bar: `|` (used for absolute value / length). -/
+  | pipe
+  /-- Lambda: `λ` (with trailing space). -/
+  | lambda
+  /-- Semicolon: `;`. -/
+  | semicolon
   deriving Repr
+
+/-- Style of an underline: solid or dashed. -/
+inductive UnderlineStyle where
+  /-- A solid underline. -/
+  | solid
+  /-- A dashed underline. -/
+  | dashed
+  deriving Repr, Inhabited
 
 mutual
   /-- A mathematical document fragment, for content that
@@ -70,6 +130,10 @@ mutual
         `\href{url}{text}` in LaTeX, `<a href="url">text</a>`
         in HTML). -/
     | link (text : Doc) (url : String)
+    /-- Underlined content. The `style` selects solid
+        (`\uline` / `<u>`) vs dashed (`\dashuline` /
+        `text-decoration-style: dashed`). -/
+    | underline (style : UnderlineStyle) (body : Doc)
     /-- Mathematical content. -/
     | math (m : MathDoc)
     deriving Repr
@@ -88,11 +152,56 @@ def toPlainText : MathSym → String
   | .rbracket => "]"
   | .lparen => "("
   | .rparen => ")"
+  | .lbrace => "{"
+  | .rbrace => "}"
   | .emptySet => "∅"
   | .setContains => "∈"
   | .space => " "
+  | .lt => " < "
+  | .le => " ≤ "
+  | .neq => " ≠ "
+  | .add => " + "
+  | .sub => " - "
+  | .div => " / "
+  | .land => " ∧ "
+  | .lor => " ∨ "
+  | .implies => " → "
+  | .forall_ => "∀ "
+  | .top => "⊤"
+  | .bot => "⊥"
+  | .comma => ", "
+  | .dot => "."
+  | .cons => " :: "
+  | .underscore => "_"
+  | .mapsto => " ↦ "
+  | .cup => " ∪ "
+  | .leftarrow => " ← "
+  | .assign => " := "
+  | .append => " ++ "
+  | .pipe => "|"
+  | .lambda => "λ "
+  | .semicolon => ";"
 
 end MathSym
+
+namespace MathDoc
+
+/-- Text in math mode (rendered as `\text{s}` in LaTeX). -/
+def text (s : String) : MathDoc := .doc (.plain s)
+
+/-- Wrap a math doc in parentheses. -/
+def paren (d : MathDoc) : MathDoc :=
+  .seq [.sym .lparen, d, .sym .rparen]
+
+/-- Wrap a math doc in square brackets. -/
+def bracket (d : MathDoc) : MathDoc :=
+  .seq [.sym .lbracket, d, .sym .rbracket]
+
+/-- Wrap a math doc in curly braces. -/
+def brace (d : MathDoc) : MathDoc :=
+  .seq [.sym .lbrace, d, .sym .rbrace]
+
+end MathDoc
 
 namespace Doc
 
@@ -184,6 +293,7 @@ mutual
     | raw _ _ _ => ""
     | link text url =>
       s!"{text.toPlainText} ({url})"
+    | underline _ body => body.toPlainText
     | math m => mathToPlainText m
 
   /-- Extract plain text from a math fragment. -/
@@ -212,6 +322,10 @@ mutual
     | raw _ typst _ => typst
     | link text url =>
       s!"#link(\"{url}\")[{text.toTypst}]"
+    | underline .solid body =>
+      s!"#underline[{body.toTypst}]"
+    | underline .dashed body =>
+      s!"#underline(stroke: (dash: \"dashed\"))[{body.toTypst}]"
     | math m => mathToTypst m
 
   /-- Render a math fragment to Typst. -/
@@ -242,6 +356,10 @@ mutual
     | raw _ _ html => html
     | link text url =>
       s!"<a href=\"{url}\">{text.toHTML}</a>"
+    | underline .solid body => s!"<u>{body.toHTML}</u>"
+    | underline .dashed body =>
+      s!"<u style=\"text-decoration-style: dashed\">\
+         {body.toHTML}</u>"
     | math m => mathToHTML m
 
   /-- Render a math fragment to HTML. -/
@@ -254,9 +372,35 @@ mutual
     | .sym .rbracket => "&rbrack;"
     | .sym .lparen => "("
     | .sym .rparen => ")"
+    | .sym .lbrace => "{"
+    | .sym .rbrace => "}"
     | .sym .emptySet => "&empty;"
     | .sym .setContains => "&isin;"
     | .sym .space => "&nbsp;"
+    | .sym .lt => " &lt; "
+    | .sym .le => " &le; "
+    | .sym .neq => " &ne; "
+    | .sym .add => " + "
+    | .sym .sub => " - "
+    | .sym .div => " / "
+    | .sym .land => " &and; "
+    | .sym .lor => " &or; "
+    | .sym .implies => " &rarr; "
+    | .sym .forall_ => "&forall; "
+    | .sym .top => "&top;"
+    | .sym .bot => "&perp;"
+    | .sym .comma => ", "
+    | .sym .dot => "."
+    | .sym .cons => " :: "
+    | .sym .underscore => "_"
+    | .sym .mapsto => " &mapsto; "
+    | .sym .cup => " &cup; "
+    | .sym .leftarrow => " &larr; "
+    | .sym .assign => " := "
+    | .sym .append => " ++ "
+    | .sym .pipe => "|"
+    | .sym .lambda => "&lambda; "
+    | .sym .semicolon => ";"
     | .bb d | .bold d => s!"<b>{mathToHTML d}</b>"
     | .italic d => s!"<i>{mathToHTML d}</i>"
     | .cal d => mathToHTML d
