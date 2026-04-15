@@ -341,35 +341,37 @@ private def mathIntercalate (sep : MathDoc)
 namespace BodyPat
 
 /-- Render a constructor name as a hyperlinked, dashed-underlined
-    reference when it matches a known variant. Accepts either
+    reference when it resolves to a known variant. Accepts either
     short (`int`) or qualified (`Value.int`) forms; the anchor
-    uses the short name. -/
+    always uses the fully-qualified form (e.g. `ctor:Value.int`)
+    so that variants with the same short name in different enums
+    do not collide. -/
 private def ctorRef
-    (knownCtors : String → Bool) (n : String) : MathDoc :=
-  let shortName := (n.splitOn ".").getLast?.getD n
-  if knownCtors shortName then
+    (resolveCtor : String → Option String) (n : String) : MathDoc :=
+  match resolveCtor n with
+  | some qualified =>
     .doc (.link (.underline .dashed (.plain n))
-      s!"#ctor:{shortName}")
-  else MathDoc.text n
+      s!"#ctor:{qualified}")
+  | none => MathDoc.text n
 
 partial def toDoc
     (ctorDisplay : String → Option MathDoc)
-    (knownCtors : String → Bool := fun _ => false)
+    (resolveCtor : String → Option String := fun _ => none)
     : BodyPat → MathDoc
   | .wild => .sym .underscore
   | .var n => .raw n
   | .ctor "⟨⟩" args =>
     MathDoc.paren (mathIntercalate (.sym .comma)
-      (args.map (toDoc ctorDisplay knownCtors)))
+      (args.map (toDoc ctorDisplay resolveCtor)))
   | .ctor n args =>
     if args.isEmpty then
       match ctorDisplay n with
       | some display => display
-      | none => ctorRef knownCtors n
+      | none => ctorRef resolveCtor n
     else
       let argParts :=
-        args.map (toDoc ctorDisplay knownCtors)
-      .seq [ ctorRef knownCtors n
+        args.map (toDoc ctorDisplay resolveCtor)
+      .seq [ ctorRef resolveCtor n
            , MathDoc.paren
                (mathIntercalate (.sym .comma) argParts) ]
   | .nil => MathDoc.bracket (.seq [])
@@ -381,11 +383,11 @@ partial def toDoc
     match flatten (.cons h t) with
     | some elems =>
       MathDoc.bracket (mathIntercalate (.sym .comma)
-        (elems.map (toDoc ctorDisplay knownCtors)))
+        (elems.map (toDoc ctorDisplay resolveCtor)))
     | none =>
-      .seq [ h.toDoc ctorDisplay knownCtors
+      .seq [ h.toDoc ctorDisplay resolveCtor
            , .sym .cons
-           , t.toDoc ctorDisplay knownCtors ]
+           , t.toDoc ctorDisplay resolveCtor ]
   | .natLit n => .raw (toString n)
 
 end BodyPat
@@ -400,12 +402,12 @@ partial def toDoc
       fun _ => none)
     (isProperty : Bool := false)
     (knownFns : String → Bool := fun _ => false)
-    (knownCtors : String → Bool := fun _ => false)
+    (resolveCtor : String → Option String := fun _ => none)
     (knownTypes : String → Bool := fun _ => false)
     : DslExpr → MathDoc :=
   let go := toDoc fnName varDisplay ctorDisplay
-    isProperty knownFns knownCtors knownTypes
-  let ctorRef := BodyPat.ctorRef knownCtors
+    isProperty knownFns resolveCtor knownTypes
+  let ctorRef := BodyPat.ctorRef resolveCtor
   -- Link a struct constructor to its type definition. Falls
   -- back to `ctorRef` so that enum-variant constructors remain
   -- linked to their ctor target.

@@ -54,15 +54,15 @@ private partial def exprLinesTop
     (ctorDisplay : String → Option MathDoc)
     (isProperty : Bool)
     (knownFns : String → Bool)
-    (knownCtors : String → Bool)
+    (resolveCtor : String → Option String)
     (knownTypes : String → Bool)
     (e : DslExpr) (depth : Nat) : List Latex :=
   let noDisp : String → Option MathDoc := fun _ => none
   let goExpr (e : DslExpr) : LatexMath :=
     (DslExpr.toDoc fnName noDisp ctorDisplay isProperty
-      knownFns knownCtors knownTypes e).toLatexMath
+      knownFns resolveCtor knownTypes e).toLatexMath
   let goPat (p : BodyPat) : LatexMath :=
-    (BodyPat.toDoc noDisp knownCtors p).toLatexMath
+    (BodyPat.toDoc noDisp resolveCtor p).toLatexMath
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   match e with
@@ -76,7 +76,7 @@ private partial def exprLinesTop
              , .raw " := "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns knownCtors knownTypes rest depth
+      knownFns resolveCtor knownTypes rest depth
   | .letBindIn name val rest =>
     let letLine : Latex :=
       .seq [ .raw "    "
@@ -87,7 +87,7 @@ private partial def exprLinesTop
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns knownCtors knownTypes rest depth
+      knownFns resolveCtor knownTypes rest depth
   | .ifThenElse cond t e =>
     let ifLine : Latex :=
       .seq [ .raw "    "
@@ -97,7 +97,7 @@ private partial def exprLinesTop
              , goExpr cond
              , .raw "~", .text (.raw "then") ])) ]
     let thenLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns knownCtors knownTypes t
+      isProperty knownFns resolveCtor knownTypes t
       (depth + 1)
     let elseLine : Latex :=
       .seq [ .raw "    "
@@ -105,7 +105,7 @@ private partial def exprLinesTop
                mkIndent depth
              , .text (.raw "else") ])) ]
     let elseLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns knownCtors knownTypes e
+      isProperty knownFns resolveCtor knownTypes e
       (depth + 1)
     ifLine :: thenLines ++ elseLine :: elseLines
   | .match_ scrut matchArms =>
@@ -146,7 +146,7 @@ private partial def exprLinesTop
                    , patMath
                    , .raw ":" ])) ]
           caseLine :: exprLinesTop fnName ctorDisplay
-            isProperty knownFns knownCtors knownTypes rhs
+            isProperty knownFns resolveCtor knownTypes rhs
             (depth + 2)
     headerLine :: armBlocks
   | e =>
@@ -162,7 +162,7 @@ def formalDefLatex
     (variants : List VariantDef := [])
     (isProperty : Bool := false)
     (knownFns : String → Bool := fun _ => false)
-    (knownCtors : String → Bool := fun _ => false)
+    (resolveCtor : String → Option String := fun _ => none)
     (knownTypes : String → Bool := fun _ => false)
     (precondShortUsage :
         String → List Doc → Option Doc :=
@@ -183,6 +183,19 @@ def formalDefLatex
             paramSig, .raw ") ",
             .inlineMath (.cmd "to"), .raw " ",
             retTy]
+  -- For a pattern that will be matched against `ty`, prefer
+  -- resolving short constructor names under that type's
+  -- namespace. For example, when `ty` is `ValueExpr`, a
+  -- pattern of `.tuple` should resolve to `ValueExpr.tuple`
+  -- rather than the first-registered `tuple` constructor.
+  let scopedResolveCtor
+      (ty : DSLType) : String → Option String :=
+    match ty with
+    | .named n => fun name =>
+      if name.contains '.' then resolveCtor name
+      else (resolveCtor s!"{n.name}.{name}").orElse
+        fun _ => resolveCtor name
+    | _ => resolveCtor
   let bodyLines : List Latex := match f.body with
     | .matchArms arms => arms.flatMap fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>
@@ -192,8 +205,13 @@ def formalDefLatex
           match ctorName with
           | none => none
           | some cn =>
+            -- Match by qualified name when available; fall
+            -- back to short-name lookup so that either form
+            -- works.
+            let shortName :=
+              (cn.splitOn ".").getLast?.getD cn
             let variant := variants.find?
-              (·.name.name == cn)
+              (·.name.name == shortName)
             match variant with
             | none => none
             | some v => v.display.findSome? fun dp =>
@@ -203,12 +221,17 @@ def formalDefLatex
                   some sym
                 else none
               | _ => none
+      -- Zip each sub-pattern with the corresponding function
+      -- parameter's type so short-form ctor references can be
+      -- resolved under the parameter's type namespace.
       let patMath := LatexMath.intercalate (.raw ",~")
-        (arm.pat.map fun p =>
-          (BodyPat.toDoc ctorDisplay knownCtors p).toLatexMath)
+        (arm.pat.zip (f.params.map (·.ty)) |>.map
+          fun (p, ty) =>
+            (BodyPat.toDoc ctorDisplay
+              (scopedResolveCtor ty) p).toLatexMath)
       let goExpr (e : DslExpr) : LatexMath :=
         (DslExpr.toDoc f.name varDisplay ctorDisplay
-          isProperty knownFns knownCtors knownTypes e).toLatexMath
+          isProperty knownFns resolveCtor knownTypes e).toLatexMath
       let rec rhsLines : DslExpr → List Latex
         | .letBindIn name val rest =>
           .seq [ .raw "    "
@@ -263,7 +286,7 @@ def formalDefLatex
       if isSimple then
         let rhsMath := (arm.rhs.toDoc f.name
           varDisplay ctorDisplay isProperty knownFns
-          knownCtors knownTypes).toLatexMath
+          resolveCtor knownTypes).toLatexMath
         [.seq [ .raw "    "
              , Latex.state (.seq [
                  .textbf (.raw "case"), .raw " "
@@ -279,7 +302,7 @@ def formalDefLatex
                  , .raw ":" ]) ]
         caseLine :: rhsLines arm.rhs
     | .expr body => exprLinesTop f.name ctorDisplay
-        isProperty knownFns knownCtors knownTypes body 0
+        isProperty knownFns resolveCtor knownTypes body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argDocs : List Doc :=

@@ -31,7 +31,7 @@ def formalDefLatex
       fun _ => none)
     (variants : List VariantDef := [])
     (knownFns : String → Bool := fun _ => false)
-    (knownCtors : String → Bool := fun _ => false)
+    (resolveCtor : String → Option String := fun _ => none)
     (knownTypes : String → Bool := fun _ => false)
     (precondShortUsage :
         String → List Doc → Option Doc :=
@@ -42,7 +42,7 @@ def formalDefLatex
       (.seq [p.defaultDoc.toLatex, .newline])
   let algoBlock := p.fnDef.formalDefLatex
     ctorDisplay variants (isProperty := true)
-    (knownFns := knownFns) (knownCtors := knownCtors)
+    (knownFns := knownFns) (resolveCtor := resolveCtor)
     (knownTypes := knownTypes)
     (precondShortUsage := precondShortUsage)
   .seq [defBlock, .newline, .newline, algoBlock]

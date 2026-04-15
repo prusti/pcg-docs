@@ -131,9 +131,11 @@ def formalDefLatex (d : EnumDef) : Latex :=
       else .cmd "mid"
     -- Place an invisible hypertarget so cross-references
     -- (e.g. `Value.int`, `AbstractByte.init`) can link
-    -- here via `\hyperlink{ctor:<variantName>}{...}`.
+    -- here via `\hyperlink{ctor:<EnumName>.<variantName>}{...}`.
+    -- The fully-qualified anchor prevents collisions between
+    -- variants with the same short name across different enums.
     let target : LatexMath :=
-      .raw s!"\\hypertarget\{ctor:{v.name.name}}\{}"
+      .raw s!"\\hypertarget\{ctor:{d.name.name}.{v.name.name}}\{}"
     let variant : LatexMath :=
       .seq [.raw " ", target, v.displayLatexMath]
     let desc : LatexMath :=

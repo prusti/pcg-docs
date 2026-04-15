@@ -33,7 +33,7 @@ private def moduleLatex
     (ctorDisplay : String → Option MathDoc)
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
-    (knownCtors : String → Bool)
+    (resolveCtor : String → Option String)
     (knownTypes : String → Bool)
     (precondShortUsage :
       String → List Doc → Option Doc)
@@ -57,14 +57,14 @@ private def moduleLatex
   let fnParts := fns.map fun f =>
     Latex.seq [f.fnDef.formalDefLatex ctorDisplay
                  allVariants (knownFns := knownFns)
-                 (knownCtors := knownCtors)
+                 (resolveCtor := resolveCtor)
                  (knownTypes := knownTypes)
                  (precondShortUsage := precondShortUsage),
                .newline, .newline]
   let propParts := properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex ctorDisplay
                  allVariants (knownFns := knownFns)
-                 (knownCtors := knownCtors)
+                 (resolveCtor := resolveCtor)
                  (knownTypes := knownTypes)
                  (precondShortUsage := precondShortUsage),
                .newline, .newline]
@@ -83,7 +83,7 @@ private def crateLatex
     (ctorDisplay : String → Option MathDoc)
     (allVariants : List VariantDef)
     (knownFns : String → Bool)
-    (knownCtors : String → Bool)
+    (resolveCtor : String → Option String)
     (knownTypes : String → Bool)
     (precondShortUsage :
       String → List Doc → Option Doc)
@@ -122,7 +122,7 @@ private def crateLatex
       (moduleName ·.leanModule == mn)
     moduleLatex mn modEnums modStructs modOrders
       modFns modProps ctorDisplay allVariants knownFns
-      knownCtors knownTypes precondShortUsage
+      resolveCtor knownTypes precondShortUsage
   .seq ([sectionHeader, .newline] ++ modules)
 
 /-- Build the full presentation LaTeX body. -/
@@ -149,14 +149,27 @@ def buildPresentationLatex
       properties.map (·.propertyDef.fnDef.name)
   let knownFns : String → Bool :=
     fun n => fnNameSet.contains n
-  let ctorNameSet : List String :=
-    allVariants.map (·.name.name)
-  -- Accept either short (`int`) or qualified
-  -- (`Value.int`) ctor references.
-  let knownCtors : String → Bool :=
+  -- Build a table of `(shortName, qualifiedName)` pairs where
+  -- the qualified name is `EnumName.variantName`. This is used
+  -- to resolve constructor references to their fully-qualified
+  -- anchors, so that variants with the same short name in
+  -- different enums (e.g. `Value.tuple` and `ValueExpr.tuple`)
+  -- can be linked independently.
+  let ctorPairs : List (String × String) :=
+    enums.flatMap fun e =>
+      e.enumDef.variants.map fun v =>
+        (v.name.name,
+         s!"{e.enumDef.name.name}.{v.name.name}")
+  -- Resolve a constructor reference to its fully-qualified
+  -- name. Accepts either short (`int`) or already-qualified
+  -- (`Value.int`) forms. Returns `none` if the name does not
+  -- resolve to any known variant.
+  let resolveCtor : String → Option String :=
     fun n =>
-      let shortName := (n.splitOn ".").getLast?.getD n
-      ctorNameSet.contains shortName
+      if n.contains '.' then
+        if ctorPairs.any (·.2 == n) then some n else none
+      else
+        (ctorPairs.find? (·.1 == n)).map (·.2)
   let typeNameSet : List String :=
     enums.map (·.enumDef.name.name) ++
       structs.map (·.structDef.name)
@@ -171,7 +184,7 @@ def buildPresentationLatex
   let body := prefixes.map
     fun p => crateLatex p enums structs orders fns
       properties ctorDisplay allVariants knownFns
-      knownCtors knownTypes precondShortUsage
+      resolveCtor knownTypes precondShortUsage
   .seq body
 
 /-- LaTeX packages needed by the presentation.
