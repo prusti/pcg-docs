@@ -162,10 +162,11 @@ def latexPackages : List String :=
 def latexPreamble : Latex :=
   .seq [
     .raw "\\newtheorem{definition}{Definition}\n",
-    -- Number algorithms per subsection, so an algorithm
-    -- defined in subsection 3.8 is rendered as
-    -- "Algorithm 3.8.1", "Algorithm 3.8.2", etc.
+    -- Number algorithms and definitions per subsection, so
+    -- an algorithm/definition in subsection 3.8 is rendered
+    -- as "Algorithm 3.8.1", "Definition 3.8.1", etc.
     .raw "\\numberwithin{algorithm}{subsection}\n",
+    .raw "\\numberwithin{definition}{subsection}\n",
     .raw "\\usepackage[normalem]{ulem}\n",
     -- Redefine `\dashuline` so hyperlinks get a denser,
     -- grey dashed underline instead of ulem's default
