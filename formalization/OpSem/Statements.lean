@@ -1,7 +1,14 @@
 import OpSem.Machine
 import OpSem.RuntimePlace
+import Core.Dsl.Descr
 
 namespace Machine
+
+descr (.seq [
+  .plain "Based on statements as described ",
+  .link (.plain "here")
+    "https://github.com/minirust/minirust/\
+     blob/master/spec/lang/step/statements.md"])
 
 defFn placeStore (.plain "placeStore")
   (.seq [.plain "Store a value into the location \

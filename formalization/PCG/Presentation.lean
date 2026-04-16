@@ -44,9 +44,10 @@ private def subsubTitle (n : Lean.Name) : String :=
   s!"{moduleName n} {parent}"
 
 /-- Build the LaTeX body (no header) for a single module:
-    its struct, enum, function, and property definitions in
-    order, each followed by two newlines. -/
+    its descriptions, struct, enum, function, and property
+    definitions in order, each followed by two newlines. -/
 private def moduleBodyLatex
+    (descrs : List RegisteredDescr)
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
@@ -60,6 +61,8 @@ private def moduleBodyLatex
     (precondShortUsage :
       String → List Doc → Option Doc)
     : Latex :=
+  let descrParts := descrs.map fun d =>
+    Latex.seq [d.doc.toLatex, .newline, .newline]
   let structParts := structs.map fun s =>
     Latex.seq [s.structDef.formalDefLatex knownTypes,
                .newline, .newline]
@@ -89,12 +92,14 @@ private def moduleBodyLatex
                  (knownTypes := knownTypes)
                  (precondShortUsage := precondShortUsage),
                .newline, .newline]
-  .seq (structParts ++ enumParts ++ fnParts ++ propParts)
+  .seq (descrParts ++ structParts ++ enumParts
+    ++ fnParts ++ propParts)
 
 /-- Build the LaTeX sections for a single crate prefix,
     grouped by module. -/
 private def crateLatex
     (prefix_ : String)
+    (descrs : List RegisteredDescr)
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
@@ -108,6 +113,8 @@ private def crateLatex
     (precondShortUsage :
       String → List Doc → Option Doc)
     : Latex :=
+  let crateDescrs := descrs.filter
+    (·.leanModule.getRoot.toString == prefix_)
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateStructs := structs.filter
@@ -123,6 +130,7 @@ private def crateLatex
   -- hierarchy (e.g. `OpSem.Expressions.Place` nested under
   -- `OpSem.Expressions`) is recoverable.
   let allMods : List Lean.Name := (
+    crateDescrs.map (·.leanModule) ++
     crateStructs.map (·.leanModule) ++
     crateEnums.map (·.leanModule) ++
     crateFns.map (·.leanModule) ++
@@ -135,6 +143,8 @@ private def crateLatex
   -- becomes a subsubsection within its depth-2 ancestor.
   let topMods := allMods.filter fun m => modDepth m == 2
   let buildBody := fun (mod : Lean.Name) =>
+    let modDescrs := crateDescrs.filter
+      (·.leanModule == mod)
     let modEnums := crateEnums.filter
       (·.leanModule == mod)
     let modStructs := crateStructs.filter
@@ -147,9 +157,9 @@ private def crateLatex
       (·.leanModule == mod)
     let modProps := crateProps.filter
       (·.leanModule == mod)
-    moduleBodyLatex modEnums modStructs modOrders
-      modFns modProps ctorDisplay allVariants knownFns
-      resolveCtor knownTypes precondShortUsage
+    moduleBodyLatex modDescrs modEnums modStructs
+      modOrders modFns modProps ctorDisplay allVariants
+      knownFns resolveCtor knownTypes precondShortUsage
   let sectionHeader := Latex.section (.raw prefix_)
   let modules := topMods.map fun topMod =>
     let header :=
@@ -168,6 +178,7 @@ private def crateLatex
 
 /-- Build the full presentation LaTeX body. -/
 def buildPresentationLatex
+    (descrs : List RegisteredDescr)
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
     (orders : List RegisteredOrder)
@@ -175,6 +186,7 @@ def buildPresentationLatex
     (properties : List RegisteredProperty)
     : Latex :=
   let prefixes := (
+    descrs.map (·.leanModule.getRoot.toString) ++
     enums.map (·.leanModule.getRoot.toString) ++
     structs.map (·.leanModule.getRoot.toString) ++
     fns.map (·.leanModule.getRoot.toString) ++
@@ -190,25 +202,28 @@ def buildPresentationLatex
       properties.map (·.propertyDef.fnDef.name)
   let knownFns : String → Bool :=
     fun n => fnNameSet.contains n
-  -- Build a table of `(shortName, qualifiedName)` pairs where
-  -- the qualified name is `EnumName.variantName`. This is used
-  -- to resolve constructor references to their fully-qualified
-  -- anchors, so that variants with the same short name in
-  -- different enums (e.g. `Value.tuple` and `ValueExpr.tuple`)
-  -- can be linked independently.
+  -- Build a table of `(shortName, qualifiedName)` pairs
+  -- where the qualified name is
+  -- `EnumName.variantName`. This is used to resolve
+  -- constructor references to their fully-qualified
+  -- anchors, so that variants with the same short name
+  -- in different enums (e.g. `Value.tuple` and
+  -- `ValueExpr.tuple`) can be linked independently.
   let ctorPairs : List (String × String) :=
     enums.flatMap fun e =>
       e.enumDef.variants.map fun v =>
         (v.name.name,
          s!"{e.enumDef.name.name}.{v.name.name}")
-  -- Resolve a constructor reference to its fully-qualified
-  -- name. Accepts either short (`int`) or already-qualified
-  -- (`Value.int`) forms. Returns `none` if the name does not
-  -- resolve to any known variant.
+  -- Resolve a constructor reference to its
+  -- fully-qualified name. Accepts either short (`int`)
+  -- or already-qualified (`Value.int`) forms. Returns
+  -- `none` if the name does not resolve to any known
+  -- variant.
   let resolveCtor : String → Option String :=
     fun n =>
       if n.contains '.' then
-        if ctorPairs.any (·.2 == n) then some n else none
+        if ctorPairs.any (·.2 == n) then some n
+        else none
       else
         (ctorPairs.find? (·.1 == n)).map (·.2)
   let typeNameSet : List String :=
@@ -220,11 +235,11 @@ def buildPresentationLatex
       String → List Doc → Option Doc :=
     fun nm args =>
       (properties.find?
-          (·.propertyDef.fnDef.name == nm)).map fun rp =>
-        rp.propertyDef.doc args
+          (·.propertyDef.fnDef.name == nm)).map
+        fun rp => rp.propertyDef.doc args
   let body := prefixes.map
-    fun p => crateLatex p enums structs orders fns
-      properties ctorDisplay allVariants knownFns
+    fun p => crateLatex p descrs enums structs orders
+      fns properties ctorDisplay allVariants knownFns
       resolveCtor knownTypes precondShortUsage
   .seq body
 

@@ -138,3 +138,30 @@ def registerPropertyDef
 def getRegisteredProperties :
     IO (List RegisteredProperty) :=
   propertyRegistry.get
+
+/-- A registered description: free-form `Doc` prose
+    attached to a module, rendered in the presentation
+    at the point where it was registered. -/
+structure RegisteredDescr where
+  /-- The description content. -/
+  doc : Doc
+  /-- The Lean module where this description was
+      registered. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of all `descr`-registered
+    descriptions. -/
+initialize descrRegistry :
+    IO.Ref (List RegisteredDescr) ←
+  IO.mkRef []
+
+/-- Register a description from the given module. -/
+def registerDescr
+    (d : Doc) (mod : Lean.Name) : IO Unit :=
+  descrRegistry.modify (· ++ [⟨d, mod⟩])
+
+/-- Retrieve all registered descriptions. -/
+def getRegisteredDescrs :
+    IO (List RegisteredDescr) :=
+  descrRegistry.get
