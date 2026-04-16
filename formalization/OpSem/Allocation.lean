@@ -35,7 +35,7 @@ defFn overlaps (.plain "overlaps")
   (.plain "Whether an address falls within the allocation.")
   (alloc "The allocation." : Allocation)
   (a "The address." : Address)
-  : Bool := alloc↦address < a ∧ a ≤ endAddr ‹alloc›
+  : Bool := alloc↦address < a ≤ endAddr ‹alloc›
 
 end Allocation
 

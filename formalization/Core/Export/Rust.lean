@@ -803,21 +803,13 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
             , .identStr "x"])])
   | .lt (_, l) (_, r) => pure (.binOp .lt l r)
   | .le (_, l) (_, r) => pure (.binOp .le l r)
-  | .ltChain es =>
+  | .ineqChain ops es =>
     let rExprs := es.map Prod.snd
-    let pairs := rExprs.zip (rExprs.drop 1)
-    let comparisons := pairs.map fun (l, r) =>
-      RustExpr.binOp .lt l r
-    match comparisons with
-    | [] => pure (.raw "true")
-    | [c] => pure c
-    | c :: cs => pure (cs.foldl
-        (fun acc x => .binOp .and acc x) c)
-  | .leChain es =>
-    let rExprs := es.map Prod.snd
-    let pairs := rExprs.zip (rExprs.drop 1)
-    let comparisons := pairs.map fun (l, r) =>
-      RustExpr.binOp .le l r
+    let opToRust : IneqOp → RustBinOp
+      | .lt => .lt | .le => .le
+    let pairs := ops.zip (rExprs.zip (rExprs.drop 1))
+    let comparisons := pairs.map fun (op, l, r) =>
+      RustExpr.binOp (opToRust op) l r
     match comparisons with
     | [] => pure (.raw "true")
     | [c] => pure c

@@ -144,8 +144,7 @@ private def toLeanASTAlg
     .foldlM list fnName init
   | .lt l r => .binop "<" l r
   | .le l r => .binop "≤" l r
-  | .ltChain es => .ltChain es
-  | .leChain es => .leChain es
+  | .ineqChain ops es => .ineqChain ops es
   | .add l r => .binop "+" l r
   | .sub l r => .binop "-" l r
   | .mul l r => .binop "*" l r
@@ -402,8 +401,7 @@ private def calledNamesAlg :
     fnName ++ init ++ list
   | .lt (_, l) (_, r) => l ++ r
   | .le (_, l) (_, r) => l ++ r
-  | .ltChain es => (es.map Prod.snd).flatten
-  | .leChain es => (es.map Prod.snd).flatten
+  | .ineqChain _ es => (es.map Prod.snd).flatten
   | .add (_, l) (_, r) => l ++ r
   | .sub (_, l) (_, r) => l ++ r
   | .mul (_, l) (_, r) => l ++ r

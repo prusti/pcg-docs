@@ -5,6 +5,9 @@ import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.BodyPat
 import Core.Dsl.DslType
 import Core.Meta.BaseFunctor
+import Core.LeanAST
+
+deriving instance Lean.Quote for IneqOp
 
 /-- A variable identifier in the DSL. -/
 structure VarIdent where
@@ -48,10 +51,11 @@ inductive DslExpr where
   | lt (lhs : DslExpr) (rhs : DslExpr)
   /-- Less-than-or-equal: `lhs ≤ rhs`. -/
   | le (lhs : DslExpr) (rhs : DslExpr)
-  /-- Chained less-than: `a < b < c < …`. -/
-  | ltChain (exprs : List DslExpr)
-  /-- Chained less-than-or-equal: `a ≤ b ≤ c ≤ …`. -/
-  | leChain (exprs : List DslExpr)
+  /-- Chained inequality: `a < b ≤ c < …`.
+      Each operator in `ops` connects successive
+      expressions; `ops` has one fewer element than
+      `exprs`. -/
+  | ineqChain (ops : List IneqOp) (exprs : List DslExpr)
   /-- Addition: `lhs + rhs`. -/
   | add (lhs : DslExpr) (rhs : DslExpr)
   | sub (lhs : DslExpr) (rhs : DslExpr)
@@ -172,8 +176,7 @@ def mapChildren (f : DslExpr → DslExpr)
   -- List children
   | .mkStruct n args => .mkStruct n (args.map f)
   | .call fn args => .call (f fn) (args.map f)
-  | .ltChain es => .ltChain (es.map f)
-  | .leChain es => .leChain (es.map f)
+  | .ineqChain ops es => .ineqChain ops (es.map f)
   -- Match (recurse into scrutinee and arm RHSs)
   | .match_ s arms =>
     .match_ (f s) (arms.map fun (p, rhs) => (p, f rhs))
@@ -329,8 +332,16 @@ partial def toDoc
              (.seq [go init, .sym .comma, go list]) ]
   | .lt l r => .seq [go l, .sym .lt, go r]
   | .le l r => .seq [go l, .sym .le, go r]
-  | .ltChain es => mathIntercalate (.sym .lt) (es.map go)
-  | .leChain es => mathIntercalate (.sym .le) (es.map go)
+  | .ineqChain ops es =>
+    let docs := es.map go
+    let syms := ops.map fun | .lt => MathDoc.sym .lt
+                            | .le => MathDoc.sym .le
+    match docs with
+    | [] => .seq []
+    | [d] => d
+    | d :: ds =>
+      .seq (d :: (syms.zip ds).flatMap
+        fun (s, d) => [s, d])
   | .add l r => .seq [go l, .sym .add, go r]
   | .sub l r => .seq [go l, .sym .sub, go r]
   | .mul l r => .seq [go l, .sym .mul, go r]

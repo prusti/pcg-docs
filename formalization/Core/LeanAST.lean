@@ -1,3 +1,11 @@
+/-- Operator in an inequality chain. -/
+inductive IneqOp where
+  /-- Strict less-than: `<`. -/
+  | lt
+  /-- Less-than-or-equal: `≤`. -/
+  | le
+  deriving Repr, Inhabited, BEq
+
 /-!
 # LeanAST
 
@@ -133,10 +141,10 @@ inductive LeanExpr where
   /-- Binary operator: `lhs OP rhs`. The op is the raw
       Lean operator string, e.g. `"<"`, `"+"`, `"∧"`. -/
   | binop (op : String) (lhs : LeanExpr) (rhs : LeanExpr)
-  /-- Chain of `<`: `a < b ∧ b < c ∧ …`. -/
-  | ltChain (es : List LeanExpr)
-  /-- Chain of `≤`: `a ≤ b ∧ b ≤ c ∧ …`. -/
-  | leChain (es : List LeanExpr)
+  /-- Chained inequality: `a < b ∧ b ≤ c ∧ …`.
+      Each `IneqOp` in `ops` connects successive
+      expressions; `ops.length = es.length - 1`. -/
+  | ineqChain (ops : List IneqOp) (es : List LeanExpr)
   /-- Bounded `∀ x ∈ s, body`. -/
   | forallIn (binder : String) (set : LeanExpr)
              (body : LeanExpr)
@@ -232,16 +240,13 @@ partial def LeanExpr.toString : LeanExpr → String
         then s!"({e.toString})" else e.toString
       | _ => e.toString
     s!"{wrapIfNeeded l} {op} {wrapIfNeeded r}"
-  | .ltChain es =>
-    let pairs := es.zip (es.drop 1)
+  | .ineqChain ops es =>
+    let opStr : IneqOp → String
+      | .lt => "<" | .le => "≤"
+    let pairs := ops.zip (es.zip (es.drop 1))
     " ∧ ".intercalate
-      (pairs.map fun (l, r) =>
-        s!"{l.toString} < {r.toString}")
-  | .leChain es =>
-    let pairs := es.zip (es.drop 1)
-    " ∧ ".intercalate
-      (pairs.map fun (l, r) =>
-        s!"{l.toString} ≤ {r.toString}")
+      (pairs.map fun (op, l, r) =>
+        s!"{l.toString} {opStr op} {r.toString}")
   | .forallIn binder set body =>
     s!"∀ {binder} ∈ {set.toString}, {body.toString}"
   | .forall_ binder body =>

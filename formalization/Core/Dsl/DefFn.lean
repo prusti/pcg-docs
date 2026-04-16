@@ -59,18 +59,24 @@ syntax ident "‹" fnExpr,* "›" : fnExpr
 -- FoldlM: expr "·foldlM" ident expr
 syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 -- Less-than: expr < expr
-syntax fnExpr " < " fnExpr : fnExpr
+syntax:50 fnExpr:51 " < " fnExpr:51 : fnExpr
 -- Chained less-than: expr < expr < expr
-syntax fnExpr " < " fnExpr " < " fnExpr : fnExpr
+syntax:50 fnExpr:51 " < " fnExpr:51 " < " fnExpr:51
+    : fnExpr
 -- Less-than-or-equal: expr ≤ expr.
--- All `≤` rules are non-associative (own prec 50, arg prec 51) so
--- that Lean unambiguously picks the longest matching chain rule.
+-- All inequality rules are non-associative (own prec 50,
+-- arg prec 51) so that Lean unambiguously picks the
+-- longest matching chain rule.
 syntax:50 fnExpr:51 " ≤ " fnExpr:51 : fnExpr
 -- Chained ≤ (3 elements): expr ≤ expr ≤ expr
-syntax:50 fnExpr:51 " ≤ " fnExpr:51 " ≤ " fnExpr:51 : fnExpr
+syntax:50 fnExpr:51 " ≤ " fnExpr:51 " ≤ " fnExpr:51
+    : fnExpr
 -- Chained ≤ (4 elements): expr ≤ expr ≤ expr ≤ expr
 syntax:50 fnExpr:51 " ≤ " fnExpr:51 " ≤ " fnExpr:51
     " ≤ " fnExpr:51 : fnExpr
+-- Mixed chain: expr < expr ≤ expr
+syntax:50 fnExpr:51 " < " fnExpr:51 " ≤ " fnExpr:51
+    : fnExpr
 -- Arithmetic: bind tighter than `≤` so that
 -- `a + b ≤ c` parses as `(a + b) ≤ c` and chains like
 -- `a ≤ b + c ≤ d` work as expected.
@@ -254,16 +260,19 @@ partial def parseExpr
     pure (.foldlM (.var (toString fn.getId))
       (← parseExpr init) (← parseExpr e))
   | `(fnExpr| $a:fnExpr < $b:fnExpr < $c:fnExpr) =>
-    pure (.ltChain [← parseExpr a, ← parseExpr b,
-      ← parseExpr c])
+    pure (.ineqChain [.lt, .lt] [← parseExpr a,
+      ← parseExpr b, ← parseExpr c])
+  | `(fnExpr| $a:fnExpr < $b:fnExpr ≤ $c:fnExpr) =>
+    pure (.ineqChain [.lt, .le] [← parseExpr a,
+      ← parseExpr b, ← parseExpr c])
   | `(fnExpr| $l:fnExpr < $r:fnExpr) =>
     pure (.lt (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $a:fnExpr ≤ $b:fnExpr ≤ $c:fnExpr ≤ $d:fnExpr) =>
-    pure (.leChain [← parseExpr a, ← parseExpr b,
-      ← parseExpr c, ← parseExpr d])
+    pure (.ineqChain [.le, .le, .le] [← parseExpr a,
+      ← parseExpr b, ← parseExpr c, ← parseExpr d])
   | `(fnExpr| $a:fnExpr ≤ $b:fnExpr ≤ $c:fnExpr) =>
-    pure (.leChain [← parseExpr a, ← parseExpr b,
-      ← parseExpr c])
+    pure (.ineqChain [.le, .le] [← parseExpr a,
+      ← parseExpr b, ← parseExpr c])
   | `(fnExpr| $l:fnExpr ≤ $r:fnExpr) =>
     pure (.le (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr + $r:fnExpr) =>
