@@ -185,7 +185,8 @@ def buildPresentationLatex
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
     : Latex :=
-  let prefixes := (
+  let sectionOrder := ["MIR", "OpSem", "PCG"]
+  let allPrefixes := (
     descrs.map (·.leanModule.getRoot.toString) ++
     enums.map (·.leanModule.getRoot.toString) ++
     structs.map (·.leanModule.getRoot.toString) ++
@@ -194,6 +195,9 @@ def buildPresentationLatex
   ).foldl (init := [])
     fun acc p =>
       if acc.contains p then acc else acc ++ [p]
+  let prefixes :=
+    sectionOrder.filter allPrefixes.contains ++
+      allPrefixes.filter (! sectionOrder.contains ·)
   let ctorDisplay := mkCtorDisplay enums
   let allVariants := enums.flatMap
     (·.enumDef.variants)
