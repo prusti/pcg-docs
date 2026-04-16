@@ -78,6 +78,10 @@ jobs:
         path: formalization/.lake
         key: ${{ runner.os }}-lean-${{ hashFiles('formalization/lean-toolchain', 'formalization/lakefile.lean') }}
 
+    - name: Check banned source patterns
+      working-directory: formalization
+      run: scripts/check_banned_patterns.sh
+
     - name: Build Lean formalization
       working-directory: formalization
       run: lake build

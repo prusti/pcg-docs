@@ -38,7 +38,7 @@ def formalDefLatex
       fun _ _ => none)
     : Latex :=
   let defBlock : Latex :=
-    .envOpts "definition" p.fnDef.name
+    .envOpts "definition" (.text p.fnDef.name)
       (.seq [p.defaultDoc.toLatex, .newline])
   let algoBlock := p.fnDef.formalDefLatex
     ctorDisplay variants (isProperty := true)

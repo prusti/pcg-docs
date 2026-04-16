@@ -25,7 +25,7 @@ syntax "| " ident str ":" term : structField
       | id "The region variable id." : Nat
     ``` -/
 syntax "defStruct " ident "(" term "," term ")"
-    str str ("constructor" str)? ("note" str)?
+    str str ("constructor" str)? ("note" str)? ("link" str)?
     " where"
     structField* ("deriving " ident,+)? : command
 
@@ -45,7 +45,7 @@ open Lean Elab Command in
 elab_rules : command
   | `(defStruct $name:ident ($symDoc:term, $setDoc:term)
        $docParam:str $doc:str $[constructor $ctorName:str]?
-       $[note $noteLit:str]? where
+       $[note $noteLit:str]? $[link $linkLit:str]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
     let fieldData ← fs.mapM parseStructField
@@ -114,6 +114,9 @@ elab_rules : command
     let noteTerm : TSyntax `term ← match noteLit with
       | some n => `(some $n)
       | none => `(none)
+    let linkTerm : TSyntax `term ← match linkLit with
+      | some l => `(some $l)
+      | none => `(none)
     let sdId := mkIdent (name.getId ++ `structDef)
     elabCommand (← `(command|
       def $sdId : StructDef :=
@@ -125,6 +128,7 @@ elab_rules : command
             ($symDoc : MathDoc) ($setDoc : MathDoc),
           ctorName := $ctorTerm,
           «note» := $noteTerm,
+          «link» := $linkTerm,
           fields := $fieldList }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod

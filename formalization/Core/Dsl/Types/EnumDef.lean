@@ -147,7 +147,7 @@ def formalDefLatex (d : EnumDef) : Latex :=
   -- `\hyperlink{type:<name>}{...}`.
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{d.name.name}}\{}"
-  .envOpts "definition" d.defnName (.seq [
+  .envOpts "definition" (.text d.defnName) (.seq [
     typeTarget,
     d.doc.toLatex, .newline,
     .displayMath (.seq [

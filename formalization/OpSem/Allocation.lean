@@ -7,7 +7,7 @@ defStruct AllocId (.raw "id", .doc (.plain "AllocId"))
   "Allocation Identifiers"
   "An allocation identifier {def}."
   constructor "AllocId"
-  note "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#data-structures"
+  link "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#data-structures"
 where
   | index "The allocation index." : Nat
   deriving DecidableEq, Repr, Hashable, Inhabited
@@ -16,7 +16,7 @@ defStruct Allocation (.raw "\\alpha",
     .doc (.plain "Allocation"))
   "Allocations"
   "An allocation {def} in the memory model."
-  note "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md"
+  link "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md"
 where
   | id "The allocation identifier." : AllocId
   | data "The byte contents." : List AbstractByte

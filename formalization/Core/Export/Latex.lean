@@ -31,7 +31,7 @@ mutual
     | env (name : String) (body : Latex)
     /-- An environment with options:
         `\begin{name}[opts]...\end{name}`. -/
-    | envOpts (name : String) (opts : String)
+    | envOpts (name : String) (opts : Latex)
         (body : Latex)
     deriving Repr, Inhabited
 
@@ -134,6 +134,17 @@ def caption (body : Latex) : Latex :=
 def usepackage (name : String) : Latex :=
   .cmd "usepackage" [.raw name]
 
+/-- Escape a URL for use in LaTeX `\href`. -/
+private def escapeUrl (url : String) : String :=
+  url.replace "#" "\\#"
+
+/-- `\href{url}{body}` with proper URL escaping and
+    visible link styling (blue underline). -/
+def link (url : String) (body : Latex) : Latex :=
+  .cmd "href" [.raw (escapeUrl url),
+    .cmd "textcolor" [.raw "blue",
+      .cmd "uline" [body]]]
+
 /-- Full `\documentclass{article}` document. -/
 def document (packages : List String)
     (preamble : Latex) (body : Latex) : Latex :=
@@ -186,7 +197,7 @@ mutual
          {body.render}\
          \\end\{{name}}"
     | .envOpts name opts body =>
-      s!"\\begin\{{name}}[{opts}]\n\
+      s!"\\begin\{{name}}[{opts.render}]\n\
          {body.render}\
          \\end\{{name}}"
 
@@ -297,10 +308,7 @@ mutual
         let target := url.drop 1
         .seq [.raw ("\\hyperlink{" ++ target ++ "}{"),
           text.toLatex, .raw "}"]
-      else
-        .cmd "href" [.raw (url.replace "#" "\\#"),
-          .cmd "textcolor" [.raw "blue",
-            .cmd "uline" [text.toLatex]]]
+      else Latex.link url text.toLatex
     | .underline .solid body =>
       .cmd "uline" [body.toLatex]
     | .underline .dashed body =>
@@ -334,11 +342,7 @@ mutual
         let target := url.drop 1
         .text (.seq [.raw ("\\hyperlink{" ++ target ++ "}{"),
           text.toLatex, .raw "}"])
-      else
-        .text (.cmd "href"
-          [.raw (url.replace "#" "\\#"),
-           .cmd "textcolor" [.raw "blue",
-             .cmd "uline" [text.toLatex]]])
+      else .text (Latex.link url text.toLatex)
     | .underline .solid body =>
       .text (.cmd "uline" [body.toLatex])
     | .underline .dashed body =>

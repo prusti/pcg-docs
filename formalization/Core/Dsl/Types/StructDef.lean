@@ -35,6 +35,9 @@ structure StructDef where
   ctorName : Option String := none
   /-- Optional note (e.g. a URL) rendered as a footnote. -/
   note : Option String := none
+  /-- Optional link URL. When set, the definition title
+      becomes a hyperlink to this URL. -/
+  link : Option String := none
   /-- The fields of the struct. -/
   fields : List FieldDef
   deriving Repr
@@ -85,12 +88,15 @@ def formalDefLatex (s : StructDef)
       let escaped := url.replace "#" "\\#"
       .cmd "footnote" [.cmd "url" [.raw escaped]]
     | none => .seq []
+  let title : Latex := match s.link with
+    | some url => .link url (.text s.docParam)
+    | none => .text s.docParam
   -- Invisible hypertarget so cross-references to this type
   -- (e.g. from function signatures) can link here via
   -- `\hyperlink{type:<name>}{...}`.
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{s.name}}\{}"
-  .envOpts "definition" s.docParam (.seq [
+  .envOpts "definition" title (.seq [
     typeTarget,
     s.doc.toLatex, noteFootnote,
     defLine,
