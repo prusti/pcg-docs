@@ -123,20 +123,25 @@ private def toLeanASTAlg
   | .cons h t => .listCons h t
   | .append l r => .listAppend l r
   | .dot recv method => .dot recv method []
-  | .flatMap list param body => .listFlatMap list param body
-  | .map list param body => .listMap list param body
-  | .mapFn list fn => .listMapFn list fn
+  | .lambda param body => .lambda param.name body
+  | .flatMap list fn => .dot list "flatMap" [fn]
+  | .map list fn => .dot list "map" [fn]
   | .field recv name => .field recv name
   | .index list idx => .index list idx
   | .indexBang list idx => .indexBang list idx
   | .call fn args =>
-    if fn == selfName && !precondNames.isEmpty then
-      .app fn (args ++ proofArgs)
-    else if calleeProofNames.contains fn then
-      .app fn (args ++ [.raw "sorry"])
+    let fnName := match fn with
+      | .ident n => n | _ => fn.toString
+    if fnName == selfName && !precondNames.isEmpty then
+      .app fnName (args ++ proofArgs)
+    else if calleeProofNames.contains fnName then
+      .app fnName (args ++ [.raw "sorry"])
     else
-      .app fn args
-  | .foldlM fn init list => .foldlM list fn init
+      .app fnName args
+  | .foldlM fn init list =>
+    let fnName := match fn with
+      | .ident n => n | _ => fn.toString
+    .foldlM list fnName init
   | .lt l r => .binop "<" l r
   | .le l r => .binop "≤" l r
   | .ltChain es => .ltChain es
@@ -159,7 +164,7 @@ private def toLeanASTAlg
   | .match_ scrut arms =>
     .match_ scrut <| arms.map fun (pats, rhs) =>
       .mk (pats.map BodyPat.toLeanAST) rhs
-  | .letIn name val body => .letIn name val body
+  | .letIn name val body => .letIn name.name val body
   | .letBindIn name val body => .letBindIn name val body
   | .ifThenElse c t e => .ifThenElse c t e
   | .neq l r => .binop "≠" l r
@@ -362,50 +367,65 @@ end EnumDef
 
 namespace DslExpr
 
-/-- Algebra for `calledNames`: children are already the collected names of
-    sub-expressions. -/
-private def calledNamesAlg : DslExprF (List String) → List String
+/-- Algebra for `calledNames` (via `para`): each recursive child
+    is a pair `(originalExpr, collectedNames)`. We need the
+    original for `.call` and `.foldlM` where the function is now
+    a `DslExpr` and we must extract the name when it is a `.var`. -/
+private def calledNamesAlg :
+    DslExprF (DslExpr × List String) → List String
   | .var _ | .natLit _ | .true_ | .false_ | .emptyList | .none_
   | .emptySet | .sorryProof | .leanProof _ => []
-  | .some_ e => e
-  | .mkStruct _ args => args.flatten
-  | .cons h t => h ++ t
-  | .append l r => l ++ r
+  | .some_ (_, e) => e
+  | .lambda _ (_, body) => body
+  | .mkStruct _ args => (args.map Prod.snd).flatten
+  | .cons (_, h) (_, t) => h ++ t
+  | .append (_, l) (_, r) => l ++ r
   | .dot _ method => [method]
-  | .flatMap list _ body => list ++ body
-  | .map list _ body => list ++ body
-  | .mapFn list fn => fn :: list
-  | .field e _ => e
-  | .index l i => l ++ i
-  | .indexBang l i => l ++ i
-  | .call fn args => fn :: args.flatten
-  | .foldlM fn init list => fn :: init ++ list
-  | .lt l r => l ++ r
-  | .le l r => l ++ r
-  | .ltChain es => es.flatten
-  | .leChain es => es.flatten
-  | .add l r => l ++ r
-  | .sub l r => l ++ r
-  | .mul l r => l ++ r
-  | .div l r => l ++ r
-  | .setAll set _ body => set ++ body
-  | .setSingleton e => e
-  | .setUnion l r => l ++ r
-  | .setFlatMap list _ body => list ++ body
-  | .and l r => l ++ r
-  | .or l r => l ++ r
-  | .implies l r => l ++ r
-  | .forall_ _ b => b
-  | .match_ scrut arms =>
-    scrut ++ arms.flatMap (fun (_, rhs) => rhs)
-  | .letIn _ v b => v ++ b
-  | .letBindIn _ v b => v ++ b
-  | .ifThenElse c t e => c ++ t ++ e
-  | .neq l r => l ++ r
+  | .flatMap (_, list) (origFn, fn) =>
+    let fnNames := match origFn with
+      | .var n => [n] | _ => fn
+    list ++ fnNames
+  | .map (_, list) (origFn, fn) =>
+    let fnNames := match origFn with
+      | .var n => [n] | _ => fn
+    list ++ fnNames
+  | .field (_, e) _ => e
+  | .index (_, l) (_, i) => l ++ i
+  | .indexBang (_, l) (_, i) => l ++ i
+  | .call (origFn, _) args =>
+    let fnName := match origFn with
+      | .var n => [n] | _ => []
+    fnName ++ (args.map Prod.snd).flatten
+  | .foldlM (origFn, _) (_, init) (_, list) =>
+    let fnName := match origFn with
+      | .var n => [n] | _ => []
+    fnName ++ init ++ list
+  | .lt (_, l) (_, r) => l ++ r
+  | .le (_, l) (_, r) => l ++ r
+  | .ltChain es => (es.map Prod.snd).flatten
+  | .leChain es => (es.map Prod.snd).flatten
+  | .add (_, l) (_, r) => l ++ r
+  | .sub (_, l) (_, r) => l ++ r
+  | .mul (_, l) (_, r) => l ++ r
+  | .div (_, l) (_, r) => l ++ r
+  | .setAll (_, set) _ (_, body) => set ++ body
+  | .setSingleton (_, e) => e
+  | .setUnion (_, l) (_, r) => l ++ r
+  | .setFlatMap (_, list) _ (_, body) => list ++ body
+  | .and (_, l) (_, r) => l ++ r
+  | .or (_, l) (_, r) => l ++ r
+  | .implies (_, l) (_, r) => l ++ r
+  | .forall_ _ (_, b) => b
+  | .match_ (_, scrut) arms =>
+    scrut ++ arms.flatMap (fun (_, (_, rhs)) => rhs)
+  | .letIn _ (_, v) (_, b) => v ++ b
+  | .letBindIn _ (_, v) (_, b) => v ++ b
+  | .ifThenElse (_, c) (_, t) (_, e) => c ++ t ++ e
+  | .neq (_, l) (_, r) => l ++ r
 
 /-- Collect all function/method names called. -/
 def calledNames (e : DslExpr) : List String :=
-  DslExpr.cata calledNamesAlg e
+  DslExpr.para calledNamesAlg e
 
 end DslExpr
 

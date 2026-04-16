@@ -72,7 +72,7 @@ private partial def exprLinesTop
            , Latex.state (.inlineMath (.seq [
                mkIndent depth
              , .text (.raw "let~")
-             , .escaped name
+             , .escaped name.name
              , .raw " := "
              , goExpr val ])) ]
     letLine :: exprLinesTop fnName ctorDisplay isProperty
@@ -247,7 +247,7 @@ def formalDefLatex
                , Latex.state (.inlineMath (.seq [
                    .raw "\\hskip1.5em "
                  , .text (.raw "let~")
-                 , .escaped name
+                 , .escaped name.name
                  , .raw " := "
                  , goExpr val ])) ]
           :: rhsLines rest

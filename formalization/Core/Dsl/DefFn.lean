@@ -219,14 +219,14 @@ partial def parseExpr
   | `(fnExpr| $r:fnExpr ·flatMap fun $p:ident =>
         $b:fnExpr) => do
     pure (.flatMap (← parseExpr r)
-      (toString p.getId) (← parseExpr b))
+      (.lambda ⟨toString p.getId⟩ (← parseExpr b)))
   | `(fnExpr| $r:fnExpr ·map fun $p:ident =>
         $b:fnExpr) => do
     pure (.map (← parseExpr r)
-      (toString p.getId) (← parseExpr b))
+      (.lambda ⟨toString p.getId⟩ (← parseExpr b)))
   | `(fnExpr| $r:fnExpr ·map $fn:ident) => do
-    pure (.mapFn (← parseExpr r)
-      (toString fn.getId))
+    pure (.map (← parseExpr r)
+      (.var (toString fn.getId)))
   | `(fnExpr| $h:fnExpr :: $t:fnExpr) =>
     pure (.cons (← parseExpr h) (← parseExpr t))
   | `(fnExpr| $l:fnExpr ++ $r:fnExpr) =>
@@ -248,10 +248,10 @@ partial def parseExpr
     pure (.indexBang (← parseExpr e) (← parseExpr i))
   | `(fnExpr| $fn:ident ‹ $args:fnExpr,* ›) => do
     let as_ ← args.getElems.mapM parseExpr
-    pure (.call (toString fn.getId) as_.toList)
+    pure (.call (.var (toString fn.getId)) as_.toList)
   | `(fnExpr| $e:fnExpr ·foldlM $fn:ident
         $init:fnExpr) =>
-    pure (.foldlM (toString fn.getId)
+    pure (.foldlM (.var (toString fn.getId))
       (← parseExpr init) (← parseExpr e))
   | `(fnExpr| $a:fnExpr < $b:fnExpr < $c:fnExpr) =>
     pure (.ltChain [← parseExpr a, ← parseExpr b,
@@ -316,7 +316,7 @@ partial def parseExpr
       | _ => Lean.Elab.throwUnsupportedSyntax
     pure (.match_ scrutAst parsedArms.toList)
   | `(fnExpr| let $n:ident := $v:fnExpr ; $b:fnExpr) => do
-    pure (.letIn (toString n.getId)
+    pure (.letIn ⟨toString n.getId⟩
       (← parseExpr v) (← parseExpr b))
   | `(fnExpr| let $n:ident ← $v:fnExpr ; $b:fnExpr) => do
     pure (.letBindIn (toString n.getId)
@@ -338,7 +338,7 @@ def parseStmtsAsExpr
   for stx in stmts.reverse do
     match stx with
     | `(fnStmt| let $n:ident := $e:fnExpr) =>
-      acc := .letIn (toString n.getId) (← parseExpr e) acc
+      acc := .letIn ⟨toString n.getId⟩ (← parseExpr e) acc
     | `(fnStmt| let $n:ident ← $e:fnExpr) =>
       acc := .letBindIn (toString n.getId)
         (← parseExpr e) acc

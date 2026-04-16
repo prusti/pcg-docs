@@ -167,6 +167,8 @@ inductive LeanExpr where
   /-- `list.foldlM fn init`. -/
   | foldlM (list : LeanExpr) (fn : String)
            (init : LeanExpr)
+  /-- Lambda: `fun param => body`. -/
+  | lambda (param : String) (body : LeanExpr)
   /-- A raw escape hatch (used for `sorry` and
       hand-written proof terms). The contents are
       copied verbatim. -/
@@ -271,6 +273,8 @@ partial def LeanExpr.toString : LeanExpr → String
        {body.toString}"
   | .foldlM list fn init =>
     s!"{list.toString}.foldlM {fn} {init.toString}"
+  | .lambda param body =>
+    s!"fun {param} => {body.toString}"
   | .raw t => t
 
 /-- Render an expression in "argument" position,

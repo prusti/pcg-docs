@@ -738,28 +738,22 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
     | _ =>
       return .call (.identStr (toSnakeCase method))
         [.borrow rustRecv]
-  | .flatMap (_, listE) param (_, bodyE) =>
+  | .lambda param (_, bodyE) =>
+    pure (.closure [leanToRustIdent param.name] bodyE)
+  | .flatMap (_, listE) (_, fnE) =>
     let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
     pure (.methodCall
       (.methodCall
         (.methodCall listE ⟨"iter"⟩ [])
-        ⟨"flat_map"⟩ [.closure [⟨param⟩] bodyE])
+        ⟨"flat_map"⟩ [fnE])
       ⟨"collect"⟩ []
       (typeArgs := [vecWild]))
-  | .map (_, listE) param (_, bodyE) =>
+  | .map (_, listE) (_, fnE) =>
     let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
     pure (.methodCall
       (.methodCall
         (.methodCall listE ⟨"iter"⟩ [])
-        ⟨"map"⟩ [.closure [⟨param⟩] bodyE])
-      ⟨"collect"⟩ []
-      (typeArgs := [vecWild]))
-  | .mapFn (_, listE) fn =>
-    let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
-    pure (.methodCall
-      (.methodCall
-        (.methodCall listE ⟨"iter"⟩ [])
-        ⟨"map"⟩ [.identStr (toSnakeCase fn)])
+        ⟨"map"⟩ [fnE])
       ⟨"collect"⟩ []
       (typeArgs := [vecWild]))
   | .field (_, rustRecv) name =>
@@ -768,28 +762,37 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
     pure (.index listE idxE)
   | .indexBang (_, listE) (_, idxE) =>
     pure (.index listE idxE)
-  | .call fn args => do
+  | .call (origFn, _) args => do
     let filtered := args.filter fun (origA, _) =>
       match origA with
       | .sorryProof | .leanProof _ => false
       | _ => true
-    match fn.splitOn "." with
-    | [en, v] =>
-      let vStr := capitalise v
-      let path : RustPath := ⟨[⟨en⟩, ⟨vStr⟩]⟩
-      return .call (.path path)
-        (← filtered.mapM fun (a, rustA) =>
-          match a with
-          | .natLit n => pure (.raw (toString n))
-          | .var _ => pure (.clone rustA)
-          | .field _ _ => pure (.clone rustA)
-          | _ => pure rustA)
+    match origFn with
+    | .var fn =>
+      match fn.splitOn "." with
+      | [en, v] =>
+        let vStr := capitalise v
+        let path : RustPath := ⟨[⟨en⟩, ⟨vStr⟩]⟩
+        return .call (.path path)
+          (← filtered.mapM fun (a, rustA) =>
+            match a with
+            | .natLit n => pure (.raw (toString n))
+            | .var _ => pure (.clone rustA)
+            | .field _ _ => pure (.clone rustA)
+            | _ => pure rustA)
+      | _ =>
+        return .call (.identStr (toSnakeCase fn))
+          (← filtered.mapM fun (_, rustA) =>
+            pure (.borrow rustA))
     | _ =>
-      return .call (.identStr (toSnakeCase fn))
+      let fnE ← recur origFn
+      return .call fnE
         (← filtered.mapM fun (_, rustA) =>
           pure (.borrow rustA))
-  | .foldlM fn (_, initE) (_, listE) =>
-    let rustFn := toSnakeCase fn
+  | .foldlM (origFn, _) (_, initE) (_, listE) =>
+    let rustFn := match origFn with
+      | .var n => toSnakeCase n
+      | _ => reprStr origFn
     pure (.methodCall
       (.methodCall listE ⟨"iter"⟩ [])
       ⟨"try_fold"⟩
@@ -874,7 +877,7 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
     pure (.«match» scrutExpr rustArms)
   | .letIn name (_, vExpr) (_, bExpr) =>
     pure (.block
-      [ .«let» (.ident (leanToRustIdent name)) none
+      [ .«let» (.ident (leanToRustIdent name.name)) none
           (.borrow vExpr) (mutable := false) ]
       (some bExpr))
   | .letBindIn name (_, vExpr) (_, bExpr) =>
@@ -927,10 +930,11 @@ private def resolveQualifiedCall
 def qualifyFnCalls
     (ctx : RustExprCtxt) (e : DslExpr) : DslExpr :=
   e.transform fun
-    | .call fn args =>
+    | .call (.var fn) args =>
       match fn.splitOn "." with
-      | [_, _] => .call (resolveQualifiedCall fn ctx) args
-      | _ => .call fn args
+      | [_, _] =>
+        .call (.var (resolveQualifiedCall fn ctx)) args
+      | _ => .call (.var fn) args
     | other => other
 
 end DslExpr

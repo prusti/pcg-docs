@@ -6,6 +6,12 @@ import Core.Dsl.Types.BodyPat
 import Core.Dsl.DslType
 import Core.Meta.BaseFunctor
 
+/-- A variable identifier in the DSL. -/
+structure VarIdent where
+  /-- The identifier name. -/
+  name : String
+  deriving Repr, Inhabited, Lean.Quote
+
 /-- An expression in the DSL. -/
 inductive DslExpr where
   | var (name : String)
@@ -21,13 +27,12 @@ inductive DslExpr where
   | cons (head : DslExpr) (tail : DslExpr)
   | append (lhs : DslExpr) (rhs : DslExpr)
   | dot (recv : DslExpr) (method : String)
-  | flatMap (list : DslExpr) (param : String)
-      (body : DslExpr)
-  /-- List map: `list.map fun param => body`. -/
-  | map (list : DslExpr) (param : String)
-      (body : DslExpr)
-  /-- List map with a named function: `list.map fn`. -/
-  | mapFn (list : DslExpr) (fn : String)
+  /-- Lambda: `fun param => body`. -/
+  | lambda (param : VarIdent) (body : DslExpr)
+  /-- List flat-map: `list.flatMap fn`. -/
+  | flatMap (list : DslExpr) (fn : DslExpr)
+  /-- List map: `list.map fn`. -/
+  | map (list : DslExpr) (fn : DslExpr)
   /-- Struct field access: `recv.fieldName`. -/
   | field (recv : DslExpr) (name : String)
   /-- Fallible list indexing: `list[idx]?`. -/
@@ -35,9 +40,9 @@ inductive DslExpr where
   /-- Infallible list indexing: `list[idx]`. -/
   | indexBang (list : DslExpr) (idx : DslExpr)
   /-- Function call: `fn(arg₁, arg₂, …)`. -/
-  | call (fn : String) (args : List DslExpr)
+  | call (fn : DslExpr) (args : List DslExpr)
   /-- Monadic fold: `list.foldlM fn init`. -/
-  | foldlM (fn : String) (init : DslExpr)
+  | foldlM (fn : DslExpr) (init : DslExpr)
       (list : DslExpr)
   /-- Less-than comparison: `lhs < rhs`. -/
   | lt (lhs : DslExpr) (rhs : DslExpr)
@@ -86,7 +91,7 @@ inductive DslExpr where
   | match_ (scrutinee : DslExpr)
       (arms : List (List BodyPat × DslExpr))
   /-- `let name := val ; body`. -/
-  | letIn (name : String) (val : DslExpr) (body : DslExpr)
+  | letIn (name : VarIdent) (val : DslExpr) (body : DslExpr)
   /-- `let name ← val ; body` (monadic bind on Option). -/
   | letBindIn (name : String) (val : DslExpr) (body : DslExpr)
   /-- `if cond then t else e`. -/
@@ -98,6 +103,23 @@ inductive DslExpr where
 -- Generate `DslExprF`, `project`, `embed`, `map`, `mapM`, `cata`, `cataM`,
 -- `para`, `paraM`. See `Core.Meta.BaseFunctor` for details.
 derive_base_functor DslExpr
+
+/-- A field/method access in the DSL. -/
+structure DslField where
+  /-- The receiver expression. -/
+  recv : DslExpr
+  /-- The field or method name. -/
+  method : String
+  deriving Repr, Inhabited
+
+/-- Convert a variable identifier to a
+    variable-reference expression. -/
+instance : Coe VarIdent DslExpr where
+  coe i := .var i.name
+
+/-- Convert a field access to a dot expression. -/
+instance : Coe DslField DslExpr where
+  coe f := .dot f.recv f.method
 
 namespace DslExpr
 
@@ -121,10 +143,12 @@ def mapChildren (f : DslExpr → DslExpr)
   | .field e n => .field (f e) n
   | .setSingleton e => .setSingleton (f e)
   | .forall_ p b => .forall_ p (f b)
-  | .mapFn l fn => .mapFn (f l) fn
   -- Binary
+  | .lambda p b => .lambda p (f b)
   | .cons h t => .cons (f h) (f t)
   | .append l r => .append (f l) (f r)
+  | .flatMap l fn => .flatMap (f l) (f fn)
+  | .map l fn => .map (f l) (f fn)
   | .index l i => .index (f l) (f i)
   | .indexBang l i => .indexBang (f l) (f i)
   | .lt l r => .lt (f l) (f r)
@@ -139,17 +163,15 @@ def mapChildren (f : DslExpr → DslExpr)
   | .implies l r => .implies (f l) (f r)
   | .neq l r => .neq (f l) (f r)
   -- Ternary (with String parameter)
-  | .flatMap l p b => .flatMap (f l) p (f b)
-  | .map l p b => .map (f l) p (f b)
   | .setAll s p b => .setAll (f s) p (f b)
   | .setFlatMap l p b => .setFlatMap (f l) p (f b)
   | .letIn n v b => .letIn n (f v) (f b)
   | .letBindIn n v b => .letBindIn n (f v) (f b)
   | .ifThenElse c t e => .ifThenElse (f c) (f t) (f e)
-  | .foldlM fn init list => .foldlM fn (f init) (f list)
+  | .foldlM fn init list => .foldlM (f fn) (f init) (f list)
   -- List children
   | .mkStruct n args => .mkStruct n (args.map f)
-  | .call fn args => .call fn (args.map f)
+  | .call fn args => .call (f fn) (args.map f)
   | .ltChain es => .ltChain (es.map f)
   | .leChain es => .leChain (es.map f)
   -- Match (recurse into scrutinee and arm RHSs)
@@ -263,29 +285,25 @@ partial def toDoc
          , .sym .space, .bb (.raw "N") ]
   | .dot recv method =>
     .seq [fnRef method, MathDoc.paren (go recv)]
-  | .flatMap list param body =>
+  | .lambda param body =>
+    .seq [ .sym .lambda, .raw param.name, .sym .dot
+         , .sym .space, go body ]
+  | .flatMap list fn =>
     .seq [ go list, .sym .dot, MathDoc.text "flatMap"
-         , MathDoc.paren (.seq
-             [ .sym .lambda, .raw param, .sym .dot
-             , .sym .space, go body ]) ]
-  | .map list param body =>
+         , MathDoc.paren (go fn) ]
+  | .map list fn =>
     .seq [ go list, .sym .dot, MathDoc.text "map"
-         , MathDoc.paren (.seq
-             [ .sym .lambda, .raw param, .sym .dot
-             , .sym .space, go body ]) ]
-  | .mapFn list fn =>
-    .seq [ go list, .sym .dot, MathDoc.text "map"
-         , MathDoc.paren (fnRef fn) ]
+         , MathDoc.paren (go fn) ]
   | .field recv name =>
     .seq [go recv, .sym .dot, MathDoc.text name]
   | .index list idx =>
     .seq [go list, MathDoc.bracket (go idx)]
   | .indexBang list idx =>
     .seq [go list, MathDoc.bracket (go idx)]
-  | .call "listSet" [a, b, c] =>
+  | .call (.var "listSet") [a, b, c] =>
     .seq [ go a, MathDoc.bracket
              (.seq [go b, .sym .mapsto, go c]) ]
-  | .call "mapGet" [a, b] =>
+  | .call (.var "mapGet") [a, b] =>
     .seq [go a, MathDoc.bracket (go b)]
   | .call fn args =>
     -- Drop proof arguments: they render as empty math
@@ -294,13 +312,19 @@ partial def toDoc
       | .sorryProof => false
       | .leanProof _ => false
       | _ => true
-    .seq [ fnRef fn, MathDoc.paren
+    let fnDoc := match fn with
+      | .var n => fnRef n
+      | _ => go fn
+    .seq [ fnDoc, MathDoc.paren
              (mathIntercalate (.sym .comma)
                (visibleArgs.map go)) ]
   | .foldlM fn init list =>
     -- `^*` is a superscript that decorates the function
     -- reference; no backend-independent form yet.
-    .seq [ fnRef fn, rawMath "^*"
+    let fnDoc := match fn with
+      | .var n => fnRef n
+      | _ => go fn
+    .seq [ fnDoc, rawMath "^*"
          , MathDoc.paren
              (.seq [go init, .sym .comma, go list]) ]
   | .lt l r => .seq [go l, .sym .lt, go r]
@@ -351,7 +375,7 @@ partial def toDoc
          , mathIntercalate (rawMath "\n") rowsMath
          , rawMath "\n\\end{array}\\right." ]
   | .letIn name val body =>
-    .seq [ keyword "let", .raw name, .sym .assign
+    .seq [ keyword "let", .raw name.name, .sym .assign
          , go val, .sym .semicolon, .sym .space, go body ]
   | .letBindIn name val body =>
     .seq [ keyword "let", .raw name, .sym .leftarrow
