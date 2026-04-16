@@ -205,8 +205,16 @@ mutual
       let body := String.intercalate "\n" armStrs
       s!"match {renderExpr d scrutinee} \{\n\
          {body}\n{ind d}}"
-    | .ref_ false e => s!"&{renderExpr d e}"
-    | .ref_ true e => s!"&mut {renderExpr d e}"
+    | .ref_ false e =>
+      match e with
+      | .binOp .. | .unaryOp .. | .ref_ .. =>
+        s!"&({renderExpr d e})"
+      | _ => s!"&{renderExpr d e}"
+    | .ref_ true e =>
+      match e with
+      | .binOp .. | .unaryOp .. | .ref_ .. =>
+        s!"&mut ({renderExpr d e})"
+      | _ => s!"&mut {renderExpr d e}"
     | .«return» none => "return"
     | .«return» (some e) => s!"return {renderExpr d e}"
     | .try_ e => s!"{renderExpr d e}?"
@@ -695,15 +703,20 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
           (mutable := true)
       , .expr (.methodCall (.ident v) ⟨"push"⟩ [hExpr])
       , .expr (.methodCall (.ident v) ⟨"extend"⟩
-          [tExpr]) ]
+          [.methodCall
+            (.methodCall tExpr ⟨"iter"⟩ [])
+            ⟨"cloned"⟩ []]) ]
       (some (.ident v))
   | .append (_, lExpr) (_, rExpr) => do
     let v ← fresh
     return .block
-      [ .«let» (.ident v) none (.clone lExpr)
+      [ .«let» (.ident v) none
+          (.methodCall lExpr ⟨"to_vec"⟩ [])
           (mutable := true)
       , .expr (.methodCall (.ident v) ⟨"extend"⟩
-          [rExpr]) ]
+          [.methodCall
+            (.methodCall rExpr ⟨"iter"⟩ [])
+            ⟨"cloned"⟩ []]) ]
       (some (.ident v))
   | .dot (_, rustRecv) method => do
     match method with

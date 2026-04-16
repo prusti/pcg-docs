@@ -78,6 +78,12 @@ pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
     if *i < v.len() { v[*i] = x.clone(); }
     v
 }
+pub fn list_take<T: Clone>(n: &usize, xs: &[T]) -> Vec<T> {
+    xs.iter().take(*n).cloned().collect()
+}
+pub fn list_drop<T: Clone>(n: &usize, xs: &[T]) -> Vec<T> {
+    xs.iter().skip(*n).cloned().collect()
+}
 ")
   , ("OpSem", "decode", .raw
 "use formal_mir::ty::{size_bytes, IntType, IntValue, Size, Ty};
@@ -135,17 +141,6 @@ use crate::value::*;
 ")
   , ("OpSem", "statements", .raw
 "use formal_mir::ty::Ty;
-")
-  , ("OpSem", "pointer", .raw
-"pub fn write_bytes_at(data: &[AbstractByte], offset: &usize, bytes: &[AbstractByte]) -> Vec<AbstractByte> {
-    let mut v: Vec<AbstractByte> = data.iter().take(*offset).cloned().collect();
-    v.extend(bytes.iter().cloned());
-    v.extend(data.iter().skip(*offset + bytes.len()).cloned());
-    v
-}
-pub fn read_bytes_at(data: &[AbstractByte], offset: &usize, len: &usize) -> Vec<AbstractByte> {
-    data.iter().skip(*offset).take(*len).cloned().collect()
-}
 ")
   ]
 

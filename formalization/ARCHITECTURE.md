@@ -48,7 +48,10 @@ parallel:
 2. **Registry entries.** Each DSL command also calls a
    `registerXDef` so the backend exporters can later enumerate
    every `defStruct` / `defEnum` / `defFn` / ... along with the
-   `Lean.Name` of the module it was declared in.
+   `Lean.Name` of the module it was declared in. This means
+   every `defFn` automatically produces a Lean definition, a
+   Rust function, and a LaTeX rendering — there is no need to
+   duplicate the implementation in exporter-specific extras.
 
 DSL function bodies are parsed into a `DslExpr` AST (see
 `Core/Dsl/Types/DslExpr.lean`). `DslExpr` is the

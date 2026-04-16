@@ -77,17 +77,8 @@ instance : HAdd Address Nat Address where
 "def last := @List.getLast?
 def replicate := @List.replicate
 def listSet := @List.set
-
-def writeBytesAt
-    (data : List AbstractByte) (offset : Nat)
-    (bytes : List AbstractByte) : List AbstractByte :=
-  data.take offset ++ bytes ++
-    data.drop (offset + bytes.length)
-
-def readBytesAt
-    (data : List AbstractByte) (offset : Nat)
-    (len : Nat) : List AbstractByte :=
-  (data.drop offset).take len
+def listTake := @List.take
+def listDrop := @List.drop
 
 open AbstractByte
 ")

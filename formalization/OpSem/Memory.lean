@@ -12,6 +12,8 @@ namespace Memory
 def last := @List.getLast?
 def replicate := @List.replicate
 def listSet := @List.set
+def listTake := @List.take
+def listDrop := @List.drop
 
 open Allocation in
 defFn top (.plain "top")
@@ -65,15 +67,24 @@ defProperty validMemory (.plain "validMemory")
 
 def sub := @Nat.sub
 
-def writeBytesAt
-    (data : List AbstractByte) (offset : Nat)
-    (bytes : List AbstractByte) : List AbstractByte :=
-  data.take offset ++ bytes ++ data.drop (offset + bytes.length)
+defFn writeBytesAt (.plain "write_bytes_at")
+  (.plain "Overwrite a slice of a byte sequence, starting \
+    at the given offset, with a new byte sequence.")
+  (data "The existing byte sequence." : List AbstractByte)
+  (offset "The offset at which to write." : Nat)
+  (bytes "The bytes to write." : List AbstractByte)
+  : List AbstractByte :=
+    listTake ‹offset, data› ++ bytes ++
+      listDrop ‹offset + bytes·length, data›
 
-def readBytesAt
-    (data : List AbstractByte) (offset : Nat) (len : Nat)
-    : List AbstractByte :=
-  (data.drop offset).take len
+defFn readBytesAt (.plain "read_bytes_at")
+  (.plain "Read a byte sub-sequence of a given length from \
+    a byte sequence, starting at the given offset.")
+  (data "The byte sequence." : List AbstractByte)
+  (offset "The offset from which to read." : Nat)
+  (len "The number of bytes to read." : Nat)
+  : List AbstractByte :=
+    listTake ‹len, listDrop ‹offset, data› ›
 
 open Allocation in
 defFn checkPtr (.plain "check_ptr")
