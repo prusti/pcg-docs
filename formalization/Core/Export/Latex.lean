@@ -299,7 +299,8 @@ mutual
           text.toLatex, .raw "}"]
       else
         .cmd "href" [.raw (url.replace "#" "\\#"),
-          text.toLatex]
+          .cmd "textcolor" [.raw "blue",
+            .cmd "uline" [text.toLatex]]]
     | .underline .solid body =>
       .cmd "uline" [body.toLatex]
     | .underline .dashed body =>
@@ -335,7 +336,9 @@ mutual
           text.toLatex, .raw "}"])
       else
         .text (.cmd "href"
-          [.raw (url.replace "#" "\\#"), text.toLatex])
+          [.raw (url.replace "#" "\\#"),
+           .cmd "textcolor" [.raw "blue",
+             .cmd "uline" [text.toLatex]]])
     | .underline .solid body =>
       .text (.cmd "uline" [body.toLatex])
     | .underline .dashed body =>
