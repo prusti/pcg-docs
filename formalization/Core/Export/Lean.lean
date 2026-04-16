@@ -143,6 +143,7 @@ private def toLeanASTAlg
   | .leChain es => .leChain es
   | .add l r => .binop "+" l r
   | .sub l r => .binop "-" l r
+  | .mul l r => .binop "*" l r
   | .div l r => .binop "/" l r
   | .setAll set param body => .forallIn param set body
   | .emptySet => .emptySet
@@ -385,6 +386,7 @@ private def calledNamesAlg : DslExprF (List String) → List String
   | .leChain es => es.flatten
   | .add l r => l ++ r
   | .sub l r => l ++ r
+  | .mul l r => l ++ r
   | .div l r => l ++ r
   | .setAll set _ body => set ++ body
   | .setSingleton e => e

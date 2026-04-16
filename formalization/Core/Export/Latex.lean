@@ -250,6 +250,7 @@ def toLatex : MathSym → LatexMath
   | .neq => .raw " \\neq "
   | .add => .raw " + "
   | .sub => .raw " - "
+  | .mul => .raw " \\cdot "
   | .div => .raw " / "
   | .land => .raw " \\land "
   | .lor => .raw " \\lor "

@@ -32,11 +32,13 @@ defFn data (.plain "data")
       let vs ← data ‹rest› ;
       Some (v :: vs)
 
-/-- Decode a little-endian unsigned integer from a list of
-    bytes (least-significant byte first). -/
-def decodeLeUnsigned : List UInt8 → Nat
+defFn decodeLeUnsigned (.plain "decode_le_unsigned")
+  (.plain "Decode a little-endian unsigned integer from a \
+    list of bytes (least-significant byte first).")
+  (bs "The bytes to decode." : List UInt8)
+  : Nat where
   | [] => 0
-  | b :: rest => b.toNat + 256 * decodeLeUnsigned rest
+  | b :: rest => b · toNat + (256 * decodeLeUnsigned ‹rest›)
 
 /-- Encode a natural number as `numBytes` little-endian
     abstract bytes (least-significant byte first). Higher

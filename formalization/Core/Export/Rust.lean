@@ -85,7 +85,7 @@ def render : RustBinOp → String
   | .eq => "==" | .ne => "!=" | .lt => "<"
   | .le => "<=" | .gt => ">" | .ge => ">="
   | .and => "&&" | .or => "||" | .add => "+" | .sub => "-"
-  | .div => "/"
+  | .mul => "*" | .div => "/"
 
 end RustBinOp
 
@@ -163,7 +163,7 @@ mutual
       s!"{opStr}{renderExpr d e}"
     | .binOp op lhs rhs =>
       let isArith (o : RustBinOp) :=
-        o == .add || o == .sub || o == .div
+        o == .add || o == .sub || o == .mul || o == .div
       let wrap (e : RustExpr) :=
         match e with
         | .binOp op' .. =>
@@ -822,6 +822,7 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
         (fun acc x => .binOp .and acc x) c)
   | .add (_, l) (_, r) => pure (.binOp .add l r)
   | .sub (_, l) (_, r) => pure (.binOp .sub l r)
+  | .mul (_, l) (_, r) => pure (.binOp .mul l r)
   | .div (_, l) (_, r) => pure (.binOp .div l r)
   | .setAll (_, setE) param (_, bodyE) =>
     pure (.methodCall

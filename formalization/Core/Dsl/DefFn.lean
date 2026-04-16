@@ -76,6 +76,7 @@ syntax:50 fnExpr:51 " ≤ " fnExpr:51 " ≤ " fnExpr:51
 -- `a ≤ b + c ≤ d` work as expected.
 syntax:65 fnExpr:65 " + " fnExpr:66 : fnExpr
 syntax:65 fnExpr:65 " - " fnExpr:66 : fnExpr
+syntax:70 fnExpr:70 " * " fnExpr:71 : fnExpr
 syntax:70 fnExpr:70 " / " fnExpr:71 : fnExpr
 -- Empty set: ∅
 syntax "∅" : fnExpr
@@ -269,6 +270,8 @@ partial def parseExpr
     pure (.add (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr - $r:fnExpr) =>
     pure (.sub (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr * $r:fnExpr) =>
+    pure (.mul (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr / $r:fnExpr) =>
     pure (.div (← parseExpr l) (← parseExpr r))
   | `(fnExpr| ∅) => pure .emptySet

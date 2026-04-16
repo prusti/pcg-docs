@@ -50,6 +50,7 @@ inductive DslExpr where
   /-- Addition: `lhs + rhs`. -/
   | add (lhs : DslExpr) (rhs : DslExpr)
   | sub (lhs : DslExpr) (rhs : DslExpr)
+  | mul (lhs : DslExpr) (rhs : DslExpr)
   | div (lhs : DslExpr) (rhs : DslExpr)
   /-- Universal quantifier over a set:
       `∀ x ∈ s, body`. -/
@@ -130,6 +131,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .le l r => .le (f l) (f r)
   | .add l r => .add (f l) (f r)
   | .sub l r => .sub (f l) (f r)
+  | .mul l r => .mul (f l) (f r)
   | .div l r => .div (f l) (f r)
   | .setUnion l r => .setUnion (f l) (f r)
   | .and l r => .and (f l) (f r)
@@ -307,6 +309,7 @@ partial def toDoc
   | .leChain es => mathIntercalate (.sym .le) (es.map go)
   | .add l r => .seq [go l, .sym .add, go r]
   | .sub l r => .seq [go l, .sym .sub, go r]
+  | .mul l r => .seq [go l, .sym .mul, go r]
   | .div l r => .seq [go l, .sym .div, go r]
   | .setAll set param body =>
     .seq [ .sym .forall_, .raw param

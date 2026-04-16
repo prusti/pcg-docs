@@ -32,6 +32,8 @@ inductive MathSym where
   | add
   /-- Subtraction: `-` (with surrounding spaces). -/
   | sub
+  /-- Multiplication: `*` (with surrounding spaces). -/
+  | mul
   /-- Division: `/` (with surrounding spaces). -/
   | div
   /-- Logical AND: `∧` (with surrounding spaces). -/
@@ -162,6 +164,7 @@ def toPlainText : MathSym → String
   | .neq => " ≠ "
   | .add => " + "
   | .sub => " - "
+  | .mul => " * "
   | .div => " / "
   | .land => " ∧ "
   | .lor => " ∨ "
@@ -382,6 +385,7 @@ mutual
     | .sym .neq => " &ne; "
     | .sym .add => " + "
     | .sym .sub => " - "
+    | .sym .mul => " * "
     | .sym .div => " / "
     | .sym .land => " &and; "
     | .sym .lor => " &or; "

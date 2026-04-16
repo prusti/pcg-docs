@@ -91,14 +91,6 @@ use formal_mir::constvalue::*;
 use crate::abstractbyte::AbstractByte::*;
 use crate::value::*;
 
-pub fn decode_le_unsigned(bs: &[u8]) -> usize {
-    let mut acc: usize = 0;
-    for (i, b) in bs.iter().enumerate() {
-        acc |= (*b as usize) << (8 * i);
-    }
-    acc
-}
-
 pub fn encode_le_unsigned(n: &usize, num_bytes: &usize) -> Vec<AbstractByte> {
     let mut out = Vec::with_capacity(*num_bytes);
     let mut cur = *n;
