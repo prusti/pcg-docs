@@ -102,88 +102,83 @@ end BodyPat
 
 namespace DslExpr
 
-/-- Lower a `DslExpr` to a `LeanExpr`.
-    `selfName` is the current function name (for
-    inserting proof arguments at recursive calls).
-    `precondNames` lists the precondition function
-    names. `calleeProofNames` lists callee functions
-    that also require sorry proof arguments. -/
-partial def toLeanASTWith
-    (selfName : String)
-    (precondNames : List String)
-    (calleeProofNames : List String := [])
-    : DslExpr → LeanExpr :=
-  let go := toLeanASTWith selfName precondNames
-    calleeProofNames
-  -- For self-recursive calls we need to attach
-  -- precondition proof terms; for known callees we
-  -- attach `sorry`. We render these as `raw` so the
-  -- atomic-arg logic in `LeanExpr.toAtom` doesn't
-  -- accidentally re-parenthesize them.
-  let proofArgs : List LeanExpr :=
-    precondNames.map fun pn =>
-      .raw s!"(by simp_all [{pn}])"
-  fun
+/-- Algebra for `toLeanASTWith`: recursive children have already been
+    lowered to `LeanExpr`. `selfName` and `precondNames` drive insertion of
+    precondition proof arguments at recursive calls; `calleeProofNames`
+    lists callees requiring `sorry` arguments. `proofArgs` is the precomputed
+    list of precondition proof terms (rendered as `raw` to bypass the
+    atomic-arg re-parenthesisation logic in `LeanExpr.toAtom`). -/
+private def toLeanASTAlg
+    (selfName : String) (precondNames : List String)
+    (calleeProofNames : List String) (proofArgs : List LeanExpr) :
+    DslExprF LeanExpr → LeanExpr
   | .var n => .ident n
   | .natLit n => .natLit n
   | .true_ => .boolLit true
   | .false_ => .boolLit false
   | .emptyList => .listNil
   | .none_ => .noneE
-  | .some_ e => .someE (go e)
-  | .mkStruct _ args => .anonCtor (args.map go)
-  | .cons h t => .listCons (go h) (go t)
-  | .append l r => .listAppend (go l) (go r)
-  | .dot recv method => .dot (go recv) method []
-  | .flatMap list param body =>
-    .listFlatMap (go list) param (go body)
-  | .map list param body =>
-    .listMap (go list) param (go body)
-  | .mapFn list fn =>
-    .listMapFn (go list) fn
-  | .field recv name => .field (go recv) name
-  | .index list idx => .index (go list) (go idx)
-  | .indexBang list idx => .indexBang (go list) (go idx)
+  | .some_ e => .someE e
+  | .mkStruct _ args => .anonCtor args
+  | .cons h t => .listCons h t
+  | .append l r => .listAppend l r
+  | .dot recv method => .dot recv method []
+  | .flatMap list param body => .listFlatMap list param body
+  | .map list param body => .listMap list param body
+  | .mapFn list fn => .listMapFn list fn
+  | .field recv name => .field recv name
+  | .index list idx => .index list idx
+  | .indexBang list idx => .indexBang list idx
   | .call fn args =>
-    let argEs := args.map go
     if fn == selfName && !precondNames.isEmpty then
-      .app fn (argEs ++ proofArgs)
+      .app fn (args ++ proofArgs)
     else if calleeProofNames.contains fn then
-      .app fn (argEs ++ [.raw "sorry"])
+      .app fn (args ++ [.raw "sorry"])
     else
-      .app fn argEs
-  | .foldlM fn init list =>
-    .foldlM (go list) fn (go init)
-  | .lt l r => .binop "<" (go l) (go r)
-  | .le l r => .binop "≤" (go l) (go r)
-  | .ltChain es => .ltChain (es.map go)
-  | .leChain es => .leChain (es.map go)
-  | .add l r => .binop "+" (go l) (go r)
-  | .sub l r => .binop "-" (go l) (go r)
-  | .div l r => .binop "/" (go l) (go r)
-  | .setAll set param body =>
-    .forallIn param (go set) (go body)
+      .app fn args
+  | .foldlM fn init list => .foldlM list fn init
+  | .lt l r => .binop "<" l r
+  | .le l r => .binop "≤" l r
+  | .ltChain es => .ltChain es
+  | .leChain es => .leChain es
+  | .add l r => .binop "+" l r
+  | .sub l r => .binop "-" l r
+  | .div l r => .binop "/" l r
+  | .setAll set param body => .forallIn param set body
   | .emptySet => .emptySet
-  | .setSingleton e => .app "Set.singleton" [go e]
-  | .setUnion l r => .listAppend (go l) (go r)
-  | .setFlatMap list param body =>
-    .setFlatMapList (go list) param (go body)
-  | .and l r => .binop "∧" (go l) (go r)
-  | .or l r => .binop "∨" (go l) (go r)
-  | .implies l r => .binop "→" (go l) (go r)
-  | .forall_ p b => .forall_ p (go b)
+  | .setSingleton e => .app "Set.singleton" [e]
+  | .setUnion l r => .listAppend l r
+  | .setFlatMap list param body => .setFlatMapList list param body
+  | .and l r => .binop "∧" l r
+  | .or l r => .binop "∨" l r
+  | .implies l r => .binop "→" l r
+  | .forall_ p b => .forall_ p b
   | .sorryProof => .raw "sorry"
   | .leanProof t => .raw t
   | .match_ scrut arms =>
-    .match_ (go scrut) <| arms.map fun (pats, rhs) =>
-      .mk (pats.map BodyPat.toLeanAST) (go rhs)
-  | .letIn name val body =>
-    .letIn name (go val) (go body)
-  | .letBindIn name val body =>
-    .letBindIn name (go val) (go body)
-  | .ifThenElse c t e =>
-    .ifThenElse (go c) (go t) (go e)
-  | .neq l r => .binop "≠" (go l) (go r)
+    .match_ scrut <| arms.map fun (pats, rhs) =>
+      .mk (pats.map BodyPat.toLeanAST) rhs
+  | .letIn name val body => .letIn name val body
+  | .letBindIn name val body => .letBindIn name val body
+  | .ifThenElse c t e => .ifThenElse c t e
+  | .neq l r => .binop "≠" l r
+
+/-- Lower a `DslExpr` to a `LeanExpr`.
+    `selfName` is the current function name (for
+    inserting proof arguments at recursive calls).
+    `precondNames` lists the precondition function
+    names. `calleeProofNames` lists callee functions
+    that also require sorry proof arguments. -/
+def toLeanASTWith
+    (selfName : String)
+    (precondNames : List String)
+    (calleeProofNames : List String := [])
+    (e : DslExpr) : LeanExpr :=
+  let proofArgs : List LeanExpr :=
+    precondNames.map fun pn =>
+      .raw s!"(by simp_all [{pn}])"
+  DslExpr.cata
+    (toLeanASTAlg selfName precondNames calleeProofNames proofArgs) e
 
 partial def toLeanAST (e : DslExpr) : LeanExpr :=
   e.toLeanASTWith "" []
@@ -366,52 +361,49 @@ end EnumDef
 
 namespace DslExpr
 
-/-- Collect all function/method names called. -/
-partial def calledNames : DslExpr → List String
+/-- Algebra for `calledNames`: children are already the collected names of
+    sub-expressions. -/
+private def calledNamesAlg : DslExprF (List String) → List String
+  | .var _ | .natLit _ | .true_ | .false_ | .emptyList | .none_
+  | .emptySet | .sorryProof | .leanProof _ => []
+  | .some_ e => e
+  | .mkStruct _ args => args.flatten
+  | .cons h t => h ++ t
+  | .append l r => l ++ r
   | .dot _ method => [method]
-  | .call fn args =>
-    fn :: args.flatMap calledNames
-  | .foldlM fn init list =>
-    fn :: init.calledNames ++ list.calledNames
-  | .setAll set _ body =>
-    set.calledNames ++ body.calledNames
-  | .setFlatMap list _ body =>
-    list.calledNames ++ body.calledNames
-  | .flatMap list _ body =>
-    list.calledNames ++ body.calledNames
-  | .map list _ body =>
-    list.calledNames ++ body.calledNames
-  | .mapFn list fn =>
-    fn :: list.calledNames
-  | .and l r => l.calledNames ++ r.calledNames
-  | .implies l r => l.calledNames ++ r.calledNames
-  | .forall_ _ b => b.calledNames
-  | .setUnion l r => l.calledNames ++ r.calledNames
-  | .append l r => l.calledNames ++ r.calledNames
-  | .some_ e => e.calledNames
-  | .setSingleton e => e.calledNames
-  | .cons h t => h.calledNames ++ t.calledNames
-  | .lt l r => l.calledNames ++ r.calledNames
-  | .le l r => l.calledNames ++ r.calledNames
-  | .ltChain es => es.flatMap calledNames
-  | .leChain es => es.flatMap calledNames
-  | .add l r => l.calledNames ++ r.calledNames
-  | .sub l r => l.calledNames ++ r.calledNames
-  | .div l r => l.calledNames ++ r.calledNames
-  | .mkStruct _ args => args.flatMap calledNames
-  | .index l i => l.calledNames ++ i.calledNames
-  | .indexBang l i => l.calledNames ++ i.calledNames
-  | .field e _ => e.calledNames
+  | .flatMap list _ body => list ++ body
+  | .map list _ body => list ++ body
+  | .mapFn list fn => fn :: list
+  | .field e _ => e
+  | .index l i => l ++ i
+  | .indexBang l i => l ++ i
+  | .call fn args => fn :: args.flatten
+  | .foldlM fn init list => fn :: init ++ list
+  | .lt l r => l ++ r
+  | .le l r => l ++ r
+  | .ltChain es => es.flatten
+  | .leChain es => es.flatten
+  | .add l r => l ++ r
+  | .sub l r => l ++ r
+  | .div l r => l ++ r
+  | .setAll set _ body => set ++ body
+  | .setSingleton e => e
+  | .setUnion l r => l ++ r
+  | .setFlatMap list _ body => list ++ body
+  | .and l r => l ++ r
+  | .or l r => l ++ r
+  | .implies l r => l ++ r
+  | .forall_ _ b => b
   | .match_ scrut arms =>
-    scrut.calledNames ++
-      arms.flatMap fun (_, rhs) => rhs.calledNames
-  | .letIn _ v b => v.calledNames ++ b.calledNames
-  | .letBindIn _ v b => v.calledNames ++ b.calledNames
-  | .ifThenElse c t e =>
-    c.calledNames ++ t.calledNames ++ e.calledNames
-  | .neq l r => l.calledNames ++ r.calledNames
-  | .or l r => l.calledNames ++ r.calledNames
-  | _ => []
+    scrut ++ arms.flatMap (fun (_, rhs) => rhs)
+  | .letIn _ v b => v ++ b
+  | .letBindIn _ v b => v ++ b
+  | .ifThenElse c t e => c ++ t ++ e
+  | .neq l r => l ++ r
+
+/-- Collect all function/method names called. -/
+def calledNames (e : DslExpr) : List String :=
+  DslExpr.cata calledNamesAlg e
 
 end DslExpr
 

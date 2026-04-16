@@ -649,43 +649,46 @@ end BodyPat
 
 namespace DslExpr
 
-/-- Convert a `DslExpr` to a typed `RustExpr` in the
-    `FreshM` monad (for generating fresh variable names). -/
-partial def toRustExpr : DslExpr → FreshM RustExpr
+/-- Algebra for `toRustExpr` under `DslExpr.paraM`: each recursive child
+    is a pair `(origSubterm, rustTranslation)`, letting the algebra inspect
+    the original DSL subterm when deciding whether to wrap children in
+    `.clone`, etc. `recur` is the top-level `toRustExpr`, used by the
+    `.mkStruct` arm to re-lower an inner `DslExpr` whose already-computed
+    `.some_`-wrapped Rust translation is not what we want there. -/
+private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
+    DslExprF (DslExpr × RustExpr) → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
   | .natLit n => pure (.raw s!"{n}usize")
   | .true_ => pure (.litBool true)
   | .false_ => pure (.litBool false)
   | .emptyList => pure .emptyVec
   | .none_ => pure .none_
-  | .some_ e => do
-    let inner ← e.toRustExpr
+  | .some_ (e, inner) => do
     match e with
     | .true_ | .false_ => return .some_ inner
     | .var _ => return .some_ (.clone inner)
     | _ => return .some_ inner
   | .mkStruct sName args => do
     if sName.isEmpty then
-      return .tuple (← args.mapM fun a => do
+      return .tuple (← args.mapM fun (a, rustA) =>
         match a with
-        | .var _ => return .clone (← a.toRustExpr)
-        | .field _ _ => return .clone (← a.toRustExpr)
-        | _ => a.toRustExpr)
+        | .var _ => pure (.clone rustA)
+        | .field _ _ => pure (.clone rustA)
+        | _ => pure rustA)
     else
       return .call (.path ⟨[⟨sName⟩, ⟨"new"⟩]⟩)
-        (← args.mapM fun a => do
+        (← args.mapM fun (a, rustA) => do
           match a with
-          | .var _ =>
-            return .clone (← a.toRustExpr)
-          | .field _ _ =>
-            return .clone (← a.toRustExpr)
+          | .var _ => pure (.clone rustA)
+          | .field _ _ => pure (.clone rustA)
           | .some_ inner =>
-            return .some_
-              (.clone (← inner.toRustExpr))
-          | _ => a.toRustExpr)
-  | .cons h t => do
-    let hExpr := RustExpr.clone (← h.toRustExpr)
-    let tExpr ← t.toRustExpr
+            -- Re-run recursion on `inner` since we need the Rust translation
+            -- of the inner expression, not the already-wrapped `.some_`.
+            let rustInner ← recur inner
+            pure (.some_ (.clone rustInner))
+          | _ => pure rustA)
+  | .cons (_, hExpr) (_, tExpr) => do
+    let hExpr := RustExpr.clone hExpr
     let v ← fresh
     return .block
       [ .«let» (.ident v) none .emptyVec
@@ -694,9 +697,7 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
       , .expr (.methodCall (.ident v) ⟨"extend"⟩
           [tExpr]) ]
       (some (.ident v))
-  | .append l r => do
-    let lExpr ← l.toRustExpr
-    let rExpr ← r.toRustExpr
+  | .append (_, lExpr) (_, rExpr) => do
     let v ← fresh
     return .block
       [ .«let» (.ident v) none (.clone lExpr)
@@ -704,8 +705,7 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
       , .expr (.methodCall (.ident v) ⟨"extend"⟩
           [rExpr]) ]
       (some (.ident v))
-  | .dot recv method => do
-    let rustRecv ← recv.toRustExpr
+  | .dot (_, rustRecv) method => do
     match method with
     | "toNat" =>
       return .cast (.unaryOp .deref rustRecv)
@@ -725,9 +725,7 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
     | _ =>
       return .call (.identStr (toSnakeCase method))
         [.borrow rustRecv]
-  | .flatMap list param body => do
-    let listE ← list.toRustExpr
-    let bodyE ← body.toRustExpr
+  | .flatMap (_, listE) param (_, bodyE) =>
     let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
     pure (.methodCall
       (.methodCall
@@ -735,9 +733,7 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
         ⟨"flat_map"⟩ [.closure [⟨param⟩] bodyE])
       ⟨"collect"⟩ []
       (typeArgs := [vecWild]))
-  | .map list param body => do
-    let listE ← list.toRustExpr
-    let bodyE ← body.toRustExpr
+  | .map (_, listE) param (_, bodyE) =>
     let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
     pure (.methodCall
       (.methodCall
@@ -745,8 +741,7 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
         ⟨"map"⟩ [.closure [⟨param⟩] bodyE])
       ⟨"collect"⟩ []
       (typeArgs := [vecWild]))
-  | .mapFn list fn => do
-    let listE ← list.toRustExpr
+  | .mapFn (_, listE) fn =>
     let vecWild := RustTy.adt ⟨[⟨"Vec"⟩]⟩ [.infer]
     pure (.methodCall
       (.methodCall
@@ -754,51 +749,46 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
         ⟨"map"⟩ [.identStr (toSnakeCase fn)])
       ⟨"collect"⟩ []
       (typeArgs := [vecWild]))
-  | .field recv name => do
-    return .field (← recv.toRustExpr)
-      ⟨toSnakeCase name⟩
-  | .index list idx => do
-    return .index (← list.toRustExpr) (← idx.toRustExpr)
-  | .indexBang list idx => do
-    return .index (← list.toRustExpr) (← idx.toRustExpr)
+  | .field (_, rustRecv) name =>
+    pure (.field rustRecv ⟨toSnakeCase name⟩)
+  | .index (_, listE) (_, idxE) =>
+    pure (.index listE idxE)
+  | .indexBang (_, listE) (_, idxE) =>
+    pure (.index listE idxE)
   | .call fn args => do
-    let filteredArgs := args.filter fun
-      | .sorryProof => false | .leanProof _ => false
+    let filtered := args.filter fun (origA, _) =>
+      match origA with
+      | .sorryProof | .leanProof _ => false
       | _ => true
     match fn.splitOn "." with
     | [en, v] =>
       let vStr := capitalise v
-      let path : RustPath :=
-        ⟨[⟨en⟩, ⟨vStr⟩]⟩
+      let path : RustPath := ⟨[⟨en⟩, ⟨vStr⟩]⟩
       return .call (.path path)
-        (← filteredArgs.mapM fun a => do
+        (← filtered.mapM fun (a, rustA) =>
           match a with
           | .natLit n => pure (.raw (toString n))
-          | .var _ => pure (.clone (← a.toRustExpr))
-          | .field _ _ => pure (.clone (← a.toRustExpr))
-          | _ => a.toRustExpr)
+          | .var _ => pure (.clone rustA)
+          | .field _ _ => pure (.clone rustA)
+          | _ => pure rustA)
     | _ =>
       return .call (.identStr (toSnakeCase fn))
-        (← filteredArgs.mapM fun a => do
-          return .borrow (← a.toRustExpr))
-  | .foldlM fn init list => do
+        (← filtered.mapM fun (_, rustA) =>
+          pure (.borrow rustA))
+  | .foldlM fn (_, initE) (_, listE) =>
     let rustFn := toSnakeCase fn
-    return .methodCall
-      (.methodCall (← list.toRustExpr)
-        ⟨"iter"⟩ [])
+    pure (.methodCall
+      (.methodCall listE ⟨"iter"⟩ [])
       ⟨"try_fold"⟩
-      [ ← init.toRustExpr
+      [ initE
       , .closure [⟨"acc"⟩, ⟨"x"⟩]
           (.call (.identStr rustFn)
             [.borrow (.field (.identStr "acc") ⟨"ty"⟩)
-            , .identStr "x"])]
-
-  | .lt l r => do
-    pure (.binOp .lt (← l.toRustExpr) (← r.toRustExpr))
-  | .le l r => do
-    pure (.binOp .le (← l.toRustExpr) (← r.toRustExpr))
-  | .ltChain es => do
-    let rExprs ← es.mapM (·.toRustExpr)
+            , .identStr "x"])])
+  | .lt (_, l) (_, r) => pure (.binOp .lt l r)
+  | .le (_, l) (_, r) => pure (.binOp .le l r)
+  | .ltChain es =>
+    let rExprs := es.map Prod.snd
     let pairs := rExprs.zip (rExprs.drop 1)
     let comparisons := pairs.map fun (l, r) =>
       RustExpr.binOp .lt l r
@@ -807,8 +797,8 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
     | [c] => pure c
     | c :: cs => pure (cs.foldl
         (fun acc x => .binOp .and acc x) c)
-  | .leChain es => do
-    let rExprs ← es.mapM (·.toRustExpr)
+  | .leChain es =>
+    let rExprs := es.map Prod.snd
     let pairs := rExprs.zip (rExprs.drop 1)
     let comparisons := pairs.map fun (l, r) =>
       RustExpr.binOp .le l r
@@ -817,22 +807,17 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
     | [c] => pure c
     | c :: cs => pure (cs.foldl
         (fun acc x => .binOp .and acc x) c)
-  | .add l r => do
-    pure (.binOp .add (← l.toRustExpr) (← r.toRustExpr))
-  | .sub l r => do
-    pure (.binOp .sub (← l.toRustExpr) (← r.toRustExpr))
-  | .div l r => do
-    pure (.binOp .div (← l.toRustExpr) (← r.toRustExpr))
-  | .setAll set param body => do
-    let setE ← set.toRustExpr
-    let bodyE ← body.toRustExpr
+  | .add (_, l) (_, r) => pure (.binOp .add l r)
+  | .sub (_, l) (_, r) => pure (.binOp .sub l r)
+  | .div (_, l) (_, r) => pure (.binOp .div l r)
+  | .setAll (_, setE) param (_, bodyE) =>
     pure (.methodCall
       (.methodCall setE ⟨"iter"⟩ [])
       ⟨"all"⟩ [.closure [⟨param⟩] bodyE])
   | .emptySet =>
     pure (.call (.path ⟨[⟨"HashSet"⟩, ⟨"new"⟩]⟩) [])
-  | .setSingleton e => do
-    let eExpr := RustExpr.clone (← e.toRustExpr)
+  | .setSingleton (_, eE) => do
+    let eExpr := RustExpr.clone eE
     let v ← fresh
     return .block
       [ .«let» (.ident v) none
@@ -841,9 +826,7 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
       , .expr (.methodCall (.ident v) ⟨"insert"⟩
           [eExpr]) ]
       (some (.ident v))
-  | .setUnion l r => do
-    let lExpr ← l.toRustExpr
-    let rExpr ← r.toRustExpr
+  | .setUnion (_, lExpr) (_, rExpr) => do
     let v ← fresh
     return .block
       [ .«let» (.ident v) none lExpr
@@ -851,9 +834,7 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
       , .expr (.methodCall (.ident v) ⟨"extend"⟩
           [rExpr]) ]
       (some (.ident v))
-  | .setFlatMap list param body => do
-    let listE ← list.toRustExpr
-    let bodyE ← body.toRustExpr
+  | .setFlatMap (_, listE) param (_, bodyE) =>
     let hsWild := RustTy.adt ⟨[⟨"HashSet"⟩]⟩ [.infer]
     pure (.methodCall
       (.methodCall
@@ -861,46 +842,33 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
         ⟨"flat_map"⟩ [.closure [⟨param⟩] bodyE])
       ⟨"collect"⟩ []
       (typeArgs := [hsWild]))
-
-  | .and l r => do
-    pure (.binOp .and (← l.toRustExpr) (← r.toRustExpr))
-  | .or l r => do
-    pure (.binOp .or (← l.toRustExpr) (← r.toRustExpr))
+  | .and (_, l) (_, r) => pure (.binOp .and l r)
+  | .or (_, l) (_, r) => pure (.binOp .or l r)
   | .implies _ _ => pure (.raw "/* implication omitted */")
-  | .forall_ _ _ =>
-    pure (.raw "/* forall omitted */ true")
+  | .forall_ _ _ => pure (.raw "/* forall omitted */ true")
   | .sorryProof => pure (.raw "/* sorry */")
   | .leanProof _ => pure (.raw "/* proof omitted */")
-  | .match_ scrut arms => do
-    let scrutExpr ← scrut.toRustExpr
-    let rustArms ← arms.mapM fun (pats, rhs) => do
+  | .match_ (_, scrutExpr) arms => do
+    let rustArms := arms.map fun (pats, (origRhs, rustRhs)) =>
       let pat := if pats.length == 1
         then pats.head!.toRustPat ""
         else .tuple (pats.map (·.toRustPat ""))
-      let rhsExpr ← rhs.toRustExpr
-      let rhsExpr := match rhs with
-        | .var _ => RustExpr.clone rhsExpr
-        | _ => rhsExpr
-      pure (RustMatchArm.mk pat rhsExpr)
+      let rhsExpr := match origRhs with
+        | .var _ => RustExpr.clone rustRhs
+        | _ => rustRhs
+      RustMatchArm.mk pat rhsExpr
     pure (.«match» scrutExpr rustArms)
-  | .letIn name val body => do
-    let vExpr ← val.toRustExpr
-    let bExpr ← body.toRustExpr
+  | .letIn name (_, vExpr) (_, bExpr) =>
     pure (.block
       [ .«let» (.ident (leanToRustIdent name)) none
           (.borrow vExpr) (mutable := false) ]
       (some bExpr))
-  | .letBindIn name val body => do
-    let vExpr ← val.toRustExpr
-    let bExpr ← body.toRustExpr
+  | .letBindIn name (_, vExpr) (_, bExpr) =>
     pure (.block
       [ .«let» (.ident (leanToRustIdent name)) none
           (.try_ (.clone vExpr)) (mutable := false) ]
       (some bExpr))
-  | .ifThenElse c t e => do
-    let cExpr ← c.toRustExpr
-    let tExpr ← t.toRustExpr
-    let eExpr ← e.toRustExpr
+  | .ifThenElse (_, cExpr) (_, tExpr) (_, eExpr) =>
     let tBlock : RustExpr := match tExpr with
       | .block _ _ => tExpr
       | _ => .block [] (some tExpr)
@@ -908,8 +876,12 @@ partial def toRustExpr : DslExpr → FreshM RustExpr
       | .block _ _ => eExpr
       | _ => .block [] (some eExpr)
     pure (.«if» cExpr tBlock (some eBlock))
-  | .neq l r => do
-    pure (.binOp .ne (← l.toRustExpr) (← r.toRustExpr))
+  | .neq (_, l) (_, r) => pure (.binOp .ne l r)
+
+/-- Convert a `DslExpr` to a typed `RustExpr` in the
+    `FreshM` monad (for generating fresh variable names). -/
+partial def toRustExpr (e : DslExpr) : FreshM RustExpr :=
+  DslExpr.paraM (toRustAlg toRustExpr) e
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : DslExpr) : RustExpr :=

@@ -4,6 +4,7 @@ import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.BodyPat
 import Core.Dsl.DslType
+import Core.Meta.BaseFunctor
 
 /-- An expression in the DSL. -/
 inductive DslExpr where
@@ -92,6 +93,10 @@ inductive DslExpr where
   /-- Inequality: `lhs ≠ rhs`. -/
   | neq (lhs : DslExpr) (rhs : DslExpr)
   deriving Repr, Inhabited, Lean.Quote
+
+-- Generate `DslExprF`, `project`, `embed`, `map`, `mapM`, `cata`, `cataM`,
+-- `para`, `paraM`. See `Core.Meta.BaseFunctor` for details.
+derive_base_functor DslExpr
 
 namespace DslExpr
 
