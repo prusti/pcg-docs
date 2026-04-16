@@ -197,7 +197,7 @@ mutual
       String.join (ms.map LatexMath.render)
     | .text body => s!"\\text\{{Latex.render body}}"
     | .texttt s =>
-      s!"\\texttt\{{Doc.escapeLatex s}}"
+      s!"\\texttt\{{Doc.escapeLatexCode s}}"
     | .mathbf body =>
       s!"\\mathbf\{{body.render}}"
     | .mathbb body =>
@@ -279,7 +279,7 @@ mutual
     | .plain s => .text s
     | .bold d => .textbf d.toLatex
     | .italic d => .textit d.toLatex
-    | .code s => .texttt (.text s)
+    | .code s => .texttt (.raw (Doc.escapeLatexCode s))
     | .seq ds => .seq (ds.map Doc.toLatex)
     | .line => .newline
     | .itemize items =>

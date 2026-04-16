@@ -235,7 +235,6 @@ private def latexReplacements :
   , ("#", "\\#", "\\#")
   , ("%", "\\%", "\\%")
   , ("`", "'", "'")
-  , ("'", "\\ensuremath{'}", "'")
   , (" ", " ", "~")
   , ("&", "\\&", "\\&")
   , ("ℕ", "$\\mathbb{N}$", "\\mathbb{N}")
@@ -266,6 +265,11 @@ private def latexReplacements :
 def escapeLatex : String → String :=
   fun s => latexReplacements.foldl
     (fun acc (from_, to, _) => acc.replace from_ to) s
+
+/-- Like `escapeLatex`, but also renders apostrophes as
+    upward-tick primes (for code identifiers). -/
+def escapeLatexCode : String → String :=
+  fun s => (escapeLatex s).replace "'" "\\ensuremath{'}"
 
 /-- Translate Unicode symbols to LaTeX commands (math mode,
     no `$...$` wrappers). -/
