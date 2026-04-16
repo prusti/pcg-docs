@@ -91,6 +91,12 @@ def cmd0 (name : String) : Latex := .cmd name []
     into a later (sub)section. -/
 def floatBarrier : Latex := cmd0 "FloatBarrier"
 
+/-- `\tableofcontents`. -/
+def tableofcontents : Latex := cmd0 "tableofcontents"
+
+/-- `\newpage`. -/
+def newpage : Latex := cmd0 "newpage"
+
 /-- `\section{title}`, preceded by a `\FloatBarrier` so that
     any pending floats from the previous section are flushed
     before the new section begins. -/

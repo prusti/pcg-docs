@@ -237,11 +237,11 @@ def buildPresentationLatex
       (properties.find?
           (·.propertyDef.fnDef.name == nm)).map
         fun rp => rp.propertyDef.doc args
-  let body := prefixes.map
+  let sections := prefixes.map
     fun p => crateLatex p descrs enums structs orders
       fns properties ctorDisplay allVariants knownFns
       resolveCtor knownTypes precondShortUsage
-  .seq body
+  .seq ([.tableofcontents, .newpage] ++ sections)
 
 /-- LaTeX packages needed by the presentation.
 
