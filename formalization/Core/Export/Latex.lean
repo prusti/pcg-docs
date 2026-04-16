@@ -287,8 +287,13 @@ mutual
         .seq [Latex.item d.toLatex, .newline]))
     | .raw latex _ _ => .raw latex
     | .link text url =>
-      .cmd "href" [.raw (url.replace "#" "\\#"),
-        text.toLatex]
+      if url.startsWith "#" then
+        let target := url.drop 1
+        .seq [.raw ("\\hyperlink{" ++ target ++ "}{"),
+          text.toLatex, .raw "}"]
+      else
+        .cmd "href" [.raw (url.replace "#" "\\#"),
+          text.toLatex]
     | .underline .solid body =>
       .cmd "uline" [body.toLatex]
     | .underline .dashed body =>
@@ -318,8 +323,13 @@ mutual
       .seq (items.map Doc.toLatexMath)
     | .raw latex _ _ => .raw latex
     | .link text url =>
-      .text (.cmd "href"
-        [.raw (url.replace "#" "\\#"), text.toLatex])
+      if url.startsWith "#" then
+        let target := url.drop 1
+        .text (.seq [.raw ("\\hyperlink{" ++ target ++ "}{"),
+          text.toLatex, .raw "}"])
+      else
+        .text (.cmd "href"
+          [.raw (url.replace "#" "\\#"), text.toLatex])
     | .underline .solid body =>
       .text (.cmd "uline" [body.toLatex])
     | .underline .dashed body =>

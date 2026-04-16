@@ -334,7 +334,7 @@ def formalDefLatex
     else [.textit f.doc.toLatex, .newline]
   .env "algorithm" (.seq [
     Latex.caption caption, .newline,
-    .raw s!"\\label\{fn:{f.name}}", .newline,
+    .raw s!"\\hypertarget\{fn:{f.name}}\{}\\label\{fn:{f.name}}", .newline,
     .seq descBlock,
     .env "algorithmic"
       (.seq [Latex.lines allLines, .newline]),
