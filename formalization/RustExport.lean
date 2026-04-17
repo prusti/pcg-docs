@@ -111,6 +111,9 @@ pub fn int_value_of_nat(nbytes: &usize, n: &usize) -> Option<IntValue> {
     }
 }
 ")
+  , ("OpSem", "pointer", .raw
+"use formal_mir::ty::Mutability;
+")
   , ("OpSem", "value", .raw
 "use formal_mir::ty::*;
 ")

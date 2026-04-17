@@ -38,14 +38,14 @@ Will not include DeadLock or MemoryLeak
 
 - [x] `Address` type &rarr; `Address.lean`
 - [x] `ThinPointer` (address + optional provenance) &rarr; `Pointer.lean`
-- [~] `Pointer` (thin pointer wrapper, but no wide pointer metadata) &rarr; `Pointer.lean`
-- [ ] `PointerMeta` (should contain only the ElementCount case)
-- [ ] `PtrType` enum (Ref, Box, Raw, FnPtr) (do not include VtablePtr)
-- [ ] `PointeeInfo` struct (include `layout` only)
-- [ ] `LayoutStrategy` enum (exclude TraitObject, and dont include alignment)
-- [ ] `TupleHeadLayout` struct
+- [x] `Pointer` (thin pointer with optional wide-pointer metadata) &rarr; `Pointer.lean`
+- [x] `PointerMeta` (only the ElementCount case) &rarr; `Pointer.lean`
+- [x] `PtrType` enum (Ref, Box, Raw, FnPtr; VtablePtr excluded) &rarr; `Pointer.lean`
+- [x] `PointeeInfo` struct (`layout` only) &rarr; `Pointer.lean`
+- [x] `LayoutStrategy` enum (TraitObject excluded, no alignment) &rarr; `Pointer.lean`
+- [x] `TupleHeadLayout` struct (no alignment) &rarr; `Pointer.lean`
 - [N] `UnsafeCellStrategy`
-- [ ] `PointerMetaKind` enum (exclude VTablePointer)
+- [x] `PointerMetaKind` enum (VTablePointer excluded) &rarr; `Pointer.lean`
 
 ### [`interface.md`](https://github.com/minirust/minirust/blob/master/spec/mem/interface.md) -- Memory interface
 

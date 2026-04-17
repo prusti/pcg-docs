@@ -166,7 +166,8 @@ private def moduleToPath (mod : Lean.Name) : String :=
   "/".intercalate components ++ ".lean"
 
 /-- Topologically sort definition items so that types
-    are defined before they are referenced. -/
+    are defined before they are referenced. Self-references
+    (recursive types) are treated as already satisfied. -/
 private def topoSort
     (items : List LeanDefItem) : List LeanDefItem :=
   let getName (i : LeanDefItem) : Option String :=
@@ -187,8 +188,10 @@ private def topoSort
       else
         let (ready, blocked) := remaining.partition
           fun item =>
+            let selfName := getName item
             let refs := getRefs item
             refs.all fun r =>
+              selfName == some r ||
               emitted.contains r || !defined.contains r
         if ready.isEmpty then acc ++ remaining
         else
