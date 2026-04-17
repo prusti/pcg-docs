@@ -5,8 +5,10 @@ This document tracks how much of the
 covered by the Lean 4 formalization in this directory. Each section corresponds
 to a spec file in the MiniRust repository. Checkboxes indicate coverage:
 
-- [x] = fully or substantially implemented
-- [~] = partially implemented (details noted)
+- [x] = complete
+- [~] = in progress
+- [N] = not planned
+- [U] = unsure (may ultimately not implement)
 - [ ] = not yet implemented
 
 ---
@@ -15,15 +17,18 @@ to a spec file in the MiniRust repository. Checkboxes indicate coverage:
 
 ### [`main.md`](https://github.com/minirust/minirust/blob/master/spec/prelude/main.md) -- Core types
 
-- [ ] `TerminationInfo` enum (Ub, MachineStop, Abort, Deadlock, MemoryLeak, ...)
-- [ ] `Result<T>` / `NdResult<T>` type aliases
-- [ ] Error-throwing macros (`throw_ub!`, `throw_abort!`, ...)
+- [ ] `TerminationInfo` enum (Ub, MachineStop, Abort, IllFormed)
+
+Will not include DeadLock or MemoryLeak
+
+- [N] `Result<T>` / `NdResult<T>` type aliases
+- [N] Error-throwing macros (`throw_ub!`, `throw_abort!`, ...)
 
 ### [`target.md`](https://github.com/minirust/minirust/blob/master/spec/prelude/target.md) -- Target specification
 
-- [~] Pointer size (hardcoded to 8 bytes / 64-bit in `Ty.sizeBytes`)
-- [ ] `Target` trait (`PTR_SIZE`, `PTR_ALIGN`, `INT_MAX_ALIGN`, `ENDIANNESS`, `MAX_ATOMIC_SIZE`)
-- [ ] `valid_size()` method
+- [x] Pointer size (hardcoded to 8 bytes / 64-bit in `Ty.sizeBytes`)
+- [N] `Target` trait (`PTR_SIZE`, `PTR_ALIGN`, `INT_MAX_ALIGN`, `ENDIANNESS`, `MAX_ATOMIC_SIZE`)
+- [N] `valid_size()` method
 
 ---
 
@@ -34,93 +39,66 @@ to a spec file in the MiniRust repository. Checkboxes indicate coverage:
 - [x] `Address` type &rarr; `Address.lean`
 - [x] `ThinPointer` (address + optional provenance) &rarr; `Pointer.lean`
 - [~] `Pointer` (thin pointer wrapper, but no wide pointer metadata) &rarr; `Pointer.lean`
-- [ ] `PointerMeta` enum (ElementCount, VTablePointer)
-- [ ] `PtrType` enum (Ref, Box, Raw, FnPtr, VTablePtr)
-- [ ] `PointeeInfo` struct
-- [ ] `LayoutStrategy` enum (Sized, Slice, TraitObject, Tuple)
+- [ ] `PointerMeta` (should contain only the ElementCount case)
+- [ ] `PtrType` enum (Ref, Box, Raw, FnPtr) (do not include VtablePtr)
+- [ ] `PointeeInfo` struct (include `layout` only)
+- [ ] `LayoutStrategy` enum (exclude TraitObject, and dont include alignment)
 - [ ] `TupleHeadLayout` struct
-- [ ] `UnsafeCellStrategy`
-- [ ] `PointerMetaKind` enum
+- [N] `UnsafeCellStrategy`
+- [ ] `PointerMetaKind` enum (exclude VTablePointer)
 
 ### [`interface.md`](https://github.com/minirust/minirust/blob/master/spec/mem/interface.md) -- Memory interface
 
 - [x] `AbstractByte` enum (Uninit, Init) &rarr; `AbstractByte.lean`
-  - [ ] Provenance on initialized bytes (minirust attaches optional provenance to each byte)
+  - [N] Provenance on initialized bytes (minirust attaches optional provenance to each byte)
 - [ ] `AllocationKind` enum (Stack, Heap, Global, Function, VTable)
-- [ ] `Memory` trait as a formal interface
+- [N] `Memory` trait as a formal interface
 - [~] Memory operations are implemented directly rather than via a trait:
   - [x] `allocate` &rarr; `Memory.allocate`
   - [x] `deallocate` &rarr; `Memory.deallocate`
   - [x] `store` &rarr; `Memory.store`
   - [x] `load` &rarr; `Memory.load`
   - [ ] `dereferenceable` / `signed_dereferenceable`
-  - [ ] `retag_ptr`
-  - [ ] `new_call` / `end_call`
-  - [ ] `leak_check`
+  - [N] `retag_ptr`
+  - [N] `new_call` / `end_call`
+  - [N] `leak_check`
 
 ### [`basic.md`](https://github.com/minirust/minirust/blob/master/spec/mem/basic.md) -- Basic memory model
 
 - [x] `AllocId` &rarr; `Allocation.lean`
 - [x] `Allocation` struct (id, data, address, live) &rarr; `Allocation.lean`
-  - [ ] `Allocation.kind` field (AllocationKind)
-  - [ ] `Allocation.align` field
+  - [U] `Allocation.kind` field (AllocationKind)
+  - [U] `Allocation.align` field
 - [x] `allocate` (creates new allocation with uninit bytes) &rarr; `Memory.allocate`
   - [~] Address selection is deterministic (top-of-heap), not non-deterministic as in minirust
 - [x] `deallocate` (marks allocation as dead) &rarr; `Memory.deallocate`
   - [ ] Validation checks (double-free, alignment, metadata consistency)
 - [x] `store` (write bytes with bounds checking) &rarr; `Memory.store`
-  - [ ] Alignment checking
+  - [N] Alignment checking
 - [x] `load` (read bytes with bounds checking) &rarr; `Memory.load`
-  - [ ] Alignment checking
+  - [N] Alignment checking
 - [x] `check_ptr` helper (provenance, liveness, bounds) &rarr; `Memory.checkPtr`
-- [ ] `leak_check`
+- [N] `leak_check`
 
 ### [`concurrent.md`](https://github.com/minirust/minirust/blob/master/spec/mem/concurrent.md) -- Concurrent memory
 
-- [ ] `ConcurrentMemory` wrapper
-- [ ] `Atomicity` enum
-- [ ] `AccessType` / `Access` structs
-- [ ] Data race detection (`check_data_races`, `races`)
+Will not implement
+
+- [N] `ConcurrentMemory` wrapper
+- [N] `Atomicity` enum
+- [N] `AccessType` / `Access` structs
+- [N] Data race detection (`check_data_races`, `races`)
 
 ### [`intptrcast.md`](https://github.com/minirust/minirust/blob/master/spec/mem/intptrcast.md) -- Integer-pointer casts
 
-- [ ] `IntPtrCast` struct
-- [ ] `expose` (pointer-to-integer cast provenance tracking)
-- [ ] `int2ptr` (integer-to-pointer cast with non-deterministic provenance)
+- [N] `IntPtrCast` struct
+- [N] `expose` (pointer-to-integer cast provenance tracking)
+- [N] `int2ptr` (integer-to-pointer cast with non-deterministic provenance)
 
 ### Tree Borrows (`spec/mem/tree_borrows/`)
 
-#### [`memory.md`](https://github.com/minirust/minirust/blob/master/spec/mem/tree_borrows/memory.md) -- Tree Borrows memory
+Will not implement
 
-- [ ] `TreeBorrowsMemory` implementing Memory trait
-- [ ] Reborrow logic
-- [ ] Protector release
-
-#### [`tree.md`](https://github.com/minirust/minirust/blob/master/spec/mem/tree_borrows/tree.md) -- Tree data structure
-
-- [ ] `Node` struct
-- [ ] `Protected` enum
-- [ ] `AccessKind`
-- [ ] Tree access/transition logic
-
-#### [`reborrow_settings.md`](https://github.com/minirust/minirust/blob/master/spec/mem/tree_borrows/reborrow_settings.md) -- Reborrow configuration
-
-- [ ] `ReborrowSettings`
-- [ ] Freeze mask computation
-
-#### [`state_machine.md`](https://github.com/minirust/minirust/blob/master/spec/mem/tree_borrows/state_machine.md) -- Permission dispatch
-
-- [ ] `Permission` enum
-
-#### [`state_machine_protected.md`](https://github.com/minirust/minirust/blob/master/spec/mem/tree_borrows/state_machine_protected.md) -- Protected permissions
-
-- [ ] `PermissionProt` state machine
-
-#### [`state_machine_unprotected.md`](https://github.com/minirust/minirust/blob/master/spec/mem/tree_borrows/state_machine_unprotected.md) -- Unprotected permissions
-
-- [ ] `PermissionUnprot` state machine
-
----
 
 ## Language Layer (`spec/lang/`)
 
@@ -133,9 +111,9 @@ to a spec file in the MiniRust repository. Checkboxes indicate coverage:
   - [~] `Array` (in Value enum but encode/decode not implemented)
   - [ ] `Ptr`
   - [ ] `Variant`
-  - [ ] `Union`
+  - [N] `Union`
 - [~] `Place` struct (simplified as `RuntimePlace` with just a `ThinPointer`)
-  - [ ] `aligned` field
+  - [U] `aligned` field
 
 ### [`types.md`](https://github.com/minirust/minirust/blob/master/spec/lang/types.md) -- Types
 
@@ -149,26 +127,26 @@ to a spec file in the MiniRust repository. Checkboxes indicate coverage:
   - [~] ADTs (modeled via `Ty.ctor` with type constructor names)
   - [x] Type parameters (`Ty.param`)
   - [x] Alias types (`Ty.alias`)
-  - [ ] `Ptr` (raw pointers)
+  - [N] `Ptr` (raw pointers)
   - [ ] `Tuple` (as a distinct type; currently subsumed by `ctor`)
-  - [ ] `Union`
+  - [N] `Union`
   - [ ] `Enum`
   - [ ] `Slice`
-  - [ ] `TraitObject`
+  - [N] `TraitObject`
 - [x] `Size` enum (fixed bits, pointer-sized) &rarr; `Ty.lean`
 - [x] `sizeBytes` function &rarr; `Ty.lean`
 - [ ] `Fields` type (offset-type pairs)
 - [ ] `Variant` struct (for enums)
 - [ ] `Discriminator` decision tree
-- [ ] Layout computation functions
+- [ ] Layout computation functions (don't compute alignment)
 
 ### [`syntax.md`](https://github.com/minirust/minirust/blob/master/spec/lang/syntax.md) -- Abstract syntax
 
 **Value expressions:**
 - [~] `ValueExpr` enum &rarr; `Expressions.lean` (only `Tuple` variant)
   - [x] Tuple
-  - [ ] Constant
-  - [ ] Union
+  - [ ] Constant (exclude VTablePointer)
+  - [N] Union
   - [ ] Variant
   - [ ] GetDiscriminant
   - [ ] Load
