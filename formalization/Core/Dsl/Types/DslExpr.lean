@@ -235,7 +235,8 @@ partial def toDoc
     -- not match a known function.
     let shortName := (fn.splitOn ".").getLast?.getD fn
     if ctx.knownFns shortName then
-      .doc (.link (.plain fn) s!"#fn:{shortName}")
+      .doc (.link (.plain (Doc.fnNameDisplay fn))
+        s!"#fn:{shortName}")
     else ctorRef fn
   -- A trailing keyword like `let ` / `if ` / `match ` with
   -- a non-breaking space after the word.
@@ -257,11 +258,17 @@ partial def toDoc
   | .some_ e =>
     .seq [MathDoc.text "Some", MathDoc.paren (go e)]
   | .mkStruct name args =>
-    let argList : MathDoc :=
-      MathDoc.paren
-        (mathIntercalate (.sym .comma) (args.map go))
-    if name == "" then argList
-    else .seq [structRef name, argList]
+    let argDocs := args.map go
+    if name == "" then
+      -- Anonymous tuple literal: use angle brackets so it
+      -- visually differs from a function-call argument list.
+      .seq [ .sym .langle
+           , mathIntercalate (.sym .comma) argDocs
+           , .sym .rangle ]
+    else
+      .seq [ structRef name
+           , MathDoc.paren
+               (mathIntercalate (.sym .comma) argDocs) ]
   | .cons h t =>
     -- Flatten cons chains ending in `emptyList` into a
     -- list literal `[e₁, e₂, …]`.

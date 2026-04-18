@@ -153,7 +153,7 @@ private partial def exprLinesTop
              , rhs, .raw " \\\\" ]
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
-               .raw "\\begin{array}{ll}\n"
+               .raw "\\begin{array}{@{}ll@{}}\n"
              , LatexMath.seq (rows.intersperse (.raw "\n"))
              , .raw "\n\\end{array}" ])) ]
     let rec renderArms
@@ -187,13 +187,14 @@ def formalDefLatex
                p.ty.toLatex ctx.knownTypes]
   let paramSig : Latex :=
     .seq (paramParts.intersperse (.raw ", "))
+  let displayName := Doc.fnNameDisplay f.name
   let caption : Latex :=
     if isProperty then
-      .seq [.raw "Property ", .text f.name,
+      .seq [.raw "Property ", .text displayName,
             .raw "(", paramSig, .raw ")"]
     else
       let retTy := f.returnType.toLatex ctx.knownTypes
-      .seq [.text f.name, .raw "(",
+      .seq [.text displayName, .raw "(",
             paramSig, .raw ") ",
             .inlineMath (.cmd "to"), .raw " ",
             retTy]
@@ -337,7 +338,7 @@ def formalDefLatex
            , rhs, .raw " \\\\" ]
     .seq [ .raw "    "
          , Latex.state (.inlineMath (.seq [
-             .raw "\\begin{array}{ll}\n"
+             .raw "\\begin{array}{@{}ll@{}}\n"
            , LatexMath.seq (rows.intersperse (.raw "\n"))
            , .raw "\n\\end{array}" ])) ]
   -- Walk the arms, batching consecutive simple arms so they

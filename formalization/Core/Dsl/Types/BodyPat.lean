@@ -52,8 +52,11 @@ partial def toDoc
   | .wild => .sym .underscore
   | .var n => .raw n
   | .ctor "⟨⟩" args =>
-    MathDoc.paren (mathIntercalate (.sym .comma)
-      (args.map (toDoc ctorDisplay resolveCtor resolveVariant)))
+    .seq [ .sym .langle
+         , mathIntercalate (.sym .comma)
+             (args.map (toDoc ctorDisplay
+               resolveCtor resolveVariant))
+         , .sym .rangle ]
   | .ctor n args =>
     if args.isEmpty then
       match ctorDisplay n with

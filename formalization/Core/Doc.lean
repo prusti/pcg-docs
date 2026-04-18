@@ -272,6 +272,7 @@ private def latexReplacements :
   , ("⟨", "$\\langle$", "\\langle")
   , ("⟩", "$\\rangle$", "\\rangle")
   , ("Δ", "$\\Delta$", "\\Delta")
+  , ("′", "\\ensuremath{'}", "'")
   ]
 
 /-- Translate Unicode symbols to LaTeX commands (text mode). -/
@@ -283,6 +284,13 @@ def escapeLatex : String → String :=
     upward-tick primes (for code identifiers). -/
 def escapeLatexCode : String → String :=
   fun s => (escapeLatex s).replace "'" "\\ensuremath{'}"
+
+/-- Transform a function / identifier name so trailing-prime
+    apostrophes render as upward-tick primes (e.g. `foo'` →
+    `foo′`). The Unicode prime is in turn mapped to
+    `\ensuremath{'}` by `escapeLatex`. -/
+def fnNameDisplay (s : String) : String :=
+  s.replace "'" "′"
 
 /-- Translate Unicode symbols to LaTeX commands (math mode,
     no `$...$` wrappers). -/
