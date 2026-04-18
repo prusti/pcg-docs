@@ -342,11 +342,6 @@ private def genLakefile
          ⟨`autoImplicit, false⟩\n\
        ]\n\
      \n\
-     require batteries from\n\
-       git \
-     \"https://github.com/leanprover-community/batteries\"\n\
-         @ \"main\"\n\
-     \n\
      {"\n\n".intercalate libDecls}\n"
 
 -- ══════════════════════════════════════════════
