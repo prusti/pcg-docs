@@ -209,6 +209,9 @@ structure RustStruct where
   attrs : List RustAttr
   vis : RustVis
   name : RustIdent
+  /-- Generic type parameters (e.g. `["B", "I"]` for
+      `struct Foo<B, I>`). Empty means non-generic. -/
+  generics : List RustIdent := []
   fields : RustStructFields
   deriving Repr
 

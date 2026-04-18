@@ -38,6 +38,10 @@ structure StructDef where
   /-- Optional link URL. When set, the definition title
       becomes a hyperlink to this URL. -/
   link : Option String := none
+  /-- Implicit type parameters (e.g. `["B", "I"]` for
+      `LifetimeProjection {B I}`). These render as implicit
+      type parameters in Lean and as generics in Rust. -/
+  typeParams : List String := []
   /-- The fields of the struct. -/
   fields : List FieldDef
   deriving Repr

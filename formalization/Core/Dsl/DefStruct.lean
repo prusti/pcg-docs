@@ -24,7 +24,8 @@ syntax "| " ident str ":" term : structField
     where
       | id "The region variable id." : Nat
     ``` -/
-syntax "defStruct " ident "(" term "," term ")"
+syntax "defStruct " ident ("{" ident+ "}")?
+    "(" term "," term ")"
     str str ("constructor" str)? ("note" str)? ("link" str)?
     " where"
     structField* ("deriving " ident,+)? : command
@@ -43,12 +44,17 @@ private def parseStructField
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defStruct $name:ident ($symDoc:term, $setDoc:term)
+  | `(defStruct $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
        $docParam:str $doc:str $[constructor $ctorName:str]?
        $[note $noteLit:str]? $[link $linkLit:str]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
     let fieldData ← fs.mapM parseStructField
+    let typeParamNames : List String := match tps with
+      | some ids => ids.toList.map (toString ·.getId)
+      | none => []
+    let isGeneric := !typeParamNames.isEmpty
     -- Build the structure definition as a string and
     -- parse it, avoiding manual syntax construction.
     let fieldStrs := fieldData.map fun (fn, ft, _) =>
@@ -56,9 +62,21 @@ elab_rules : command
         if ft.isIdent then toString ft.getId
         else ft.reprint.getD (toString ft)
       s!"  {fn.getId} : {typeStr}"
+    let tpStr :=
+      if typeParamNames.isEmpty then ""
+      else " " ++ " ".intercalate
+        (typeParamNames.map fun p => s!"\{{p} : Type}")
+    -- Generic structs embed `deriving` inside the
+    -- structure declaration; the separate `deriving
+    -- instance` commands below only handle monomorphic
+    -- types.
+    let inlineDeriving :=
+      if isGeneric then "\n  deriving DecidableEq, Repr, Hashable"
+      else ""
     let structStr :=
-      s!"structure {name.getId} where\n\
-         {"\n".intercalate fieldStrs.toList}"
+      s!"structure {name.getId}{tpStr} where\n\
+         {"\n".intercalate fieldStrs.toList}\
+         {inlineDeriving}"
     let env ← getEnv
     match Parser.runParserCategory env `command
       structStr with
@@ -71,9 +89,10 @@ elab_rules : command
       | none =>
         #[mkIdent `DecidableEq, mkIdent `Repr,
           mkIdent `Hashable]
-    for d in deriveNames do
-      elabCommand (← `(command|
-        deriving instance $d:ident for $name))
+    unless isGeneric do
+      for d in deriveNames do
+        elabCommand (← `(command|
+          deriving instance $d:ident for $name))
     -- Build StructDef metadata
     let selfN := Name.mkSimple (toString name.getId)
     let fieldDefs ← fieldData.mapM
@@ -118,6 +137,8 @@ elab_rules : command
       | some l => `(some $l)
       | none => `(none)
     let sdId := mkIdent (name.getId ++ `structDef)
+    let typeParamsTerm : TSyntax `term :=
+      quote typeParamNames
     elabCommand (← `(command|
       def $sdId : StructDef :=
         { name := $ns,
@@ -129,6 +150,7 @@ elab_rules : command
           ctorName := $ctorTerm,
           «note» := $noteTerm,
           «link» := $linkTerm,
+          typeParams := $typeParamsTerm,
           fields := $fieldList }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod

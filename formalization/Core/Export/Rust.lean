@@ -349,9 +349,16 @@ end RustEnum
 
 namespace RustStruct
 
+/-- Render the generic parameter list: empty string for no
+    generics, `<A, B>` otherwise. -/
+private def renderGenerics (gs : List RustIdent) : String :=
+  if gs.isEmpty then ""
+  else s!"<{String.intercalate ", " (gs.map (·.val))}>"
+
 /-- Render the struct definition only. -/
 def render (s : RustStruct) : String :=
   let attrLines := s.attrs.map (·.render ++ "\n")
+  let gen := renderGenerics s.generics
   match s.fields with
   | .unnamed fields =>
     let fieldStrs := fields.map fun (v, ty) =>
@@ -359,13 +366,13 @@ def render (s : RustStruct) : String :=
     let body := String.intercalate ", " fieldStrs
     s!"/// {s.doc}\n\
        {String.join attrLines}\
-       {s.vis.render}struct {s.name.val}({body});"
+       {s.vis.render}struct {s.name.val}{gen}({body});"
   | .named fields =>
     let fieldLines := fields.map fun (v, n, ty) =>
       s!"{ind 1}{v.render}{n.val}: {ty.render},"
     s!"/// {s.doc}\n\
        {String.join attrLines}\
-       {s.vis.render}struct {s.name.val} \{\n\
+       {s.vis.render}struct {s.name.val}{gen} \{\n\
        {String.intercalate "\n" fieldLines}\n\
        }"
 
@@ -1041,11 +1048,12 @@ def toRustItems (s : StructDef) : List RustItem :=
   -- and skip the `From<Box<T>>` impl when the struct has
   -- any function-typed field.
   let hasArrow := s.fields.any fun f => f.ty.containsArrow
+  let isGeneric := !s.typeParams.isEmpty
   let baseDerives := if hasUnhashable
     then defaultRustDerives.filter (·.val != "Hash")
     else defaultRustDerives
   let baseDerives := if hasArrow then [] else baseDerives
-  let derives := if allCopy && !hasArrow
+  let derives := if allCopy && !hasArrow && !isGeneric
     then baseDerives ++ [⟨"Copy"⟩]
     else baseDerives
   let rs : RustStruct := {
@@ -1054,14 +1062,21 @@ def toRustItems (s : StructDef) : List RustItem :=
              else [.derive derives]
     vis := .pub
     name := ⟨s.name⟩
+    generics := s.typeParams.map (⟨·⟩)
     fields := .named (s.fields.map fun f =>
       (.pub, ⟨toSnakeCase f.name⟩, f.ty.toRust)) }
+  -- Skip inherent `new()` and `From<Box<T>>` impls for
+  -- generic structs: the former would need `impl Into<T>`
+  -- on type parameters and the latter would need per-param
+  -- blanket impls, both of which are out of scope here.
   let newImplItems :=
-    if hasArrow then []
+    if hasArrow || isGeneric then []
     else match rs.newImpl with
       | some impl_ => [.impl_ impl_]
       | none => []
-  let boxImpls := if hasArrow then [] else fromBoxImpls fieldTys
+  let boxImpls :=
+    if hasArrow || isGeneric then []
+    else fromBoxImpls fieldTys
   .struct_ rs :: newImplItems ++ boxImpls
 
 end StructDef

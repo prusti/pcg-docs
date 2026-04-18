@@ -232,7 +232,7 @@ namespace StructDef
 
 /-- Lower a struct definition to a `LeanDecl`. -/
 def toLeanAST (s : StructDef) : LeanDecl :=
-  .structure_ s.name <| s.fields.map fun f =>
+  .structure_ s.name s.typeParams <| s.fields.map fun f =>
     { name := f.name, type := f.ty.toLeanAST }
 
 /-- Render a struct definition to Lean syntax. -/

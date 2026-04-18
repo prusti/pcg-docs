@@ -363,7 +363,8 @@ structure LeanDef where
 
 /-- A top-level Lean declaration. -/
 inductive LeanDecl where
-  | structure_ (name : String) (fields : List LeanField)
+  | structure_ (name : String) (typeParams : List String)
+      (fields : List LeanField)
   | inductive_ (name : String) (ctors : List LeanCtor)
   | def_ (d : LeanDef)
   /-- Wrap a declaration in `namespace ns … end ns`. -/
@@ -438,14 +439,18 @@ private def renderDef (d : LeanDef) : String :=
     s!"def {d.name} {allBinds} : {d.retType} :=\n  {body}"
 
 partial def LeanDecl.toString : LeanDecl → String
-  | .structure_ name fields =>
+  | .structure_ name typeParams fields =>
     let fieldStrs := fields.map renderField
     let usesMap := fields.any fun f =>
       (f.type.toString).find? "HashMap" |>.isSome
     let derives := if usesMap
       then "Repr, Inhabited"
       else "Repr, BEq, Hashable, Inhabited"
-    s!"structure {name} where\n\
+    let tpStr :=
+      if typeParams.isEmpty then ""
+      else " " ++ " ".intercalate
+        (typeParams.map fun p => s!"\{{p} : Type}")
+    s!"structure {name}{tpStr} where\n\
        {"\n".intercalate fieldStrs}\n\
        deriving {derives}"
   | .inductive_ name ctors =>
