@@ -42,6 +42,7 @@ partial def toLeanAST : DSLType → LeanTy
   | .set t => .app "Set" t.toLeanAST
   | .map k v => .app2 "Std.HashMap" k.toLeanAST v.toLeanAST
   | .tuple ts => .product (ts.map toLeanAST)
+  | .arrow a b => .arrow a.toLeanAST b.toLeanAST
 
 /-- Render a type to Lean syntax. -/
 partial def toLean (t : DSLType) : String :=
@@ -56,6 +57,7 @@ partial def namedTypes : DSLType → List String
   | .set t => t.namedTypes
   | .map k v => k.namedTypes ++ v.namedTypes
   | .tuple ts => ts.flatMap namedTypes
+  | .arrow a b => a.namedTypes ++ b.namedTypes
 
 /-- Whether this type uses `Set`. -/
 partial def usesSet : DSLType → Bool
@@ -64,6 +66,7 @@ partial def usesSet : DSLType → Bool
   | .list t => t.usesSet
   | .map k v => k.usesSet || v.usesSet
   | .tuple ts => ts.any usesSet
+  | .arrow a b => a.usesSet || b.usesSet
   | _ => false
 
 end DSLType

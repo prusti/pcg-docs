@@ -46,6 +46,8 @@ inductive DSLType where
   | map (key : DSLType) (val : DSLType)
   /-- `A × B × ...`. -/
   | tuple (parts : List DSLType)
+  /-- `A → B` (function type, right-associative). -/
+  | arrow (from_ : DSLType) (to_ : DSLType)
   deriving Repr
 
 instance : Inhabited DSLType := ⟨.prim .unit⟩
@@ -61,6 +63,8 @@ partial def DSLType.beq : DSLType → DSLType → Bool
   | .tuple as, .tuple bs =>
     as.length == bs.length &&
       (as.zip bs).all fun (x, y) => DSLType.beq x y
+  | .arrow af at_, .arrow bf bt =>
+    DSLType.beq af bf && DSLType.beq at_ bt
   | _, _ => false
 
 instance : BEq DSLType := ⟨DSLType.beq⟩
@@ -105,16 +109,24 @@ partial def toDoc : DSLType → OutputMode → Doc
           parenIfCompound v mode]
   | .tuple parts, mode =>
     Doc.intercalate (.plain " × ")
-      (parts.map fun t => t.toDoc mode)
+      (parts.map fun t => parenIfArrow t mode)
+  | .arrow a b, mode =>
+    .seq [parenIfArrow a mode, .plain " → ", b.toDoc mode]
 where
   isCompound : DSLType → Bool
     | .prim _ => false
     | .named n => n.name.any fun c => c == ' ' || c == '×'
-    | .option _ | .list _ | .set _ | .map _ _ | .tuple _ => true
+    | .option _ | .list _ | .set _ | .map _ _ | .tuple _
+    | .arrow _ _ => true
   parenIfCompound (t : DSLType) (mode : OutputMode) : Doc :=
     if isCompound t then
       .seq [.plain "(", t.toDoc mode, .plain ")"]
     else t.toDoc mode
+  parenIfArrow (t : DSLType) (mode : OutputMode) : Doc :=
+    match t with
+    | .arrow _ _ =>
+      .seq [.plain "(", t.toDoc mode, .plain ")"]
+    | _ => t.toDoc mode
 
 /-- Render a type to a text-mode `Latex` AST, inserting a
     `\hyperlink{type:<name>}{...}` for any named type whose
@@ -141,17 +153,26 @@ partial def toLatex
           parenIfCompound knownTypes k, .raw " ",
           parenIfCompound knownTypes v]
   | .tuple parts =>
-    .seq ((parts.map (toLatex knownTypes)).intersperse
+    .seq ((parts.map (parenIfArrow knownTypes)).intersperse
       (.raw " × "))
+  | .arrow a b =>
+    .seq [parenIfArrow knownTypes a, .raw " → ",
+          toLatex knownTypes b]
 where
   isCompound : DSLType → Bool
     | .prim _ => false
     | .named n => n.name.any fun c => c == ' ' || c == '×'
-    | .option _ | .list _ | .set _ | .map _ _ | .tuple _ => true
+    | .option _ | .list _ | .set _ | .map _ _ | .tuple _
+    | .arrow _ _ => true
   parenIfCompound (kt : String → Bool) (t : DSLType) : Latex :=
     if isCompound t then
       .seq [.raw "(", toLatex kt t, .raw ")"]
     else toLatex kt t
+  parenIfArrow (kt : String → Bool) (t : DSLType) : Latex :=
+    match t with
+    | .arrow _ _ =>
+      .seq [.raw "(", toLatex kt t, .raw ")"]
+    | _ => toLatex kt t
 
 /-- Render a type to a `LatexMath` AST (for use inside math
     mode), inserting a `\text{\hyperlink{type:<name>}{...}}`
@@ -179,17 +200,27 @@ partial def toLatexMath
           parenIfCompound knownTypes k, .raw "~",
           parenIfCompound knownTypes v]
   | .tuple parts =>
-    .seq ((parts.map (toLatexMath knownTypes)).intersperse
+    .seq ((parts.map (parenIfArrow knownTypes)).intersperse
       (.raw " \\times "))
+  | .arrow a b =>
+    .seq [parenIfArrow knownTypes a,
+          .raw " \\to ",
+          toLatexMath knownTypes b]
 where
   isCompound : DSLType → Bool
     | .prim _ => false
     | .named n => n.name.any fun c => c == ' ' || c == '×'
-    | .option _ | .list _ | .set _ | .map _ _ | .tuple _ => true
+    | .option _ | .list _ | .set _ | .map _ _ | .tuple _
+    | .arrow _ _ => true
   parenIfCompound (kt : String → Bool) (t : DSLType) : LatexMath :=
     if isCompound t then
       .seq [.raw "(", toLatexMath kt t, .raw ")"]
     else toLatexMath kt t
+  parenIfArrow (kt : String → Bool) (t : DSLType) : LatexMath :=
+    match t with
+    | .arrow _ _ =>
+      .seq [.raw "(", toLatexMath kt t, .raw ")"]
+    | _ => toLatexMath kt t
 
 /-- Strip `Option` wrapper if present. -/
 def stripOption : DSLType → DSLType
@@ -216,6 +247,28 @@ private def parsePrim : String → Option DSLPrimTy
   | "UInt64" => some .u64
   | "USize" => some .usize
   | _ => none
+
+/-- Split a type string at the first top-level `→`
+    (ignoring those nested inside parentheses). Arrows are
+    right-associative, so the recursive `parse` call on the
+    right side will handle any remaining arrows. -/
+private def splitTopLevelArrow
+    (s : String) : Option (String × String) :=
+  let rec loop (cs : List Char) (depth : Nat)
+      (cur : String) : Option (String × String) :=
+    match cs with
+    | [] => none
+    | c :: rest =>
+      if c == '(' then
+        loop rest (depth + 1) (cur.push c)
+      else if c == ')' then
+        loop rest (depth - 1) (cur.push c)
+      else if depth == 0 && c == '→' then
+        some (cur.trimAscii.toString,
+              (String.ofList rest).trimAscii.toString)
+      else
+        loop rest depth (cur.push c)
+  loop s.toList 0 ""
 
 /-- Split a type string on top-level `×` separators
     (ignoring those nested inside parentheses). -/
@@ -260,27 +313,32 @@ private def splitTwoArgs (s : String) : Option (String × String) :=
 
 /-- Parse a Lean type string into a `DSLType`.
     Handles parenthesized types like
-    `Option (Option Nat)`. -/
+    `Option (Option Nat)` and function types like
+    `A → B → C`. -/
 partial def parse (s : String) : DSLType :=
   let s := stripParens s
-  let parts := splitTopLevelTimes s
-  if parts.length > 1 then
-    .tuple (parts.map parse)
-  else
-    match parsePrim s with
-    | some p => .prim p
-    | none =>
-      if s.startsWith "Option " then
-        .option (parse (s.drop 7).toString)
-      else if s.startsWith "List " then
-        .list (parse (s.drop 5).toString)
-      else if s.startsWith "Set " then
-        .set (parse (s.drop 4).toString)
-      else if s.startsWith "Map " then
-        let rest := (s.drop 4).toString
-        match splitTwoArgs rest with
-        | some (k, v) => .map (parse k) (parse v)
-        | none => .named ⟨s⟩
-      else .named ⟨s⟩
+  -- Arrow binds weaker than ×, so split arrows first.
+  match splitTopLevelArrow s with
+  | some (l, r) => .arrow (parse l) (parse r)
+  | none =>
+    let parts := splitTopLevelTimes s
+    if parts.length > 1 then
+      .tuple (parts.map parse)
+    else
+      match parsePrim s with
+      | some p => .prim p
+      | none =>
+        if s.startsWith "Option " then
+          .option (parse (s.drop 7).toString)
+        else if s.startsWith "List " then
+          .list (parse (s.drop 5).toString)
+        else if s.startsWith "Set " then
+          .set (parse (s.drop 4).toString)
+        else if s.startsWith "Map " then
+          let rest := (s.drop 4).toString
+          match splitTwoArgs rest with
+          | some (k, v) => .map (parse k) (parse v)
+          | none => .named ⟨s⟩
+        else .named ⟨s⟩
 
 end DSLType

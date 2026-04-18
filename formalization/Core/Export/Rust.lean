@@ -33,8 +33,10 @@ end DSLPrimTy
 
 namespace DSLType
 
+mutual
+
 /-- Convert to a typed `RustTy`. -/
-def toRust : DSLType → RustTy
+partial def toRust : DSLType → RustTy
   | .prim p => .builtin p.toRust
   | .named n => .named n.name
   | .option t => .option t.toRust
@@ -44,6 +46,20 @@ def toRust : DSLType → RustTy
     .adt ⟨[⟨"HashMap"⟩]⟩ [k.toRust, v.toRust]
   | .tuple ts =>
     .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
+  | .arrow a b =>
+    -- Render `A → B → C` as `Box<dyn Fn(A, B) -> C>`.
+    let (argStrs, retStr) := arrowFlatten (.arrow a b)
+    .named s!"Box<dyn Fn({", ".intercalate argStrs}) -> {retStr}>"
+
+/-- Flatten a right-associated arrow chain into rendered
+    argument strings and a rendered return string. -/
+partial def arrowFlatten : DSLType → List String × String
+  | .arrow x y =>
+    let (xs, ret) := arrowFlatten y
+    (x.toRust.render :: xs, ret)
+  | t => ([], t.toRust.render)
+
+end
 
 /-- Convert to a Rust parameter type. Lists become
     slices (`&[T]`) for pattern-matching support. -/
@@ -58,9 +74,25 @@ def toRustParam : DSLType → RustTy
     .ref false (.adt ⟨[⟨"HashMap"⟩]⟩ [k.toRust, v.toRust])
   | .tuple ts =>
     .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
+  | .arrow a b =>
+    let (argStrs, retStr) := arrowFlatten (.arrow a b)
+    .named s!"Box<dyn Fn({", ".intercalate argStrs}) -> {retStr}>"
 
 /-- Render a type to a Rust type string. -/
 def toRustStr (t : DSLType) : String := t.toRust.render
+
+/-- Whether this type contains an arrow (function) type.
+    Structs with arrow-typed fields cannot derive standard
+    traits like `PartialEq`, `Eq`, `Hash`, `Clone`. -/
+partial def containsArrow : DSLType → Bool
+  | .arrow _ _ => true
+  | .prim _ => false
+  | .named _ => false
+  | .option t => t.containsArrow
+  | .list t => t.containsArrow
+  | .set t => t.containsArrow
+  | .map k v => k.containsArrow || v.containsArrow
+  | .tuple ts => ts.any containsArrow
 
 end DSLType
 
@@ -514,6 +546,7 @@ def needsRustBoxIn : DSLType → DSLType → Bool
   | .map _ _, _ => false -- HashMap handles indirection
   | .prim _, _ => false
   | .tuple _, _ => false
+  | .arrow _ _, _ => false -- already a Box<dyn Fn ...>
 
 end DSLType
 
@@ -1003,23 +1036,33 @@ def toRustItems (s : StructDef) : List RustItem :=
   let hasUnhashable := s.fields.any fun f =>
     match f.ty with
     | .map _ _ | .set _ => true | _ => false
+  -- Closure trait objects (`Box<dyn Fn(..)>`) can only
+  -- derive `Debug`-less traits; drop the default derives
+  -- and skip the `From<Box<T>>` impl when the struct has
+  -- any function-typed field.
+  let hasArrow := s.fields.any fun f => f.ty.containsArrow
   let baseDerives := if hasUnhashable
     then defaultRustDerives.filter (·.val != "Hash")
     else defaultRustDerives
-  let derives := if allCopy
+  let baseDerives := if hasArrow then [] else baseDerives
+  let derives := if allCopy && !hasArrow
     then baseDerives ++ [⟨"Copy"⟩]
     else baseDerives
   let rs : RustStruct := {
     doc := s.doc.toPlainText
-    attrs := [.derive derives]
+    attrs := if derives.isEmpty then []
+             else [.derive derives]
     vis := .pub
     name := ⟨s.name⟩
     fields := .named (s.fields.map fun f =>
       (.pub, ⟨toSnakeCase f.name⟩, f.ty.toRust)) }
-  let newImplItems := match rs.newImpl with
-    | some impl_ => [.impl_ impl_]
-    | none => []
-  .struct_ rs :: newImplItems ++ fromBoxImpls fieldTys
+  let newImplItems :=
+    if hasArrow then []
+    else match rs.newImpl with
+      | some impl_ => [.impl_ impl_]
+      | none => []
+  let boxImpls := if hasArrow then [] else fromBoxImpls fieldTys
+  .struct_ rs :: newImplItems ++ boxImpls
 
 end StructDef
 

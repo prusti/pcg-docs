@@ -8,7 +8,11 @@ import Core.Dsl.Types.OrderDef
     `defEnum` / `defStruct` (e.g. trait impls). Keyed by
     `(cratePrefix, rustModuleName)`. -/
 def extraItems : List (String × String × RustItem) :=
-  [ ("PCG", "capability",
+  [ ("PCG", "borrowchecker", .raw
+"use formal_mir::body::Location;
+use formal_mir::region::RegionVid;
+")
+  , ("PCG", "capability",
      Capability.orderDef.toRustPartialOrd)
   , ("OpSem", "address", .raw
 "impl PartialOrd for Address {

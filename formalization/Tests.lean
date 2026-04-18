@@ -23,6 +23,14 @@ def dslTypeParseTests : TestSeq :=
       (parse "UInt64" == .prim .u64) $
     test "named type"
       (parse "Place" == .named ⟨"Place"⟩) $
+    test "arrow"
+      (parse "RegionVid → Location → Bool" ==
+        .arrow (.named ⟨"RegionVid"⟩)
+          (.arrow (.named ⟨"Location"⟩) (.prim .bool))) $
+    test "arrow with paren lhs"
+      (parse "(A → B) → C" ==
+        .arrow (.arrow (.named ⟨"A"⟩) (.named ⟨"B"⟩))
+               (.named ⟨"C"⟩)) $
     .done
 
 private def sampleLink : Doc :=
