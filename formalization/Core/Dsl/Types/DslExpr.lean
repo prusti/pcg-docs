@@ -366,7 +366,8 @@ partial def toDoc
     let rowsMath : List MathDoc :=
       arms.map fun (pats, rhs) =>
         let patMath := mathIntercalate (.sym .comma)
-          (pats.map (BodyPat.toDoc noCtor))
+          (pats.map (BodyPat.toDoc noCtor
+            ctx.resolveCtor ctx.resolveVariant))
         -- `&` is the LaTeX array column separator; the
         -- trailing ` \\` ends the array row. These are
         -- LaTeX-specific and stay raw.

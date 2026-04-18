@@ -183,6 +183,20 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
   let typeNameSet : List String :=
     reg.enums.map (·.enumDef.name.name)
       ++ reg.structs.map (·.structDef.name)
+  let resolveCtor : String → Option String := fun n =>
+    if n.contains '.' then
+      if ctorPairs.any (·.2 == n) then some n
+      else none
+    else
+      (ctorPairs.find? (·.1 == n)).map (·.2)
+  let resolveVariant : String → Option VariantDef := fun n =>
+    (resolveCtor n).bind fun q =>
+      match q.splitOn "." with
+      | [enumName, varName] =>
+        (reg.enums.find? (·.enumDef.name.name == enumName)).bind
+          fun e => e.enumDef.variants.find?
+            (·.name.name == varName)
+      | _ => none
   { ctorDisplay := mkCtorDisplay reg.enums
     variants := reg.enums.flatMap (·.enumDef.variants)
     knownFns := fun n => fnNameSet.contains n
@@ -190,12 +204,8 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
     -- name. Accepts either short (`int`) or already-qualified
     -- (`Value.int`) forms. Returns `none` if the name does
     -- not resolve to any known variant.
-    resolveCtor := fun n =>
-      if n.contains '.' then
-        if ctorPairs.any (·.2 == n) then some n
-        else none
-      else
-        (ctorPairs.find? (·.1 == n)).map (·.2)
+    resolveCtor := resolveCtor
+    resolveVariant := resolveVariant
     knownTypes := fun n => typeNameSet.contains n
     precondShortUsage := fun nm args =>
       (reg.properties.find?

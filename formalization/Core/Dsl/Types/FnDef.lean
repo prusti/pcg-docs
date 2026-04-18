@@ -59,7 +59,8 @@ private partial def exprLinesTop
   let goExpr (e : DslExpr) : LatexMath :=
     (DslExpr.toDoc fnName ctx noDisp isProperty e).toLatexMath
   let goPat (p : BodyPat) : LatexMath :=
-    (BodyPat.toDoc noDisp ctx.resolveCtor p).toLatexMath
+    (BodyPat.toDoc noDisp ctx.resolveCtor
+      ctx.resolveVariant p).toLatexMath
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   match e with
@@ -180,6 +181,14 @@ def formalDefLatex
       else (ctx.resolveCtor s!"{n.name}.{name}").orElse
         fun _ => ctx.resolveCtor name
     | _ => ctx.resolveCtor
+  let scopedResolveVariant
+      (ty : DSLType) : String → Option VariantDef :=
+    match ty with
+    | .named n => fun name =>
+      if name.contains '.' then ctx.resolveVariant name
+      else (ctx.resolveVariant s!"{n.name}.{name}").orElse
+        fun _ => ctx.resolveVariant name
+    | _ => ctx.resolveVariant
   let bodyLines : List Latex := match f.body with
     | .matchArms arms => arms.flatMap fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>
@@ -212,7 +221,8 @@ def formalDefLatex
         (arm.pat.zip (f.params.map (·.ty)) |>.map
           fun (p, ty) =>
             (BodyPat.toDoc ctx.ctorDisplay
-              (scopedResolveCtor ty) p).toLatexMath)
+              (scopedResolveCtor ty)
+              (scopedResolveVariant ty) p).toLatexMath)
       let goExpr (e : DslExpr) : LatexMath :=
         (DslExpr.toDoc f.name ctx varDisplay
           isProperty e).toLatexMath

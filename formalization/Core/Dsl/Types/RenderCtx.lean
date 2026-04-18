@@ -14,6 +14,10 @@ structure RenderCtx where
   /-- Resolve a short or qualified constructor name to its
       fully-qualified `EnumName.variantName` form. -/
   resolveCtor : String → Option String := fun _ => none
+  /-- Resolve a short or qualified constructor name to its
+      `VariantDef`. Used to render pattern-matching cases with
+      the same display template as the enum definition. -/
+  resolveVariant : String → Option VariantDef := fun _ => none
   /-- Whether a name refers to a known struct/enum type. -/
   knownTypes : String → Bool := fun _ => false
   /-- Short-form usage for a property reference

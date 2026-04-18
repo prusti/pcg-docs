@@ -1,5 +1,6 @@
 import Core.Export.Latex
 import Core.Dsl.DeriveQuote
+import Core.Dsl.Types.EnumDef
 
 /-- A pattern in a function body. -/
 inductive BodyPat where
@@ -45,23 +46,43 @@ def ctorRef
 partial def toDoc
     (ctorDisplay : String → Option MathDoc)
     (resolveCtor : String → Option String := fun _ => none)
+    (resolveVariant : String → Option VariantDef :=
+      fun _ => none)
     : BodyPat → MathDoc
   | .wild => .sym .underscore
   | .var n => .raw n
   | .ctor "⟨⟩" args =>
     MathDoc.paren (mathIntercalate (.sym .comma)
-      (args.map (toDoc ctorDisplay resolveCtor)))
+      (args.map (toDoc ctorDisplay resolveCtor resolveVariant)))
   | .ctor n args =>
     if args.isEmpty then
       match ctorDisplay n with
       | some display => display
       | none => ctorRef resolveCtor n
     else
-      let argParts :=
-        args.map (toDoc ctorDisplay resolveCtor)
-      .seq [ ctorRef resolveCtor n
-           , MathDoc.paren
-               (mathIntercalate (.sym .comma) argParts) ]
+      -- When the constructor resolves to a known variant, render
+      -- the pattern using the variant's display template, with
+      -- each argument reference replaced by the rendering of the
+      -- corresponding sub-pattern. This mirrors the form used in
+      -- the enum definition (e.g. `intTy it` for `.int it`).
+      match resolveVariant n with
+      | some v =>
+        let argMap : List (String × BodyPat) :=
+          (v.args.map (·.name)).zip args
+        let parts : List MathDoc := v.display.map fun
+          | .lit d => d
+          | .arg name _ =>
+            match argMap.find? (·.1 == name) with
+            | some (_, p) =>
+              toDoc ctorDisplay resolveCtor resolveVariant p
+            | none => MathDoc.text name
+        .seq parts
+      | none =>
+        let argParts :=
+          args.map (toDoc ctorDisplay resolveCtor resolveVariant)
+        .seq [ ctorRef resolveCtor n
+             , MathDoc.paren
+                 (mathIntercalate (.sym .comma) argParts) ]
   | .nil => MathDoc.bracket (.seq [])
   | .cons h t =>
     let rec flatten : BodyPat → Option (List BodyPat)
@@ -71,11 +92,11 @@ partial def toDoc
     match flatten (.cons h t) with
     | some elems =>
       MathDoc.bracket (mathIntercalate (.sym .comma)
-        (elems.map (toDoc ctorDisplay resolveCtor)))
+        (elems.map (toDoc ctorDisplay resolveCtor resolveVariant)))
     | none =>
-      .seq [ h.toDoc ctorDisplay resolveCtor
+      .seq [ h.toDoc ctorDisplay resolveCtor resolveVariant
            , .sym .cons
-           , t.toDoc ctorDisplay resolveCtor ]
+           , t.toDoc ctorDisplay resolveCtor resolveVariant ]
   | .natLit n => .raw (toString n)
 
 end BodyPat
