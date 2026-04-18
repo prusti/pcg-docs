@@ -23,6 +23,7 @@ formalization/
 ├── MIR.lean               -- Root import for MIR lib
 ├── OpSem.lean             -- Root import for OpSem lib
 ├── PCG.lean               -- Root import for PCG lib
+├── Presentation.lean      -- LaTeX presentation builder (depends on PCG)
 ├── LeanExport.lean        -- `lake exe lean_export`
 ├── RustExport.lean        -- `lake exe rust_export`
 ├── PresentationExport.lean -- `lake exe presentation_export`
@@ -119,7 +120,7 @@ in which they were declared):
 - `RustExport.lean` — lowers each group to a `RustCrate`
   (`formal-mir`, `formal-opsem`, `formal-pcg`) under
   `generated/rust/`, ready for `cargo check`.
-- `PresentationExport.lean` → `PCG/Presentation.lean` — builds
+- `PresentationExport.lean` → `Presentation.lean` — builds
   one `\section` per crate and one `\subsection` per
   second-level module. Modules nested any deeper
   (e.g. `OpSem.Expressions.Place`) are rendered as

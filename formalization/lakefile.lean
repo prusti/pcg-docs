@@ -36,6 +36,10 @@ lean_lib PCG where
 lean_lib OpSem where
   srcDir := "."
 
+@[default_target]
+lean_lib Presentation where
+  srcDir := "."
+
 lean_exe rust_export where
   root := `RustExport
 

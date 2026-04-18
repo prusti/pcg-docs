@@ -1,4 +1,4 @@
-import PCG.Presentation
+import Presentation
 import OpSem
 
 /-- Parse a `--key=value` flag from the argument list. -/
