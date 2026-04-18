@@ -145,12 +145,30 @@ def usepackage (name : String) : Latex :=
 private def escapeUrl (url : String) : String :=
   url.replace "#" "\\#"
 
-/-- `\href{url}{body}` with proper URL escaping and
-    visible link styling (blue underline). -/
-def link (url : String) (body : Latex) : Latex :=
+-- Link styling convention in the generated LaTeX:
+--   * Intra-document links (URLs starting with `#`) get a
+--     grey dashed underline via `\dashuline` (see
+--     `latexPreamble` for the colour redefinition).
+--   * External-URL links get a solid blue underline via
+--     `\textcolor{blue}{\uline{...}}`.
+-- Both styles are applied automatically from the URL;
+-- callers should pass the link body unadorned and must NOT
+-- wrap it in `.underline` themselves, which would produce a
+-- visible double underline.
+
+/-- External `\href{url}{body}` with proper URL escaping
+    and blue-underline styling. Use only for external URLs
+    — intra-document references should use `.link` with a
+    `#`-prefixed target so the dashed style is applied. -/
+def externalLink (url : String) (body : Latex) : Latex :=
   .cmd "href" [.raw (escapeUrl url),
     .cmd "textcolor" [.raw "blue",
       .cmd "uline" [body]]]
+
+/-- Intra-document `\hyperlink{target}{body}` with the
+    grey dashed-underline style applied automatically. -/
+def internalLink (target : String) (body : Latex) : Latex :=
+  .cmd "hyperlink" [.raw target, .cmd "dashuline" [body]]
 
 /-- Full `\documentclass{article}` document. -/
 def document (packages : List String)
@@ -313,10 +331,9 @@ mutual
     | .raw latex _ _ => .raw latex
     | .link text url =>
       if url.startsWith "#" then
-        let target := url.drop 1
-        .seq [.raw ("\\hyperlink{" ++ target ++ "}{"),
-          text.toLatex, .raw "}"]
-      else Latex.link url text.toLatex
+        Latex.internalLink
+          (url.drop 1).toString text.toLatex
+      else Latex.externalLink url text.toLatex
     | .underline .solid body =>
       .cmd "uline" [body.toLatex]
     | .underline .dashed body =>
@@ -347,10 +364,9 @@ mutual
     | .raw latex _ _ => .raw latex
     | .link text url =>
       if url.startsWith "#" then
-        let target := url.drop 1
-        .text (.seq [.raw ("\\hyperlink{" ++ target ++ "}{"),
-          text.toLatex, .raw "}"])
-      else .text (Latex.link url text.toLatex)
+        .text (Latex.internalLink
+          (url.drop 1).toString text.toLatex)
+      else .text (Latex.externalLink url text.toLatex)
     | .underline .solid body =>
       .text (.cmd "uline" [body.toLatex])
     | .underline .dashed body =>

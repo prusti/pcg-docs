@@ -89,7 +89,7 @@ def formalDefLatex (s : StructDef)
       .cmd "footnote" [.cmd "url" [.raw escaped]]
     | none => .seq []
   let title : Latex := match s.link with
-    | some url => .link url (.text s.docParam)
+    | some url => Latex.externalLink url (.text s.docParam)
     | none => .text s.docParam
   -- Invisible hypertarget so cross-references to this type
   -- (e.g. from function signatures) can link here via

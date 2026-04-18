@@ -225,8 +225,7 @@ partial def toDoc
   -- linked to their ctor target.
   let structRef (n : String) : MathDoc :=
     if ctx.knownTypes n then
-      .doc (.link (.underline .dashed (.plain n))
-        s!"#type:{n}")
+      .doc (.link (.plain n) s!"#type:{n}")
     else ctorRef n
   let fnRef (fn : String) : MathDoc :=
     -- Strip any namespace prefix (e.g. `Memory.store` →
@@ -236,8 +235,7 @@ partial def toDoc
     -- not match a known function.
     let shortName := (fn.splitOn ".").getLast?.getD fn
     if ctx.knownFns shortName then
-      .doc (.link (.underline .dashed (.plain fn))
-        s!"#fn:{shortName}")
+      .doc (.link (.plain fn) s!"#fn:{shortName}")
     else ctorRef fn
   -- A trailing keyword like `let ` / `if ` / `match ` with
   -- a non-breaking space after the word.

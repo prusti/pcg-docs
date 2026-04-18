@@ -112,7 +112,7 @@ defFn store (.plain "store")
     the given pointer. If the pointer does not point to \
     a live, in-bounds allocation, the memory is returned \
     unchanged. Behaviour is based on the logic defined ",
-    .link (.underline .dashed (.plain "here"))
+    .link (.plain "here")
       "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations",
     .plain "."])
   (m "The memory." : Memory)
@@ -136,7 +136,7 @@ defFn load (.plain "load")
     pointer. If the pointer does not point to a live, \
     in-bounds allocation, the empty list is returned. \
     Behaviour is based on the logic defined ",
-    .link (.underline .dashed (.plain "here"))
+    .link (.plain "here")
       "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations",
     .plain "."])
   (m "The memory." : Memory)

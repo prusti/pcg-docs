@@ -225,9 +225,35 @@ def latexPackages : List String :=
    "algorithm", "algpseudocode", "hyperref", "xcolor",
    "placeins"]
 
-/-- Extra LaTeX preamble (theorem definitions, etc). -/
+/-- Page geometry. `article`'s default ~1.5in side margins
+    waste a lot of horizontal space — shrink to 1in on all
+    sides so wide display-math (e.g. struct-field tables and
+    `\begin{array}` blocks) doesn't overflow. -/
+private def geometrySetup : Latex :=
+  .seq [
+    .raw "\\usepackage[margin=1in]{geometry}\n"
+  ]
+
+/-- Extra LaTeX preamble (theorem definitions, etc).
+
+    Link styling set up here:
+
+    * `\dashuline` is redefined to produce a dense, grey
+      dashed underline (via `ulem`'s `\markoverwith`). It
+      is applied automatically to intra-document links
+      (targets starting with `#`) — see
+      `Latex.internalLink`.
+    * External hyperlinks get a solid blue underline via
+      `\uline` wrapped in `\textcolor{blue}{...}` — see
+      `Latex.externalLink`.
+
+    Callers using `Doc.link` should pass the link body
+    unstyled; the backend applies the appropriate
+    underline based on whether the target is internal
+    or external. -/
 def latexPreamble : Latex :=
   .seq [
+    geometrySetup,
     .raw "\\newtheorem{definition}{Definition}\n",
     -- Number algorithms and definitions per subsection, so
     -- an algorithm/definition in subsection 3.8 is rendered

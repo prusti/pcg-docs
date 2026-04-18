@@ -7,13 +7,13 @@ cd "$(dirname "$0")/.."
 
 status=0
 
-# .cmd "href" should only appear inside Latex.link
+# .cmd "href" should only appear inside Latex.externalLink
 matches=$(grep -rn '\.cmd "href"' --include='*.lean' . || true)
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   case "$line" in
-    ./Core/Export/Latex.lean:*) ;; # allowed: Latex.link definition
-    *) echo "ERROR: raw .cmd \"href\" usage (use Latex.link instead): $line"
+    ./Core/Export/Latex.lean:*) ;; # allowed: externalLink definition
+    *) echo "ERROR: raw .cmd \"href\" usage (use Latex.externalLink instead): $line"
        status=1 ;;
   esac
 done <<< "$matches"
