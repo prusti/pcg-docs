@@ -8,7 +8,7 @@ defStruct BorrowChecker (.doc (.plain "bc"),
    origin (region variable), whether it is live at a \
    given MIR location."
 where
-  | origin_live_at "Whether the given origin is live at \
+  | originLiveAt "Whether the given origin is live at \
        the given MIR location."
       : RegionVid → Location → Bool
   deriving Inhabited
