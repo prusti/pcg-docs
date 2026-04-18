@@ -1,4 +1,5 @@
 import PCG.Capability.Order
+import PCG.InitialisationState.Order
 import MIR
 import Core.Dsl.Types.OrderDef
 import Core.Registry
