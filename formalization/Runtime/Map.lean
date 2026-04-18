@@ -1,4 +1,5 @@
 import Std.Data.HashMap
+import Std.Data.HashSet
 
 /-- A map backed by `Std.HashMap`.
     In generated Rust code this becomes `HashMap<K, V>`. -/
@@ -9,3 +10,24 @@ abbrev Map (κ : Type) [BEq κ] [Hashable κ] (ν : Type) :=
 def mapGet {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     (m : Map κ ν) (k : κ) : Option ν :=
   m.get? k
+
+/-- The empty map. -/
+def mapEmpty {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
+    : Map κ ν :=
+  ∅
+
+/-- A map with a single entry `k ↦ v`. -/
+def mapSingleton {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
+    (k : κ) (v : ν) : Map κ ν :=
+  (∅ : Std.HashMap κ ν).insert k v
+
+/-- Pointwise union of two maps from keys to sets: for keys
+    present in both maps, the values are combined with
+    `Std.HashSet.union`. -/
+def mapUnionSets {κ α : Type} [BEq κ] [Hashable κ]
+    [BEq α] [Hashable α]
+    (m₁ m₂ : Map κ (Std.HashSet α)) : Map κ (Std.HashSet α) :=
+  m₂.fold (fun acc k v =>
+    match acc.get? k with
+    | some v' => acc.insert k (v'.union v)
+    | none => acc.insert k v) m₁

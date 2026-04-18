@@ -245,7 +245,9 @@ private def computeImports
   let refdTypes := items.flatMap
     LeanDefItem.referencedNames
   let needsSet := items.any LeanDefItem.usesSet
-  let needsMap := refdTypes.contains "mapGet"
+  let mapHelpers := ["mapGet", "mapEmpty", "mapSingleton",
+                      "mapUnionSets"]
+  let needsMap := mapHelpers.any refdTypes.contains
   let depMods := refdTypes.filterMap fun tn =>
     typeMap.find? (·.1 == tn) |>.map (·.2)
   let depMods := depMods.filter (· != mod)
