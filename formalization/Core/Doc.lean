@@ -60,6 +60,9 @@ inductive MathSym where
   | underscore
   /-- Map-to: `↦` (with surrounding spaces). -/
   | mapsto
+  /-- Fat arrow: `⇒` (with surrounding spaces). Used as the
+      match-arm separator between pattern and body. -/
+  | fatArrow
   /-- Set union: `∪` (with surrounding spaces). -/
   | cup
   /-- Left arrow (monadic bind): `←` (with surrounding spaces). -/
@@ -186,6 +189,7 @@ def toPlainText : MathSym → String
   | .cons => " :: "
   | .underscore => "_"
   | .mapsto => " ↦ "
+  | .fatArrow => " ⇒ "
   | .cup => " ∪ "
   | .leftarrow => " ← "
   | .assign => " := "
@@ -412,6 +416,7 @@ mutual
     | .sym .cons => " :: "
     | .sym .underscore => "_"
     | .sym .mapsto => " &mapsto; "
+    | .sym .fatArrow => " &rArr; "
     | .sym .cup => " &cup; "
     | .sym .leftarrow => " &larr; "
     | .sym .assign => " := "

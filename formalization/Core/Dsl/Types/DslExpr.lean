@@ -368,16 +368,17 @@ partial def toDoc
         let patMath := mathIntercalate (.sym .comma)
           (pats.map (BodyPat.toDoc noCtor
             ctx.resolveCtor ctx.resolveVariant))
-        -- `&` is the LaTeX array column separator; the
-        -- trailing ` \\` ends the array row. These are
-        -- LaTeX-specific and stay raw.
-        .seq [ rawMath "  ", go rhs
-             , rawMath " &", keyword "if", patMath
+        -- Two-column `{ll}` array: pattern in the first
+        -- column, `⇒ rhs` in the second, so every row
+        -- aligns on the fat arrow. `&` is the LaTeX array
+        -- column separator; trailing ` \\` ends the row.
+        .seq [ rawMath "  ", patMath
+             , rawMath " &", .sym .fatArrow, go rhs
              , rawMath " \\\\" ]
     -- `\left\{\begin{array}{ll}…\end{array}\right.` is a
     -- LaTeX-specific aligned-cases environment; kept raw.
-    .seq [ keyword "match", go scrut
-         , rawMath ": \\left\\{\\begin{array}{ll}\n"
+    .seq [ keyword "match", go scrut, .sym .space
+         , rawMath "\\left\\{\\begin{array}{ll}\n"
          , mathIntercalate (rawMath "\n") rowsMath
          , rawMath "\n\\end{array}\\right." ]
   | .letIn name val body =>

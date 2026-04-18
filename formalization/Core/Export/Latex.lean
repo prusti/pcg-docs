@@ -306,6 +306,7 @@ def toLatex : MathSym → LatexMath
   | .cons => .raw " :: "
   | .underscore => .raw "\\_"
   | .mapsto => .raw " \\mapsto "
+  | .fatArrow => .raw " \\Rightarrow "
   | .cup => .raw " \\cup "
   | .leftarrow => .raw " \\leftarrow "
   | .assign => .raw " := "
