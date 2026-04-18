@@ -9,7 +9,11 @@ mutual
   inductive Latex where
     /-- Escaped text (Unicode→LaTeX applied at render). -/
     | text (s : String)
-    /-- Raw LaTeX passed through verbatim. -/
+    /-- Raw LaTeX passed through verbatim. Prefer structured
+        constructors wherever possible; only use `.raw` in
+        exceptional cases (e.g. tikz pictures, unusual
+        environments) where no structured representation
+        exists. -/
     | raw (s : String)
     /-- Concatenation of fragments. -/
     | seq (ls : List Latex)
@@ -41,7 +45,10 @@ mutual
     | var (s : String)
     /-- Text that needs math-mode escaping. -/
     | escaped (s : String)
-    /-- Raw math LaTeX, verbatim. -/
+    /-- Raw math LaTeX, verbatim. Prefer structured
+        constructors (`.cmd`, `.binop`, `.delimited`, ...)
+        wherever possible; only use `.raw` in exceptional
+        cases where no structured representation exists. -/
     | raw (s : String)
     /-- Concatenation. -/
     | seq (ms : List LatexMath)
@@ -263,6 +270,7 @@ def toLatex : MathSym → LatexMath
   | .setContains => .raw " \\in "
   | .space => .raw "~"
   | .lt => .raw " < "
+  | .gt => .raw " > "
   | .le => .raw " \\leqslant "
   | .neq => .raw " \\neq "
   | .add => .raw " + "

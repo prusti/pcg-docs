@@ -17,6 +17,11 @@ structure OrderDef where
   facts : List OrderFact
   /-- Full reflexive-transitive closure as `(a, b)` where `a ≤ b`. -/
   closure : List (String × String)
+  /-- If the order was declared as an inequality chain
+      `a > b > ... > z`, this holds the variant names in
+      descending order. Used to render the order as a chain
+      rather than a Hasse diagram. -/
+  chain : Option (List String) := none
   deriving Repr
 
 -- ══════════════════════════════════════════════
@@ -39,6 +44,13 @@ private def lookupSymbolMath
   | some v => v.displayLatexMath
   | none => .escaped name
 
+/-- Look up the `MathDoc` symbol for a variant. -/
+private def lookupSymbolMathDoc
+    (e : EnumDef) (name : String) : MathDoc :=
+  match e.variants.find? (·.name.name == name) with
+  | some v => v.displayMathDoc
+  | none => .doc (.plain name)
+
 /-- Compute the level (longest path to bottom) of
     each element. -/
 private partial def computeLevels
@@ -57,12 +69,32 @@ private partial def computeLevels
           max acc (level c (x :: visited))) 0
   elements.map fun e => (e, level e [])
 
-/-- Generate a Hasse diagram as a `Doc`.
+/-- An inequality chain `a > b > ... > z` as a structured
+    `MathDoc`: each variant's display symbol joined by
+    greater-than signs. -/
+private def chainMathDoc
+    (e : EnumDef) (chain : List String) : MathDoc :=
+  let parts := chain.map (lookupSymbolMathDoc e)
+  .seq (parts.intersperse (.sym .gt))
 
-    Uses tikz for LaTeX, ASCII art for
-    Typst/HTML. -/
+/-- Render the order as displayed LaTeX math
+    `\[ a > b > ... > z \]` using the structured
+    `MathDoc` representation. -/
+private def chainLatex
+    (e : EnumDef) (chain : List String) : Latex :=
+  .displayMath (chainMathDoc e chain).toLatexMath
+
+/-- Render the order as a Hasse diagram / inequality chain.
+
+    For chain-declared orders, emits displayed math
+    `\[ a > b > ... > z \]`. Otherwise emits a tikz
+    picture (wrapped in `Latex.raw` as there is no
+    structured representation for tikz). -/
 def hasseDiagram (o : OrderDef) (e : EnumDef)
-    : Doc :=
+    : Latex :=
+  match o.chain with
+  | some ch => chainLatex e ch
+  | none =>
   let levels := computeLevels o.elements o.facts
   let maxLvl := levels.foldl
     (fun acc (_, l) => max acc l) 0
@@ -92,17 +124,7 @@ def hasseDiagram (o : OrderDef) (e : EnumDef)
     s!"\\end{lb}tikzpicture{rb}"
   ]
   let tikz := String.intercalate "\n" tikzLines
-  let ascii := grouped.reverse.map fun (_, names) =>
-    let syms := names.map (lookupSymbol e)
-    String.intercalate "   " syms
-  let asciiStr := String.intercalate "\n" ascii
-  let edges := o.facts.map fun f =>
-    s!"{lookupSymbol e f.greater} > \
-       {lookupSymbol e f.lesser}"
-  let edgesStr := String.intercalate ", " edges
-  let typstStr :=
-    s!"{asciiStr}\n({edgesStr})"
-  .raw tikz typstStr typstStr
+  .raw tikz
 
 end OrderDef
 

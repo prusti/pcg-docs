@@ -3,5 +3,4 @@ import Core.Dsl.DefOrder
 import Core.Order
 
 defOrder InitialisationState where
-  | deep > shallow
-  | shallow > uninit
+  deep > shallow > uninit

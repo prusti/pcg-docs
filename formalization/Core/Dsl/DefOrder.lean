@@ -9,9 +9,9 @@ declare_syntax_cat orderFact
 /-- A covering relation: `| greater > lesser`. -/
 syntax "| " ident " > " ident : orderFact
 
-/-- Define a partial order on a finite enum by listing covering
-    relations. Computes the reflexive-transitive closure and
-    generates:
+/-- Define a partial order on a finite enum by listing
+    covering relations or as an inequality chain.
+    Computes the reflexive-transitive closure and generates:
     - a `le` function (`<Name>.le : <Name> → <Name> → Bool`)
     - `LE` and `Decidable` instances
     - a `PartialOrder` instance with `decide`-based proofs
@@ -22,7 +22,9 @@ syntax "| " ident " > " ident : orderFact
       - a `Lattice` instance and a `BoundedLattice` instance
     - an `orderDef : OrderDef` for export
 
-    Example:
+    Two forms are accepted:
+
+    Covering-relation form:
     ```
     defOrder Capability where
       | exclusive > read
@@ -30,8 +32,17 @@ syntax "| " ident " > " ident : orderFact
       | write > none
       | read > none
     ```
+
+    Inequality-chain form (renders as `a > b > ... > z` in
+    the presentation rather than as a Hasse diagram):
+    ```
+    defOrder InitialisationState where
+      deep > shallow > uninit
+    ```
 -/
-syntax "defOrder " ident " where" orderFact* : command
+syntax "defOrder " ident " where " orderFact* : command
+syntax "defOrder " ident " where " ident " > "
+    ident (" > " ident)* : command
 
 /-- Compute the reflexive-transitive closure of a relation on a
     finite set of elements. -/
@@ -55,158 +66,193 @@ private def closureOf
   loop initial elements.length
 
 open Lean Elab Command Term in
-elab_rules : command
-  | `(defOrder $name:ident where $fs:orderFact*) => do
-    -- Parse facts
-    let factData ← fs.mapM fun f => match f with
-      | `(orderFact| | $g:ident > $l:ident) =>
-        pure (toString g.getId, toString l.getId)
-      | _ => throwError "invalid order fact"
-    let factList := factData.toList
+/-- Core elaboration: generate `le`, instances, and the
+    exported `orderDef` for a `defOrder` declaration. Shared
+    by both the covering-relation and inequality-chain
+    surface syntaxes. -/
+private def elabDefOrderCore
+    (name : TSyntax `ident)
+    (factList : List (String × String))
+    (chain? : Option (List String))
+    : CommandElabM Unit := do
+  -- Get the enum constructors from the environment
+  let env ← getEnv
+  let nameId := name.getId
+  let ctorNames := match env.find? nameId with
+    | some (.inductInfo val) => val.ctors
+    | _ => []
+  if ctorNames.isEmpty then
+    throwError s!"defOrder: {nameId} is not an inductive type"
 
-    -- Get the enum constructors from the environment
-    let env ← getEnv
-    let nameId := name.getId
-    let ctorNames := match env.find? nameId with
-      | some (.inductInfo val) => val.ctors
-      | _ => []
-    if ctorNames.isEmpty then
-      throwError s!"defOrder: {nameId} is not an inductive type"
+  let elements := ctorNames.map fun n => n.getString!
 
-    let elements := ctorNames.map fun n => n.getString!
+  -- Validate that all fact names refer to valid constructors
+  for (g, l) in factList do
+    unless elements.contains g do
+      throwError s!"defOrder: unknown constructor '{g}'"
+    unless elements.contains l do
+      throwError s!"defOrder: unknown constructor '{l}'"
 
-    -- Validate that all fact names refer to valid constructors
-    for (g, l) in factList do
-      unless elements.contains g do
-        throwError s!"defOrder: unknown constructor '{g}'"
-      unless elements.contains l do
-        throwError s!"defOrder: unknown constructor '{l}'"
+  -- Compute closure (≤ direction: swap facts from > to ≤)
+  let leFacts := factList.map fun (g, l) => (l, g)
+  let closure := closureOf elements leFacts
 
-    -- Compute closure (≤ direction: swap facts from > to ≤)
-    let leFacts := factList.map fun (g, l) => (l, g)
-    let closure := closureOf elements leFacts
-
-    -- Build match arms for the le function.
-    -- Each arm: `| .ctor1, .ctor2 => true`
-    let si := SourceInfo.none
-    let mkDotIdent (s : String) : Syntax :=
-      Syntax.node si ``Lean.Parser.Term.dotIdent
-        #[Syntax.atom si ".", mkIdent (Name.mkSimple s)]
-    let mkMatchArm (a b : String) (val : String)
-        : Syntax :=
-      Syntax.node si ``Lean.Parser.Term.matchAlt
-        #[ Syntax.atom si "|"
-         , Syntax.node si `null
-            #[ Syntax.node si `null
-                #[mkDotIdent a, Syntax.atom si ","
-                , mkDotIdent b]]
-         , Syntax.atom si "=>"
-         , mkIdent (Name.mkSimple val)]
-    let trueArms := closure.map fun (a, b) =>
-      mkMatchArm a b "true"
-    let wildArm := Syntax.node si ``Lean.Parser.Term.matchAlt
+  -- Build match arms for the le function.
+  -- Each arm: `| .ctor1, .ctor2 => true`
+  let si := SourceInfo.none
+  let mkDotIdent (s : String) : Syntax :=
+    Syntax.node si ``Lean.Parser.Term.dotIdent
+      #[Syntax.atom si ".", mkIdent (Name.mkSimple s)]
+  let mkMatchArm (a b : String) (val : String)
+      : Syntax :=
+    Syntax.node si ``Lean.Parser.Term.matchAlt
       #[ Syntax.atom si "|"
        , Syntax.node si `null
-          #[Syntax.node si `null
-              #[ Syntax.node si ``Lean.Parser.Term.hole
-                  #[Syntax.atom si "_"]
-               , Syntax.atom si ","
-               , Syntax.node si ``Lean.Parser.Term.hole
-                  #[Syntax.atom si "_"]]]
+          #[ Syntax.node si `null
+              #[mkDotIdent a, Syntax.atom si ","
+              , mkDotIdent b]]
        , Syntax.atom si "=>"
-       , mkIdent (Name.mkSimple "false")]
-    let allArms := trueArms ++ [wildArm]
-    let matchAlts : Syntax := Syntax.node si
-      ``Lean.Parser.Term.matchAlts
-      #[Syntax.node si `null allArms.toArray]
-    let funExpr : TSyntax `term := ⟨Syntax.node si
-      ``Lean.Parser.Term.fun
-      #[Syntax.atom si "fun", matchAlts]⟩
+       , mkIdent (Name.mkSimple val)]
+  let trueArms := closure.map fun (a, b) =>
+    mkMatchArm a b "true"
+  let wildArm := Syntax.node si ``Lean.Parser.Term.matchAlt
+    #[ Syntax.atom si "|"
+     , Syntax.node si `null
+        #[Syntax.node si `null
+            #[ Syntax.node si ``Lean.Parser.Term.hole
+                #[Syntax.atom si "_"]
+             , Syntax.atom si ","
+             , Syntax.node si ``Lean.Parser.Term.hole
+                #[Syntax.atom si "_"]]]
+     , Syntax.atom si "=>"
+     , mkIdent (Name.mkSimple "false")]
+  let allArms := trueArms ++ [wildArm]
+  let matchAlts : Syntax := Syntax.node si
+    ``Lean.Parser.Term.matchAlts
+    #[Syntax.node si `null allArms.toArray]
+  let funExpr : TSyntax `term := ⟨Syntax.node si
+    ``Lean.Parser.Term.fun
+    #[Syntax.atom si "fun", matchAlts]⟩
 
-    -- Generate all definitions with fully qualified names
-    -- (avoids hygiene issues with namespace-scoped identifiers)
-    let leId := mkIdent (nameId ++ `le)
-    let leCmd ← `(command|
-      /-- Decidable ordering generated by `defOrder`. -/
-      def $leId : $name → $name → Bool := $funExpr)
-    elabCommand leCmd
+  -- Generate all definitions with fully qualified names
+  -- (avoids hygiene issues with namespace-scoped identifiers)
+  let leId := mkIdent (nameId ++ `le)
+  let leCmd ← `(command|
+    /-- Decidable ordering generated by `defOrder`. -/
+    def $leId : $name → $name → Bool := $funExpr)
+  elabCommand leCmd
 
-    -- LE instance
+  -- LE instance
+  elabCommand (← `(command|
+    instance : LE $name where
+      le a b := $leId a b = true))
+
+  -- Decidable LE instance
+  elabCommand (← `(command|
+    instance (a b : $name) :
+        Decidable (a ≤ b) :=
+      inferInstanceAs (Decidable ($leId a b = true))))
+
+  -- PartialOrder instance (proofs by case analysis + decide)
+  elabCommand (← `(command|
+    instance : PartialOrder $name where
+      le_refl a := by cases a <;> decide
+      le_trans a b c := by
+        cases a <;> cases b <;> cases c <;> decide
+      le_antisymm a b := by
+        cases a <;> cases b <;> decide))
+
+  -- Detect the unique top (≥ all elements) and unique bot
+  -- (≤ all elements) from the closure, if they exist.
+  let topElems := elements.filter fun e =>
+    elements.all fun x => closure.contains (x, e)
+  let botElems := elements.filter fun e =>
+    elements.all fun x => closure.contains (e, x)
+
+  -- Compute the binary join of `a` and `b`: the unique
+  -- minimum common upper bound in the partial order, if any.
+  -- Returns `none` if no unique minimum exists (the poset
+  -- is not a join-semilattice at this pair).
+  let computeJoin (a b : String) : Option String :=
+    let uppers := elements.filter fun c =>
+      closure.contains (a, c) && closure.contains (b, c)
+    let mins := uppers.filter fun c =>
+      uppers.all fun c' => closure.contains (c, c')
+    match mins with
+    | [m] => some m
+    | _ => none
+
+  -- Compute the binary meet of `a` and `b`: the unique
+  -- maximum common lower bound in the partial order, if any.
+  let computeMeet (a b : String) : Option String :=
+    let lowers := elements.filter fun c =>
+      closure.contains (c, a) && closure.contains (c, b)
+    let maxs := lowers.filter fun c =>
+      lowers.all fun c' => closure.contains (c', c)
+    match maxs with
+    | [m] => some m
+    | _ => none
+
+  -- Tables of (a, b) ↦ join(a, b) and (a, b) ↦ meet(a, b)
+  -- for every pair. `none` entries signal that the poset
+  -- is not a lattice.
+  let pairs : List (String × String) :=
+    elements.flatMap fun a => elements.map fun b => (a, b)
+  let joinTable : List ((String × String) × Option String) :=
+    pairs.map fun (a, b) => ((a, b), computeJoin a b)
+  let meetTable : List ((String × String) × Option String) :=
+    pairs.map fun (a, b) => ((a, b), computeMeet a b)
+  let isLattice : Bool :=
+    joinTable.all (·.2.isSome) && meetTable.all (·.2.isSome)
+
+  if isLattice then do
+    let supId := mkIdent (nameId ++ `sup)
+    let infId := mkIdent (nameId ++ `inf)
+    -- Build a full match `fun a b => match a, b with | .x, .y => .z`
+    -- covering every pair, from a precomputed table.
+    let mkLatticeFun (table : List ((String × String) × Option String))
+        : TSyntax `term :=
+      let arms := table.filterMap fun ((a, b), r) =>
+        r.map fun c =>
+          Syntax.node si ``Lean.Parser.Term.matchAlt
+            #[ Syntax.atom si "|"
+             , Syntax.node si `null
+                #[ Syntax.node si `null
+                    #[mkDotIdent a, Syntax.atom si ","
+                    , mkDotIdent b]]
+             , Syntax.atom si "=>"
+             , mkDotIdent c]
+      let alts : Syntax := Syntax.node si
+        ``Lean.Parser.Term.matchAlts
+        #[Syntax.node si `null arms.toArray]
+      ⟨Syntax.node si ``Lean.Parser.Term.fun
+        #[Syntax.atom si "fun", alts]⟩
+    let supExpr := mkLatticeFun joinTable
+    let infExpr := mkLatticeFun meetTable
     elabCommand (← `(command|
-      instance : LE $name where
-        le a b := $leId a b = true))
-
-    -- Decidable LE instance
+      /-- Binary supremum (join), generated by `defOrder`
+          as the least upper bound in the partial order. -/
+      def $supId : $name → $name → $name := $supExpr))
     elabCommand (← `(command|
-      instance (a b : $name) :
-          Decidable (a ≤ b) :=
-        inferInstanceAs (Decidable ($leId a b = true))))
-
-    -- PartialOrder instance (proofs by case analysis + decide)
+      /-- Binary infimum (meet), generated by `defOrder`
+          as the greatest lower bound in the partial order. -/
+      def $infId : $name → $name → $name := $infExpr))
     elabCommand (← `(command|
-      instance : PartialOrder $name where
-        le_refl a := by cases a <;> decide
-        le_trans a b c := by
+      instance : Lattice $name where
+        sup := $supId
+        inf := $infId
+        le_sup_left a b := by cases a <;> cases b <;> decide
+        le_sup_right a b := by cases a <;> cases b <;> decide
+        sup_le a b c := by
           cases a <;> cases b <;> cases c <;> decide
-        le_antisymm a b := by
-          cases a <;> cases b <;> decide))
-
-    -- Detect the unique top (≥ all elements) and unique bot
-    -- (≤ all elements) from the closure, if they exist.
-    let topElems := elements.filter fun e =>
-      elements.all fun x => closure.contains (x, e)
-    let botElems := elements.filter fun e =>
-      elements.all fun x => closure.contains (e, x)
+        inf_le_left a b := by cases a <;> cases b <;> decide
+        inf_le_right a b := by cases a <;> cases b <;> decide
+        le_inf a b c := by
+          cases a <;> cases b <;> cases c <;> decide))
     match topElems, botElems with
     | [t], [b] => do
       let topId := mkIdent (nameId ++ Name.mkSimple t)
       let botId := mkIdent (nameId ++ Name.mkSimple b)
-      let supId := mkIdent (nameId ++ `sup)
-      let infId := mkIdent (nameId ++ `inf)
-      -- Binary supremum (join): falls back to top when
-      -- the two elements are incomparable.
-      elabCommand (← `(command|
-        /-- Binary supremum (join), generated by `defOrder`.
-
-            Falls back to the top element when the two
-            arguments are incomparable. -/
-        def $supId (a b : $name) : $name :=
-          if $leId a b then b
-          else if $leId b a then a
-          else $topId))
-      -- Binary infimum (meet): falls back to bot when
-      -- the two elements are incomparable.
-      elabCommand (← `(command|
-        /-- Binary infimum (meet), generated by `defOrder`.
-
-            Falls back to the bottom element when the two
-            arguments are incomparable. -/
-        def $infId (a b : $name) : $name :=
-          if $leId a b then a
-          else if $leId b a then b
-          else $botId))
-      elabCommand (← `(command|
-        instance : Lattice $name where
-          sup := $supId
-          inf := $infId
-          le_sup_left a b := by
-            cases a <;> cases b <;>
-              simp [LE.le, $leId:ident, $supId:ident]
-          le_sup_right a b := by
-            cases a <;> cases b <;>
-              simp [LE.le, $leId:ident, $supId:ident]
-          sup_le a b c := by
-            cases a <;> cases b <;> cases c <;>
-              simp [LE.le, $leId:ident, $supId:ident]
-          inf_le_left a b := by
-            cases a <;> cases b <;>
-              simp [LE.le, $leId:ident, $infId:ident]
-          inf_le_right a b := by
-            cases a <;> cases b <;>
-              simp [LE.le, $leId:ident, $infId:ident]
-          le_inf a b c := by
-            cases a <;> cases b <;> cases c <;>
-              simp [LE.le, $leId:ident, $infId:ident]))
       elabCommand (← `(command|
         instance : BoundedLattice $name where
           top := $topId
@@ -215,32 +261,58 @@ elab_rules : command
           bot_le a := by cases a <;> decide))
     | _, _ => pure ()
 
-    -- Generate orderDef for export
-    let factExprs ← factList.toArray.mapM fun (g, l) => do
-      let gs : TSyntax `term := quote g
-      let ls : TSyntax `term := quote l
-      `({ greater := $gs, lesser := $ls : OrderFact })
-    let closureExprs ← closure.toArray.mapM fun (a, b) => do
-      let as_ : TSyntax `term := quote a
-      let bs : TSyntax `term := quote b
-      `(($as_, $bs))
-    let elemExprs ← elements.toArray.mapM fun e => do
-      let es : TSyntax `term := quote e
-      pure es
-    let nameStr : TSyntax `term :=
-      quote (toString nameId)
-    let factList' ← `([$[$factExprs],*])
-    let closureList ← `([$[$closureExprs],*])
-    let elemList ← `([$[$elemExprs],*])
-    let orderDefId := mkIdent (nameId ++ `orderDef)
-    elabCommand (← `(command|
-      /-- Order metadata for export and presentation. -/
-      def $orderDefId : OrderDef :=
-        { enumName := $nameStr
-          elements := $elemList
-          facts := $factList'
-          closure := $closureList }))
-    let mod ← getMainModule
-    let modName : TSyntax `term := quote mod
-    elabCommand (← `(command|
-      initialize registerOrderDef $orderDefId $modName))
+  -- Generate orderDef for export
+  let factExprs ← factList.toArray.mapM fun (g, l) => do
+    let gs : TSyntax `term := quote g
+    let ls : TSyntax `term := quote l
+    `({ greater := $gs, lesser := $ls : OrderFact })
+  let closureExprs ← closure.toArray.mapM fun (a, b) => do
+    let as_ : TSyntax `term := quote a
+    let bs : TSyntax `term := quote b
+    `(($as_, $bs))
+  let elemExprs ← elements.toArray.mapM fun e => do
+    let es : TSyntax `term := quote e
+    pure es
+  let nameStr : TSyntax `term :=
+    quote (toString nameId)
+  let factList' ← `([$[$factExprs],*])
+  let closureList ← `([$[$closureExprs],*])
+  let elemList ← `([$[$elemExprs],*])
+  let chainExpr : TSyntax `term ← match chain? with
+    | some ch =>
+      let chExprs := ch.toArray.map fun s =>
+        (quote s : TSyntax `term)
+      `(some ([$[$chExprs],*] : List String))
+    | none => `((none : Option (List String)))
+  let orderDefId := mkIdent (nameId ++ `orderDef)
+  elabCommand (← `(command|
+    /-- Order metadata for export and presentation. -/
+    def $orderDefId : OrderDef :=
+      { enumName := $nameStr
+        elements := $elemList
+        facts := $factList'
+        closure := $closureList
+        chain := $chainExpr }))
+  let mod ← getMainModule
+  let modName : TSyntax `term := quote mod
+  elabCommand (← `(command|
+    initialize registerOrderDef $orderDefId $modName))
+
+open Lean Elab Command Term in
+elab_rules : command
+  | `(defOrder $name:ident where $fs:orderFact*) => do
+    let factData ← fs.mapM fun f => match f with
+      | `(orderFact| | $g:ident > $l:ident) =>
+        pure (toString g.getId, toString l.getId)
+      | _ => throwError "invalid order fact"
+    elabDefOrderCore name factData.toList none
+  | `(defOrder $name:ident where
+        $h:ident > $h2:ident $[> $rest:ident]*) => do
+    let chain :=
+      toString h.getId ::
+      toString h2.getId ::
+      (rest.toList.map fun i => toString i.getId)
+    -- Consecutive pairs `(a, b)` with `a > b` form the
+    -- covering relations of the chain.
+    let facts := chain.zip chain.tail
+    elabDefOrderCore name facts (some chain)

@@ -122,7 +122,7 @@ private def moduleBodyLatex
           Latex.seq [
             Latex.subsubsection (.raw "Ordering"),
             .newline,
-            (o.orderDef.hasseDiagram e.enumDef).toLatex,
+            o.orderDef.hasseDiagram e.enumDef,
             .newline, .newline ]
     def_ :: orderParts
   let fnParts := reg.fns.map fun f =>

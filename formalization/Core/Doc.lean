@@ -24,6 +24,8 @@ inductive MathSym where
   | space
   /-- Less-than: `<` (with surrounding spaces). -/
   | lt
+  /-- Greater-than: `>` (with surrounding spaces). -/
+  | gt
   /-- Less-than-or-equal: `≤` (with surrounding spaces). -/
   | le
   /-- Not-equal: `≠` (with surrounding spaces). -/
@@ -86,7 +88,10 @@ mutual
   /-- A mathematical document fragment, for content that
       appears in math mode (e.g. inside `\[ ... \]`). -/
   inductive MathDoc where
-    /-- Raw math content, verbatim. -/
+    /-- Raw math content, verbatim. Prefer structured
+        constructors (`.sym`, `.seq`, `.bb`, ...) wherever
+        possible; only use `.raw` in exceptional cases where
+        no structured representation exists. -/
     | raw (s : String)
     /-- A `Doc` rendered in math context (`.plain` becomes
         `\text{}`, `.code` becomes `\mathtt{}`, etc). -/
@@ -125,7 +130,10 @@ mutual
     /-- A bulleted list. -/
     | itemize (items : List Doc)
     /-- Backend-specific raw content. Each backend picks its own
-        string; backends without a match render the fallback. -/
+        string; backends without a match render the fallback.
+        Prefer structured constructors wherever possible; only
+        use `.raw` in exceptional cases (e.g. embedding tikz
+        pictures) where no structured representation exists. -/
     | raw (latex : String) (typst : String) (html : String)
     /-- Hyperlink: `text` is the visible content, `url` is the
         destination. Rendered backend-appropriately (e.g.
@@ -160,6 +168,7 @@ def toPlainText : MathSym → String
   | .setContains => "∈"
   | .space => " "
   | .lt => " < "
+  | .gt => " > "
   | .le => " ≤ "
   | .neq => " ≠ "
   | .add => " + "
@@ -385,6 +394,7 @@ mutual
     | .sym .setContains => "&isin;"
     | .sym .space => "&nbsp;"
     | .sym .lt => " &lt; "
+    | .sym .gt => " &gt; "
     | .sym .le => " &le; "
     | .sym .neq => " &ne; "
     | .sym .add => " + "
