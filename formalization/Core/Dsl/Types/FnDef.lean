@@ -2,6 +2,7 @@ import Core.Export.Latex
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.DslExpr
+import Core.Dsl.Types.RenderCtx
 import Core.Dsl.DslType
 
 /-- A match arm: patterns → expression. -/
@@ -51,18 +52,14 @@ def shortSig (f : FnDef) : Doc :=
 
 private partial def exprLinesTop
     (fnName : String)
-    (ctorDisplay : String → Option MathDoc)
+    (ctx : RenderCtx)
     (isProperty : Bool)
-    (knownFns : String → Bool)
-    (resolveCtor : String → Option String)
-    (knownTypes : String → Bool)
     (e : DslExpr) (depth : Nat) : List Latex :=
   let noDisp : String → Option MathDoc := fun _ => none
   let goExpr (e : DslExpr) : LatexMath :=
-    (DslExpr.toDoc fnName noDisp ctorDisplay isProperty
-      knownFns resolveCtor knownTypes e).toLatexMath
+    (DslExpr.toDoc fnName ctx noDisp isProperty e).toLatexMath
   let goPat (p : BodyPat) : LatexMath :=
-    (BodyPat.toDoc noDisp resolveCtor p).toLatexMath
+    (BodyPat.toDoc noDisp ctx.resolveCtor p).toLatexMath
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   match e with
@@ -75,8 +72,7 @@ private partial def exprLinesTop
              , .escaped name.name
              , .raw " := "
              , goExpr val ])) ]
-    letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns resolveCtor knownTypes rest depth
+    letLine :: exprLinesTop fnName ctx isProperty rest depth
   | .letBindIn name val rest =>
     let letLine : Latex :=
       .seq [ .raw "    "
@@ -86,8 +82,7 @@ private partial def exprLinesTop
              , .escaped name
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
-    letLine :: exprLinesTop fnName ctorDisplay isProperty
-      knownFns resolveCtor knownTypes rest depth
+    letLine :: exprLinesTop fnName ctx isProperty rest depth
   | .ifThenElse cond t e =>
     let ifLine : Latex :=
       .seq [ .raw "    "
@@ -96,16 +91,14 @@ private partial def exprLinesTop
              , .text (.raw "if~")
              , goExpr cond
              , .raw "~", .text (.raw "then") ])) ]
-    let thenLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns resolveCtor knownTypes t
+    let thenLines := exprLinesTop fnName ctx isProperty t
       (depth + 1)
     let elseLine : Latex :=
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
                mkIndent depth
              , .text (.raw "else") ])) ]
-    let elseLines := exprLinesTop fnName ctorDisplay
-      isProperty knownFns resolveCtor knownTypes e
+    let elseLines := exprLinesTop fnName ctx isProperty e
       (depth + 1)
     ifLine :: thenLines ++ elseLine :: elseLines
   | .match_ scrut matchArms =>
@@ -145,8 +138,7 @@ private partial def exprLinesTop
                    , .text (.raw "case~")
                    , patMath
                    , .raw ":" ])) ]
-          caseLine :: exprLinesTop fnName ctorDisplay
-            isProperty knownFns resolveCtor knownTypes rhs
+          caseLine :: exprLinesTop fnName ctx isProperty rhs
             (depth + 2)
     headerLine :: armBlocks
   | e =>
@@ -157,20 +149,12 @@ private partial def exprLinesTop
 /-- Render the function as a LaTeX algorithm. -/
 def formalDefLatex
     (f : FnDef)
-    (ctorDisplay : String → Option MathDoc :=
-      fun _ => none)
-    (variants : List VariantDef := [])
+    (ctx : RenderCtx := {})
     (isProperty : Bool := false)
-    (knownFns : String → Bool := fun _ => false)
-    (resolveCtor : String → Option String := fun _ => none)
-    (knownTypes : String → Bool := fun _ => false)
-    (precondShortUsage :
-        String → List Doc → Option Doc :=
-      fun _ _ => none)
     : Latex :=
   let paramParts : List Latex := f.params.map fun p =>
     Latex.seq [.text p.name, .raw " : ",
-               p.ty.toLatex knownTypes]
+               p.ty.toLatex ctx.knownTypes]
   let paramSig : Latex :=
     .seq (paramParts.intersperse (.raw ", "))
   let caption : Latex :=
@@ -178,7 +162,7 @@ def formalDefLatex
       .seq [.raw "Property ", .text f.name,
             .raw "(", paramSig, .raw ")"]
     else
-      let retTy := f.returnType.toLatex knownTypes
+      let retTy := f.returnType.toLatex ctx.knownTypes
       .seq [.text f.name, .raw "(",
             paramSig, .raw ") ",
             .inlineMath (.cmd "to"), .raw " ",
@@ -192,10 +176,10 @@ def formalDefLatex
       (ty : DSLType) : String → Option String :=
     match ty with
     | .named n => fun name =>
-      if name.contains '.' then resolveCtor name
-      else (resolveCtor s!"{n.name}.{name}").orElse
-        fun _ => resolveCtor name
-    | _ => resolveCtor
+      if name.contains '.' then ctx.resolveCtor name
+      else (ctx.resolveCtor s!"{n.name}.{name}").orElse
+        fun _ => ctx.resolveCtor name
+    | _ => ctx.resolveCtor
   let bodyLines : List Latex := match f.body with
     | .matchArms arms => arms.flatMap fun arm =>
       let ctorName := arm.pat.head?.bind fun p =>
@@ -210,7 +194,7 @@ def formalDefLatex
             -- works.
             let shortName :=
               (cn.splitOn ".").getLast?.getD cn
-            let variant := variants.find?
+            let variant := ctx.variants.find?
               (·.name.name == shortName)
             match variant with
             | none => none
@@ -227,11 +211,11 @@ def formalDefLatex
       let patMath := LatexMath.intercalate (.raw ",~")
         (arm.pat.zip (f.params.map (·.ty)) |>.map
           fun (p, ty) =>
-            (BodyPat.toDoc ctorDisplay
+            (BodyPat.toDoc ctx.ctorDisplay
               (scopedResolveCtor ty) p).toLatexMath)
       let goExpr (e : DslExpr) : LatexMath :=
-        (DslExpr.toDoc f.name varDisplay ctorDisplay
-          isProperty knownFns resolveCtor knownTypes e).toLatexMath
+        (DslExpr.toDoc f.name ctx varDisplay
+          isProperty e).toLatexMath
       let rec rhsLines : DslExpr → List Latex
         | .letBindIn name val rest =>
           .seq [ .raw "    "
@@ -284,9 +268,8 @@ def formalDefLatex
         | .match_ .. => false
         | _ => true
       if isSimple then
-        let rhsMath := (arm.rhs.toDoc f.name
-          varDisplay ctorDisplay isProperty knownFns
-          resolveCtor knownTypes).toLatexMath
+        let rhsMath := (arm.rhs.toDoc f.name ctx
+          varDisplay isProperty).toLatexMath
         [.seq [ .raw "    "
              , Latex.state (.seq [
                  .textbf (.raw "case"), .raw " "
@@ -301,13 +284,12 @@ def formalDefLatex
                  , .inlineMath patMath
                  , .raw ":" ]) ]
         caseLine :: rhsLines arm.rhs
-    | .expr body => exprLinesTop f.name ctorDisplay
-        isProperty knownFns resolveCtor knownTypes body 0
+    | .expr body => exprLinesTop f.name ctx isProperty body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argDocs : List Doc :=
         pc.args.map (fun a => Doc.plain a)
-      match precondShortUsage pc.name argDocs with
+      match ctx.precondShortUsage pc.name argDocs with
       | some doc =>
         .seq [ .raw "    "
              , Latex.require_ doc.toLatex ]
@@ -319,7 +301,7 @@ def formalDefLatex
         -- (registered under the shared `fn:` label via
         -- `knownFns`).
         let nameMath : LatexMath :=
-          if knownFns pc.name then
+          if ctx.knownFns pc.name then
             .raw s!"\\text\{\\hyperref[fn:{pc.name}]\
                     \{\\dashuline\{{pc.name}}}}"
           else .escaped pc.name
@@ -352,12 +334,10 @@ def algorithmDoc (f : FnDef) : Doc :=
       let patStr := ", ".intercalate
         (arm.pat.map fun p =>
           (p.toDoc noDisplay).toLatexMath.render)
-      let rhsStr := (arm.rhs.toDoc f.name
-        noDisplay noDisplay).toLatexMath.render
+      let rhsStr := (arm.rhs.toDoc f.name (varDisplay := noDisplay)).toLatexMath.render
       Doc.plain s!"case {patStr}: return {rhsStr}"
     | .expr body =>
-      let rhsStr := (body.toDoc f.name
-        noDisplay noDisplay).toLatexMath.render
+      let rhsStr := (body.toDoc f.name (varDisplay := noDisplay)).toLatexMath.render
       [Doc.plain s!"return {rhsStr}"]
   .seq [header, .line, .itemize cases]
 

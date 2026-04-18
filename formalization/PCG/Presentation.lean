@@ -44,33 +44,79 @@ private def subsubTitle (n : Lean.Name) : String :=
     | none => ""
   s!"{moduleName n} {parent}"
 
+namespace Registry
+
+/-- Keep only the definitions registered from `mod`.
+
+    Orders are kept when their enum belongs to `mod`, since
+    `RegisteredOrder` is attached to an enum name rather than
+    a module. -/
+def restrictToModule
+    (reg : Registry) (mod : Lean.Name) : Registry :=
+  let modEnums := reg.enums.filter (·.leanModule == mod)
+  let modEnumNames := modEnums.map (·.enumDef.name.name)
+  { descrs := reg.descrs.filter (·.leanModule == mod)
+    enums := modEnums
+    structs := reg.structs.filter (·.leanModule == mod)
+    orders := reg.orders.filter
+      fun o => modEnumNames.contains o.enumName
+    fns := reg.fns.filter (·.leanModule == mod)
+    properties := reg.properties.filter
+      (·.leanModule == mod) }
+
+/-- Keep only the definitions whose module's root crate
+    prefix equals `crate`. -/
+def restrictToCrate
+    (reg : Registry) (crate : String) : Registry :=
+  let p (m : Lean.Name) : Bool :=
+    m.getRoot.toString == crate
+  { descrs := reg.descrs.filter (fun d => p d.leanModule)
+    enums := reg.enums.filter (fun e => p e.leanModule)
+    structs := reg.structs.filter (fun s => p s.leanModule)
+    orders := reg.orders
+    fns := reg.fns.filter (fun f => p f.leanModule)
+    properties := reg.properties.filter
+      (fun q => p q.leanModule) }
+
+/-- Union of every module name that appears in the registry
+    (de-duplicated, preserving registration order). -/
+def moduleNames (reg : Registry) : List Lean.Name :=
+  (reg.descrs.map (·.leanModule)
+    ++ reg.structs.map (·.leanModule)
+    ++ reg.enums.map (·.leanModule)
+    ++ reg.fns.map (·.leanModule)
+    ++ reg.properties.map (·.leanModule)
+  ).foldl (init := [])
+    fun acc m =>
+      if acc.contains m then acc else acc ++ [m]
+
+/-- Union of every crate prefix appearing in the registry. -/
+def cratePrefixes (reg : Registry) : List String :=
+  (reg.descrs.map (·.leanModule.getRoot.toString)
+    ++ reg.enums.map (·.leanModule.getRoot.toString)
+    ++ reg.structs.map (·.leanModule.getRoot.toString)
+    ++ reg.fns.map (·.leanModule.getRoot.toString)
+    ++ reg.properties.map (·.leanModule.getRoot.toString)
+  ).foldl (init := [])
+    fun acc p =>
+      if acc.contains p then acc else acc ++ [p]
+
+end Registry
+
 /-- Build the LaTeX body (no header) for a single module:
     its descriptions, struct, enum, function, and property
     definitions in order, each followed by two newlines. -/
 private def moduleBodyLatex
-    (descrs : List RegisteredDescr)
-    (enums : List RegisteredEnum)
-    (structs : List RegisteredStruct)
-    (orders : List RegisteredOrder)
-    (fns : List RegisteredFn)
-    (properties : List RegisteredProperty)
-    (ctorDisplay : String → Option MathDoc)
-    (allVariants : List VariantDef)
-    (knownFns : String → Bool)
-    (resolveCtor : String → Option String)
-    (knownTypes : String → Bool)
-    (precondShortUsage :
-      String → List Doc → Option Doc)
-    : Latex :=
-  let descrParts := descrs.map fun d =>
+    (reg : Registry) (ctx : RenderCtx) : Latex :=
+  let descrParts := reg.descrs.map fun d =>
     Latex.seq [d.doc.toLatex, .newline, .newline]
-  let structParts := structs.map fun s =>
-    Latex.seq [s.structDef.formalDefLatex knownTypes,
+  let structParts := reg.structs.map fun s =>
+    Latex.seq [s.structDef.formalDefLatex ctx.knownTypes,
                .newline, .newline]
-  let enumParts := enums.flatMap fun e =>
+  let enumParts := reg.enums.flatMap fun e =>
     let def_ := Latex.seq
       [e.enumDef.formalDefLatex, .newline, .newline]
-    let orderParts := orders.filter
+    let orderParts := reg.orders.filter
       (·.enumName == e.enumDef.name.name) |>.map
         fun o =>
           Latex.seq [
@@ -79,19 +125,11 @@ private def moduleBodyLatex
             (o.orderDef.hasseDiagram e.enumDef).toLatex,
             .newline, .newline ]
     def_ :: orderParts
-  let fnParts := fns.map fun f =>
-    Latex.seq [f.fnDef.formalDefLatex ctorDisplay
-                 allVariants (knownFns := knownFns)
-                 (resolveCtor := resolveCtor)
-                 (knownTypes := knownTypes)
-                 (precondShortUsage := precondShortUsage),
+  let fnParts := reg.fns.map fun f =>
+    Latex.seq [f.fnDef.formalDefLatex ctx,
                .newline, .newline]
-  let propParts := properties.map fun p =>
-    Latex.seq [p.propertyDef.formalDefLatex ctorDisplay
-                 allVariants (knownFns := knownFns)
-                 (resolveCtor := resolveCtor)
-                 (knownTypes := knownTypes)
-                 (precondShortUsage := precondShortUsage),
+  let propParts := reg.properties.map fun p =>
+    Latex.seq [p.propertyDef.formalDefLatex ctx,
                .newline, .newline]
   .seq (descrParts ++ structParts ++ enumParts
     ++ fnParts ++ propParts)
@@ -99,69 +137,17 @@ private def moduleBodyLatex
 /-- Build the LaTeX sections for a single crate prefix,
     grouped by module. -/
 private def crateLatex
-    (prefix_ : String)
-    (descrs : List RegisteredDescr)
-    (enums : List RegisteredEnum)
-    (structs : List RegisteredStruct)
-    (orders : List RegisteredOrder)
-    (fns : List RegisteredFn)
-    (properties : List RegisteredProperty)
-    (ctorDisplay : String → Option MathDoc)
-    (allVariants : List VariantDef)
-    (knownFns : String → Bool)
-    (resolveCtor : String → Option String)
-    (knownTypes : String → Bool)
-    (precondShortUsage :
-      String → List Doc → Option Doc)
+    (crate : String) (reg : Registry) (ctx : RenderCtx)
     : Latex :=
-  let crateDescrs := descrs.filter
-    (·.leanModule.getRoot.toString == prefix_)
-  let crateEnums := enums.filter
-    (·.leanModule.getRoot.toString == prefix_)
-  let crateStructs := structs.filter
-    (·.leanModule.getRoot.toString == prefix_)
-  let crateOrders := orders.filter
-    (·.leanModule.getRoot.toString == prefix_)
-  let crateFns := fns.filter
-    (·.leanModule.getRoot.toString == prefix_)
-  let crateProps := properties.filter
-    (·.leanModule.getRoot.toString == prefix_)
-  -- Collect all module `Lean.Name`s in registration order,
-  -- de-duplicated. We keep the full `Lean.Name` so the
-  -- hierarchy (e.g. `OpSem.Expressions.Place` nested under
-  -- `OpSem.Expressions`) is recoverable.
-  let allMods : List Lean.Name := (
-    crateDescrs.map (·.leanModule) ++
-    crateStructs.map (·.leanModule) ++
-    crateEnums.map (·.leanModule) ++
-    crateFns.map (·.leanModule) ++
-    crateProps.map (·.leanModule)
-  ).foldl (init := [])
-    fun acc m =>
-      if acc.contains m then acc else acc ++ [m]
+  let crateReg := reg.restrictToCrate crate
+  let allMods := crateReg.moduleNames
   -- Subsections are modules directly under the crate
   -- (depth 2), e.g. `OpSem.Expressions`. Anything deeper
   -- becomes a subsubsection within its depth-2 ancestor.
   let topMods := allMods.filter fun m => modDepth m == 2
   let buildBody := fun (mod : Lean.Name) =>
-    let modDescrs := crateDescrs.filter
-      (·.leanModule == mod)
-    let modEnums := crateEnums.filter
-      (·.leanModule == mod)
-    let modStructs := crateStructs.filter
-      (·.leanModule == mod)
-    let modEnumNames := modEnums.map
-      (·.enumDef.name.name)
-    let modOrders := crateOrders.filter
-      fun o => modEnumNames.contains o.enumName
-    let modFns := crateFns.filter
-      (·.leanModule == mod)
-    let modProps := crateProps.filter
-      (·.leanModule == mod)
-    moduleBodyLatex modDescrs modEnums modStructs
-      modOrders modFns modProps ctorDisplay allVariants
-      knownFns resolveCtor knownTypes precondShortUsage
-  let sectionHeader := Latex.section (.raw prefix_)
+    moduleBodyLatex (crateReg.restrictToModule mod) ctx
+  let sectionHeader := Latex.section (.raw crate)
   let modules := topMods.map fun topMod =>
     let header :=
       Latex.subsection (.raw (moduleName topMod))
@@ -177,75 +163,55 @@ private def crateLatex
     .seq ([header, .newline, body] ++ nestedParts)
   .seq ([sectionHeader, .newline] ++ modules)
 
-/-- Build the full presentation LaTeX body. -/
-def buildPresentationLatex
-    (descrs : List RegisteredDescr)
-    (enums : List RegisteredEnum)
-    (structs : List RegisteredStruct)
-    (orders : List RegisteredOrder)
-    (fns : List RegisteredFn)
-    (properties : List RegisteredProperty)
-    : Latex :=
-  let sectionOrder := ["MIR", "OpSem", "PCG"]
-  let allPrefixes := (
-    descrs.map (·.leanModule.getRoot.toString) ++
-    enums.map (·.leanModule.getRoot.toString) ++
-    structs.map (·.leanModule.getRoot.toString) ++
-    fns.map (·.leanModule.getRoot.toString) ++
-    properties.map (·.leanModule.getRoot.toString)
-  ).foldl (init := [])
-    fun acc p =>
-      if acc.contains p then acc else acc ++ [p]
-  let prefixes :=
-    sectionOrder.filter allPrefixes.contains ++
-      allPrefixes.filter (! sectionOrder.contains ·)
-  let ctorDisplay := mkCtorDisplay enums
-  let allVariants := enums.flatMap
-    (·.enumDef.variants)
+/-- Build the `RenderCtx` shared by every section of the
+    presentation from a full `Registry`. -/
+private def mkRenderCtx (reg : Registry) : RenderCtx :=
   let fnNameSet : List String :=
-    fns.map (·.fnDef.name) ++
-      properties.map (·.propertyDef.fnDef.name)
-  let knownFns : String → Bool :=
-    fun n => fnNameSet.contains n
-  -- Build a table of `(shortName, qualifiedName)` pairs
-  -- where the qualified name is
-  -- `EnumName.variantName`. This is used to resolve
-  -- constructor references to their fully-qualified
-  -- anchors, so that variants with the same short name
-  -- in different enums (e.g. `Value.tuple` and
+    reg.fns.map (·.fnDef.name)
+      ++ reg.properties.map (·.propertyDef.fnDef.name)
+  -- Build a table of `(shortName, qualifiedName)` pairs where
+  -- the qualified name is `EnumName.variantName`. This is
+  -- used to resolve constructor references to their
+  -- fully-qualified anchors, so that variants with the same
+  -- short name in different enums (e.g. `Value.tuple` and
   -- `ValueExpr.tuple`) can be linked independently.
   let ctorPairs : List (String × String) :=
-    enums.flatMap fun e =>
+    reg.enums.flatMap fun e =>
       e.enumDef.variants.map fun v =>
         (v.name.name,
          s!"{e.enumDef.name.name}.{v.name.name}")
-  -- Resolve a constructor reference to its
-  -- fully-qualified name. Accepts either short (`int`)
-  -- or already-qualified (`Value.int`) forms. Returns
-  -- `none` if the name does not resolve to any known
-  -- variant.
-  let resolveCtor : String → Option String :=
-    fun n =>
+  let typeNameSet : List String :=
+    reg.enums.map (·.enumDef.name.name)
+      ++ reg.structs.map (·.structDef.name)
+  { ctorDisplay := mkCtorDisplay reg.enums
+    variants := reg.enums.flatMap (·.enumDef.variants)
+    knownFns := fun n => fnNameSet.contains n
+    -- Resolve a constructor reference to its fully-qualified
+    -- name. Accepts either short (`int`) or already-qualified
+    -- (`Value.int`) forms. Returns `none` if the name does
+    -- not resolve to any known variant.
+    resolveCtor := fun n =>
       if n.contains '.' then
         if ctorPairs.any (·.2 == n) then some n
         else none
       else
         (ctorPairs.find? (·.1 == n)).map (·.2)
-  let typeNameSet : List String :=
-    enums.map (·.enumDef.name.name) ++
-      structs.map (·.structDef.name)
-  let knownTypes : String → Bool :=
-    fun n => typeNameSet.contains n
-  let precondShortUsage :
-      String → List Doc → Option Doc :=
-    fun nm args =>
-      (properties.find?
+    knownTypes := fun n => typeNameSet.contains n
+    precondShortUsage := fun nm args =>
+      (reg.properties.find?
           (·.propertyDef.fnDef.name == nm)).map
-        fun rp => rp.propertyDef.doc args
+        fun rp => rp.propertyDef.doc args }
+
+/-- Build the full presentation LaTeX body. -/
+def buildPresentationLatex (reg : Registry) : Latex :=
+  let sectionOrder := ["MIR", "OpSem", "PCG"]
+  let allPrefixes := reg.cratePrefixes
+  let prefixes :=
+    sectionOrder.filter allPrefixes.contains ++
+      allPrefixes.filter (! sectionOrder.contains ·)
+  let ctx := mkRenderCtx reg
   let sections := prefixes.map
-    fun p => crateLatex p descrs enums structs orders
-      fns properties ctorDisplay allVariants knownFns
-      resolveCtor knownTypes precondShortUsage
+    fun p => crateLatex p reg ctx
   .seq ([.tableofcontents, .newpage] ++ sections)
 
 /-- LaTeX packages needed by the presentation.

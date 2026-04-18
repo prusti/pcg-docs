@@ -3,6 +3,7 @@ import Core.Dsl.DeriveQuote
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.BodyPat
+import Core.Dsl.Types.RenderCtx
 import Core.Dsl.DslType
 import Core.Meta.BaseFunctor
 import Core.LeanAST
@@ -212,23 +213,18 @@ namespace DslExpr
 
 partial def toDoc
     (fnName : String)
+    (ctx : RenderCtx := {})
     (varDisplay : String → Option MathDoc :=
       fun _ => none)
-    (ctorDisplay : String → Option MathDoc :=
-      fun _ => none)
     (isProperty : Bool := false)
-    (knownFns : String → Bool := fun _ => false)
-    (resolveCtor : String → Option String := fun _ => none)
-    (knownTypes : String → Bool := fun _ => false)
     : DslExpr → MathDoc :=
-  let go := toDoc fnName varDisplay ctorDisplay
-    isProperty knownFns resolveCtor knownTypes
-  let ctorRef := BodyPat.ctorRef resolveCtor
+  let go := toDoc fnName ctx varDisplay isProperty
+  let ctorRef := BodyPat.ctorRef ctx.resolveCtor
   -- Link a struct constructor to its type definition. Falls
   -- back to `ctorRef` so that enum-variant constructors remain
   -- linked to their ctor target.
   let structRef (n : String) : MathDoc :=
-    if knownTypes n then
+    if ctx.knownTypes n then
       .doc (.link (.underline .dashed (.plain n))
         s!"#type:{n}")
     else ctorRef n
@@ -239,7 +235,7 @@ partial def toDoc
     -- reference (e.g. `Value.int`) when the name does
     -- not match a known function.
     let shortName := (fn.splitOn ".").getLast?.getD fn
-    if knownFns shortName then
+    if ctx.knownFns shortName then
       .doc (.link (.underline .dashed (.plain fn))
         s!"#fn:{shortName}")
     else ctorRef fn

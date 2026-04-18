@@ -401,17 +401,26 @@ def buildFnType
   pure (" → ".intercalate paramTypeStrs.toList
     ++ s!" → {normaliseLeanType retRepr}")
 
+/-- Syntactic header for a `defFn`: the function name
+    together with the user-supplied symbol and top-level
+    doc-string `Doc` terms. -/
+structure FnDefHeader where
+  name : Lean.Ident
+  symDoc : Lean.TSyntax `term
+  doc : Lean.TSyntax `term
+
 open Lean Elab Command in
 def buildFnDef
-    (name : Ident)
-    (symDoc : TSyntax `term)
-    (doc : TSyntax `term)
+    (hdr : FnDefHeader)
     (paramData : Array (Ident × TSyntax `str
       × Syntax))
     (retTy : TSyntax `term)
     (body : TSyntax `term)
     (preconds : List (String × List String) := [])
     : CommandElabM Unit := do
+  let name := hdr.name
+  let symDoc := hdr.symDoc
+  let doc := hdr.doc
   let paramDefs ← paramData.mapM
     fun (pn, pd, pt) => do
       let ns : TSyntax `term :=
@@ -539,7 +548,7 @@ elab_rules : command
         `({ pat := $pq, rhs := $rq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
-    buildFnDef name symDoc doc paramData retTy
+    buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds
 
 -- ══════════════════════════════════════════════
@@ -586,7 +595,7 @@ elab_rules : command
         ---\n{defStr}\n---"
     let bodyTerm ←
       `(FnBody.expr $(quote rhsAst))
-    buildFnDef name symDoc doc paramData retTy
+    buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds
 
 -- ══════════════════════════════════════════════
@@ -635,5 +644,5 @@ elab_rules : command
         ---\n{defStr}\n---"
     let bodyTerm ←
       `(FnBody.expr $(quote rhsAst))
-    buildFnDef name symDoc doc paramData retTy
+    buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds

@@ -165,3 +165,31 @@ def registerDescr
 def getRegisteredDescrs :
     IO (List RegisteredDescr) :=
   descrRegistry.get
+
+/-- A snapshot of every kind of registered DSL definition.
+
+    Grouping the six registry lists lets downstream consumers
+    (presentation, exporters) take a single `Registry` argument
+    rather than a long positional list. -/
+structure Registry where
+  descrs : List RegisteredDescr
+  enums : List RegisteredEnum
+  structs : List RegisteredStruct
+  orders : List RegisteredOrder
+  fns : List RegisteredFn
+  properties : List RegisteredProperty
+
+namespace Registry
+
+/-- Collect a full `Registry` from the current global state. -/
+def current : IO Registry := do
+  return {
+    descrs := ← getRegisteredDescrs
+    enums := ← getRegisteredEnums
+    structs := ← getRegisteredStructs
+    orders := ← getRegisteredOrders
+    fns := ← getRegisteredFns
+    properties := ← getRegisteredProperties
+  }
+
+end Registry

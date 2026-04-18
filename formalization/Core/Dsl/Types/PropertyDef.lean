@@ -27,24 +27,13 @@ def defaultDoc (p : PropertyDef) : Doc :=
     environment followed by an algorithm block. -/
 def formalDefLatex
     (p : PropertyDef)
-    (ctorDisplay : String → Option MathDoc :=
-      fun _ => none)
-    (variants : List VariantDef := [])
-    (knownFns : String → Bool := fun _ => false)
-    (resolveCtor : String → Option String := fun _ => none)
-    (knownTypes : String → Bool := fun _ => false)
-    (precondShortUsage :
-        String → List Doc → Option Doc :=
-      fun _ _ => none)
+    (ctx : RenderCtx := {})
     : Latex :=
   let defBlock : Latex :=
     .envOpts "definition" (.text p.fnDef.name)
       (.seq [p.defaultDoc.toLatex, .newline])
-  let algoBlock := p.fnDef.formalDefLatex
-    ctorDisplay variants (isProperty := true)
-    (knownFns := knownFns) (resolveCtor := resolveCtor)
-    (knownTypes := knownTypes)
-    (precondShortUsage := precondShortUsage)
+  let algoBlock := p.fnDef.formalDefLatex ctx
+    (isProperty := true)
   .seq [defBlock, .newline, .newline, algoBlock]
 
 end PropertyDef
