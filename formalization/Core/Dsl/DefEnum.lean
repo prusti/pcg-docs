@@ -196,7 +196,7 @@ elab_rules : command
     -- type parameters and inline `deriving` can be attached.
     if isGeneric then
       let tpStr := " " ++ " ".intercalate
-        (typeParamNames.map fun p => s!"\{{p} : Type}")
+        (typeParamNames.map fun p => s!"({p} : Type)")
       let ctorStrs ← varData.toList.mapM
         fun (vn, args, _, _) => do
           let argStrs ← args.toList.mapM

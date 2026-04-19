@@ -450,7 +450,7 @@ partial def LeanDecl.toString : LeanDecl → String
     let tpStr :=
       if typeParams.isEmpty then ""
       else " " ++ " ".intercalate
-        (typeParams.map fun p => s!"\{{p} : Type}")
+        (typeParams.map fun p => s!"({p} : Type)")
     s!"structure {name}{tpStr} where\n\
        {"\n".intercalate fieldStrs}\n\
        deriving {derives}"
@@ -459,7 +459,7 @@ partial def LeanDecl.toString : LeanDecl → String
     let tpStr :=
       if typeParams.isEmpty then ""
       else " " ++ " ".intercalate
-        (typeParams.map fun p => s!"\{{p} : Type}")
+        (typeParams.map fun p => s!"({p} : Type)")
     -- Generic inductives can't derive `Inhabited` without
     -- knowing the parameters are inhabited, so omit it.
     let derives := if typeParams.isEmpty

@@ -33,12 +33,25 @@ end DSLPrimTy
 
 namespace DSLType
 
+/-- Render a named type to `RustTy`. Space-separated names
+    like `"MaybeLabelledPlace P"` are interpreted as a
+    generic type application and rendered as
+    `MaybeLabelledPlace<P>`. -/
+private def namedToRust (s : String) : RustTy :=
+  let parts := s.trimAscii.toString.splitOn " "
+    |>.filter (! ·.isEmpty)
+  match parts with
+  | [] => .named s
+  | [one] => .named one
+  | head :: args =>
+    .adt ⟨[⟨head⟩]⟩ (args.map fun a => .named a)
+
 mutual
 
 /-- Convert to a typed `RustTy`. -/
 partial def toRust : DSLType → RustTy
   | .prim p => .builtin p.toRust
-  | .named n => .named n.name
+  | .named n => namedToRust n.name
   | .option t => .option t.toRust
   | .list t => .adt ⟨[⟨"Vec"⟩]⟩ [t.toRust]
   | .set t => .adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust]
@@ -65,7 +78,7 @@ end
     slices (`&[T]`) for pattern-matching support. -/
 def toRustParam : DSLType → RustTy
   | .prim p => .builtin p.toRust
-  | .named n => .named n.name
+  | .named n => namedToRust n.name
   | .option t => .option t.toRust
   | .list t => .slice t.toRust
   | .set t =>

@@ -48,10 +48,14 @@ partial def toLeanAST : DSLType → LeanTy
 partial def toLean (t : DSLType) : String :=
   toString t.toLeanAST
 
-/-- Collect all named type references. -/
+/-- Collect all named type references. A space-separated
+    name like `"MaybeLabelledPlace P"` represents a generic
+    type application and yields one entry per word. -/
 partial def namedTypes : DSLType → List String
   | .prim _ => []
-  | .named n => [n.name]
+  | .named n =>
+    n.name.trimAscii.toString.splitOn " "
+      |>.filter (! ·.isEmpty)
   | .option t => t.namedTypes
   | .list t => t.namedTypes
   | .set t => t.namedTypes

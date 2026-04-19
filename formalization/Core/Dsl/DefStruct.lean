@@ -68,7 +68,7 @@ elab_rules : command
     let tpStr :=
       if typeParamNames.isEmpty then ""
       else " " ++ " ".intercalate
-        (typeParamNames.map fun p => s!"\{{p} : Type}")
+        (typeParamNames.map fun p => s!"({p} : Type)")
     -- Generic structs embed `deriving` inside the
     -- structure declaration; the separate `deriving
     -- instance` commands below only handle monomorphic

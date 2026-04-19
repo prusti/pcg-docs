@@ -5,6 +5,7 @@ import PCG.EvalStmtPhase
 import PCG.InitialisationState.Order
 import PCG.LifetimeProjection
 import PCG.MaybeLabelledPlace
+import PCG.PcgPlace
 import PCG.SnapshotLocation
 import MIR
 import Core.Dsl.Types.OrderDef

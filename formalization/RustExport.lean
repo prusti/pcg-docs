@@ -1,6 +1,7 @@
 import PCG.Capability.Order
 import PCG.LifetimeProjection
 import PCG.MaybeLabelledPlace
+import PCG.PcgPlace
 import MIR
 import OpSem
 import Core.Export.Rust
@@ -19,6 +20,10 @@ use formal_mir::region::RegionVid;
 ")
   , ("PCG", "snapshotlocation", .raw
 "use formal_mir::body::BasicBlockIdx;
+")
+  , ("PCG", "pcgplace", .raw
+"use formal_mir::place::Local;
+use crate::maybelabelledplace::MaybeLabelledPlace;
 ")
   , ("PCG", "capability",
      Capability.orderDef.toRustPartialOrd)
