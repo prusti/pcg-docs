@@ -81,7 +81,15 @@ def formalDefLatex (s : StructDef)
         [ fieldSym f
         , .seq [.raw ": ",
                 f.ty.toLatexMath knownTypes]
-        , .seq [.raw " ", .text (.text s!"({f.doc})")]
+        , -- Wrap the description in a `\parbox` so long field
+          -- descriptions wrap onto multiple lines instead of
+          -- overflowing the array row. The width is
+          -- `\linewidth - 8cm` so the box adapts to the
+          -- remaining horizontal space after the first two
+          -- columns.
+          .seq [.raw "~", .text (Latex.parbox
+            "\\dimexpr\\linewidth-8cm\\relax"
+            (.text s!"({f.doc})"))]
         ]
       .seq [.raw "where", .newline,
             .displayMath (.array none "rll" fieldRows),

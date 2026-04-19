@@ -141,9 +141,15 @@ def formalDefLatex (d : EnumDef) : Latex :=
       .raw s!"\\hypertarget\{ctor:{d.name.name}.{v.name.name}}\{}"
     let variant : LatexMath :=
       .seq [.raw " ", target, v.displayLatexMath]
+    -- Wrap the description in a `\parbox` so long descriptions
+    -- wrap onto multiple lines instead of overflowing the
+    -- array row. The width is `\linewidth - 8cm` so the box
+    -- adapts to the remaining horizontal space after the
+    -- first two columns.
     let desc : LatexMath :=
-      .seq [.raw " ", .text (.seq [
-        .raw "(", .text v.doc, .raw ")"])]
+      .seq [.raw "~", .text (Latex.parbox
+        "\\dimexpr\\linewidth-8cm\\relax" (.seq [
+          .raw "(", .text v.doc, .raw ")"]))]
     [sep, variant, desc]
   -- Invisible hypertarget so cross-references to this type
   -- (e.g. from function signatures) can link here via

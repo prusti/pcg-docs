@@ -95,6 +95,9 @@ jobs:
       run: lake exe rust_export
 
     - name: Export presentation and build PDF
+      # `presentation_export` runs `latexmk` and then inspects
+      # the LaTeX log — any overfull `\hbox` warning causes
+      # the step to fail so CI catches layout regressions.
       working-directory: formalization
       run: lake exe presentation_export
 

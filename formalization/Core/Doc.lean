@@ -272,9 +272,13 @@ def escapeLatex : String → String :=
     (fun acc (from_, to, _) => acc.replace from_ to) s
 
 /-- Like `escapeLatex`, but also renders apostrophes as
-    upward-tick primes (for code identifiers). -/
+    upward-tick primes (for code identifiers). Additionally,
+    a zero-width `\allowbreak` is inserted after `/` so that
+    paths like `\texttt{definitions/places.md}` can be broken
+    across lines without producing an overfull `\hbox`. -/
 def escapeLatexCode : String → String :=
   fun s => (escapeLatex s).replace "'" "\\ensuremath{'}"
+    |>.replace "/" "/\\allowbreak{}"
 
 /-- Transform a function / identifier name so trailing-prime
     apostrophes render as upward-tick primes (e.g. `foo'` →

@@ -141,6 +141,17 @@ def caption (body : Latex) : Latex :=
 def usepackage (name : String) : Latex :=
   .cmd "usepackage" [.raw name]
 
+/-- `\parbox[t]{width}{\raggedright body}` — a top-aligned,
+    ragged-right text-mode box of fixed width. Used to wrap
+    long descriptions in array cells so the text flows onto
+    multiple lines instead of producing an overfull `\hbox`. -/
+def parbox (width : String) (body : Latex) : Latex :=
+  .seq [
+    .raw s!"\\parbox[t]\{{width}}\{\\raggedright ",
+    body,
+    .raw "}"
+  ]
+
 /-- Escape a URL for use in LaTeX `\href`. -/
 private def escapeUrl (url : String) : String :=
   url.replace "#" "\\#"

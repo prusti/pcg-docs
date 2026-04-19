@@ -247,10 +247,16 @@ def latexPackages : List String :=
 /-- Page geometry. `article`'s default ~1.5in side margins
     waste a lot of horizontal space — shrink to 1in on all
     sides so wide display-math (e.g. struct-field tables and
-    `\begin{array}` blocks) doesn't overflow. -/
+    `\begin{array}` blocks) doesn't overflow.
+
+    `\emergencystretch` allows TeX to stretch interword space
+    by up to 3em when a paragraph would otherwise produce an
+    overfull `\hbox` — in particular, paragraphs containing
+    an unbreakable `\texttt{...}` token near the line end. -/
 private def geometrySetup : Latex :=
   .seq [
-    .raw "\\usepackage[margin=1in]{geometry}\n"
+    .raw "\\usepackage[margin=1in]{geometry}\n",
+    .raw "\\setlength{\\emergencystretch}{3em}\n"
   ]
 
 /-- Extra LaTeX preamble (theorem definitions, etc).
