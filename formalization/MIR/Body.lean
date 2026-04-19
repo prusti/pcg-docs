@@ -24,13 +24,10 @@ defEnum Operand (.raw "o", .raw "O")
 where
   | copy (place : Place)
     "Copy the value at a place."
-    (.doc (.plain "copy "), #place)
   | move (place : Place)
     "Move the value out of a place."
-    (.doc (.plain "move "), #place)
   | const (val : ConstValue)
     "A constant value."
-    (.doc (.plain "const "), #val)
   deriving Repr, BEq, Hashable
 
 namespace Operand

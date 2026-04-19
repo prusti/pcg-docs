@@ -24,9 +24,13 @@ syntax "#" ident : displayPart
 declare_syntax_cat enumVariant
 
 /-- A variant in a `defEnum` declaration:
-    `| name (arg : Ty)* "doc" (displayPart, ...)`. -/
+    `| name (arg : Ty)* "doc" (displayPart, ...)`.
+
+    The display template is optional. If omitted, it defaults
+    to the constructor name followed by each argument's symbol
+    separated by spaces. -/
 syntax "| " ident enumVariantArg* str
-    "(" displayPart,+ ")" : enumVariant
+    ("(" displayPart,+ ")")? : enumVariant
 
 /-- Define an enum type with cross-language export and presentation
     metadata.
@@ -116,6 +120,52 @@ private def parseVariantArg
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in
+/-- Build a `DisplayPart.arg` term for an argument whose
+    symbol is auto-looked-up from its type's `enumDef`/
+    `structDef`. See `parseDisplayPart` for argument
+    descriptions. -/
+private def buildArgRef
+    (argName : String)
+    (argTypes : List (String × String))
+    (selfName : String)
+    (selfSym : Lean.TSyntax `term)
+    (typeParams : List String)
+    : Lean.Elab.Command.CommandElabM
+        (Lean.TSyntax `term) := do
+  let typeName := argTypes.find?
+    (·.1 == argName) |>.map (·.2)
+  match typeName with
+  | none =>
+    throwError
+      s!"defEnum: unknown argument '{argName}'"
+  | some tn =>
+    let env ← getEnv
+    let tnName := Name.mkSimple tn
+    let ns : TSyntax `term := quote argName
+    if tn == selfName then
+      `(DisplayPart.arg $ns ($selfSym : MathDoc))
+    else if typeParams.contains tn then
+      -- Type-parameter-typed argument: render using
+      -- the parameter name as a plain math symbol.
+      let raw : TSyntax `term := quote tn
+      `(DisplayPart.arg $ns
+          (MathDoc.doc (Doc.plain $raw)))
+    else if env.find? (tnName ++ `enumDef)
+        |>.isSome then
+      let ref := mkIdent
+        (tnName ++ `enumDef ++ `symbolDoc)
+      `(DisplayPart.arg $ns $ref)
+    else if env.find? (tnName ++ `structDef)
+        |>.isSome then
+      let ref := mkIdent
+        (tnName ++ `structDef ++ `symbolDoc)
+      `(DisplayPart.arg $ns $ref)
+    else
+      throwError
+        s!"defEnum: no enumDef or structDef \
+           found for type '{tn}'"
+
+open Lean Elab Command in
 /-- Parse a `displayPart` into a quoted `DisplayPart` term.
     `argTypes` maps argument names to their Lean type names
     for auto-lookup of symbolDoc. `selfName` is the enum
@@ -137,43 +187,40 @@ private def parseDisplayPart
     let ns : Lean.TSyntax `term :=
       Lean.quote (toString n.getId)
     `(DisplayPart.arg $ns ($sym : MathDoc))
-  | `(displayPart| # $n:ident) => do
-    let argName := toString n.getId
-    let typeName := argTypes.find?
-      (·.1 == argName) |>.map (·.2)
-    match typeName with
-    | none =>
-      throwError
-        s!"defEnum: unknown argument '{argName}'"
-    | some tn =>
-      let env ← getEnv
-      let tnName := Name.mkSimple tn
-      let ns : TSyntax `term := quote argName
-      if tn == selfName then
-        `(DisplayPart.arg $ns ($selfSym : MathDoc))
-      else if typeParams.contains tn then
-        -- Type-parameter-typed argument: render using
-        -- the parameter name as a plain math symbol.
-        let raw : TSyntax `term := quote tn
-        `(DisplayPart.arg $ns
-            (MathDoc.doc (Doc.plain $raw)))
-      else if env.find? (tnName ++ `enumDef)
-          |>.isSome then
-        let ref := mkIdent
-          (tnName ++ `enumDef ++ `symbolDoc)
-        `(DisplayPart.arg $ns $ref)
-      else if env.find? (tnName ++ `structDef)
-          |>.isSome then
-        let ref := mkIdent
-          (tnName ++ `structDef ++ `symbolDoc)
-        `(DisplayPart.arg $ns $ref)
-      else
-        throwError
-          s!"defEnum: no enumDef or structDef \
-             found for type '{tn}'"
+  | `(displayPart| # $n:ident) =>
+    buildArgRef (toString n.getId) argTypes
+      selfName selfSym typeParams
   | `(displayPart| $t:term) =>
     `(DisplayPart.lit ($t : MathDoc))
   | _ => Lean.Elab.throwUnsupportedSyntax
+
+open Lean Elab Command in
+/-- Build the default display template for a variant when
+    no explicit one is given: the plain constructor name,
+    followed by each argument's auto-looked-up symbol
+    separated by spaces. -/
+private def defaultDisplayParts
+    (ctorName : String)
+    (args : Array (Lean.TSyntax `enumVariantArg))
+    (argTypes : List (String × String))
+    (selfName : String)
+    (selfSym : Lean.TSyntax `term)
+    (typeParams : List String)
+    : Lean.Elab.Command.CommandElabM
+        (Array (Lean.TSyntax `term)) := do
+  let ctorStr : TSyntax `term := quote ctorName
+  let ctorPart ← `(DisplayPart.lit
+      (MathDoc.doc (Doc.plain $ctorStr)))
+  let mut parts : Array (Lean.TSyntax `term) := #[ctorPart]
+  for a in args do
+    let (argName, _) ← parseVariantArg a.raw
+    let spacePart ← `(DisplayPart.lit
+        (MathDoc.sym MathSym.space))
+    let argRef ← buildArgRef
+      (toString argName.getId) argTypes
+      selfName selfSym typeParams
+    parts := parts ++ #[spacePart, argRef]
+  pure parts
 
 open Lean Elab Command in
 elab_rules : command
@@ -184,7 +231,7 @@ elab_rules : command
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
             | $vn:ident $args:enumVariantArg*
-              $vd:str ($dps:displayPart,*)) =>
+              $vd:str $[( $dps:displayPart,* )]?) =>
         pure (vn, args, vd, dps)
       | _ => throwError "invalid enum variant"
     let typeParamNames : List String := match tps with
@@ -271,9 +318,14 @@ elab_rules : command
             else at_.reprint.getD (toString at_)
           pure (toString an.getId, tn)
         let selfN := toString name.getId
-        let dpDefs ← dps.getElems.mapM
-          (parseDisplayPart argTypes selfN symDoc
-            typeParamNames)
+        let dpDefs ← match dps with
+          | some dps =>
+            dps.getElems.mapM
+              (parseDisplayPart argTypes selfN symDoc
+                typeParamNames)
+          | none =>
+            defaultDisplayParts (toString vn.getId) args
+              argTypes selfN symDoc typeParamNames
         let dpList ← `([$[$dpDefs],*])
         `({ name := $ns, doc := $vd,
             display := $dpList,
