@@ -6,4 +6,5 @@ import PCG.EvalStmtPhase
 import PCG.InitialisationState
 import PCG.InitialisationState.Order
 import PCG.LifetimeProjection
+import PCG.SnapshotLocation
 import PCG.ValidityConditions
