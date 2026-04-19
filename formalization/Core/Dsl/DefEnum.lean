@@ -58,7 +58,8 @@ syntax "| " ident enumVariantArg* str
           (.doc (.plain "param "), #index (.raw "i"))
       deriving Repr
     ``` -/
-syntax "defEnum " ident "(" term "," term ")" str str
+syntax "defEnum " ident ("{" ident+ "}")?
+    "(" term "," term ")" str str
     " where"
     enumVariant* ("deriving " ident,+)? : command
 
@@ -116,11 +117,15 @@ open Lean Elab Command in
     `argTypes` maps argument names to their Lean type names
     for auto-lookup of symbolDoc. `selfName` is the enum
     being defined (for self-referential types). `selfSym`
-    is the self-type's symbolDoc syntax. -/
+    is the self-type's symbolDoc syntax. `typeParams` is
+    the list of enum-level type parameter names; arguments
+    of those types render using the parameter name as a
+    plain symbol. -/
 private def parseDisplayPart
     (argTypes : List (String × String))
     (selfName : String)
     (selfSym : Lean.TSyntax `term)
+    (typeParams : List String)
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM
         (Lean.TSyntax `term) := do
@@ -143,6 +148,12 @@ private def parseDisplayPart
       let ns : TSyntax `term := quote argName
       if tn == selfName then
         `(DisplayPart.arg $ns ($selfSym : MathDoc))
+      else if typeParams.contains tn then
+        -- Type-parameter-typed argument: render using
+        -- the parameter name as a plain math symbol.
+        let raw : TSyntax `term := quote tn
+        `(DisplayPart.arg $ns
+            (MathDoc.doc (Doc.plain $raw)))
       else if env.find? (tnName ++ `enumDef)
           |>.isSome then
         let ref := mkIdent
@@ -163,7 +174,8 @@ private def parseDisplayPart
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defEnum $name:ident ($symDoc:term, $setDoc:term)
+  | `(defEnum $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
        $defnName:str $doc:str where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
     let varData ← vs.mapM fun v => match v with
@@ -172,25 +184,64 @@ elab_rules : command
               $vd:str ($dps:displayPart,*)) =>
         pure (vn, args, vd, dps)
       | _ => throwError "invalid enum variant"
-    let ctors ← varData.mapM
-      fun (vn, args, _, _) => do
-        let binders ← args.mapM fun a => do
-          let (argName, argType) ← parseVariantArg a
-          let prefixed := mkIdent
-            (Name.mkSimple s!"_{argName.getId}")
-          pure (mkExplicitBinder prefixed argType)
-        pure (mkCtorSyntax vn binders)
-    let inductiveCmd ← `(command|
-      inductive $name where $[$ctors]*)
-    elabCommand inductiveCmd
-    let deriveNames : Array Ident := match derivs with
-      | some ds => ds
-      | none => #[mkIdent `DecidableEq, mkIdent `Repr,
-                   mkIdent `Hashable]
-    for d in deriveNames do
-      let deriveCmd ← `(command|
-        deriving instance $d:ident for $name)
-      elabCommand deriveCmd
+    let typeParamNames : List String := match tps with
+      | some ids => ids.toList.map (toString ·.getId)
+      | none => []
+    let isGeneric := !typeParamNames.isEmpty
+    -- For generic enums we build the inductive declaration as
+    -- a string and parse it (mirroring `defStruct`), so that
+    -- type parameters and inline `deriving` can be attached.
+    if isGeneric then
+      let tpStr := " " ++ " ".intercalate
+        (typeParamNames.map fun p => s!"\{{p} : Type}")
+      let ctorStrs ← varData.toList.mapM
+        fun (vn, args, _, _) => do
+          let argStrs ← args.toList.mapM
+            fun (a : Lean.TSyntax `enumVariantArg) => do
+              let (argName, argType) ← parseVariantArg a.raw
+              let typeStr :=
+                if argType.isIdent then toString argType.getId
+                else argType.reprint.getD (toString argType)
+              -- Prefix with `_` to suppress
+              -- `unused variable` linter warnings
+              -- (matches the non-generic path).
+              pure s!"(_{argName.getId} : {typeStr})"
+          let argPart := if argStrs.isEmpty then ""
+            else " " ++ " ".intercalate argStrs
+          pure s!"  | {vn.getId}{argPart}"
+      let derivClause :=
+        "\n  deriving DecidableEq, Repr, Hashable"
+      let inductiveStr :=
+        s!"inductive {name.getId}{tpStr} where\n\
+           {"\n".intercalate ctorStrs}\
+           {derivClause}"
+      let env ← getEnv
+      match Parser.runParserCategory env `command
+        inductiveStr with
+      | .ok stx => elabCommand stx
+      | .error e =>
+        throwError s!"defEnum: parse error: {e}\n\
+          ---\n{inductiveStr}\n---"
+    else
+      let ctors ← varData.mapM
+        fun (vn, args, _, _) => do
+          let binders ← args.mapM fun a => do
+            let (argName, argType) ← parseVariantArg a
+            let prefixed := mkIdent
+              (Name.mkSimple s!"_{argName.getId}")
+            pure (mkExplicitBinder prefixed argType)
+          pure (mkCtorSyntax vn binders)
+      let inductiveCmd ← `(command|
+        inductive $name where $[$ctors]*)
+      elabCommand inductiveCmd
+      let deriveNames : Array Ident := match derivs with
+        | some ds => ds
+        | none => #[mkIdent `DecidableEq, mkIdent `Repr,
+                     mkIdent `Hashable]
+      for d in deriveNames do
+        let deriveCmd ← `(command|
+          deriving instance $d:ident for $name)
+        elabCommand deriveCmd
     let varDefs ←
       varData.mapM fun (vn, args, vd, dps) => do
         let vnStr : TSyntax `term :=
@@ -218,7 +269,8 @@ elab_rules : command
           pure (toString an.getId, tn)
         let selfN := toString name.getId
         let dpDefs ← dps.getElems.mapM
-          (parseDisplayPart argTypes selfN symDoc)
+          (parseDisplayPart argTypes selfN symDoc
+            typeParamNames)
         let dpList ← `([$[$dpDefs],*])
         `({ name := $ns, doc := $vd,
             display := $dpList,
@@ -228,6 +280,8 @@ elab_rules : command
       quote (toString name.getId)
     let ns ← `(DSLNamedTy.mk $enumNameStr)
     let varList ← `([$[$varDefs],*])
+    let typeParamsTerm : TSyntax `term :=
+      quote typeParamNames
     let enumDefVal ← `(term|
       { name := $ns,
         symbolDoc := ($symDoc : MathDoc),
@@ -235,6 +289,7 @@ elab_rules : command
         defnName := $defnName,
         doc := Doc.interpolateDef $doc
           ($symDoc : MathDoc) ($setDoc : MathDoc),
+        typeParams := $typeParamsTerm,
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)
     elabCommand (← `(command|

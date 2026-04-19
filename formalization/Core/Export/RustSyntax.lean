@@ -191,6 +191,9 @@ structure RustEnum where
   attrs : List RustAttr
   vis : RustVis
   name : RustIdent
+  /-- Generic type parameters (e.g. `["P"]` for
+      `enum Foo<P>`). Empty means non-generic. -/
+  generics : List RustIdent := []
   variants : List RustVariant
   deriving Repr
 

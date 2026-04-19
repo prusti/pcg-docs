@@ -245,10 +245,11 @@ namespace EnumDef
 
 /-- Lower an enum definition to an `inductive` declaration. -/
 def toLeanAST (e : EnumDef) : LeanDecl :=
-  .inductive_ e.name.name <| e.variants.map fun v =>
-    { name := v.name.name
-      args := v.args.map fun a =>
-        { name := a.name, type := a.type.toLeanAST } }
+  .inductive_ e.name.name e.typeParams <|
+    e.variants.map fun v =>
+      { name := v.name.name
+        args := v.args.map fun a =>
+          { name := a.name, type := a.type.toLeanAST } }
 
 /-- Render an enum definition to a Lean `inductive`. -/
 def toLean (e : EnumDef) : String :=

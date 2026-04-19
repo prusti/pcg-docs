@@ -1,5 +1,6 @@
 import PCG.Capability.Order
 import PCG.LifetimeProjection
+import PCG.MaybeLabelledPlace
 import MIR
 import OpSem
 import Core.Export.Rust
@@ -12,6 +13,12 @@ def extraItems : List (String × String × RustItem) :=
   [ ("PCG", "borrowchecker", .raw
 "use formal_mir::body::Location;
 use formal_mir::region::RegionVid;
+")
+  , ("PCG", "analysislocation", .raw
+"use formal_mir::body::Location;
+")
+  , ("PCG", "snapshotlocation", .raw
+"use formal_mir::body::BasicBlockIdx;
 ")
   , ("PCG", "capability",
      Capability.orderDef.toRustPartialOrd)

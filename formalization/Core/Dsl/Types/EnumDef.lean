@@ -50,6 +50,10 @@ structure EnumDef where
   /-- Top-level documentation. May contain inline math
       from `{def}` interpolation. -/
   doc : Doc
+  /-- Implicit type parameters (e.g. `["P"]` for
+      `MaybeLabelledPlace {P}`). These render as implicit
+      type parameters in Lean and as generics in Rust. -/
+  typeParams : List String := []
   /-- The variants of the enum. -/
   variants : List VariantDef
   deriving Repr

@@ -1,5 +1,6 @@
 import PCG.Capability.Order
 import PCG.LifetimeProjection
+import PCG.MaybeLabelledPlace
 import MIR
 import OpSem
 import Core.Export.Lean

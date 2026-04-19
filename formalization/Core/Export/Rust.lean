@@ -336,24 +336,25 @@ private def renderVariant (v : RustVariant) : String :=
       (v.fields.map RustTy.render)})"
   s!"{ind 1}/// {v.doc}\n{ind 1}{v.name.val}{fields},"
 
-namespace RustEnum
-def render (e : RustEnum) : String :=
-  let attrLines := e.attrs.map (·.render ++ "\n")
-  let variantLines := e.variants.map renderVariant
-  s!"/// {e.doc}\n\
-     {String.join attrLines}\
-     {e.vis.render}enum {e.name.val} \{\n\
-     {String.intercalate "\n" variantLines}\n\
-     }"
-end RustEnum
-
-namespace RustStruct
-
 /-- Render the generic parameter list: empty string for no
     generics, `<A, B>` otherwise. -/
 private def renderGenerics (gs : List RustIdent) : String :=
   if gs.isEmpty then ""
   else s!"<{String.intercalate ", " (gs.map (·.val))}>"
+
+namespace RustEnum
+def render (e : RustEnum) : String :=
+  let attrLines := e.attrs.map (·.render ++ "\n")
+  let variantLines := e.variants.map renderVariant
+  let gen := renderGenerics e.generics
+  s!"/// {e.doc}\n\
+     {String.join attrLines}\
+     {e.vis.render}enum {e.name.val}{gen} \{\n\
+     {String.intercalate "\n" variantLines}\n\
+     }"
+end RustEnum
+
+namespace RustStruct
 
 /-- Render the struct definition only. -/
 def render (s : RustStruct) : String :=
@@ -578,6 +579,7 @@ def toRustItem (d : EnumDef) : RustItem :=
     attrs := [.derive defaultRustDerives]
     vis := .pub
     name := ⟨d.name.name⟩
+    generics := d.typeParams.map (⟨·⟩)
     variants := d.variants.map fun v =>
       { doc := v.doc
         name := ⟨capitalise v.name.name⟩

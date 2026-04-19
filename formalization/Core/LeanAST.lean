@@ -365,7 +365,8 @@ structure LeanDef where
 inductive LeanDecl where
   | structure_ (name : String) (typeParams : List String)
       (fields : List LeanField)
-  | inductive_ (name : String) (ctors : List LeanCtor)
+  | inductive_ (name : String) (typeParams : List String)
+      (ctors : List LeanCtor)
   | def_ (d : LeanDef)
   /-- Wrap a declaration in `namespace ns … end ns`. -/
   | namespaced (ns : String) (decl : LeanDecl)
@@ -453,11 +454,20 @@ partial def LeanDecl.toString : LeanDecl → String
     s!"structure {name}{tpStr} where\n\
        {"\n".intercalate fieldStrs}\n\
        deriving {derives}"
-  | .inductive_ name ctors =>
+  | .inductive_ name typeParams ctors =>
     let ctorStrs := ctors.map renderCtor
-    s!"inductive {name} where\n\
+    let tpStr :=
+      if typeParams.isEmpty then ""
+      else " " ++ " ".intercalate
+        (typeParams.map fun p => s!"\{{p} : Type}")
+    -- Generic inductives can't derive `Inhabited` without
+    -- knowing the parameters are inhabited, so omit it.
+    let derives := if typeParams.isEmpty
+      then "Repr, BEq, Hashable, Inhabited"
+      else "Repr, BEq, Hashable"
+    s!"inductive {name}{tpStr} where\n\
        {"\n".intercalate ctorStrs}\n\
-       deriving Repr, BEq, Hashable, Inhabited"
+       deriving {derives}"
   | .def_ d => renderDef d
   | .namespaced ns inner =>
     s!"namespace {ns}\n\n{inner.toString}\n\nend {ns}"
