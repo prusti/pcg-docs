@@ -16,8 +16,9 @@ no constraint at `b`. -/
 defStruct BranchChoice (.doc (.plain "d"),
     .doc (.plain "BranchChoice"))
   "Branch Choices"
-  "An ordered pair of basic blocks (source, target) representing \
-   a single control-flow transition from source to target."
+  (.plain "An ordered pair of basic blocks (source, target) \
+   representing a single control-flow transition from source \
+   to target.")
 where
   | source "The source basic block." : BasicBlockIdx
   | target "The target basic block." : BasicBlockIdx
@@ -26,8 +27,8 @@ where
 defStruct ExecutionPath (.doc (.plain "p"),
     .doc (.plain "ExecutionPath"))
   "Execution Paths"
-  "An execution path leading to a basic block: an ordered list \
-   of blocks ending at that block."
+  (.plain "An execution path leading to a basic block: an \
+   ordered list of blocks ending at that block.")
 where
   | blocks "The blocks in the path, in execution order."
       : List BasicBlockIdx
@@ -51,9 +52,9 @@ end ExecutionPath
 defStruct ValidityConditions (.doc (.plain "pc"),
     .doc (.plain "ValidityConditions"))
   "Validity Conditions"
-  "Validity conditions associated with a borrow PCG edge: a \
-   partial map from each relevant source block to the set of \
-   allowed target blocks at that source."
+  (.plain "Validity conditions associated with a borrow PCG \
+   edge: a partial map from each relevant source block to the \
+   set of allowed target blocks at that source.")
 where
   | allowed "Map from each relevant source block to the set of \
        allowed target blocks at that source."

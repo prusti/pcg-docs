@@ -36,11 +36,14 @@ syntax "| " ident enumVariantArg* str
        (defaults to `DecidableEq` and `Repr`)
     2. A `.enumDef : EnumDef` for export and document generation
 
+    The long-form description is a `Doc` term, allowing rich
+    content (inline code, links, math) rather than a plain string.
+
     Variants may carry arguments. Display parts are `MathDoc`:
     ```
     defEnum Region (.raw "r", .raw "R")
       "Regions"
-      "A region (lifetime) in the MIR."
+      (.plain "A region (lifetime) in the MIR.")
     where
       | vid (v : RegionVid) "A region variable identifier."
           (.doc (.plain "vid"), .sym .lparen, #v, .sym .rparen)
@@ -52,14 +55,14 @@ syntax "| " ident enumVariantArg* str
     ```
     defEnum Ty (.raw "τ", .raw "Ty")
       "Types"
-      "A MIR type."
+      (.plain "A MIR type.")
     where
       | param (index : Nat) "..."
           (.doc (.plain "param "), #index (.raw "i"))
       deriving Repr
     ``` -/
 syntax "defEnum " ident ("{" ident+ "}")?
-    "(" term "," term ")" str str
+    "(" term "," term ")" str "(" term ")"
     " where"
     enumVariant* ("deriving " ident,+)? : command
 
@@ -176,7 +179,7 @@ open Lean Elab Command in
 elab_rules : command
   | `(defEnum $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
-       $defnName:str $doc:str where
+       $defnName:str ($doc:term) where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
@@ -287,8 +290,7 @@ elab_rules : command
         symbolDoc := ($symDoc : MathDoc),
         setDoc := ($setDoc : MathDoc),
         defnName := $defnName,
-        doc := Doc.interpolateDef $doc
-          ($symDoc : MathDoc) ($setDoc : MathDoc),
+        doc := ($doc : Doc),
         typeParams := $typeParamsTerm,
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)

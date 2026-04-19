@@ -47,8 +47,7 @@ structure EnumDef where
   setDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Operands"`). -/
   defnName : String
-  /-- Top-level documentation. May contain inline math
-      from `{def}` interpolation. -/
+  /-- Top-level documentation. -/
   doc : Doc
   /-- Implicit type parameters (e.g. `["P"]` for
       `MaybeLabelledPlace {P}`). These render as implicit

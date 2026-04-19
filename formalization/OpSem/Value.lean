@@ -2,7 +2,7 @@ import MIR.ConstValue
 
 defEnum Value (.raw "v", .cal (.raw "V"))
   "Values"
-  "A runtime value."
+  (.plain "A runtime value.")
 where
   | bool (val : Bool)
     "A boolean value."

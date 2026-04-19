@@ -2,10 +2,10 @@ import Core.Dsl.DefEnum
 
 defEnum EvalStmtPhase (.raw "\\varphi", .raw "EvalStmtPhase")
   "Evaluation Statement Phases"
-  "A phase of statement evaluation at which the PCG state is \
-   observed. Each MIR statement is analysed in four phases: \
-   before and after the operands are evaluated, and before and \
-   after the main effect of the statement."
+  (.plain "A phase of statement evaluation at which the PCG \
+   state is observed. Each MIR statement is analysed in four \
+   phases: before and after the operands are evaluated, and \
+   before and after the main effect of the statement.")
 where
   | preOperands
     "Before the operands of the statement are evaluated."

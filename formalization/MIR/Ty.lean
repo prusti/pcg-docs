@@ -4,21 +4,21 @@ import Core.Dsl.DefFn
 defStruct TyCtorName (.raw "T",
     .doc (.plain "TyCtorName"))
   "Type Constructor Names"
-  "A type constructor name, representing an ADT or \
-   primitive type."
+  (.plain "A type constructor name, representing an ADT or \
+   primitive type.")
 where
   | name "The constructor name." : String
 
 defStruct AliasTyName (.raw "A",
     .doc (.plain "AliasTyName"))
   "Alias Type Names"
-  "An associated type name."
+  (.plain "An associated type name.")
 where
   | name "The associated type name." : String
 
 defEnum Size (.raw "sz", .raw "Size")
   "Integer Sizes"
-  "The size of an integer type."
+  (.plain "The size of an integer type.")
 where
   | bits (n : Nat)
     "A fixed bit width."
@@ -38,14 +38,14 @@ defFn sizeBytes (.plain "size_bytes")
 
 defStruct IntType (.raw "it", .raw "IntType")
   "Integer Types"
-  "An integer type, parameterised by signedness and size."
+  (.plain "An integer type, parameterised by signedness and size.")
 where
   | signed "Whether the integer is signed." : Bool
   | size "The size of the integer." : Size
 
 defEnum Mutability (.raw "m", .raw "M")
   "Mutabilities"
-  "Mutability of a reference."
+  (.plain "Mutability of a reference.")
 where
   | shared
     "Shared"
@@ -56,7 +56,8 @@ where
 
 defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
-  "A type in the MIR. See definitions/types.md."
+  (.seq [.plain "A type in the MIR. See ",
+    .code "definitions/types.md", .plain "."])
 where
   | bool
     "The boolean type."
@@ -102,8 +103,8 @@ instance : Inhabited Ty where
 
 defEnum IntValue (.raw "iv", .cal (.raw "IV"))
   "Integer Values"
-  "A concrete runtime integer value, carrying both its width \
-   and its payload."
+  (.plain "A concrete runtime integer value, carrying both \
+   its width and its payload.")
 where
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."

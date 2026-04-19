@@ -2,14 +2,16 @@ import MIR.Ty
 
 defStruct Local (.raw "l", .raw "L")
   "Locals"
-  "A local {def} is a variable in the MIR, identified by index."
+  (.seq [.plain "A local ",
+    Doc.defMath (.raw "l") (.raw "L"),
+    .plain " is a variable in the MIR, identified by index."])
   constructor "LocalIdx"
 where
   | index "The local variable index." : Nat
 
 defStruct FieldIdx (.raw "f", .raw "F")
   "Field Indices"
-  "A field index within a struct or tuple."
+  (.plain "A field index within a struct or tuple.")
   constructor "FieldIdx"
 where
   | index "The field index." : Nat
@@ -17,15 +19,15 @@ where
 defStruct VariantIdx (.raw "V",
     .doc (.plain "VariantIdx"))
   "Variant Indices"
-  "A variant index within an enum."
+  (.plain "A variant index within an enum.")
   constructor "VariantIdx"
 where
   | index "The variant index." : Nat
 
 defEnum ProjElem (.raw "π", .raw "Π")
   "Projection Elements"
-  "A projection element applied to a place. \
-   See definitions/places.md."
+  (.seq [.plain "A projection element applied to a place. See ",
+    .code "definitions/places.md", .plain "."])
 where
   | deref
     "Dereference a pointer or reference."
@@ -49,8 +51,8 @@ where
 
 defStruct Place (.raw "p", .raw "P")
   "Places"
-  "A place in the MIR: a local with a projection. \
-   See definitions/places.md."
+  (.seq [.plain "A place in the MIR: a local with a projection. \
+   See ", .code "definitions/places.md", .plain "."])
 where
   | base "The base local variable." : Local
   | projection "The list of projection elements."

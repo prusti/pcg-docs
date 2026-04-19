@@ -6,21 +6,21 @@ import Core.Dsl.DefProperty
 defStruct BasicBlockIdx (.doc (.plain "bb"),
     .doc (.plain "BasicBlockIdx"))
   "Basic Block Indices"
-  "An index into the list of basic blocks."
+  (.plain "An index into the list of basic blocks.")
 where
   | index "The basic block index." : Nat
 
 defStruct Location (.raw "\\ell", .doc (.plain "Location"))
   "Locations"
-  "A location in the MIR, identifying a statement \
-   within a basic block."
+  (.plain "A location in the MIR, identifying a statement \
+   within a basic block.")
 where
   | block "The basic block." : BasicBlockIdx
   | stmtIdx "The statement index within the block." : Nat
 
 defEnum Operand (.raw "o", .raw "O")
   "Operands"
-  "An operand in a MIR statement or terminator."
+  (.plain "An operand in a MIR statement or terminator.")
 where
   | copy (place : Place)
     "Copy the value at a place."
@@ -47,7 +47,7 @@ end Operand
 
 defEnum Rvalue (.raw "rv", .raw "Rv")
   "Rvalues"
-  "A right-hand side value in an assignment."
+  (.plain "A right-hand side value in an assignment.")
 where
   | use (operand : Operand)
     "Use an operand directly."
@@ -73,7 +73,7 @@ end Rvalue
 
 defEnum Statement (.raw "s", .raw "S")
   "Statements"
-  "A MIR statement within a basic block."
+  (.plain "A MIR statement within a basic block.")
 where
   | assign (lhs : Place) (rhs : Rvalue)
     "Assign an rvalue to a place."
@@ -104,7 +104,7 @@ end Statement
 defEnum Terminator (.raw "t",
     .doc (.plain "Term"))
   "Terminators"
-  "A basic block terminator."
+  (.plain "A basic block terminator.")
 where
   | goto (target : BasicBlockIdx)
     "Unconditional jump."
@@ -153,8 +153,8 @@ end Terminator
 defStruct BasicBlock (.raw "B",
     .doc (.plain "BasicBlock"))
   "Basic Blocks"
-  "A basic block: a sequence of statements followed \
-   by a terminator."
+  (.plain "A basic block: a sequence of statements followed \
+   by a terminator.")
 where
   | statements "The statements in the block."
       : List Statement
@@ -175,7 +175,7 @@ end BasicBlock
 defStruct Body (.doc (.plain "body"),
     .doc (.plain "Body"))
   "Bodies"
-  "A MIR function body"
+  (.plain "A MIR function body.")
 where
   | decls "The local variable declarations."
       : List Ty
@@ -196,8 +196,8 @@ end Body
 defStruct PlaceTy (.doc (.plain "pty"),
     .doc (.plain "PlaceTy"))
   "Place Types"
-  "The type of a place: a type paired with an optional \
-   variant index (set after a downcast)."
+  (.plain "The type of a place: a type paired with an optional \
+   variant index (set after a downcast).")
 where
   | ty "The type." : Ty
   | variant "The variant index, if downcasted."

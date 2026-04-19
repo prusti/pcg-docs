@@ -3,7 +3,9 @@ import Core.Dsl.DefProperty
 
 defStruct Memory (.cal (.raw "M"), .doc (.plain "Mem"))
   "Memory"
-  "A memory {def} is a list of allocations."
+  (.seq [.plain "A memory ",
+    Doc.defMath (.cal (.raw "M")) (.doc (.plain "Mem")),
+    .plain " is a list of allocations."])
 where
   | allocs "The allocations." : List Allocation
 

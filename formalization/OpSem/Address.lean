@@ -2,7 +2,8 @@ import Core.Dsl.DefStruct
 
 defStruct Address (.raw "a", .cal (.raw "A"))
   "Addresses"
-  "A memory address {def}."
+  (.seq [.plain "A memory address ",
+    Doc.defMath (.raw "a") (.cal (.raw "A")), .plain "."])
   constructor "Address"
 where
   | addr "The address value." : Nat

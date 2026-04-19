@@ -2,8 +2,8 @@ import OpSem.Machine
 
 defEnum ValueExpr (.raw "ve", .cal (.raw "VE"))
   "Value Expressions"
-  "A MIR value expression that evaluates to a runtime \
-   value of a given type."
+  (.plain "A MIR value expression that evaluates to a runtime \
+   value of a given type.")
 where
   | tuple (exprs : List ValueExpr) (ty : Ty)
     "A tuple expression: a list of sub-expressions together \

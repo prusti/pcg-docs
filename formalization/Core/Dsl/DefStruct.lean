@@ -15,18 +15,21 @@ syntax "| " ident str ":" term : structField
     1. A Lean `structure` with derived instances
     2. A `.structDef : StructDef` for export
 
+    The long-form description is a `Doc` term, allowing rich
+    content (inline code, links, math) rather than a plain string.
+
     Example:
     ```
     defStruct RegionVid (.doc (.plain "vid"),
         .doc (.plain "RegionVid"))
       "Region Variables"
-      "A region variable identifier."
+      (.plain "A region variable identifier.")
     where
       | id "The region variable id." : Nat
     ``` -/
 syntax "defStruct " ident ("{" ident+ "}")?
     "(" term "," term ")"
-    str str ("constructor" str)? ("note" str)? ("link" str)?
+    str "(" term ")" ("constructor" str)? ("note" str)? ("link" str)?
     " where"
     structField* ("deriving " ident,+)? : command
 
@@ -46,7 +49,7 @@ open Lean Elab Command in
 elab_rules : command
   | `(defStruct $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
-       $docParam:str $doc:str $[constructor $ctorName:str]?
+       $docParam:str ($doc:term) $[constructor $ctorName:str]?
        $[note $noteLit:str]? $[link $linkLit:str]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
@@ -145,8 +148,7 @@ elab_rules : command
           symbolDoc := ($symDoc : MathDoc),
           setDoc := ($setDoc : MathDoc),
           docParam := $docParam,
-          doc := Doc.interpolateDef $doc
-            ($symDoc : MathDoc) ($setDoc : MathDoc),
+          doc := ($doc : Doc),
           ctorName := $ctorTerm,
           «note» := $noteTerm,
           «link» := $linkTerm,

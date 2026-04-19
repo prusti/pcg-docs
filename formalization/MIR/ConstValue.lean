@@ -2,7 +2,7 @@ import MIR.Ty
 
 defEnum ConstValue (.raw "cv", .cal (.raw "CV"))
   "Constant Values"
-  "A compile-time constant value."
+  (.plain "A compile-time constant value.")
 where
   | bool (val : Bool)
     "A boolean value."

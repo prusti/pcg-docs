@@ -26,8 +26,7 @@ structure StructDef where
   setDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Basic Blocks"`). -/
   docParam : String
-  /-- Top-level documentation. May contain inline math
-      from `{def}` interpolation. -/
+  /-- Top-level documentation. -/
   doc : Doc
   /-- Optional constructor name (e.g. `"LocalIdx"`).
       When set, renders as `sym ∈ set ::= Ctor(params)`.

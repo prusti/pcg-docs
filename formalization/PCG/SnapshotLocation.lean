@@ -4,9 +4,9 @@ import PCG.AnalysisLocation
 defEnum SnapshotLocation (.doc (.plain "sl"),
     .doc (.plain "SnapshotLocation"))
   "Snapshot Locations"
-  "A program point at which a PCG snapshot is taken: either \
-   immediately before an analysis location, at the end of a \
-   basic block, or at the head of a loop."
+  (.plain "A program point at which a PCG snapshot is taken: \
+   either immediately before an analysis location, at the end \
+   of a basic block, or at the head of a loop.")
 where
   | before (al : AnalysisLocation)
     "A snapshot taken immediately before an analysis location."

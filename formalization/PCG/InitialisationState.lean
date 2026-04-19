@@ -2,10 +2,10 @@ import Core.Dsl.DefEnum
 
 defEnum InitialisationState (.raw "i", .raw "I")
   "Initialisation States"
-  "An initialisation state describes whether an owned place is \
-   initialised, shallowly initialised, or uninitialised at a \
-   particular program point. Each leaf node in the \
-   initialisation state tree carries one of these values."
+  (.plain "An initialisation state describes whether an owned \
+   place is initialised, shallowly initialised, or uninitialised \
+   at a particular program point. Each leaf node in the \
+   initialisation state tree carries one of these values.")
 where
   | uninit
     "Uninitialised or moved-out. No reads are permitted; only \

@@ -5,7 +5,9 @@ import Core.Dsl.DefProperty
 
 defStruct AllocId (.raw "id", .doc (.plain "AllocId"))
   "Allocation Identifiers"
-  "An allocation identifier {def}."
+  (.seq [.plain "An allocation identifier ",
+    Doc.defMath (.raw "id") (.doc (.plain "AllocId")),
+    .plain "."])
   constructor "AllocId"
   link "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#data-structures"
 where
@@ -15,7 +17,9 @@ where
 defStruct Allocation (.raw "\\alpha",
     .doc (.plain "Allocation"))
   "Allocations"
-  "An allocation {def} in the memory model."
+  (.seq [.plain "An allocation ",
+    Doc.defMath (.raw "\\alpha") (.doc (.plain "Allocation")),
+    .plain " in the memory model."])
   link "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md"
 where
   | id "The allocation identifier." : AllocId

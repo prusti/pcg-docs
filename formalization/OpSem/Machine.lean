@@ -7,8 +7,8 @@ import Core.Dsl.DefFn
 
 defStruct Machine (.raw "\\mu", .doc (.plain "Machine"))
   "Machines"
-  "A machine state: a function body, program counter, \
-   and memory."
+  (.plain "A machine state: a function body, program counter, \
+   and memory.")
 where
   | body "The function body." : Body
   | pc "The program counter." : Location

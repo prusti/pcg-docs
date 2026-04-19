@@ -6,7 +6,7 @@ import Core.Dsl.DefEnum
 defEnum AbstractByte (.raw "b",
     .doc (.plain "Byte"))
   "Abstract Bytes"
-  "An abstract byte in the memory model."
+  (.plain "An abstract byte in the memory model.")
 where
   | uninit
     "An uninitialized byte."
