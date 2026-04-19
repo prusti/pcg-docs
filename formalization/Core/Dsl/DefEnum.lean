@@ -140,14 +140,19 @@ private def buildArgRef
       s!"defEnum: unknown argument '{argName}'"
   | some tn =>
     let env ← getEnv
-    let tnName := Name.mkSimple tn
+    -- For generic-application types like
+    -- `"LifetimeProjection (PcgPlace P) Nat"`, look up
+    -- the head identifier (first whitespace-separated
+    -- token) rather than the full applied form.
+    let head := (tn.splitOn " ").headD tn
+    let tnName := Name.mkSimple head
     let ns : TSyntax `term := quote argName
-    if tn == selfName then
+    if head == selfName then
       `(DisplayPart.arg $ns ($selfSym : MathDoc))
-    else if typeParams.contains tn then
+    else if typeParams.contains head then
       -- Type-parameter-typed argument: render using
       -- the parameter name as a plain math symbol.
-      let raw : TSyntax `term := quote tn
+      let raw : TSyntax `term := quote head
       `(DisplayPart.arg $ns
           (MathDoc.doc (Doc.plain $raw)))
     else if env.find? (tnName ++ `enumDef)

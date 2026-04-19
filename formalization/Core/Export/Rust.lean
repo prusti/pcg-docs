@@ -33,25 +33,14 @@ end DSLPrimTy
 
 namespace DSLType
 
-/-- Render a named type to `RustTy`. Space-separated names
-    like `"MaybeLabelledPlace P"` are interpreted as a
-    generic type application and rendered as
-    `MaybeLabelledPlace<P>`. -/
-private def namedToRust (s : String) : RustTy :=
-  let parts := s.trimAscii.toString.splitOn " "
-    |>.filter (! ·.isEmpty)
-  match parts with
-  | [] => .named s
-  | [one] => .named one
-  | head :: args =>
-    .adt ⟨[⟨head⟩]⟩ (args.map fun a => .named a)
-
 mutual
 
 /-- Convert to a typed `RustTy`. -/
 partial def toRust : DSLType → RustTy
   | .prim p => .builtin p.toRust
-  | .named n => namedToRust n.name
+  | .named n => .named n.name
+  | .app h args =>
+    .adt ⟨[⟨h.name⟩]⟩ (args.map toRust)
   | .option t => .option t.toRust
   | .list t => .adt ⟨[⟨"Vec"⟩]⟩ [t.toRust]
   | .set t => .adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust]
@@ -78,7 +67,9 @@ end
     slices (`&[T]`) for pattern-matching support. -/
 def toRustParam : DSLType → RustTy
   | .prim p => .builtin p.toRust
-  | .named n => namedToRust n.name
+  | .named n => .named n.name
+  | .app h args =>
+    .adt ⟨[⟨h.name⟩]⟩ (args.map toRust)
   | .option t => .option t.toRust
   | .list t => .slice t.toRust
   | .set t =>
@@ -101,6 +92,7 @@ partial def containsArrow : DSLType → Bool
   | .arrow _ _ => true
   | .prim _ => false
   | .named _ => false
+  | .app _ args => args.any containsArrow
   | .option t => t.containsArrow
   | .list t => t.containsArrow
   | .set t => t.containsArrow
@@ -561,6 +553,7 @@ namespace DSLType
     (i.e. it's self-referential). -/
 def needsRustBoxIn : DSLType → DSLType → Bool
   | .named n, enumTy => enumTy == .named n
+  | .app h _, enumTy => enumTy == .named h
   | .option t, enumTy => t.needsRustBoxIn enumTy
   | .list _, _ => false  -- Vec handles indirection
   | .set _, _ => false   -- HashSet handles indirection

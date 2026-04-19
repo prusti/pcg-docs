@@ -2,6 +2,7 @@ import PCG.Capability.Order
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
 import PCG.MaybeLabelledPlace
+import PCG.PcgNode
 import PCG.PcgPlace
 import MIR
 import OpSem

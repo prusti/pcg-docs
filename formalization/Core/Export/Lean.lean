@@ -37,6 +37,7 @@ namespace DSLType
 partial def toLeanAST : DSLType → LeanTy
   | .prim p => p.toLeanAST
   | .named n => .const n.name
+  | .app h args => .appN h.name (args.map toLeanAST)
   | .option t => .app "Option" t.toLeanAST
   | .list t => .app "List" t.toLeanAST
   | .set t => .app "Set" t.toLeanAST
@@ -48,14 +49,11 @@ partial def toLeanAST : DSLType → LeanTy
 partial def toLean (t : DSLType) : String :=
   toString t.toLeanAST
 
-/-- Collect all named type references. A space-separated
-    name like `"MaybeLabelledPlace P"` represents a generic
-    type application and yields one entry per word. -/
+/-- Collect all named type references. -/
 partial def namedTypes : DSLType → List String
   | .prim _ => []
-  | .named n =>
-    n.name.trimAscii.toString.splitOn " "
-      |>.filter (! ·.isEmpty)
+  | .named n => [n.name]
+  | .app h args => h.name :: args.flatMap namedTypes
   | .option t => t.namedTypes
   | .list t => t.namedTypes
   | .set t => t.namedTypes
@@ -66,6 +64,7 @@ partial def namedTypes : DSLType → List String
 /-- Whether this type uses `Set`. -/
 partial def usesSet : DSLType → Bool
   | .set _ => true
+  | .app _ args => args.any usesSet
   | .option t => t.usesSet
   | .list t => t.usesSet
   | .map k v => k.usesSet || v.usesSet

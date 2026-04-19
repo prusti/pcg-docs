@@ -34,6 +34,9 @@ inductive LeanTy where
   | app (head : String) (arg : LeanTy)
   /-- Two-argument type application: `head arg1 arg2`. -/
   | app2 (head : String) (arg1 : LeanTy) (arg2 : LeanTy)
+  /-- N-argument type application: `head arg1 arg2 …`.
+      Each argument is parenthesized when rendered. -/
+  | appN (head : String) (args : List LeanTy)
   /-- Function arrow: `from → to`. -/
   | arrow (from_ : LeanTy) (to_ : LeanTy)
   /-- Cartesian product: `a × b × …`. -/
@@ -47,6 +50,9 @@ partial def LeanTy.toString : LeanTy → String
   | .app head arg => s!"{head} ({arg.toString})"
   | .app2 head a b =>
     s!"{head} ({a.toString}) ({b.toString})"
+  | .appN head args =>
+    let argStrs := args.map fun a => s!"({a.toString})"
+    s!"{head} {" ".intercalate argStrs}"
   | .arrow a b => s!"{a.toString} → {b.toString}"
   | .product ts => " × ".intercalate (ts.map LeanTy.toString)
 

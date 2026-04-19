@@ -36,6 +36,9 @@ inductive DSLType where
   | prim (p : DSLPrimTy)
   /-- A named type from `defEnum` or `defStruct`. -/
   | named (n : DSLNamedTy)
+  /-- Generic type application, e.g. `MaybeLabelledPlace P`
+      or `LifetimeProjection (PcgPlace P) Nat`. -/
+  | app (head : DSLNamedTy) (args : List DSLType)
   /-- `Option T`. -/
   | option (inner : DSLType)
   /-- `List T`. -/
@@ -55,6 +58,9 @@ instance : Inhabited DSLType := ⟨.prim .unit⟩
 partial def DSLType.beq : DSLType → DSLType → Bool
   | .prim a, .prim b => a == b
   | .named a, .named b => a == b
+  | .app ha asa, .app hb asb =>
+    ha == hb && asa.length == asb.length &&
+      (asa.zip asb).all fun (x, y) => DSLType.beq x y
   | .option a, .option b => DSLType.beq a b
   | .list a, .list b => DSLType.beq a b
   | .set a, .set b => DSLType.beq a b
@@ -97,6 +103,10 @@ namespace DSLType
 partial def toDoc : DSLType → OutputMode → Doc
   | .prim p, mode => p.toDoc mode
   | .named n, _ => .plain n.name
+  | .app h args, mode =>
+    .seq (.plain (h.name ++ " ") ::
+      (args.map fun a =>
+        .seq [parenIfCompound a mode, .plain " "]))
   | .option t, mode =>
     .seq [.plain "Option ", parenIfCompound t mode]
   | .list t, mode =>
@@ -116,8 +126,8 @@ where
   isCompound : DSLType → Bool
     | .prim _ => false
     | .named n => n.name.any fun c => c == ' ' || c == '×'
-    | .option _ | .list _ | .set _ | .map _ _ | .tuple _
-    | .arrow _ _ => true
+    | .app _ _ | .option _ | .list _ | .set _ | .map _ _
+    | .tuple _ | .arrow _ _ => true
   parenIfCompound (t : DSLType) (mode : OutputMode) : Doc :=
     if isCompound t then
       .seq [.plain "(", t.toDoc mode, .plain ")"]
@@ -142,6 +152,15 @@ partial def toLatex
       .raw s!"\\protect\\hyperlink\{type:{n.name}}\
              \{\\protect\\dashuline\{{n.name}}}"
     else .text n.name
+  | .app h args =>
+    let head :=
+      if knownTypes h.name then
+        Latex.raw s!"\\protect\\hyperlink\{type:{h.name}}\
+                     \{\\protect\\dashuline\{{h.name}}}"
+      else .text h.name
+    .seq (head ::
+      (args.flatMap fun a =>
+        [.raw " ", parenIfCompound knownTypes a]))
   | .option t =>
     .seq [.raw "Option ", parenIfCompound knownTypes t]
   | .list t =>
@@ -162,8 +181,8 @@ where
   isCompound : DSLType → Bool
     | .prim _ => false
     | .named n => n.name.any fun c => c == ' ' || c == '×'
-    | .option _ | .list _ | .set _ | .map _ _ | .tuple _
-    | .arrow _ _ => true
+    | .app _ _ | .option _ | .list _ | .set _ | .map _ _
+    | .tuple _ | .arrow _ _ => true
   parenIfCompound (kt : String → Bool) (t : DSLType) : Latex :=
     if isCompound t then
       .seq [.raw "(", toLatex kt t, .raw ")"]
@@ -186,6 +205,15 @@ partial def toLatexMath
       .raw s!"\\text\{\\hyperlink\{type:{n.name}}\
               \{\\dashuline\{{n.name}}}}"
     else .text (.text n.name)
+  | .app h args =>
+    let head : LatexMath :=
+      if knownTypes h.name then
+        .raw s!"\\text\{\\hyperlink\{type:{h.name}}\
+                \{\\dashuline\{{h.name}}}}"
+      else .text (.text h.name)
+    .seq (head ::
+      (args.flatMap fun a =>
+        [.raw "~", parenIfCompound knownTypes a]))
   | .option t =>
     .seq [.text (.raw "Option "),
           parenIfCompound knownTypes t]
@@ -210,8 +238,8 @@ where
   isCompound : DSLType → Bool
     | .prim _ => false
     | .named n => n.name.any fun c => c == ' ' || c == '×'
-    | .option _ | .list _ | .set _ | .map _ _ | .tuple _
-    | .arrow _ _ => true
+    | .app _ _ | .option _ | .list _ | .set _ | .map _ _
+    | .tuple _ | .arrow _ _ => true
   parenIfCompound (kt : String → Bool) (t : DSLType) : LatexMath :=
     if isCompound t then
       .seq [.raw "(", toLatexMath kt t, .raw ")"]
@@ -311,6 +339,32 @@ private def splitTwoArgs (s : String) : Option (String × String) :=
         loop rest depth (cur.push c)
   loop s.toList 0 ""
 
+/-- Split a type string on top-level spaces, respecting
+    parentheses. E.g. `"LifetimeProjection (PcgPlace P) Nat"`
+    → `["LifetimeProjection", "(PcgPlace P)", "Nat"]`. -/
+private def splitTopLevelSpaces (s : String) : List String :=
+  let rec loop (cs : List Char) (depth : Nat)
+      (cur : String) (acc : List String) : List String :=
+    match cs with
+    | [] =>
+      let finalAcc :=
+        if cur.trimAscii.isEmpty then acc
+        else cur.trimAscii.toString :: acc
+      finalAcc.reverse
+    | c :: rest =>
+      if c == '(' then
+        loop rest (depth + 1) (cur.push c) acc
+      else if c == ')' then
+        loop rest (depth - 1) (cur.push c) acc
+      else if depth == 0 && c == ' ' then
+        let nextAcc :=
+          if cur.trimAscii.isEmpty then acc
+          else cur.trimAscii.toString :: acc
+        loop rest depth "" nextAcc
+      else
+        loop rest depth (cur.push c) acc
+  loop s.toList 0 "" []
+
 /-- Parse a Lean type string into a `DSLType`.
     Handles parenthesized types like
     `Option (Option Nat)` and function types like
@@ -339,6 +393,13 @@ partial def parse (s : String) : DSLType :=
           match splitTwoArgs rest with
           | some (k, v) => .map (parse k) (parse v)
           | none => .named ⟨s⟩
-        else .named ⟨s⟩
+        else
+          -- Possibly a generic type application like
+          -- `MaybeLabelledPlace P` or
+          -- `LifetimeProjection (PcgPlace P) Nat`.
+          match splitTopLevelSpaces s with
+          | [] => .named ⟨s⟩
+          | [_] => .named ⟨s⟩
+          | head :: args => .app ⟨head⟩ (args.map parse)
 
 end DSLType
