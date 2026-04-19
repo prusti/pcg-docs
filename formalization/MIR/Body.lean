@@ -48,8 +48,6 @@ defEnum Rvalue (.raw "rv", .raw "Rv")
 where
   | use (operand : Operand)
     "Use an operand directly."
-    (.doc (.plain "use"), .sym .lparen,
-     #operand, .sym .rparen)
   | ref (region : Region) (mutability : Mutability)
       (place : Place)
     "Create a reference to a place."
@@ -77,12 +75,8 @@ where
     (#lhs, .doc (.plain " := "), #rhs)
   | storageLive (lcl : Local)
     "Mark a local's storage as live."
-    (.doc (.plain "StorageLive"), .sym .lparen,
-     #lcl, .sym .rparen)
   | storageDead (lcl : Local)
     "Mark a local's storage as dead."
-    (.doc (.plain "StorageDead"), .sym .lparen,
-     #lcl, .sym .rparen)
   deriving Repr, BEq, Hashable
 
 namespace Statement
@@ -105,22 +99,15 @@ defEnum Terminator (.raw "t",
 where
   | goto (target : BasicBlockIdx)
     "Unconditional jump."
-    (.doc (.plain "goto "), #target)
   | switchInt (operand : Operand)
     "Switch on an integer value."
-    (.doc (.plain "switchInt"), .sym .lparen,
-     #operand, .sym .rparen)
   | return_
     "Return from the function."
     (.doc (.plain "return"))
   | unreachable
     "Marks unreachable code."
-    (.doc (.plain "unreachable"))
   | drop (place : Place) (target : BasicBlockIdx)
     "Drop the value at a place."
-    (.doc (.plain "drop"), .sym .lparen,
-     #place, .doc (.plain ", "), #target,
-     .sym .rparen)
   | call (callee : Operand) (args : List Operand)
       (targetPlace : Place)
       (nextBlock : BasicBlockIdx)

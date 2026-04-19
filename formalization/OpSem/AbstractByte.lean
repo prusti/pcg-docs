@@ -10,7 +10,6 @@ defEnum AbstractByte (.raw "b",
 where
   | uninit
     "An uninitialized byte."
-    (.doc (.plain "uninit"))
   | init (value : UInt8)
     "An initialized byte with a concrete value."
     (.doc (.plain "init "), #value (.raw "v"))

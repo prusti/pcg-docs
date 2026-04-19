@@ -25,7 +25,6 @@ where
     (.doc (.plain "bits "), #n (.raw "n"))
   | ptrSize
     "Pointer-sized."
-    (.doc (.plain "ptrSize"))
 
 defFn sizeBytes (.plain "size_bytes")
   (.plain "Number of bytes occupied by an integer of \
@@ -49,7 +48,6 @@ defEnum Mutability (.raw "m", .raw "M")
 where
   | shared
     "Shared"
-    (.doc (.plain "shared"))
   | mutable
     "Mutable"
     (.doc (.plain "mut"))
@@ -61,7 +59,6 @@ defEnum Ty (.raw "τ", .raw "Ty")
 where
   | bool
     "The boolean type."
-    (.doc (.plain "bool"))
   | int (it : IntType)
     "An integer type."
     (.doc (.plain "intTy "), #it (.raw "it"))
@@ -88,10 +85,6 @@ where
      #mutability, .doc (.plain " "), #pointee)
   | box (inner : Ty)
     "A box type."
-    (.doc (.code "Box"),
-     .sym .langle,
-     #inner,
-     .sym .rangle)
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
     (.doc (.plain "["), #elem, .doc (.plain "; "),

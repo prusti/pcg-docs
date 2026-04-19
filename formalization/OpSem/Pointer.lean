@@ -72,8 +72,6 @@ where
     (.doc (.plain "slice "), #elemSize (.raw "n"))
   | tuple (head : TupleHeadLayout) (tail : LayoutStrategy)
     "A tuple layout: a head layout followed by a tail layout."
-    (.doc (.plain "tuple "), #head, .doc (.plain ", "),
-     #tail (.raw "ls"))
   deriving Repr, BEq, Hashable
 
 instance : Inhabited LayoutStrategy where
@@ -99,7 +97,6 @@ defEnum PointerMetaKind (.raw "mk",
 where
   | none
     "No metadata (thin pointer)."
-    (.doc (.plain "none"))
   | elementCount
     "Element-count metadata (for slice-like wide pointers)."
     (.doc (.plain "elemCount"))
@@ -116,13 +113,10 @@ where
     (.doc (.plain "&"), #mutbl, .doc (.plain " "), #pointee)
   | box (pointee : PointeeInfo)
     "An owned box pointer."
-    (.doc (.code "Box"), .sym .langle, #pointee, .sym .rangle)
   | raw (metaKind : PointerMetaKind)
     "A raw pointer, carrying only the kind of metadata."
-    (.doc (.plain "raw "), #metaKind)
   | fnPtr
     "A function pointer."
-    (.doc (.plain "fnPtr"))
   deriving Repr, BEq, Hashable
 
 instance : Inhabited PtrType where

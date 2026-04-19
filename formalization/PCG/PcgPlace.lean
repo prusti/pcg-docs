@@ -16,5 +16,3 @@ where
     (#mlp (.raw "\\widetilde{p}"))
   | remote (l : Local)
     "A remote place naming a MIR local from the caller."
-    (.doc (.plain "remote"), .sym .lparen,
-     #l, .sym .rparen)

@@ -24,12 +24,8 @@ defEnum Region (.raw "r", .raw "R")
 where
   | vid (v : RegionVid)
     "A region variable identifier."
-    (.doc (.plain "vid"), .sym .lparen,
-     #v, .sym .rparen)
   | static
     "The 'static lifetime."
     (.doc (.code "'static"))
   | earlyBound (eb : EarlyBoundRegion)
     "An early-bound region from generic parameters."
-    (.doc (.plain "early"), .sym .lparen,
-     #eb, .sym .rparen)

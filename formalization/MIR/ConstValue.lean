@@ -9,7 +9,6 @@ where
     (.doc (.plain "bool "), #val (.raw "b"))
   | int (val : IntValue)
     "An integer value."
-    (.doc (.plain "int "), #val (.raw "iv"))
   | tuple (elems : List ConstValue)
     "A tuple value."
     (.doc (.plain "tuple "), #elems (.raw "\\bar{cv}"))
