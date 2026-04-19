@@ -1,6 +1,6 @@
 import Core.Dsl.DefEnum
 
-defEnum EvalStmtPhase (.raw "φ", .raw "EvalStmtPhase")
+defEnum EvalStmtPhase (.raw "\\varphi", .raw "EvalStmtPhase")
   "Evaluation Statement Phases"
   "A phase of statement evaluation at which the PCG state is \
    observed. Each MIR statement is analysed in four phases: \

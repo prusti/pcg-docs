@@ -1,3 +1,4 @@
+import PCG.AnalysisLocation
 import PCG.BorrowChecker
 import PCG.Capability
 import PCG.Capability.Order
