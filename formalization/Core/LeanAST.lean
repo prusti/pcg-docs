@@ -453,9 +453,17 @@ partial def LeanDecl.toString : LeanDecl → String
     let fieldStrs := fields.map renderField
     let usesMap := fields.any fun f =>
       (f.type.toString).find? "HashMap" |>.isSome
-    let derives := if usesMap
-      then "Repr, Inhabited"
-      else "Repr, BEq, Hashable, Inhabited"
+    -- Generic structs may hold fields whose types are generic
+    -- inductives that don't derive `Inhabited` (e.g.
+    -- `MaybeLabelledPlace P`), so omit `Inhabited` when the
+    -- struct is itself generic. Matches the behaviour used
+    -- for generic inductives below.
+    let derives := if usesMap then
+        if typeParams.isEmpty then "Repr, Inhabited" else "Repr"
+      else
+        if typeParams.isEmpty
+          then "Repr, BEq, Hashable, Inhabited"
+          else "Repr, BEq, Hashable"
     let tpStr :=
       if typeParams.isEmpty then ""
       else " " ++ " ".intercalate

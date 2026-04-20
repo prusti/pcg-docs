@@ -3,6 +3,7 @@ import PCG.AnalysisLocation
 import PCG.BorrowChecker
 import PCG.Capability
 import PCG.Capability.Order
+import PCG.DerefEdge
 import PCG.EvalStmtPhase
 import PCG.InitialisationState
 import PCG.InitialisationState.Order

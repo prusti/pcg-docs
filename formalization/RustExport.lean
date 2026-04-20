@@ -1,5 +1,6 @@
 import PCG.AbstractionEdge
 import PCG.Capability.Order
+import PCG.DerefEdge
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
 import PCG.LocalLifetimeProjection

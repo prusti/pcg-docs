@@ -1,0 +1,30 @@
+import Core.Dsl.DefStruct
+import PCG.LocalLifetimeProjection
+import PCG.MaybeLabelledPlace
+
+defStruct DerefEdge {P}
+    (.doc (.plain "de"), .doc (.plain "DerefEdge"))
+  "Deref Edges"
+  (.seq [
+    .plain "A deref edge ",
+    Doc.defMath (.doc (.plain "de"))
+      (.doc (.plain "DerefEdge")) ["P"],
+    .plain " connects a reference-typed blocked place to the \
+     place obtained by dereferencing it, together with the \
+     lifetime projection of the blocked place that is blocked \
+     by this edge. The blocked lifetime projection is \
+     generally unlabelled when the blocked place is a shared \
+     reference, and labelled with the MIR location of the \
+     dereference when the blocked place is a mutable \
+     reference. Deref edges are used for dereferences of \
+     reference-typed places; dereferences of Box-typed places \
+     use Unpack Edges instead."])
+where
+  | blockedPlace "The reference-typed place that is blocked."
+      : MaybeLabelledPlace P
+  | derefPlace "The place obtained by dereferencing the \
+      blocked place."
+      : MaybeLabelledPlace P
+  | blockedLifetimeProjection "The lifetime projection of \
+      the blocked place that is blocked by this edge."
+      : LocalLifetimeProjection P

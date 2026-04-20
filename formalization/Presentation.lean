@@ -2,6 +2,7 @@ import PCG.AbstractionEdge
 import PCG.AnalysisLocation
 import PCG.BorrowChecker
 import PCG.Capability.Order
+import PCG.DerefEdge
 import PCG.EvalStmtPhase
 import PCG.InitialisationState.Order
 import PCG.InitialisationTree
