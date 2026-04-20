@@ -1,5 +1,5 @@
 import MIR.Body
-import PCG.AnalysisLocation
+import PCG.Nodes.AnalysisLocation
 
 defEnum SnapshotLocation (.doc (.plain "sl"),
     .doc (.plain "SnapshotLocation"))

@@ -1,5 +1,5 @@
 import MIR.Body
-import PCG.PcgNode
+import PCG.Nodes.PcgNode
 
 defStruct BorrowChecker {P}
     (.doc (.plain "bc"),

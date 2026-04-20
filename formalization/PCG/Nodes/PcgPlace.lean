@@ -1,6 +1,6 @@
 import Core.Dsl.DefEnum
 import MIR.Place
-import PCG.MaybeLabelledPlace
+import PCG.Nodes.MaybeLabelledPlace
 
 defEnum PcgPlace {P}
     (.hat (.raw "p"), .doc (.plain "PcgPlace"))

@@ -1,6 +1,6 @@
 import Core.Dsl.DefAlias
-import PCG.LifetimeProjection
-import PCG.MaybeLabelledPlace
+import PCG.Nodes.LifetimeProjection
+import PCG.Nodes.MaybeLabelledPlace
 
 defAlias LocalLifetimeProjection {P}
     (.doc (.plain "llp"),

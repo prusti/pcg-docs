@@ -1,6 +1,6 @@
 import Core.Dsl.DefEnum
-import PCG.LifetimeProjection
-import PCG.PcgPlace
+import PCG.Nodes.LifetimeProjection
+import PCG.Nodes.PcgPlace
 
 defEnum PcgNode {P}
     (.doc (.plain "n"), .doc (.plain "PcgNode"))

@@ -1,6 +1,6 @@
 import Core.Dsl.DefStruct
-import PCG.LocalLifetimeProjection
-import PCG.MaybeLabelledPlace
+import PCG.Nodes.LocalLifetimeProjection
+import PCG.Nodes.MaybeLabelledPlace
 
 defStruct DerefEdge {P}
     (.doc (.plain "de"), .doc (.plain "DerefEdge"))

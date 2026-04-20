@@ -1,7 +1,7 @@
 import Core.Dsl.DefEnum
-import PCG.LifetimeProjection
-import PCG.PcgNode
-import PCG.PcgPlace
+import PCG.Nodes.LifetimeProjection
+import PCG.Nodes.PcgNode
+import PCG.Nodes.PcgPlace
 
 defEnum AbstractionEdge {P}
     (.doc (.plain "a"), .doc (.plain "AbstractionEdge"))

@@ -1,12 +1,8 @@
 import PCG.AbstractionEdge
 import PCG.Capability.Order
 import PCG.DerefEdge
-import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
-import PCG.LocalLifetimeProjection
-import PCG.MaybeLabelledPlace
-import PCG.PcgNode
-import PCG.PcgPlace
+import PCG.Nodes
 import PCG.UnpackEdge
 import MIR
 import OpSem
