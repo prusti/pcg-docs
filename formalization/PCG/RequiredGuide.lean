@@ -7,7 +7,7 @@ defEnum RequiredGuide {D}
   (.seq [
     .plain "A required guide ",
     Doc.defMath (.doc (.plain "rg"))
-      (.doc (.plain "RequiredGuide")),
+      (.doc (.plain "RequiredGuide")) ["D"],
     .plain " selects a non-default expansion variant: an enum \
      downcast, a constant array index, a variable array \
      index, or a subslice. Each variant carries a per-child \

@@ -7,7 +7,7 @@ defStruct LifetimeProjection {B I}
   (.seq [
     .plain "A lifetime projection ",
     Doc.defMath (.doc (.plain "lp"))
-      (.doc (.plain "LifetimeProjection")),
+      (.doc (.plain "LifetimeProjection")) ["B", "I"],
     .plain " consists of a base drawn from a parameter set ",
     .math (.doc (.plain "B")),
     .plain ", an index drawn from a parameter set ",

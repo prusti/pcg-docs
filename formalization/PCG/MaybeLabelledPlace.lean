@@ -8,7 +8,7 @@ defEnum MaybeLabelledPlace {P}
   (.seq [
     .plain "A maybe-labelled place ",
     Doc.defMath (.widetilde (.raw "p"))
-      (.doc (.plain "MaybeLabelledPlace")),
+      (.doc (.plain "MaybeLabelledPlace")) ["P"],
     .plain " is either a current (unlabelled) place drawn \
      from the parameter set ",
     .math (.doc (.plain "P")),

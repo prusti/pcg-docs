@@ -160,13 +160,18 @@ def formalDefLatex (d : EnumDef) : Latex :=
   -- `definition` environment, so the formal `\begin{definition}
   -- ... \end{definition}` block contains only the formal
   -- syntax (sym ∈ Set ::= variant | variant | ...).
+  let typeParamsLM : LatexMath :=
+    .seq (d.typeParams.flatMap fun p =>
+      [.raw "~", .var p])
+  let setDisplay : LatexMath :=
+    .seq [d.setDoc.toLatexMath, typeParamsLM]
   .seq [
     d.doc.toLatex, .newline,
     .envOpts "definition" (.text d.defnName) (.seq [
       typeTarget,
       .displayMath (.seq [
         sym, .raw " ", .cmd "in", .raw " ",
-        d.setDoc.toLatexMath, .raw " ::= ",
+        setDisplay, .raw " ::= ",
         .array (some "t") "rll" rows
       ]), .newline
     ])

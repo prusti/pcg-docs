@@ -7,7 +7,8 @@ defEnum PcgNode {P}
   "PCG Nodes"
   (.seq [
     .plain "A PCG node ",
-    Doc.defMath (.doc (.plain "n")) (.doc (.plain "PcgNode")),
+    Doc.defMath (.doc (.plain "n"))
+      (.doc (.plain "PcgNode")) ["P"],
     .plain " is either a PCG place or a lifetime projection \
      (whose base is a PCG place and whose index is a natural \
      number)."])

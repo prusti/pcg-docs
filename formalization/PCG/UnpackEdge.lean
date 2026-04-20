@@ -6,7 +6,7 @@ defStruct UnpackEdge {N}
   (.seq [
     .plain "An unpack edge ",
     Doc.defMath (.doc (.plain "ue"))
-      (.doc (.plain "UnpackEdge")),
+      (.doc (.plain "UnpackEdge")) ["N"],
     .plain " connects an owned base place to its expansion: a \
      list of owned places corresponding to the components of \
      the base. Each place in the expansion is itself owned. \

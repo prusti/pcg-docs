@@ -234,9 +234,15 @@ def brackets (d: MathDoc) : MathDoc :=
   .seq [.sym .lbracket, d, .sym .rbracket]
 
 /-- Inline math fragment `sym ∈ set`, used to embed a type's
-    "defining" membership statement inside surrounding prose. -/
-def defMath (sym set : MathDoc) : Doc :=
-  .math (.seq [sym, .sym .setContains, set])
+    "defining" membership statement inside surrounding prose.
+    Any supplied `typeParams` are appended after `set`, each
+    preceded by a math space, so a generic type's parameters
+    appear alongside its name (e.g. `n ∈ PcgNode P`). -/
+def defMath (sym set : MathDoc)
+    (typeParams : List String := []) : Doc :=
+  let params : List MathDoc := typeParams.flatMap fun p =>
+    [.sym .space, .raw p]
+  .math (.seq ([sym, .sym .setContains, set] ++ params))
 
 
 

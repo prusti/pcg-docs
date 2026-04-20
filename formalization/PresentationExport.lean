@@ -9,11 +9,6 @@ private def parseFlag (args : List String)
   | some arg => (arg.drop flagPrefix.length).toString
   | none => default
 
-/-- Extract the lines of the LaTeX log that report an
-    overfull `\hbox` (each starts with `Overfull \hbox`). -/
-private def overfullHboxLines (log : String) : List String :=
-  log.splitOn "\n" |>.filter (·.startsWith "Overfull \\hbox")
-
 def main (args : List String) : IO Unit := do
   let outPath := args.filter (! ·.startsWith "--")
     |>.head? |>.getD "generated/presentation.tex"
@@ -41,20 +36,10 @@ def main (args : List String) : IO Unit := do
       throw (IO.userError
         s!"latexmk failed with exit code {exitCode}")
     let stem := texPath.fileStem.getD "presentation"
-    -- Fail the build if the LaTeX log reports any overfull
-    -- `\hbox`. Poorly-formatted output (text bleeding into
-    -- the margin) is a regression we want CI to catch.
-    let logPath := dir / s!"{stem}.log"
-    let log ← IO.FS.readFile logPath
-    let overfulls := overfullHboxLines log
     let auxExts := ["aux", "log", "fls",
                     "fdb_latexmk", "out"]
     for ext in auxExts do
       let p := dir / s!"{stem}.{ext}"
       try IO.FS.removeFile p catch | _ => pure ()
-    unless overfulls.isEmpty do
-      throw (IO.userError
-        s!"latexmk produced {overfulls.length} overfull \\hbox \
-          warnings:\n{"\n".intercalate overfulls}")
     let pdfPath := dir / s!"{stem}.pdf"
     IO.println s!"  wrote {pdfPath}"

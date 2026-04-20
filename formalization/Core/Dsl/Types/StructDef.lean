@@ -68,12 +68,18 @@ def formalDefLatex (s : StructDef)
       .delimited "\\langle " "\\rangle" names
   let defLine : Latex :=
     if s.fields.isEmpty then .seq []
-    else .seq [
-      .newline,
-      .displayMath (.seq [
-        sym, .raw " ", .cmd "in", .raw " ",
-        s.setDoc.toLatexMath, .raw " ::= ", rhs]),
-      .newline]
+    else
+      let typeParamsLM : LatexMath :=
+        .seq (s.typeParams.flatMap fun p =>
+          [.raw "~", .var p])
+      let setDisplay : LatexMath :=
+        .seq [s.setDoc.toLatexMath, typeParamsLM]
+      .seq [
+        .newline,
+        .displayMath (.seq [
+          sym, .raw " ", .cmd "in", .raw " ",
+          setDisplay, .raw " ::= ", rhs]),
+        .newline]
   let whereBlock : Latex :=
     if s.fields.isEmpty then .seq []
     else
