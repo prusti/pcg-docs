@@ -1,3 +1,4 @@
+import PCG.AbstractionEdge
 import PCG.Capability.Order
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel

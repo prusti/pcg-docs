@@ -1,3 +1,4 @@
+import PCG.AbstractionEdge
 import PCG.AnalysisLocation
 import PCG.BorrowChecker
 import PCG.Capability
