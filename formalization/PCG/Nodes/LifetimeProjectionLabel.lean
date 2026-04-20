@@ -1,5 +1,5 @@
 import Core.Dsl.DefEnum
-import PCG.SnapshotLocation
+import PCG.Nodes.SnapshotLocation
 
 defEnum LifetimeProjectionLabel
     (.raw "\\ell", .doc (.plain "LifetimeProjectionLabel"))

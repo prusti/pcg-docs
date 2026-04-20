@@ -1,5 +1,5 @@
 import Core.Dsl.DefEnum
-import PCG.SnapshotLocation
+import PCG.Nodes.SnapshotLocation
 
 defEnum MaybeLabelledPlace {P}
     (.widetilde (.raw "p"),

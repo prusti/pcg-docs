@@ -1,5 +1,5 @@
 import Core.Dsl.DefStruct
-import PCG.LifetimeProjectionLabel
+import PCG.Nodes.LifetimeProjectionLabel
 
 defStruct LifetimeProjection {B I}
     (.doc (.plain "lp"), .doc (.plain "LifetimeProjection"))

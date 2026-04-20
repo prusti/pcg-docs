@@ -1,10 +1,6 @@
-import PCG.AbstractionEdge
-import PCG.BorrowFlowEdge
 import PCG.Capability.Order
-import PCG.DerefEdge
-import PCG.LifetimeProjectionLabel
+import PCG.Edges
 import PCG.Nodes
-import PCG.UnpackEdge
 import MIR
 import OpSem
 import Core.Export.Lean

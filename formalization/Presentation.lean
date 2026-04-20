@@ -1,18 +1,13 @@
-import PCG.AbstractionEdge
 import PCG.BorrowChecker
-import PCG.BorrowFlowEdge
 import PCG.Capability.Order
-import PCG.DerefEdge
+import PCG.Edges
 import PCG.EvalStmtPhase
 import PCG.InitialisationState.Order
 import PCG.InitialisationTree
-import PCG.LifetimeProjectionLabel
 import PCG.Nodes
 import PCG.OwnedLocal
 import PCG.PlaceExpansion
 import PCG.RequiredGuide
-import PCG.SnapshotLocation
-import PCG.UnpackEdge
 import PCG.ValidityConditions
 import MIR
 import Core.Dsl.Types.OrderDef
@@ -51,7 +46,8 @@ private def isChildOf (p m : Lean.Name) : Bool :=
 /-- Parent module names that act as neutral containers
     (their name would be redundant to repeat in every child's
     subsubsection heading). -/
-private def genericParentModules : List String := ["Nodes"]
+private def genericParentModules : List String :=
+  ["Nodes", "Edges"]
 
 /-- Subsubsection title for a nested module: combine the
     module's own last component with its parent's last
