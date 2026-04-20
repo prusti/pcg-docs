@@ -156,14 +156,20 @@ def formalDefLatex (d : EnumDef) : Latex :=
   -- `\hyperlink{type:<name>}{...}`.
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{d.name.name}}\{}"
-  .envOpts "definition" (.text d.defnName) (.seq [
-    typeTarget,
+  -- Render the prose description as a paragraph BEFORE the
+  -- `definition` environment, so the formal `\begin{definition}
+  -- ... \end{definition}` block contains only the formal
+  -- syntax (sym ∈ Set ::= variant | variant | ...).
+  .seq [
     d.doc.toLatex, .newline,
-    .displayMath (.seq [
-      sym, .raw " ", .cmd "in", .raw " ",
-      d.setDoc.toLatexMath, .raw " ::= ",
-      .array (some "t") "rll" rows
-    ]), .newline
-  ])
+    .envOpts "definition" (.text d.defnName) (.seq [
+      typeTarget,
+      .displayMath (.seq [
+        sym, .raw " ", .cmd "in", .raw " ",
+        d.setDoc.toLatexMath, .raw " ::= ",
+        .array (some "t") "rll" rows
+      ]), .newline
+    ])
+  ]
 
 end EnumDef

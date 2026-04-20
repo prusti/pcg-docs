@@ -108,11 +108,17 @@ def formalDefLatex (s : StructDef)
   -- `\hyperlink{type:<name>}{...}`.
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{s.name}}\{}"
-  .envOpts "definition" title (.seq [
-    typeTarget,
-    s.doc.toLatex, noteFootnote,
-    defLine,
-    whereBlock
-  ])
+  -- Render the prose description as a paragraph BEFORE the
+  -- `definition` environment, so the formal `\begin{definition}
+  -- ... \end{definition}` block contains only the formal
+  -- syntax (sym ∈ Set ::= ...) and the where-block.
+  .seq [
+    s.doc.toLatex, noteFootnote, .newline,
+    .envOpts "definition" title (.seq [
+      typeTarget,
+      defLine,
+      whereBlock
+    ])
+  ]
 
 end StructDef

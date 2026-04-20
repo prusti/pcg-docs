@@ -4,16 +4,19 @@ import PCG.SnapshotLocation
 defEnum LifetimeProjectionLabel
     (.raw "\\ell", .doc (.plain "LifetimeProjectionLabel"))
   "Lifetime Projection Labels"
-  (.plain "A label attached to a lifetime projection: either \
-   a snapshot location identifying when the projection was \
-   taken, or the placeholder FUTURE label identifying a \
-   projection that refers to a future program point.")
+  (.seq [
+    .plain "A lifetime projection label ",
+    Doc.defMath (.raw "\\ell")
+      (.doc (.plain "LifetimeProjectionLabel")),
+    .plain " is either a snapshot location identifying when \
+     the projection was taken, or the placeholder ",
+    .math (.doc (.code "FUTURE")),
+    .plain " label, used for projections that refer to a \
+     future program point."])
 where
   | location (sl : SnapshotLocation)
-    "A label identifying the snapshot location at which the \
-     lifetime projection was taken."
+    "A snapshot location."
     (#sl)
   | future
-    "The placeholder FUTURE label, used for projections that \
-     refer to a future program point."
+    "The FUTURE placeholder."
     (.doc (.code "FUTURE"))

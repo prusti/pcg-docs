@@ -4,15 +4,20 @@ import PCG.LifetimeProjectionLabel
 defStruct LifetimeProjection {B I}
     (.doc (.plain "lp"), .doc (.plain "LifetimeProjection"))
   "Lifetime Projections"
-  (.plain "A lifetime projection: a base drawn from a set B, \
-   an index drawn from a set I, and an optional lifetime \
-   projection label identifying the snapshot location or \
-   FUTURE placeholder at which the projection is taken. The \
-   base and index sets are parameters of the definition.")
+  (.seq [
+    .plain "A lifetime projection ",
+    Doc.defMath (.doc (.plain "lp"))
+      (.doc (.plain "LifetimeProjection")),
+    .plain " consists of a base drawn from a parameter set ",
+    .math (.doc (.plain "B")),
+    .plain ", an index drawn from a parameter set ",
+    .math (.doc (.plain "I")),
+    .plain ", and an optional label identifying the \
+     snapshot location (or ",
+    .math (.doc (.code "FUTURE")),
+    .plain " placeholder) at which the projection is taken."])
 where
-  | base "The base of the projection (drawn from set B)."
-      : B
-  | index "The index of the projection (drawn from set I)."
-      : I
-  | label "The optional lifetime projection label."
+  | base "Base of the projection." : B
+  | index "Index of the projection." : I
+  | label "Optional lifetime projection label."
       : Option LifetimeProjectionLabel

@@ -5,14 +5,16 @@ import PCG.PcgPlace
 defEnum PcgNode {P}
     (.doc (.plain "n"), .doc (.plain "PcgNode"))
   "PCG Nodes"
-  (.plain "A PCG node is either a PCG place or a lifetime \
-   projection whose base is a PCG place and whose index is \
-   a natural number.")
+  (.seq [
+    .plain "A PCG node ",
+    Doc.defMath (.doc (.plain "n")) (.doc (.plain "PcgNode")),
+    .plain " is either a PCG place or a lifetime projection \
+     (whose base is a PCG place and whose index is a natural \
+     number)."])
 where
   | place (p : PcgPlace P)
-    "A PCG place node."
+    "A PCG place."
     (#p)
   | lifetimeProjection (lp : LifetimeProjection (PcgPlace P) Nat)
-    "A lifetime projection node with a PCG place base and \
-     natural-number index."
+    "A lifetime projection."
     (#lp)

@@ -265,8 +265,17 @@ elab_rules : command
           let argPart := if argStrs.isEmpty then ""
             else " " ++ " ".intercalate argStrs
           pure s!"  | {vn.getId}{argPart}"
+      -- Generic enums embed `deriving` inside the inductive
+      -- declaration. Honor a user-supplied `deriving` clause
+      -- (so e.g. enums whose variant carries a `Map` can opt
+      -- out of `Hashable`); otherwise fall back to the
+      -- defaults.
       let derivClause :=
-        "\n  deriving DecidableEq, Repr, Hashable"
+        let names := match derivs with
+          | some ds =>
+            ds.getElems.toList.map (toString ·.getId)
+          | none => ["DecidableEq", "Repr", "Hashable"]
+        "\n  deriving " ++ ", ".intercalate names
       let inductiveStr :=
         s!"inductive {name.getId}{tpStr} where\n\
            {"\n".intercalate ctorStrs}\

@@ -5,10 +5,14 @@ import PCG.Capability.Order
 import PCG.EvalStmtPhase
 import PCG.InitialisationState
 import PCG.InitialisationState.Order
+import PCG.InitialisationTree
+import PCG.OwnedLocal
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
 import PCG.MaybeLabelledPlace
 import PCG.PcgNode
 import PCG.PcgPlace
+import PCG.PlaceExpansion
+import PCG.RequiredGuide
 import PCG.SnapshotLocation
 import PCG.ValidityConditions

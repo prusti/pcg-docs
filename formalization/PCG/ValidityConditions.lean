@@ -16,21 +16,29 @@ no constraint at `b`. -/
 defStruct BranchChoice (.doc (.plain "d"),
     .doc (.plain "BranchChoice"))
   "Branch Choices"
-  (.plain "An ordered pair of basic blocks (source, target) \
-   representing a single control-flow transition from source \
-   to target.")
+  (.seq [
+    .plain "A branch choice ",
+    Doc.defMath (.doc (.plain "d"))
+      (.doc (.plain "BranchChoice")),
+    .plain " is an ordered pair of basic blocks representing \
+     a single control-flow transition from a source block to \
+     a target block."])
 where
-  | source "The source basic block." : BasicBlockIdx
-  | target "The target basic block." : BasicBlockIdx
+  | source "Source block." : BasicBlockIdx
+  | target "Target block." : BasicBlockIdx
   deriving Repr
 
 defStruct ExecutionPath (.doc (.plain "p"),
     .doc (.plain "ExecutionPath"))
   "Execution Paths"
-  (.plain "An execution path leading to a basic block: an \
-   ordered list of blocks ending at that block.")
+  (.seq [
+    .plain "An execution path ",
+    Doc.defMath (.doc (.plain "p"))
+      (.doc (.plain "ExecutionPath")),
+    .plain " is an ordered list of basic blocks leading to \
+     (and ending at) a particular block."])
 where
-  | blocks "The blocks in the path, in execution order."
+  | blocks "Blocks in execution order."
       : List BasicBlockIdx
   deriving Repr
 
@@ -52,12 +60,16 @@ end ExecutionPath
 defStruct ValidityConditions (.doc (.plain "pc"),
     .doc (.plain "ValidityConditions"))
   "Validity Conditions"
-  (.plain "Validity conditions associated with a borrow PCG \
-   edge: a partial map from each relevant source block to the \
-   set of allowed target blocks at that source.")
+  (.seq [
+    .plain "Validity conditions ",
+    Doc.defMath (.doc (.plain "pc"))
+      (.doc (.plain "ValidityConditions")),
+    .plain " select the execution paths under which a borrow \
+     PCG edge is valid: a partial map from each relevant \
+     source block to the set of allowed target blocks at \
+     that source."])
 where
-  | allowed "Map from each relevant source block to the set of \
-       allowed target blocks at that source."
+  | allowed "Allowed transitions per source block."
       : Map BasicBlockIdx (Set BasicBlockIdx)
   deriving Repr
 

@@ -309,6 +309,24 @@ partial def toDoc
              (.seq [go b, .sym .mapsto, go c]) ]
   | .call (.var "mapGet") [a, b] =>
     .seq [go a, MathDoc.bracket (go b)]
+  | .call (.var "mapEmpty") [] => .sym .emptySet
+  | .call (.var "mapSingleton") [a] =>
+    -- `mapSingleton ⟨k, v⟩` is an anonymous-tuple call;
+    -- render the body in brace-set notation `{k ↦ v}`.
+    match a with
+    | .mkStruct "" [k, v] =>
+      MathDoc.brace (.seq [go k, .sym .mapsto, go v])
+    | _ => MathDoc.brace (go a)
+  | .call (.var "mapSingleton") [k, v] =>
+    MathDoc.brace (.seq [go k, .sym .mapsto, go v])
+  | .call (.var "mapUnionSets") [a, b] =>
+    .seq [go a, .sym .cup, go b]
+  | .call (.var "mapUnionSets") [arg] =>
+    -- `mapUnionSets ⟨a, b⟩` (paired call form).
+    match arg with
+    | .mkStruct "" [a, b] => .seq [go a, .sym .cup, go b]
+    | _ => .seq [MathDoc.text "mapUnionSets",
+                 MathDoc.paren (go arg)]
   | .call fn args =>
     -- Drop proof arguments: they render as empty math
     -- and would otherwise leave a trailing comma.

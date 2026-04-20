@@ -5,11 +5,15 @@ defStruct BorrowChecker {P}
     (.doc (.plain "bc"),
      .doc (.plain "BorrowChecker"))
   "BorrowCheckers"
-  (.plain "A borrow-checker oracle exposing the subset of \
-   Polonius-style facts needed by the PCG: for each PCG \
-   node, whether it is live at a given MIR location.")
+  (.seq [
+    .plain "A borrow-checker ",
+    Doc.defMath (.doc (.plain "bc"))
+      (.doc (.plain "BorrowChecker")),
+    .plain " is an oracle that exposes the subset of \
+     Polonius-style facts needed by the PCG: for each PCG \
+     node and MIR location, whether the node is live at \
+     that location."])
 where
-  | isLive "Whether the given PCG node is live at the \
-       given MIR location."
+  | isLive "Liveness predicate."
       : PcgNode P → Location → Bool
   deriving Inhabited
