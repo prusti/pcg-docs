@@ -145,6 +145,12 @@ add a new function to `OpSem/Expressions/Place.lean`:
 
 `lake exe export_all` runs all three.
 
+For iterative work on the paper, `python3 scripts/watch_presentation.py`
+watches every `.lean` file under `formalization/` and re-runs
+`lake exe presentation_export` on each change, so the PDF stays in
+sync as you edit. Pass exporter flags after `--`, e.g.
+`python3 scripts/watch_presentation.py -- --make-pdf=false`.
+
 If your `defFn` body uses a helper that lives outside the DSL
 grammar, add it to `Runtime/` (for runtime-style helpers) or
 to `extraLeanItems` / `extraItems` (for module-specific
