@@ -15,4 +15,5 @@ import PCG.PcgPlace
 import PCG.PlaceExpansion
 import PCG.RequiredGuide
 import PCG.SnapshotLocation
+import PCG.UnpackEdge
 import PCG.ValidityConditions

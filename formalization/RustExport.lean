@@ -4,6 +4,7 @@ import PCG.LifetimeProjectionLabel
 import PCG.MaybeLabelledPlace
 import PCG.PcgNode
 import PCG.PcgPlace
+import PCG.UnpackEdge
 import MIR
 import OpSem
 import Core.Export.Rust
