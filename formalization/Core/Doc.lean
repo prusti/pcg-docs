@@ -109,6 +109,10 @@ mutual
     | italic (d : MathDoc)
     /-- Calligraphic: `\mathcal{...}`. -/
     | cal (d : MathDoc)
+    /-- Wide tilde accent: `\widetilde{...}`. -/
+    | widetilde (d : MathDoc)
+    /-- Hat accent: `\hat{...}`. -/
+    | hat (d : MathDoc)
     /-- Concatenation of mathematical documents. -/
     | seq (ds : List MathDoc)
     deriving Repr
@@ -154,6 +158,11 @@ end
 
 instance : Inhabited Doc := ⟨.plain ""⟩
 instance : Inhabited MathDoc := ⟨.raw ""⟩
+
+/-- Coercion so that string literals can stand in for `Doc`
+    descriptions in DSL constructs (e.g. `defStruct` field
+    docs). The string is wrapped as `Doc.plain`. -/
+instance : Coe String Doc := ⟨.plain⟩
 
 namespace MathSym
 
@@ -260,6 +269,15 @@ private def latexReplacements :
   , ("Π", "$\\Pi$", "\\Pi")
   , ("π", "$\\pi$", "\\pi")
   , ("₀", "$_0$", "_0")
+  , ("₁", "$_1$", "_1")
+  , ("₂", "$_2$", "_2")
+  , ("₃", "$_3$", "_3")
+  , ("₄", "$_4$", "_4")
+  , ("₅", "$_5$", "_5")
+  , ("₆", "$_6$", "_6")
+  , ("₇", "$_7$", "_7")
+  , ("₈", "$_8$", "_8")
+  , ("₉", "$_9$", "_9")
   , ("⟨", "$\\langle$", "\\langle")
   , ("⟩", "$\\rangle$", "\\rangle")
   , ("Δ", "$\\Delta$", "\\Delta")
@@ -324,7 +342,8 @@ mutual
     | .raw s => s
     | .doc d => d.toPlainText
     | .sym s => s.toPlainText
-    | .bb d | .bold d | .italic d | .cal d =>
+    | .bb d | .bold d | .italic d | .cal d
+    | .widetilde d | .hat d =>
       mathToPlainText d
     | .seq ds => String.join (ds.map mathToPlainText)
 end
@@ -360,6 +379,8 @@ mutual
     | .bold d => s!"bold({mathToTypst d})"
     | .italic d => s!"italic({mathToTypst d})"
     | .cal d => s!"cal({mathToTypst d})"
+    | .widetilde d => s!"tilde({mathToTypst d})"
+    | .hat d => s!"hat({mathToTypst d})"
     | .seq ds => String.join (ds.map mathToPlainText)
 end
 
@@ -430,6 +451,9 @@ mutual
     | .bb d | .bold d => s!"<b>{mathToHTML d}</b>"
     | .italic d => s!"<i>{mathToHTML d}</i>"
     | .cal d => mathToHTML d
+    | .widetilde d => s!"<span style=\"text-decoration: overline\
+         dashed\">{mathToHTML d}</span>"
+    | .hat d => s!"{mathToHTML d}\u0302"
     | .seq ds => String.join (ds.map mathToHTML)
 end
 

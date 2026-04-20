@@ -24,12 +24,13 @@ syntax "#" ident : displayPart
 declare_syntax_cat enumVariant
 
 /-- A variant in a `defEnum` declaration:
-    `| name (arg : Ty)* "doc" (displayPart, ...)`.
+    `| name (arg : Ty)* doc (displayPart, ...)`.
 
-    The display template is optional. If omitted, it defaults
-    to the constructor name followed by each argument's symbol
-    separated by spaces. -/
-syntax "| " ident enumVariantArg* str
+    `doc` is any `Doc`-typed term (a string literal coerces
+    to `Doc.plain`). The display template is optional. If
+    omitted, it defaults to the constructor name followed by
+    each argument's symbol separated by spaces. -/
+syntax "| " ident enumVariantArg* term:max
     ("(" displayPart,+ ")")? : enumVariant
 
 /-- Define an enum type with cross-language export and presentation
@@ -236,7 +237,7 @@ elab_rules : command
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
             | $vn:ident $args:enumVariantArg*
-              $vd:str $[( $dps:displayPart,* )]?) =>
+              $vd:term $[( $dps:displayPart,* )]?) =>
         pure (vn, args, vd, dps)
       | _ => throwError "invalid enum variant"
     let typeParamNames : List String := match tps with
@@ -332,7 +333,7 @@ elab_rules : command
             defaultDisplayParts (toString vn.getId) args
               argTypes selfN symDoc typeParamNames
         let dpList ← `([$[$dpDefs],*])
-        `({ name := $ns, doc := $vd,
+        `({ name := $ns, doc := ($vd : Doc),
             display := $dpList,
             args := $argList
             : VariantDef })

@@ -6,8 +6,9 @@ open Lean in
 declare_syntax_cat structField
 
 /-- A field in a `defStruct` declaration:
-    `| name "doc" : Type`. -/
-syntax "| " ident str ":" term : structField
+    `| name doc : Type`, where `doc` is any `Doc`-typed term
+    (a string literal coerces to `Doc.plain`). -/
+syntax "| " ident term ":" term : structField
 
 /-- Define a structure with cross-language export metadata.
 
@@ -39,9 +40,9 @@ private def parseStructField
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM
         (Lean.Ident × Lean.Syntax
-         × Lean.TSyntax `str) := do
+         × Lean.TSyntax `term) := do
   match stx with
-  | `(structField| | $n:ident $d:str : $t:term) =>
+  | `(structField| | $n:ident $d:term : $t:term) =>
     pure (n, t, d)
   | _ => Lean.Elab.throwUnsupportedSyntax
 
@@ -72,9 +73,16 @@ elab_rules : command
     -- Generic structs embed `deriving` inside the
     -- structure declaration; the separate `deriving
     -- instance` commands below only handle monomorphic
-    -- types.
+    -- types. When the user supplies a `deriving` clause
+    -- it is honored verbatim (so e.g. structs with
+    -- function-typed fields can derive `Inhabited` only).
     let inlineDeriving :=
-      if isGeneric then "\n  deriving DecidableEq, Repr, Hashable"
+      if isGeneric then
+        let names := match derivs with
+          | some ds =>
+            ds.getElems.toList.map (toString ·.getId)
+          | none => ["DecidableEq", "Repr", "Hashable"]
+        "\n  deriving " ++ ", ".intercalate names
       else ""
     let structStr :=
       s!"structure {name.getId}{tpStr} where\n\
@@ -125,7 +133,7 @@ elab_rules : command
             else `(none)
           else `(none)
         `({ name := $ns, ty := $tyTerm,
-            doc := $fd,
+            doc := ($fd : Doc),
             symbolDoc := $symTerm : FieldDef })
     let ns : TSyntax `term :=
       quote (toString name.getId)

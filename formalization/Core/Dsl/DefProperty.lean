@@ -41,7 +41,7 @@ private def syntaxToLeanTy (pt : Lean.Syntax) : LeanTy :=
 open LeanAST in
 /-- Build `LeanBinder` list from parsed parameter data. -/
 private def paramToLeanBinders
-    (paramData : Array (Lean.Ident × Lean.TSyntax `str
+    (paramData : Array (Lean.Ident × Lean.TSyntax `term
       × Lean.Syntax))
     : List LeanBinder :=
   paramData.toList.map fun (pn, _, pt) =>
@@ -78,7 +78,7 @@ open Lean Elab Command in
 private def buildPropertyDef
     (name : Ident)
     (symDoc : TSyntax `term)
-    (paramData : Array (Ident × TSyntax `str
+    (paramData : Array (Ident × TSyntax `term
       × Syntax))
     (body : TSyntax `term)
     (docBinders : Array Ident)
@@ -93,7 +93,7 @@ private def buildPropertyDef
         else pt.reprint.getD (toString pt)
       let tyTerm ← `(DSLType.parse $(quote typeStr))
       `({ name := $ns, ty := $tyTerm,
-          doc := $pd : FieldDef })
+          doc := ($pd : Doc) : FieldDef })
   let ns : TSyntax `term :=
     quote (toString name.getId)
   let retTn ← `(DSLType.prim .bool)
@@ -178,7 +178,7 @@ open Lean Elab Command Term in
 private def elabExprProperty
     (name : Ident)
     (symDoc : TSyntax `term)
-    (paramData : Array (Ident × TSyntax `str × Syntax))
+    (paramData : Array (Ident × TSyntax `term × Syntax))
     (rhsAst : DslExpr)
     (docBinders : Array Ident)
     (docExpr : TSyntax `term)

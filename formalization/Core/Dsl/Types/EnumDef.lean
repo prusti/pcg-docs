@@ -27,7 +27,7 @@ structure VariantDef where
   /-- The variant name (e.g. `"exclusive"`). -/
   name : DSLNamedTy
   /-- Documentation for this variant. -/
-  doc : String
+  doc : Doc
   /-- Display template: a list of literal fragments and
       argument references that together form the
       mathematical notation for this variant. -/
@@ -90,7 +90,7 @@ def longDef (d : EnumDef) : Doc :=
     [d.doc, .plain " ", .math d.symbolDoc,
      .plain " is one of:"]
   let items := d.variants.map fun v =>
-    Doc.seq [v.displayDoc, .plain s!": {v.doc}"]
+    Doc.seq [v.displayDoc, .plain ": ", v.doc]
   .seq [header, .line, .itemize items]
 
 end EnumDef
@@ -149,7 +149,7 @@ def formalDefLatex (d : EnumDef) : Latex :=
     let desc : LatexMath :=
       .seq [.raw "~", .text (Latex.parbox
         "\\dimexpr\\linewidth-8cm\\relax" (.seq [
-          .raw "(", .text v.doc, .raw ")"]))]
+          .raw "(", v.doc.toLatex, .raw ")"]))]
     [sep, variant, desc]
   -- Invisible hypertarget so cross-references to this type
   -- (e.g. from function signatures) can link here via

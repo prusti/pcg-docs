@@ -15,7 +15,7 @@ import Core.Dsl.Types.OrderDef
 def extraItems : List (String × String × RustItem) :=
   [ ("PCG", "borrowchecker", .raw
 "use formal_mir::body::Location;
-use formal_mir::region::RegionVid;
+use crate::pcgnode::PcgNode;
 ")
   , ("PCG", "analysislocation", .raw
 "use formal_mir::body::Location;

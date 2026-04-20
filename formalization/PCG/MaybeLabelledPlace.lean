@@ -2,7 +2,8 @@ import Core.Dsl.DefEnum
 import PCG.SnapshotLocation
 
 defEnum MaybeLabelledPlace {P}
-    (.raw "\\widetilde{p}", .doc (.plain "MaybeLabelledPlace"))
+    (.widetilde (.raw "p"),
+     .doc (.plain "MaybeLabelledPlace"))
   "Maybe-Labelled Places"
   (.plain "A maybe-labelled place is either a current place \
    or a place labelled with a snapshot location. The place \

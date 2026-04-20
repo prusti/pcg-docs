@@ -587,7 +587,7 @@ def toRustItem (d : EnumDef) : RustItem :=
     name := ⟨d.name.name⟩
     generics := d.typeParams.map (⟨·⟩)
     variants := d.variants.map fun v =>
-      { doc := v.doc
+      { doc := v.doc.toPlainText
         name := ⟨capitalise v.name.name⟩
         fields := v.args.map
           (argToRustTy (.named d.name)) } }

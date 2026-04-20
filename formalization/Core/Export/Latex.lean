@@ -64,6 +64,10 @@ mutual
     | mathit (body : LatexMath)
     /-- `\mathcal{...}`. -/
     | mathcal (body : LatexMath)
+    /-- `\widetilde{...}`. -/
+    | widetilde (body : LatexMath)
+    /-- `\hat{...}`. -/
+    | hat (body : LatexMath)
     /-- Binary operator: `lhs op rhs`. -/
     | binop (op : String) (lhs : LatexMath)
         (rhs : LatexMath)
@@ -259,6 +263,10 @@ mutual
       s!"\\mathit\{{body.render}}"
     | .mathcal body =>
       s!"\\mathcal\{{body.render}}"
+    | .widetilde body =>
+      s!"\\widetilde\{{body.render}}"
+    | .hat body =>
+      s!"\\hat\{{body.render}}"
     | .binop op lhs rhs =>
       s!"{lhs.render} {op} {rhs.render}"
     | .sub base subscript =>
@@ -361,6 +369,8 @@ mutual
     | .bold d => .inlineMath (.mathbf d.toLatexMath)
     | .italic d => .inlineMath (.mathit d.toLatexMath)
     | .cal d => .inlineMath (.mathcal d.toLatexMath)
+    | .widetilde d => .inlineMath (.widetilde d.toLatexMath)
+    | .hat d => .inlineMath (.hat d.toLatexMath)
     | .seq ds => .seq (ds.map MathDoc.toLatex)
 
   /-- Convert `Doc` to math-mode `LatexMath` AST. -/
@@ -394,6 +404,8 @@ mutual
     | .bold d => .mathbf d.toLatexMath
     | .italic d => .mathit d.toLatexMath
     | .cal d => .mathcal d.toLatexMath
+    | .widetilde d => .widetilde d.toLatexMath
+    | .hat d => .hat d.toLatexMath
     | .seq ds => .seq (ds.map MathDoc.toLatexMath)
 end
 

@@ -35,10 +35,10 @@ where
 instance : Inhabited PointerMeta where
   default := .elementCount 0
 
-defStruct Pointer (.raw "\\hat{p}", .doc (.plain "Pointer"))
+defStruct Pointer (.hat (.raw "p"), .doc (.plain "Pointer"))
   "Pointers"
   (.seq [.plain "A pointer ",
-    Doc.defMath (.raw "\\hat{p}") (.doc (.plain "Pointer")),
+    Doc.defMath (.hat (.raw "p")) (.doc (.plain "Pointer")),
     .plain ": a thin pointer together with optional wide-pointer \
     metadata."])
 where

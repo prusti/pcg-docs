@@ -8,7 +8,7 @@ structure FieldDef where
   /-- The field type. -/
   ty : DSLType
   /-- Documentation for this field. -/
-  doc : String
+  doc : Doc
   /-- Symbol for this field's type (e.g. `τ` for `Ty`),
       looked up from the type's enum/struct definition.
       Used in constructor equations. -/
@@ -84,12 +84,13 @@ def formalDefLatex (s : StructDef)
         , -- Wrap the description in a `\parbox` so long field
           -- descriptions wrap onto multiple lines instead of
           -- overflowing the array row. The width is
-          -- `\linewidth - 8cm` so the box adapts to the
+          -- `\linewidth - 9cm` so the box adapts to the
           -- remaining horizontal space after the first two
-          -- columns.
+          -- columns and leaves enough room for wider type
+          -- expressions (e.g. `Map K V` with hyperlinks).
           .seq [.raw "~", .text (Latex.parbox
-            "\\dimexpr\\linewidth-8cm\\relax"
-            (.text s!"({f.doc})"))]
+            "\\dimexpr\\linewidth-9cm\\relax"
+            (.seq [.raw "(", f.doc.toLatex, .raw ")"]))]
         ]
       .seq [.raw "where", .newline,
             .displayMath (.array none "rll" fieldRows),

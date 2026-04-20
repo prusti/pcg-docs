@@ -6,7 +6,7 @@ import Lean
 open Lean in
 
 declare_syntax_cat fnParam
-syntax "(" ident str ":" term ")" : fnParam
+syntax "(" ident term ":" term ")" : fnParam
 
 declare_syntax_cat fnPat
 declare_syntax_cat fnPatAtom
@@ -357,10 +357,10 @@ def parseStmtsAsExpr
 def parseFnParam
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM
-        (Lean.Ident × Lean.TSyntax `str
+        (Lean.Ident × Lean.TSyntax `term
          × Lean.Syntax) := do
   match stx with
-  | `(fnParam| ($n:ident $d:str : $t:term)) =>
+  | `(fnParam| ($n:ident $d:term : $t:term)) =>
     pure (n, d, t)
   | _ => Lean.Elab.throwUnsupportedSyntax
 
@@ -386,7 +386,7 @@ private def normaliseLeanType (s : String) : String :=
   (DSLType.parse s).toLean
 
 def buildFnType
-    (paramData : Array (Lean.Ident × Lean.TSyntax `str
+    (paramData : Array (Lean.Ident × Lean.TSyntax `term
       × Lean.Syntax))
     (retTy : Lean.TSyntax `term)
     : Lean.Elab.Command.CommandElabM String := do
@@ -412,7 +412,7 @@ structure FnDefHeader where
 open Lean Elab Command in
 def buildFnDef
     (hdr : FnDefHeader)
-    (paramData : Array (Ident × TSyntax `str
+    (paramData : Array (Ident × TSyntax `term
       × Syntax))
     (retTy : TSyntax `term)
     (body : TSyntax `term)
@@ -430,7 +430,7 @@ def buildFnDef
         else pt.reprint.getD (toString pt)
       let tyTerm ← `(DSLType.parse $(quote typeStr))
       `({ name := $ns, ty := $tyTerm,
-          doc := $pd : FieldDef })
+          doc := ($pd : Doc) : FieldDef })
   let ns : TSyntax `term :=
     quote (toString name.getId)
   let retStr :=

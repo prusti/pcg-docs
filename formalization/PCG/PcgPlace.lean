@@ -3,7 +3,7 @@ import MIR.Place
 import PCG.MaybeLabelledPlace
 
 defEnum PcgPlace {P}
-    (.raw "\\hat{p}", .doc (.plain "PcgPlace"))
+    (.hat (.raw "p"), .doc (.plain "PcgPlace"))
   "PCG Places"
   (.plain "A PCG place is either a maybe-labelled place or a \
    remote place of the form remote(l), where l is a MIR local. \
@@ -13,6 +13,6 @@ where
   | maybeLabelled (mlp : MaybeLabelledPlace P)
     "A maybe-labelled place drawn from the MaybeLabelledPlace \
      set over the parameter P."
-    (#mlp (.raw "\\widetilde{p}"))
+    (#mlp (.widetilde (.raw "p")))
   | remote (l : Local)
     "A remote place naming a MIR local from the caller."

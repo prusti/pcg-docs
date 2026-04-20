@@ -9,6 +9,7 @@ import PCG.MaybeLabelledPlace
 import PCG.PcgNode
 import PCG.PcgPlace
 import PCG.SnapshotLocation
+import PCG.ValidityConditions
 import MIR
 import Core.Dsl.Types.OrderDef
 import Core.Registry
