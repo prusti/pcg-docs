@@ -8,6 +8,7 @@ import PCG.InitialisationTree
 import PCG.OwnedLocal
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
+import PCG.LocalLifetimeProjection
 import PCG.MaybeLabelledPlace
 import PCG.PcgNode
 import PCG.PcgPlace
@@ -74,6 +75,7 @@ def restrictToModule
   { descrs := reg.descrs.filter (·.leanModule == mod)
     enums := modEnums
     structs := reg.structs.filter (·.leanModule == mod)
+    aliases := reg.aliases.filter (·.leanModule == mod)
     orders := reg.orders.filter
       fun o => modEnumNames.contains o.enumName
     fns := reg.fns.filter (·.leanModule == mod)
@@ -89,6 +91,7 @@ def restrictToCrate
   { descrs := reg.descrs.filter (fun d => p d.leanModule)
     enums := reg.enums.filter (fun e => p e.leanModule)
     structs := reg.structs.filter (fun s => p s.leanModule)
+    aliases := reg.aliases.filter (fun a => p a.leanModule)
     orders := reg.orders
     fns := reg.fns.filter (fun f => p f.leanModule)
     properties := reg.properties.filter
@@ -100,6 +103,7 @@ def moduleNames (reg : Registry) : List Lean.Name :=
   (reg.descrs.map (·.leanModule)
     ++ reg.structs.map (·.leanModule)
     ++ reg.enums.map (·.leanModule)
+    ++ reg.aliases.map (·.leanModule)
     ++ reg.fns.map (·.leanModule)
     ++ reg.properties.map (·.leanModule)
   ).foldl (init := [])
@@ -111,6 +115,7 @@ def cratePrefixes (reg : Registry) : List String :=
   (reg.descrs.map (·.leanModule.getRoot.toString)
     ++ reg.enums.map (·.leanModule.getRoot.toString)
     ++ reg.structs.map (·.leanModule.getRoot.toString)
+    ++ reg.aliases.map (·.leanModule.getRoot.toString)
     ++ reg.fns.map (·.leanModule.getRoot.toString)
     ++ reg.properties.map (·.leanModule.getRoot.toString)
   ).foldl (init := [])
@@ -128,6 +133,9 @@ private def moduleBodyLatex
     Latex.seq [d.doc.toLatex, .newline, .newline]
   let structParts := reg.structs.map fun s =>
     Latex.seq [s.structDef.formalDefLatex ctx.knownTypes,
+               .newline, .newline]
+  let aliasParts := reg.aliases.map fun a =>
+    Latex.seq [a.aliasDef.formalDefLatex ctx.knownTypes,
                .newline, .newline]
   let enumParts := reg.enums.flatMap fun e =>
     let def_ := Latex.seq
@@ -147,7 +155,7 @@ private def moduleBodyLatex
   let propParts := reg.properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex ctx,
                .newline, .newline]
-  .seq (descrParts ++ structParts ++ enumParts
+  .seq (descrParts ++ structParts ++ aliasParts ++ enumParts
     ++ fnParts ++ propParts)
 
 /-- Build the LaTeX sections for a single crate prefix,
@@ -199,6 +207,7 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
   let typeNameSet : List String :=
     reg.enums.map (·.enumDef.name.name)
       ++ reg.structs.map (·.structDef.name)
+      ++ reg.aliases.map (·.aliasDef.name)
   let resolveCtor : String → Option String := fun n =>
     if n.contains '.' then
       if ctorPairs.any (·.2 == n) then some n

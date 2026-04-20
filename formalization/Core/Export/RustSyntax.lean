@@ -234,12 +234,21 @@ structure RustImpl where
   /-- The methods in the impl block. -/
   methods : List RustFn
 
+/-- A Rust `pub type Name<Generics> = Body;` declaration. -/
+structure RustTypeAlias where
+  doc : String
+  vis : RustVis
+  name : RustIdent
+  generics : List RustIdent := []
+  aliased : RustTy
+
 /-- A top-level Rust item. -/
 inductive RustItem where
   | enum (e : RustEnum)
   | struct_ (s : RustStruct)
   | impl_ (i : RustImpl)
   | fn_ (f : RustFn)
+  | typeAlias (a : RustTypeAlias)
   | raw (s : String)
 
 /-- A Rust module containing items. -/

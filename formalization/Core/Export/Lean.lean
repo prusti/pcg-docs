@@ -1,4 +1,5 @@
 import Core.Dsl.DslType
+import Core.Dsl.Types.AliasDef
 import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.PropertyDef
 import Core.Dsl.Types.StructDef
@@ -244,6 +245,18 @@ def toLean (s : StructDef) : String :=
 
 end StructDef
 
+namespace AliasDef
+
+/-- Lower a type alias to a Lean `abbrev` declaration. -/
+def toLeanAST (a : AliasDef) : LeanDecl :=
+  .abbrev_ a.name a.typeParams a.aliased.toLeanAST
+
+/-- Render a type alias to Lean source. -/
+def toLean (a : AliasDef) : String :=
+  toString a.toLeanAST
+
+end AliasDef
+
 namespace EnumDef
 
 /-- Lower an enum definition to an `inductive` declaration. -/
@@ -370,6 +383,17 @@ def usesSet (e : EnumDef) : Bool :=
     v.args.any fun a => a.type.usesSet
 
 end EnumDef
+
+namespace AliasDef
+
+/-- All named types referenced by the alias body. -/
+def referencedTypes (a : AliasDef) : List String :=
+  a.aliased.namedTypes
+
+/-- Whether the alias body uses `Set` anywhere. -/
+def usesSet (a : AliasDef) : Bool := a.aliased.usesSet
+
+end AliasDef
 
 namespace DslExpr
 

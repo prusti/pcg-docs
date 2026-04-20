@@ -2,6 +2,7 @@ import PCG.AbstractionEdge
 import PCG.Capability.Order
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
+import PCG.LocalLifetimeProjection
 import PCG.MaybeLabelledPlace
 import PCG.PcgNode
 import PCG.PcgPlace
@@ -93,6 +94,7 @@ open AbstractByte
 private inductive LeanDefItem where
   | struct_ (s : StructDef)
   | enum_ (e : EnumDef)
+  | alias_ (a : AliasDef)
   | fn_ (f : FnDef)
   | property_ (p : PropertyDef)
 
@@ -115,6 +117,7 @@ private def LeanDefItem.toLeanAST
     : LeanDefItem → LeanDecl
   | .struct_ s => s.toLeanAST
   | .enum_ e => e.toLeanAST
+  | .alias_ a => a.toLeanAST
   | .fn_ f =>
     match inferNamespace f definedTypes with
     | some ns => .namespaced ns f.toLeanAST
@@ -130,6 +133,7 @@ private def LeanDefItem.referencedNames
     : LeanDefItem → List String
   | .struct_ s => s.referencedTypes
   | .enum_ e => e.referencedTypes
+  | .alias_ a => a.referencedTypes
   | .fn_ f => f.referencedNames
   | .property_ p => p.fnDef.referencedNames
 
@@ -137,14 +141,16 @@ private def LeanDefItem.referencedNames
 private def LeanDefItem.usesSet : LeanDefItem → Bool
   | .struct_ s => s.usesSet
   | .enum_ e => e.usesSet
+  | .alias_ a => a.usesSet
   | .fn_ f => f.usesSet
   | .property_ p => p.fnDef.usesSet
 
-/-- Whether this item is a type definition (struct/enum)
+/-- Whether this item is a type definition (struct/enum/alias)
     as opposed to a function/property. -/
 private def LeanDefItem.isTypeDef : LeanDefItem → Bool
   | .struct_ _ => true
   | .enum_ _ => true
+  | .alias_ _ => true
   | .fn_ _ => false
   | .property_ _ => false
 
@@ -159,6 +165,7 @@ private def LeanDefItem.definedTypeName
     : LeanDefItem → Option String
   | .struct_ s => some s.name
   | .enum_ e => some e.name.name
+  | .alias_ a => some a.name
   | .fn_ f => some f.name
   | .property_ p => some p.fnDef.name
 
@@ -212,6 +219,7 @@ private def topoSort
 private def buildModules
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
+    (aliases : List RegisteredAlias)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
     : List (Lean.Name × List LeanDefItem) :=
@@ -220,6 +228,8 @@ private def buildModules
       (s.leanModule, .struct_ s.structDef)) ++
     (enums.map fun e =>
       (e.leanModule, .enum_ e.enumDef)) ++
+    (aliases.map fun a =>
+      (a.leanModule, .alias_ a.aliasDef)) ++
     (properties.map fun p =>
       (p.leanModule, .property_ p.propertyDef)) ++
     (fns.map fun f =>
@@ -373,9 +383,11 @@ def main (args : List String) : IO Unit := do
   let outDir := args.head? |>.getD "generated/lean"
   let enums ← getRegisteredEnums
   let structs ← getRegisteredStructs
+  let aliases ← getRegisteredAliases
   let fns ← getRegisteredFns
   let props ← getRegisteredProperties
-  let modules := buildModules enums structs fns props
+  let modules :=
+    buildModules enums structs aliases fns props
   let typeMap := typeToModuleMap modules
   let allTypes := typeMap.map (·.1)
   let nsMap := fnNamespaceMap modules allTypes

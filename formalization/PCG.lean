@@ -10,6 +10,7 @@ import PCG.InitialisationTree
 import PCG.OwnedLocal
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
+import PCG.LocalLifetimeProjection
 import PCG.MaybeLabelledPlace
 import PCG.PcgNode
 import PCG.PcgPlace

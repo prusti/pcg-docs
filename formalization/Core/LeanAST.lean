@@ -374,6 +374,9 @@ inductive LeanDecl where
   | inductive_ (name : String) (typeParams : List String)
       (ctors : List LeanCtor)
   | def_ (d : LeanDef)
+  /-- A `abbrev Name (p1 : Type) ... := body` declaration. -/
+  | abbrev_ (name : String) (typeParams : List String)
+      (body : LeanTy)
   /-- Wrap a declaration in `namespace ns … end ns`. -/
   | namespaced (ns : String) (decl : LeanDecl)
   deriving Inhabited
@@ -475,6 +478,12 @@ partial def LeanDecl.toString : LeanDecl → String
        {"\n".intercalate ctorStrs}\n\
        deriving {derives}"
   | .def_ d => renderDef d
+  | .abbrev_ name typeParams body =>
+    let tpStr :=
+      if typeParams.isEmpty then ""
+      else " " ++ " ".intercalate
+        (typeParams.map fun p => s!"({p} : Type)")
+    s!"abbrev {name}{tpStr} := {body.toString}"
   | .namespaced ns inner =>
     s!"namespace {ns}\n\n{inner.toString}\n\nend {ns}"
 

@@ -1,3 +1,4 @@
+import Core.Dsl.Types.AliasDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.OrderDef
@@ -69,6 +70,29 @@ def getRegisteredEnums : IO (List RegisteredEnum) :=
 /-- Retrieve all registered struct definitions. -/
 def getRegisteredStructs : IO (List RegisteredStruct) :=
   structRegistry.get
+
+/-- A registered type-alias definition with its source module. -/
+structure RegisteredAlias where
+  /-- The alias definition. -/
+  aliasDef : AliasDef
+  /-- The Lean module where this alias was defined. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of all `defAlias`-defined type aliases. -/
+initialize aliasRegistry : IO.Ref (List RegisteredAlias) ←
+  IO.mkRef []
+
+/-- Register a type-alias definition from the given module. -/
+def registerAliasDef
+    (a : AliasDef) (mod : Lean.Name) : IO Unit := do
+  checkSymbolUnique a.symbolDoc a.name
+  checkSymbolUnique a.setDoc a.name
+  aliasRegistry.modify (· ++ [⟨a, mod⟩])
+
+/-- Retrieve all registered type-alias definitions. -/
+def getRegisteredAliases : IO (List RegisteredAlias) :=
+  aliasRegistry.get
 
 /-- A registered order definition with its source module. -/
 structure RegisteredOrder where
@@ -175,6 +199,7 @@ structure Registry where
   descrs : List RegisteredDescr
   enums : List RegisteredEnum
   structs : List RegisteredStruct
+  aliases : List RegisteredAlias
   orders : List RegisteredOrder
   fns : List RegisteredFn
   properties : List RegisteredProperty
@@ -187,6 +212,7 @@ def current : IO Registry := do
     descrs := ← getRegisteredDescrs
     enums := ← getRegisteredEnums
     structs := ← getRegisteredStructs
+    aliases := ← getRegisteredAliases
     orders := ← getRegisteredOrders
     fns := ← getRegisteredFns
     properties := ← getRegisteredProperties

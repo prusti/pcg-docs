@@ -1,4 +1,5 @@
 import Core.Export.RustSyntax
+import Core.Dsl.Types.AliasDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.FnDef
@@ -420,12 +421,20 @@ def render (i : RustImpl) : String :=
      }"
 end RustImpl
 
+namespace RustTypeAlias
+def render (a : RustTypeAlias) : String :=
+  let gen := renderGenerics a.generics
+  s!"/// {a.doc}\n\
+     {a.vis.render}type {a.name.val}{gen} = {a.aliased.render};"
+end RustTypeAlias
+
 namespace RustItem
 def render : RustItem → String
   | .enum e => e.render
   | .struct_ s => s.render
   | .impl_ i => i.render
   | .fn_ f => RustFn.render 0 f
+  | .typeAlias a => a.render
   | .raw s => s
 end RustItem
 
@@ -575,6 +584,29 @@ private def argToRustTy
   if ft.needsRustBoxIn enumTy then
     .adt ⟨[⟨"Box"⟩]⟩ [rustTy]
   else rustTy
+
+end EnumDef
+
+namespace AliasDef
+
+/-- Convert a type alias to a `RustItem.typeAlias`, i.e. a
+    `pub type Name<Generics> = Body;` declaration. -/
+def toRustItem (a : AliasDef) : RustItem :=
+  .typeAlias {
+    doc := a.doc.toPlainText
+    vis := .pub
+    name := ⟨a.name⟩
+    generics := a.typeParams.map (⟨·⟩)
+    aliased := a.aliased.toRust
+  }
+
+/-- Render a type alias to Rust source. -/
+def toRust (a : AliasDef) : String :=
+  a.toRustItem.render
+
+end AliasDef
+
+namespace EnumDef
 
 /-- Convert an `EnumDef` to a `RustItem.enum`.
     Variant arguments become tuple fields. Self-referential
@@ -1170,6 +1202,7 @@ def groupStructsByCrate
 def buildModules
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
+    (aliases : List RegisteredAlias)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
     (extraItems : List (String × RustItem))
@@ -1178,6 +1211,7 @@ def buildModules
   let allModNames :=
     (enums.map fun e => rustModuleNameOf e.leanModule) ++
     (structs.map fun s => rustModuleNameOf s.leanModule) ++
+    (aliases.map fun a => rustModuleNameOf a.leanModule) ++
     (fns.map fun f => rustModuleNameOf f.leanModule) ++
     (properties.map fun p =>
       rustModuleNameOf p.leanModule)
@@ -1187,6 +1221,8 @@ def buildModules
     let modEnums := enums.filter
       (rustModuleNameOf ·.leanModule == modName)
     let modStructs := structs.filter
+      (rustModuleNameOf ·.leanModule == modName)
+    let modAliases := aliases.filter
       (rustModuleNameOf ·.leanModule == modName)
     let modFns := fns.filter
       (rustModuleNameOf ·.leanModule == modName)
@@ -1205,6 +1241,7 @@ def buildModules
     let items :=
       modStructs.flatMap (·.structDef.toRustItems) ++
       modEnums.map (·.enumDef.toRustItem) ++
+      modAliases.map (·.aliasDef.toRustItem) ++
       modFns.map
         (·.fnDef.toRustItem structFieldLookup modCtx) ++
       modProps.map (·.propertyDef.fnDef.toRustItem

@@ -2,6 +2,7 @@ import PCG.AbstractionEdge
 import PCG.Capability.Order
 import PCG.LifetimeProjection
 import PCG.LifetimeProjectionLabel
+import PCG.LocalLifetimeProjection
 import PCG.MaybeLabelledPlace
 import PCG.PcgNode
 import PCG.PcgPlace
@@ -167,6 +168,7 @@ def buildCrate
     (prefix_ : String)
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
+    (aliases : List RegisteredAlias)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
     (deps : List RustCrateDep := [])
@@ -176,6 +178,8 @@ def buildCrate
   let crateEnums := enums.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateStructs := structs.filter
+    (·.leanModule.getRoot.toString == prefix_)
+  let crateAliases := aliases.filter
     (·.leanModule.getRoot.toString == prefix_)
   let crateFns := fns.filter
     (·.leanModule.getRoot.toString == prefix_)
@@ -194,7 +198,7 @@ def buildCrate
     deps := deps
     reexports := reexports
     modules := buildModules crateEnums crateStructs
-      crateFns crateProps extras crateCtx }
+      crateAliases crateFns crateProps extras crateCtx }
 
 /-- The workspace containing all generated crates. -/
 def workspace : RustWorkspace :=
@@ -214,19 +218,20 @@ def main (args : List String) : IO Unit := do
   let outDir := args.head? |>.getD "generated/rust"
   let enums ← getRegisteredEnums
   let structs ← getRegisteredStructs
+  let aliases ← getRegisteredAliases
   let fns ← getRegisteredFns
   let props ← getRegisteredProperties
   let ctx := buildRustExprCtxt enums structs fns props
-  let mirCrate := buildCrate "MIR" enums structs fns
-    props (ctx := ctx)
-  let opSemCrate := buildCrate "OpSem" enums structs fns
-    props
+  let mirCrate := buildCrate "MIR" enums structs aliases
+    fns props (ctx := ctx)
+  let opSemCrate := buildCrate "OpSem" enums structs
+    aliases fns props
     (deps := [{ name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])
     (ctx := ctx)
-  let pcgCrate := buildCrate "PCG" enums structs fns
-    props
+  let pcgCrate := buildCrate "PCG" enums structs aliases
+    fns props
     (deps := [{ name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])
