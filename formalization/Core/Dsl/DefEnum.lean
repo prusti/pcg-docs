@@ -166,9 +166,14 @@ private def buildArgRef
       let ref := mkIdent
         (tnName ++ `structDef ++ `symbolDoc)
       `(DisplayPart.arg $ns $ref)
+    else if env.find? (tnName ++ `aliasDef)
+        |>.isSome then
+      let ref := mkIdent
+        (tnName ++ `aliasDef ++ `symbolDoc)
+      `(DisplayPart.arg $ns $ref)
     else
       throwError
-        s!"defEnum: no enumDef or structDef \
+        s!"defEnum: no enumDef, structDef, or aliasDef \
            found for type '{tn}'"
 
 open Lean Elab Command in

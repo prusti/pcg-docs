@@ -20,3 +20,4 @@ where
     (#mlp (.widetilde (.raw "p")))
   | remote (l : Local)
     "A remote place."
+  deriving DecidableEq, BEq, Repr, Hashable

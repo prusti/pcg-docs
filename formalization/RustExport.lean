@@ -1,4 +1,5 @@
 import PCG.AbstractionEdge
+import PCG.BorrowFlowEdge
 import PCG.Capability.Order
 import PCG.DerefEdge
 import PCG.LifetimeProjectionLabel
@@ -26,6 +27,10 @@ use crate::pcgnode::PcgNode;
   , ("PCG", "pcgplace", .raw
 "use formal_mir::place::Local;
 use crate::maybelabelledplace::MaybeLabelledPlace;
+")
+  , ("PCG", "pcglifetimeprojectionbase", .raw
+"use formal_mir::constvalue::ConstValue;
+use crate::pcgplace::PcgPlace;
 ")
   , ("PCG", "capability",
      Capability.orderDef.toRustPartialOrd)

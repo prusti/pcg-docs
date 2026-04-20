@@ -8,6 +8,7 @@ defStruct Local (.raw "l", .raw "L")
   constructor "LocalIdx"
 where
   | index "The local variable index." : Nat
+  deriving DecidableEq, BEq, Repr, Hashable
 
 defStruct FieldIdx (.raw "f", .raw "F")
   "Field Indices"

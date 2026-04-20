@@ -21,3 +21,4 @@ where
   | index "Index of the projection." : I
   | label "Optional lifetime projection label."
       : Option LifetimeProjectionLabel
+  deriving DecidableEq, BEq, Repr, Hashable

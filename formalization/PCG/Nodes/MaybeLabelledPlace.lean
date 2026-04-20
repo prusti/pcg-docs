@@ -22,3 +22,4 @@ where
     "A labelled place."
     (#p (.raw "p"), .doc (.plain " "),
      .doc (.code "at"), .doc (.plain " "), #sl)
+  deriving DecidableEq, BEq, Repr, Hashable

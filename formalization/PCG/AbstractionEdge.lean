@@ -25,3 +25,4 @@ where
       (target : PcgNode P)
     "A loop abstraction edge."
     (#source, .doc (.plain " → "), #target)
+  deriving BEq, Repr, Hashable

@@ -1,5 +1,6 @@
 import PCG.AbstractionEdge
 import PCG.BorrowChecker
+import PCG.BorrowFlowEdge
 import PCG.Capability.Order
 import PCG.DerefEdge
 import PCG.EvalStmtPhase

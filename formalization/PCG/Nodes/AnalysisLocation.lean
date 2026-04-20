@@ -14,3 +14,4 @@ defStruct AnalysisLocation (.doc (.plain "al"),
 where
   | location "MIR location." : Location
   | phase "Evaluation phase." : EvalStmtPhase
+  deriving DecidableEq, BEq, Repr, Hashable

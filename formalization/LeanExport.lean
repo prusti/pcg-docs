@@ -1,4 +1,5 @@
 import PCG.AbstractionEdge
+import PCG.BorrowFlowEdge
 import PCG.Capability.Order
 import PCG.DerefEdge
 import PCG.LifetimeProjectionLabel

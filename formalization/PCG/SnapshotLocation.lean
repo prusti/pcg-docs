@@ -18,3 +18,4 @@ where
     "At the end of a basic block."
   | loop (bb : BasicBlockIdx)
     "At the head of a loop."
+  deriving DecidableEq, BEq, Repr, Hashable

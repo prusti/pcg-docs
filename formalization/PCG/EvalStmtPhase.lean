@@ -22,3 +22,4 @@ where
   | postMain
     "After the main effect."
     (.doc (.code "PostMain"))
+  deriving DecidableEq, BEq, Repr, Hashable

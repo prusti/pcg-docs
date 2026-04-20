@@ -1,5 +1,5 @@
 import Core.Dsl.DefEnum
-import PCG.Nodes.LifetimeProjection
+import PCG.Nodes.PcgLifetimeProjection
 import PCG.Nodes.PcgPlace
 
 defEnum PcgNode {P}
@@ -9,13 +9,13 @@ defEnum PcgNode {P}
     .plain "A PCG node ",
     Doc.defMath (.doc (.plain "n"))
       (.doc (.plain "PcgNode")) ["P"],
-    .plain " is either a PCG place or a lifetime projection \
-     (whose base is a PCG place and whose index is a natural \
-     number)."])
+    .plain " is either a PCG place or a PCG lifetime \
+     projection."])
 where
   | place (p : PcgPlace P)
     "A PCG place."
     (#p)
-  | lifetimeProjection (lp : LifetimeProjection (PcgPlace P) Nat)
-    "A lifetime projection."
+  | lifetimeProjection (lp : PcgLifetimeProjection P)
+    "A PCG lifetime projection."
     (#lp)
+  deriving BEq, Repr, Hashable
