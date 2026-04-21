@@ -19,15 +19,11 @@ defEnum PcgEdge {P}
      introduced by a function call or loop."])
 where
   | unpack (e : UnpackEdge (PcgNode P))
-    "An unpack edge over PCG nodes."
-    (#e)
+    "Unpack"
   | deref (e : DerefEdge P)
-    "A deref edge."
-    (#e)
+    "Deref"
   | borrowFlow (e : BorrowFlowEdge P)
-    "A borrow-flow edge."
-    (#e)
+    "Borrow-Flow"
   | abstraction (e : AbstractionEdge P)
-    "An abstraction edge."
-    (#e)
+    "Abstraction"
   deriving BEq, Repr, Hashable
