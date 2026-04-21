@@ -453,6 +453,13 @@ partial def LeanDecl.toString : LeanDecl → String
     let fieldStrs := fields.map renderField
     let usesMap := fields.any fun f =>
       (f.type.toString).find? "HashMap" |>.isSome
+    let usesSet := fields.any fun f =>
+      let s := f.type.toString
+      -- `HashSet T` from Runtime.Set; surface tokens match
+      -- the `Set T`/`HashSet T` forms we may render.
+      s.splitOn " " |>.any fun tok =>
+        tok == "HashSet" || tok == "Set"
+    let needsHashBounds := usesMap || usesSet
     -- Generic structs may hold fields whose types are generic
     -- inductives that don't derive `Inhabited` (e.g.
     -- `MaybeLabelledPlace P`), so omit `Inhabited` when the
@@ -466,8 +473,13 @@ partial def LeanDecl.toString : LeanDecl → String
           else "Repr, BEq, Hashable"
     let tpStr :=
       if typeParams.isEmpty then ""
-      else " " ++ " ".intercalate
-        (typeParams.map fun p => s!"({p} : Type)")
+      else
+        let binders := typeParams.map fun p =>
+          if needsHashBounds then
+            s!"({p} : Type) [BEq {p}] [Hashable {p}]"
+          else
+            s!"({p} : Type)"
+        " " ++ " ".intercalate binders
     s!"structure {name}{tpStr} where\n\
        {"\n".intercalate fieldStrs}\n\
        deriving {derives}"

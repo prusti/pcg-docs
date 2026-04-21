@@ -66,10 +66,27 @@ elab_rules : command
         if ft.isIdent then toString ft.getId
         else ft.reprint.getD (toString ft)
       s!"  {fn.getId} : {typeStr}"
+    -- `Map K V` / `Set T` expand to `Std.HashMap` /
+    -- `Std.HashSet`, whose `κ` / `α` require `BEq` and
+    -- `Hashable`. When a generic struct uses either in a
+    -- field type, emit the same constraints on every type
+    -- parameter so the generated structure type-checks under
+    -- `autoImplicit := false`.
+    let fieldsUseHash := fieldData.any fun (_, ft, _) =>
+      let typeStr :=
+        if ft.isIdent then toString ft.getId
+        else ft.reprint.getD (toString ft)
+      typeStr.splitOn " " |>.any fun tok =>
+        tok == "Map" || tok == "Set"
     let tpStr :=
       if typeParamNames.isEmpty then ""
-      else " " ++ " ".intercalate
-        (typeParamNames.map fun p => s!"({p} : Type)")
+      else
+        let binders := typeParamNames.map fun p =>
+          if fieldsUseHash then
+            s!"({p} : Type) [BEq {p}] [Hashable {p}]"
+          else
+            s!"({p} : Type)"
+        " " ++ " ".intercalate binders
     -- Generic structs embed `deriving` inside the
     -- structure declaration; the separate `deriving
     -- instance` commands below only handle monomorphic

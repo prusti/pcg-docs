@@ -1,4 +1,5 @@
 import PCG.BorrowChecker
+import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges
 import PCG.EvalStmtPhase

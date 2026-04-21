@@ -215,6 +215,11 @@ structure RustStruct where
   /-- Generic type parameters (e.g. `["B", "I"]` for
       `struct Foo<B, I>`). Empty means non-generic. -/
   generics : List RustIdent := []
+  /-- Optional trait bounds on each type parameter, rendered
+      as `<P: Bound1 + Bound2, ...>`. Empty list means no
+      bounds for that parameter. Must be aligned with
+      `generics` when non-empty. -/
+  genericBounds : List (List String) := []
   fields : RustStructFields
   deriving Repr
 

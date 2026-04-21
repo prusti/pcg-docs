@@ -348,6 +348,21 @@ private def renderGenerics (gs : List RustIdent) : String :=
   if gs.isEmpty then ""
   else s!"<{String.intercalate ", " (gs.map (·.val))}>"
 
+/-- Like `renderGenerics`, but adds optional trait bounds:
+    `<A: Bound1 + Bound2, B>`. `bounds` is aligned with `gs`;
+    shorter or missing entries mean "no bounds for that
+    parameter". -/
+private def renderGenericsWithBounds
+    (gs : List RustIdent) (bounds : List (List String)) : String :=
+  if gs.isEmpty then ""
+  else
+    let parts := gs.zipIdx.map fun (g, i) =>
+      match bounds[i]? with
+      | some (b :: bs) =>
+        s!"{g.val}: {" + ".intercalate (b :: bs)}"
+      | _ => g.val
+    s!"<{String.intercalate ", " parts}>"
+
 namespace RustEnum
 def render (e : RustEnum) : String :=
   let attrLines := e.attrs.map (·.render ++ "\n")
@@ -365,7 +380,7 @@ namespace RustStruct
 /-- Render the struct definition only. -/
 def render (s : RustStruct) : String :=
   let attrLines := s.attrs.map (·.render ++ "\n")
-  let gen := renderGenerics s.generics
+  let gen := renderGenericsWithBounds s.generics s.genericBounds
   match s.fields with
   | .unnamed fields =>
     let fieldStrs := fields.map fun (v, ty) =>
@@ -1096,6 +1111,16 @@ def toRustItems (s : StructDef) : List RustItem :=
   let derives := if allCopy && !hasArrow && !isGeneric
     then baseDerives ++ [⟨"Copy"⟩]
     else baseDerives
+  -- `HashMap<K, V>` / `HashSet<T>` only implement `PartialEq`
+  -- / `Eq` when the key/element type itself is `Eq + Hash`.
+  -- For a generic struct that holds such a field, propagate
+  -- `P: std::cmp::Eq + std::hash::Hash` to each type parameter
+  -- so the derived `PartialEq` / `Eq` impls type-check.
+  let bounds : List (List String) :=
+    if hasUnhashable && isGeneric then
+      s.typeParams.map fun _ =>
+        ["std::cmp::Eq", "std::hash::Hash"]
+    else []
   let rs : RustStruct := {
     doc := s.doc.toPlainText
     attrs := if derives.isEmpty then []
@@ -1103,6 +1128,7 @@ def toRustItems (s : StructDef) : List RustItem :=
     vis := .pub
     name := ⟨s.name⟩
     generics := s.typeParams.map (⟨·⟩)
+    genericBounds := bounds
     fields := .named (s.fields.map fun f =>
       (.pub, ⟨toSnakeCase f.name⟩, f.ty.toRust)) }
   -- Skip inherent `new()` and `From<Box<T>>` impls for
