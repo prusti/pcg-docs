@@ -1,6 +1,8 @@
+import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges
 import PCG.Nodes
+import PCG.ValidityConditions
 import MIR
 import OpSem
 import Core.Export.Rust
@@ -30,6 +32,45 @@ use crate::pcgplace::PcgPlace;
 ")
   , ("PCG", "capability",
      Capability.orderDef.toRustPartialOrd)
+  , ("PCG", "validityconditions", .raw
+"use formal_mir::body::BasicBlockIdx;
+use std::collections::HashSet;
+
+pub fn map_empty<K: Eq + std::hash::Hash, V>() -> HashMap<K, V> {
+    HashMap::new()
+}
+
+pub fn map_singleton<K: Eq + std::hash::Hash, V>(k: &K, v: &V)
+    -> HashMap<K, V>
+where K: Clone, V: Clone {
+    let mut m = HashMap::new();
+    m.insert(k.clone(), v.clone());
+    m
+}
+
+pub fn map_union_sets<
+    K: Eq + std::hash::Hash + Clone,
+    T: Eq + std::hash::Hash + Clone,
+>(
+    m1: &HashMap<K, HashSet<T>>,
+    m2: &HashMap<K, HashSet<T>>,
+) -> HashMap<K, HashSet<T>> {
+    let mut out: HashMap<K, HashSet<T>> = m1.clone();
+    for (k, v) in m2.iter() {
+        out.entry(k.clone())
+            .and_modify(|e| e.extend(v.iter().cloned()))
+            .or_insert_with(|| v.clone());
+    }
+    out
+}
+
+pub fn set_singleton<T: Eq + std::hash::Hash + Clone>(x: &T)
+    -> HashSet<T> {
+    let mut s = HashSet::new();
+    s.insert(x.clone());
+    s
+}
+")
   , ("OpSem", "address", .raw
 "impl PartialOrd for Address {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

@@ -1,6 +1,8 @@
+import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges
 import PCG.Nodes
+import PCG.ValidityConditions
 import MIR
 import OpSem
 import Core.Export.Lean

@@ -44,16 +44,24 @@ where
 
 namespace ExecutionPath
 
+defFn choicesOfBlocks (.plain "choicesOfBlocks")
+  (.plain "Branch choices induced by the given list of \
+    execution-order blocks.")
+  (blocks "The blocks in execution order."
+      : List BasicBlockIdx)
+  : List BranchChoice where
+  | [] => []
+  | [_] => []
+  | b0 :: b1 :: rest =>
+      BranchChoice⟨b0, b1⟩ ::
+        choicesOfBlocks ‹b1 :: rest›
+
 defFn choices (.plain "choices")
   (.plain "The sequence of branch choices induced by adjacent \
     block pairs in the execution path.")
   (path "The execution path." : ExecutionPath)
-  : List BranchChoice where
-  | ⟨[]⟩ => []
-  | ⟨[_]⟩ => []
-  | ⟨b₀ :: (b₁ :: rest)⟩ =>
-      BranchChoice⟨b₀, b₁⟩ ::
-        choices ‹ExecutionPath⟨b₁ :: rest⟩›
+  : List BranchChoice :=
+    choicesOfBlocks ‹path↦blocks›
 
 end ExecutionPath
 
@@ -93,10 +101,10 @@ defFn union (.plain "union")
   (.plain "Pointwise union of two validity conditions: for \
     every source block, the allowed-target set is the union \
     of the two operands' allowed-target sets at that source.")
-  (pc₁ "First validity conditions." : ValidityConditions)
-  (pc₂ "Second validity conditions." : ValidityConditions)
+  (pc1 "First validity conditions." : ValidityConditions)
+  (pc2 "Second validity conditions." : ValidityConditions)
   : ValidityConditions :=
     ValidityConditions⟨
-      mapUnionSets ‹pc₁↦allowed, pc₂↦allowed›⟩
+      mapUnionSets ‹pc1↦allowed, pc2↦allowed›⟩
 
 end ValidityConditions
