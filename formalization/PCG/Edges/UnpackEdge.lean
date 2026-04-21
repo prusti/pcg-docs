@@ -26,3 +26,4 @@ where
       : N
   | expansion "The expansion of the base"
       : List N
+  deriving BEq, Repr, Hashable

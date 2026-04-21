@@ -28,3 +28,4 @@ where
   | blockedLifetimeProjection "The lifetime projection of \
       the blocked place that is blocked by this edge."
       : LocalLifetimeProjection P
+  deriving BEq, Repr, Hashable
