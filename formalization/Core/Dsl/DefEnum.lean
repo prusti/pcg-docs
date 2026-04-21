@@ -249,58 +249,37 @@ elab_rules : command
       | some ids => ids.toList.map (toString ·.getId)
       | none => []
     let isGeneric := !typeParamNames.isEmpty
-    -- For generic enums we build the inductive declaration as
-    -- a string and parse it (mirroring `defStruct`), so that
-    -- type parameters and inline `deriving` can be attached.
+    -- Build ctors using the user's original `argType`
+    -- syntax so identifier source positions survive and
+    -- editor features like go-to-definition work on type
+    -- references inside variant arguments.
+    let ctors ← varData.mapM
+      fun (vn, args, _, _) => do
+        let binders ← args.mapM fun a => do
+          let (argName, argType) ← parseVariantArg a
+          let prefixed := mkIdent
+            (Name.mkSimple s!"_{argName.getId}")
+          pure (mkExplicitBinder prefixed argType)
+        pure (mkCtorSyntax vn binders)
     if isGeneric then
-      let tpStr := " " ++ " ".intercalate
-        (typeParamNames.map fun p => s!"({p} : Type)")
-      let ctorStrs ← varData.toList.mapM
-        fun (vn, args, _, _) => do
-          let argStrs ← args.toList.mapM
-            fun (a : Lean.TSyntax `enumVariantArg) => do
-              let (argName, argType) ← parseVariantArg a.raw
-              let typeStr :=
-                if argType.isIdent then toString argType.getId
-                else argType.reprint.getD (toString argType)
-              -- Prefix with `_` to suppress
-              -- `unused variable` linter warnings
-              -- (matches the non-generic path).
-              pure s!"(_{argName.getId} : {typeStr})"
-          let argPart := if argStrs.isEmpty then ""
-            else " " ++ " ".intercalate argStrs
-          pure s!"  | {vn.getId}{argPart}"
-      -- Generic enums embed `deriving` inside the inductive
-      -- declaration. Honor a user-supplied `deriving` clause
-      -- (so e.g. enums whose variant carries a `Map` can opt
-      -- out of `Hashable`); otherwise fall back to the
-      -- defaults.
-      let derivClause :=
-        let names := match derivs with
-          | some ds =>
-            ds.getElems.toList.map (toString ·.getId)
-          | none => ["DecidableEq", "Repr", "Hashable"]
-        "\n  deriving " ++ ", ".intercalate names
-      let inductiveStr :=
-        s!"inductive {name.getId}{tpStr} where\n\
-           {"\n".intercalate ctorStrs}\
-           {derivClause}"
-      let env ← getEnv
-      match Parser.runParserCategory env `command
-        inductiveStr with
-      | .ok stx => elabCommand stx
-      | .error e =>
-        throwError s!"defEnum: parse error: {e}\n\
-          ---\n{inductiveStr}\n---"
+      -- Generic inductives embed `deriving` in the
+      -- declaration and take `(P : Type)` binders for
+      -- each parameter.
+      let tpBinders : Array (TSyntax ``Lean.Parser.Term.bracketedBinder)
+        ← typeParamNames.toArray.mapM fun p => do
+          let pId := mkIdent (Name.mkSimple p)
+          `(Lean.Parser.Term.bracketedBinderF| ($pId : Type))
+      let derivIds : Array Ident := match derivs with
+        | some ds => ds.getElems
+        | none => #[mkIdent `DecidableEq,
+                    mkIdent `Repr, mkIdent `Hashable]
+      let inductiveCmd ← `(command|
+        inductive $name:ident $tpBinders:bracketedBinder*
+          where
+        $[$ctors:ctor]*
+        deriving $[$derivIds:ident],*)
+      elabCommand inductiveCmd
     else
-      let ctors ← varData.mapM
-        fun (vn, args, _, _) => do
-          let binders ← args.mapM fun a => do
-            let (argName, argType) ← parseVariantArg a
-            let prefixed := mkIdent
-              (Name.mkSimple s!"_{argName.getId}")
-            pure (mkExplicitBinder prefixed argType)
-          pure (mkCtorSyntax vn binders)
       let inductiveCmd ← `(command|
         inductive $name where $[$ctors]*)
       elabCommand inductiveCmd

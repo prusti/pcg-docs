@@ -59,13 +59,15 @@ elab_rules : command
       | some ids => ids.toList.map (toString ·.getId)
       | none => []
     let isGeneric := !typeParamNames.isEmpty
-    -- Build the structure definition as a string and
-    -- parse it, avoiding manual syntax construction.
-    let fieldStrs := fieldData.map fun (fn, ft, _) =>
-      let typeStr :=
-        if ft.isIdent then toString ft.getId
-        else ft.reprint.getD (toString ft)
-      s!"  {fn.getId} : {typeStr}"
+    -- Build structure fields using the user's original
+    -- type syntax so identifier source positions survive
+    -- and editor features like go-to-definition work on
+    -- type references inside field declarations.
+    let fieldSyntax : Array (TSyntax ``Lean.Parser.Command.structSimpleBinder)
+      ← fieldData.mapM fun (fn, ft, _) => do
+        let ftT : TSyntax `term := ⟨ft⟩
+        `(Lean.Parser.Command.structSimpleBinder|
+            $fn:ident : $ftT)
     -- `Map K V` / `Set T` expand to `Std.HashMap` /
     -- `Std.HashSet`, whose `κ` / `α` require `BEq` and
     -- `Hashable`. When a generic struct uses either in a
@@ -78,46 +80,43 @@ elab_rules : command
         else ft.reprint.getD (toString ft)
       typeStr.splitOn " " |>.any fun tok =>
         tok == "Map" || tok == "Set"
-    let tpStr :=
-      if typeParamNames.isEmpty then ""
-      else
-        let binders := typeParamNames.map fun p =>
-          if fieldsUseHash then
-            s!"({p} : Type) [BEq {p}] [Hashable {p}]"
-          else
-            s!"({p} : Type)"
-        " " ++ " ".intercalate binders
-    -- Generic structs embed `deriving` inside the
-    -- structure declaration; the separate `deriving
-    -- instance` commands below only handle monomorphic
-    -- types. When the user supplies a `deriving` clause
-    -- it is honored verbatim (so e.g. structs with
-    -- function-typed fields can derive `Inhabited` only).
-    let inlineDeriving :=
-      if isGeneric then
-        let names := match derivs with
-          | some ds =>
-            ds.getElems.toList.map (toString ·.getId)
-          | none => ["DecidableEq", "Repr", "Hashable"]
-        "\n  deriving " ++ ", ".intercalate names
-      else ""
-    let structStr :=
-      s!"structure {name.getId}{tpStr} where\n\
-         {"\n".intercalate fieldStrs.toList}\
-         {inlineDeriving}"
-    let env ← getEnv
-    match Parser.runParserCategory env `command
-      structStr with
-    | .ok stx => elabCommand stx
-    | .error e =>
-      throwError s!"defStruct: parse error: {e}\n\
-        ---\n{structStr}\n---"
+    -- Type-parameter binders for generic structures. When
+    -- fields use `Map` / `Set`, append `[BEq P] [Hashable P]`
+    -- instance binders after each `(P : Type)`.
+    let tpBinders : Array (TSyntax ``Lean.Parser.Term.bracketedBinder)
+      ← typeParamNames.toArray.foldlM
+          (init := #[]) fun acc p => do
+            let pId := mkIdent (Name.mkSimple p)
+            let typeBinder ← `(Lean.Parser.Term.bracketedBinderF|
+              ($pId : Type))
+            if fieldsUseHash then
+              let beq ← `(Lean.Parser.Term.bracketedBinderF|
+                [BEq $pId])
+              let hash ← `(Lean.Parser.Term.bracketedBinderF|
+                [Hashable $pId])
+              pure (acc.push typeBinder |>.push beq |>.push hash)
+            else
+              pure (acc.push typeBinder)
     let deriveNames : Array Ident := match derivs with
       | some ds => ds
       | none =>
         #[mkIdent `DecidableEq, mkIdent `Repr,
           mkIdent `Hashable]
-    unless isGeneric do
+    -- Generic structures embed `deriving` in the
+    -- declaration; the monomorphic path uses separate
+    -- `deriving instance` commands below.
+    if isGeneric then
+      let structCmd ← `(command|
+        structure $name:ident $tpBinders:bracketedBinder*
+          where
+        $fieldSyntax:structSimpleBinder*
+        deriving $[$deriveNames:ident],*)
+      elabCommand structCmd
+    else
+      let structCmd ← `(command|
+        structure $name:ident where
+        $fieldSyntax:structSimpleBinder*)
+      elabCommand structCmd
       for d in deriveNames do
         elabCommand (← `(command|
           deriving instance $d:ident for $name))
