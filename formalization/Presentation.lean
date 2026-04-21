@@ -6,6 +6,7 @@ import PCG.InitialisationState.Order
 import PCG.InitialisationTree
 import PCG.Nodes
 import PCG.OwnedLocal
+import PCG.OwnedState
 import PCG.PlaceExpansion
 import PCG.RequiredGuide
 import PCG.ValidityConditions
