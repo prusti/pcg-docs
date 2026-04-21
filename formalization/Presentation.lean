@@ -2,11 +2,8 @@ import PCG.BorrowChecker
 import PCG.Capability.Order
 import PCG.Edges
 import PCG.EvalStmtPhase
-import PCG.InitialisationState.Order
-import PCG.InitialisationTree
 import PCG.Nodes
-import PCG.OwnedLocal
-import PCG.OwnedState
+import PCG.Owned
 import PCG.PlaceExpansion
 import PCG.RequiredGuide
 import PCG.ValidityConditions
@@ -48,7 +45,7 @@ private def isChildOf (p m : Lean.Name) : Bool :=
     (their name would be redundant to repeat in every child's
     subsubsection heading). -/
 private def genericParentModules : List String :=
-  ["Nodes", "Edges"]
+  ["Nodes", "Edges", "Owned"]
 
 /-- Subsubsection title for a nested module: combine the
     module's own last component with its parent's last

@@ -1,5 +1,5 @@
 import Core.Dsl.DefEnum
-import PCG.InitialisationState
+import PCG.Owned.InitialisationState
 import PCG.PlaceExpansion
 
 defEnum InitialisationTree

@@ -1,5 +1,5 @@
 import Core.Dsl.DefEnum
-import PCG.InitialisationTree
+import PCG.Owned.InitialisationTree
 
 defEnum OwnedLocal
     (.doc (.plain "ol"), .doc (.plain "OwnedLocal"))

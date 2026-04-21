@@ -1,5 +1,5 @@
 import Core.Dsl.DefStruct
-import PCG.OwnedLocal
+import PCG.Owned.OwnedLocal
 
 defStruct OwnedState (.doc (.plain "os"),
     .doc (.plain "OwnedState"))
