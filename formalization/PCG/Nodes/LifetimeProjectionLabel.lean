@@ -2,11 +2,11 @@ import Core.Dsl.DefEnum
 import PCG.Nodes.SnapshotLocation
 
 defEnum LifetimeProjectionLabel
-    (.raw "\\ell", .doc (.plain "LifetimeProjectionLabel"))
+    (.cal (.raw "L"), .doc (.plain "LifetimeProjectionLabel"))
   "Lifetime Projection Labels"
   (.seq [
     .plain "A lifetime projection label ",
-    Doc.defMath (.raw "\\ell")
+    Doc.defMath (.cal (.raw "L"))
       (.doc (.plain "LifetimeProjectionLabel")),
     .plain " is either a snapshot location identifying when \
      the projection was taken, or the placeholder ",
