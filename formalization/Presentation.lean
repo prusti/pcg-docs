@@ -82,6 +82,8 @@ def restrictToModule
       fun o => modEnumNames.contains o.enumName
     fns := reg.fns.filter (·.leanModule == mod)
     properties := reg.properties.filter
+      (·.leanModule == mod)
+    inductiveProperties := reg.inductiveProperties.filter
       (·.leanModule == mod) }
 
 /-- Keep only the definitions whose module's root crate
@@ -97,6 +99,8 @@ def restrictToCrate
     orders := reg.orders
     fns := reg.fns.filter (fun f => p f.leanModule)
     properties := reg.properties.filter
+      (fun q => p q.leanModule)
+    inductiveProperties := reg.inductiveProperties.filter
       (fun q => p q.leanModule) }
 
 /-- Union of every module name that appears in the registry
@@ -108,6 +112,7 @@ def moduleNames (reg : Registry) : List Lean.Name :=
     ++ reg.aliases.map (·.leanModule)
     ++ reg.fns.map (·.leanModule)
     ++ reg.properties.map (·.leanModule)
+    ++ reg.inductiveProperties.map (·.leanModule)
   ).foldl (init := [])
     fun acc m =>
       if acc.contains m then acc else acc ++ [m]
@@ -120,6 +125,8 @@ def cratePrefixes (reg : Registry) : List String :=
     ++ reg.aliases.map (·.leanModule.getRoot.toString)
     ++ reg.fns.map (·.leanModule.getRoot.toString)
     ++ reg.properties.map (·.leanModule.getRoot.toString)
+    ++ reg.inductiveProperties.map
+        (·.leanModule.getRoot.toString)
   ).foldl (init := [])
     fun acc p =>
       if acc.contains p then acc else acc ++ [p]
@@ -158,8 +165,12 @@ private def moduleBodyLatex
   let propParts := reg.properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex ctx,
                .newline, .newline]
+  let inductivePropParts :=
+    reg.inductiveProperties.map fun p =>
+      Latex.seq [p.inductivePropertyDef.formalDefLatex,
+                 .newline, .newline]
   .seq (descrParts ++ structParts ++ aliasParts ++ enumParts
-    ++ fnParts ++ propParts)
+    ++ inductivePropParts ++ fnParts ++ propParts)
 
 /-- Build the LaTeX sections for a single crate prefix,
     grouped by module. -/
@@ -261,7 +272,7 @@ def buildPresentationLatex (reg : Registry) : Latex :=
 def latexPackages : List String :=
   ["tikz", "amsmath", "amssymb", "amsthm",
    "algorithm", "algpseudocode", "hyperref", "xcolor",
-   "placeins"]
+   "placeins", "mathpartir"]
 
 /-- Page geometry. `article`'s default ~1.5in side margins
     waste a lot of horizontal space — shrink to 1in on all

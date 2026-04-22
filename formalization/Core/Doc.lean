@@ -267,6 +267,7 @@ private def latexReplacements :
   , ("←", "$\\leftarrow$", "\\leftarrow")
   , ("≤", "$\\leq$", "\\leq")
   , ("≥", "$\\geq$", "\\geq")
+  , ("≠", "$\\neq$", "\\neq")
   , ("∈", "$\\in$", "\\in")
   , ("∀", "$\\forall$", "\\forall")
   , ("∃", "$\\exists$", "\\exists")

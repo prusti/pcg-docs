@@ -94,6 +94,7 @@ private inductive LeanDefItem where
   | alias_ (a : AliasDef)
   | fn_ (f : FnDef)
   | property_ (p : PropertyDef)
+  | inductiveProperty_ (p : InductivePropertyDef)
 
 /-- Infer a namespace for a function from its first
     parameter type, if it matches a known type. -/
@@ -123,6 +124,7 @@ private def LeanDefItem.toLeanAST
     match inferNamespace p.fnDef definedTypes with
     | some ns => .namespaced ns p.toLeanAST
     | none => p.toLeanAST
+  | .inductiveProperty_ p => p.toLeanAST
 
 /-- All names referenced by this item (types,
     preconditions, called functions). -/
@@ -133,6 +135,7 @@ private def LeanDefItem.referencedNames
   | .alias_ a => a.referencedTypes
   | .fn_ f => f.referencedNames
   | .property_ p => p.fnDef.referencedNames
+  | .inductiveProperty_ p => p.referencedTypes
 
 /-- Whether this item uses `Set` anywhere. -/
 private def LeanDefItem.usesSet : LeanDefItem → Bool
@@ -141,6 +144,7 @@ private def LeanDefItem.usesSet : LeanDefItem → Bool
   | .alias_ a => a.usesSet
   | .fn_ f => f.usesSet
   | .property_ p => p.fnDef.usesSet
+  | .inductiveProperty_ p => p.usesSet
 
 /-- Whether this item is a type definition (struct/enum/alias)
     as opposed to a function/property. -/
@@ -150,6 +154,7 @@ private def LeanDefItem.isTypeDef : LeanDefItem → Bool
   | .alias_ _ => true
   | .fn_ _ => false
   | .property_ _ => false
+  | .inductiveProperty_ _ => true
 
 /-- Get the FnDef for function/property items. -/
 private def LeanDefItem.fnDef? : LeanDefItem → Option FnDef
@@ -165,6 +170,7 @@ private def LeanDefItem.definedTypeName
   | .alias_ a => some a.name
   | .fn_ f => some f.name
   | .property_ p => some p.fnDef.name
+  | .inductiveProperty_ p => some p.name
 
 -- ══════════════════════════════════════════════
 -- Module grouping and import computation
@@ -219,6 +225,7 @@ private def buildModules
     (aliases : List RegisteredAlias)
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
+    (inductiveProps : List RegisteredInductiveProperty)
     : List (Lean.Name × List LeanDefItem) :=
   let tagged : List (Lean.Name × LeanDefItem) :=
     (structs.map fun s =>
@@ -227,6 +234,9 @@ private def buildModules
       (e.leanModule, .enum_ e.enumDef)) ++
     (aliases.map fun a =>
       (a.leanModule, .alias_ a.aliasDef)) ++
+    (inductiveProps.map fun p =>
+      (p.leanModule,
+       .inductiveProperty_ p.inductivePropertyDef)) ++
     (properties.map fun p =>
       (p.leanModule, .property_ p.propertyDef)) ++
     (fns.map fun f =>
@@ -383,8 +393,10 @@ def main (args : List String) : IO Unit := do
   let aliases ← getRegisteredAliases
   let fns ← getRegisteredFns
   let props ← getRegisteredProperties
+  let inductiveProps ← getRegisteredInductiveProperties
   let modules :=
     buildModules enums structs aliases fns props
+      inductiveProps
   let typeMap := typeToModuleMap modules
   let allTypes := typeMap.map (·.1)
   let nsMap := fnNamespaceMap modules allTypes

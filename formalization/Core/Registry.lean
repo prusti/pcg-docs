@@ -4,6 +4,7 @@ import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.OrderDef
 import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.PropertyDef
+import Core.Dsl.Types.InductivePropertyDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where
@@ -190,9 +191,37 @@ def getRegisteredDescrs :
     IO (List RegisteredDescr) :=
   descrRegistry.get
 
+/-- A registered inductive-property definition with its source
+    module. -/
+structure RegisteredInductiveProperty where
+  /-- The inductive property definition. -/
+  inductivePropertyDef : InductivePropertyDef
+  /-- The Lean module where this inductive property was
+      defined. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of all `defInductiveProperty`-defined
+    predicates. -/
+initialize inductivePropertyRegistry :
+    IO.Ref (List RegisteredInductiveProperty) ←
+  IO.mkRef []
+
+/-- Register an inductive-property definition. -/
+def registerInductivePropertyDef
+    (p : InductivePropertyDef) (mod : Lean.Name) : IO Unit := do
+  checkSymbolUnique p.symbolDoc p.name
+  checkSymbolUnique p.setDoc p.name
+  inductivePropertyRegistry.modify (· ++ [⟨p, mod⟩])
+
+/-- Retrieve all registered inductive-property definitions. -/
+def getRegisteredInductiveProperties :
+    IO (List RegisteredInductiveProperty) :=
+  inductivePropertyRegistry.get
+
 /-- A snapshot of every kind of registered DSL definition.
 
-    Grouping the six registry lists lets downstream consumers
+    Grouping the registry lists lets downstream consumers
     (presentation, exporters) take a single `Registry` argument
     rather than a long positional list. -/
 structure Registry where
@@ -203,6 +232,7 @@ structure Registry where
   orders : List RegisteredOrder
   fns : List RegisteredFn
   properties : List RegisteredProperty
+  inductiveProperties : List RegisteredInductiveProperty
 
 namespace Registry
 
@@ -216,6 +246,7 @@ def current : IO Registry := do
     orders := ← getRegisteredOrders
     fns := ← getRegisteredFns
     properties := ← getRegisteredProperties
+    inductiveProperties := ← getRegisteredInductiveProperties
   }
 
 end Registry

@@ -379,6 +379,12 @@ inductive LeanDecl where
       (body : LeanTy)
   /-- Wrap a declaration in `namespace ns … end ns`. -/
   | namespaced (ns : String) (decl : LeanDecl)
+  /-- Pre-rendered Lean source code, emitted verbatim.
+      Used for declarations whose surface syntax is not easily
+      expressed via the structured constructors above (for
+      instance, an inductive `Prop` family with arbitrary
+      premise/conclusion terms). -/
+  | raw_ (source : String)
   deriving Inhabited
 
 -- ══════════════════════════════════════════════
@@ -509,6 +515,7 @@ partial def LeanDecl.toString : LeanDecl → String
     s!"abbrev {name}{tpStr} := {body.toString}"
   | .namespaced ns inner =>
     s!"namespace {ns}\n\n{inner.toString}\n\nend {ns}"
+  | .raw_ source => source
 
 instance : ToString LeanDecl := ⟨LeanDecl.toString⟩
 

@@ -4,6 +4,7 @@ import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.PropertyDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
+import Core.Dsl.Types.InductivePropertyDef
 import Core.LeanAST
 
 open LeanAST
@@ -353,6 +354,34 @@ def toLean (p : PropertyDef) : String :=
   toString p.toLeanAST
 
 end PropertyDef
+
+namespace InductivePropertyDef
+
+/-- All named types referenced by the parameters of an
+    inductive property. The rule premises and conclusion are
+    opaque Lean source strings and are not analysed here. -/
+def referencedTypes (p : InductivePropertyDef) : List String :=
+  p.params.flatMap fun f => f.ty.namedTypes
+
+/-- Whether this inductive property uses `Set` anywhere in
+    its parameter types (always false for the rule terms,
+    which are opaque). -/
+def usesSet (p : InductivePropertyDef) : Bool :=
+  p.params.any fun f => f.ty.usesSet
+
+/-- Lower an inductive-property definition to a
+    `LeanDecl.raw_` carrying the precomputed Lean source for
+    the underlying `inductive Name … : Prop where | …`
+    declaration. -/
+def toLeanAST (p : InductivePropertyDef) : LeanDecl :=
+  .raw_ p.leanSource
+
+/-- Render an inductive-property definition to Lean source
+    (just the precomputed declaration). -/
+def toLean (p : InductivePropertyDef) : String :=
+  toString p.toLeanAST
+
+end InductivePropertyDef
 
 -- ══════════════════════════════════════════════
 -- Type-name extraction for import computation
