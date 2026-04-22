@@ -347,12 +347,22 @@ private def elabDefEnum
       quote typeParamNames
     let longFormTerm : TSyntax `term ←
       if longDefVal then `(true) else `(false)
+    -- Expose `symDoc`, `setDoc`, and `typeParams` as
+    -- unhygienic identifiers so user-written doc terms
+    -- (and the `defMathSelf` macro) can reference them.
+    let symDocId := mkIdent `symDoc
+    let setDocId := mkIdent `setDoc
+    let typeParamsId := mkIdent `typeParams
     let enumDefVal ← `(term|
       { name := $ns,
         symbolDoc := ($symDoc : MathDoc),
         setDoc := ($setDoc : MathDoc),
         defnName := $defnName,
-        doc := ($doc : Doc),
+        doc := (
+          let $symDocId : MathDoc := ($symDoc : MathDoc);
+          let $setDocId : MathDoc := ($setDoc : MathDoc);
+          let $typeParamsId : List String := $typeParamsTerm;
+          ($doc : Doc)),
         typeParams := $typeParamsTerm,
         useLongForm := $longFormTerm,
         variants := $varList : EnumDef })

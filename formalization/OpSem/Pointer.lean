@@ -38,7 +38,7 @@ instance : Inhabited PointerMeta where
 defStruct Pointer (.bold (.raw "p"), .doc (.plain "Pointer"))
   "Pointers"
   (.seq [.plain "A pointer ",
-    Doc.defMath (.bold (.raw "p")) (.doc (.plain "Pointer")),
+    Doc.defMath symDoc setDoc,
     .plain ": a thin pointer together with optional wide-pointer \
     metadata."])
 where

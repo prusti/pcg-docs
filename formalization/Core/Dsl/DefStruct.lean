@@ -166,13 +166,23 @@ elab_rules : command
     let sdId := mkIdent (name.getId ++ `structDef)
     let typeParamsTerm : TSyntax `term :=
       quote typeParamNames
+    -- Expose `symDoc`, `setDoc`, and `typeParams` as
+    -- unhygienic identifiers so user-written doc terms
+    -- (and the `defMathSelf` macro) can reference them.
+    let symDocId := mkIdent `symDoc
+    let setDocId := mkIdent `setDoc
+    let typeParamsId := mkIdent `typeParams
     elabCommand (← `(command|
       def $sdId : StructDef :=
         { name := $ns,
           symbolDoc := ($symDoc : MathDoc),
           setDoc := ($setDoc : MathDoc),
           docParam := $docParam,
-          doc := ($doc : Doc),
+          doc := (
+            let $symDocId : MathDoc := ($symDoc : MathDoc);
+            let $setDocId : MathDoc := ($setDoc : MathDoc);
+            let $typeParamsId : List String := $typeParamsTerm;
+            ($doc : Doc)),
           ctorName := $ctorTerm,
           «note» := $noteTerm,
           «link» := $linkTerm,

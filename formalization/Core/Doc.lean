@@ -246,6 +246,7 @@ def defMath (sym set : MathDoc)
 
 
 
+
 /-- Unicode-to-LaTeX replacement pairs. Each pair is
     `(unicode, textMode, mathMode)`. -/
 private def latexReplacements :
@@ -464,3 +465,4 @@ mutual
 end
 
 end Doc
+

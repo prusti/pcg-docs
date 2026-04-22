@@ -53,13 +53,23 @@ elab_rules : command
       quote typeParamNames
     let bodyTyTerm ← `(DSLType.parse $(quote bodyStr))
     let adId := mkIdent (name.getId ++ `aliasDef)
+    -- Expose `symDoc`, `setDoc`, and `typeParams` as
+    -- unhygienic identifiers so user-written doc terms
+    -- (and the `defMathSelf` macro) can reference them.
+    let symDocId := mkIdent `symDoc
+    let setDocId := mkIdent `setDoc
+    let typeParamsId := mkIdent `typeParams
     elabCommand (← `(command|
       def $adId : AliasDef :=
         { name := $ns,
           symbolDoc := ($symDoc : MathDoc),
           setDoc := ($setDoc : MathDoc),
           docParam := $docParam,
-          doc := ($doc : Doc),
+          doc := (
+            let $symDocId : MathDoc := ($symDoc : MathDoc);
+            let $setDocId : MathDoc := ($setDoc : MathDoc);
+            let $typeParamsId : List String := $typeParamsTerm;
+            ($doc : Doc)),
           typeParams := $typeParamsTerm,
           aliased := $bodyTyTerm }))
     let mod ← getMainModule
