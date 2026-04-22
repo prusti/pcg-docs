@@ -2,6 +2,7 @@ import LSpec
 import Core.Dsl.DslType
 import Core.Doc
 import Core.Export.Latex
+import Core.Dsl.LatexParse
 
 open LSpec DSLType
 
@@ -69,9 +70,33 @@ def docLinkTests : TestSeq :=
         "\\hyperlink{type:Value}{\\dashuline{Value}}") $
     .done
 
+/-- Render a `MathDoc` to LaTeX math source for comparison
+    against expected output. -/
+private def renderMath (m : MathDoc) : String :=
+  m.toLatexMath.render
+
+def latexParseTests : TestSeq :=
+  group "latex! macro" $
+    test "atom"
+      (renderMath (latex! "x") == "x") $
+    test "subscript with single char"
+      (renderMath (latex! "t_D") == "t_{D}") $
+    test "subscript with braced group"
+      (renderMath (latex! "t_{prev}") ==
+        "t_{\\mathit{prev}}") $
+    test "plain-text round-trip via Doc"
+      ((Doc.math (latex! "t_D")).toPlainText == "t_D") $
+    test "whitespace separates atoms"
+      (renderMath (latex! "x y") == "xy") $
+    test "subscript inside Doc.math renders inline math"
+      ((Doc.math (latex! "t_D")).toLatex.render ==
+        "$t_{D}$") $
+    .done
+
 def main (args : List String) : IO UInt32 :=
   lspecIO
     (.ofList [
       ("DSLType", [dslTypeParseTests]),
-      ("Doc", [docLinkTests])])
+      ("Doc", [docLinkTests]),
+      ("LatexParse", [latexParseTests])])
     args

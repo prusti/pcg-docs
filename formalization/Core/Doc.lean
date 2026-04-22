@@ -113,6 +113,8 @@ mutual
     | widetilde (d : MathDoc)
     /-- Hat accent: `\hat{...}`. -/
     | hat (d : MathDoc)
+    /-- Subscript: `base_{sub}` (e.g. `t_D`). -/
+    | sub (base : MathDoc) (sub : MathDoc)
     /-- Concatenation of mathematical documents. -/
     | seq (ds : List MathDoc)
     deriving Repr
@@ -352,6 +354,8 @@ mutual
     | .bb d | .bold d | .italic d | .cal d
     | .widetilde d | .hat d =>
       mathToPlainText d
+    | .sub base s =>
+      s!"{mathToPlainText base}_{mathToPlainText s}"
     | .seq ds => String.join (ds.map mathToPlainText)
 end
 
@@ -388,6 +392,8 @@ mutual
     | .cal d => s!"cal({mathToTypst d})"
     | .widetilde d => s!"tilde({mathToTypst d})"
     | .hat d => s!"hat({mathToTypst d})"
+    | .sub base s =>
+      s!"{mathToTypst base}_({mathToTypst s})"
     | .seq ds => String.join (ds.map mathToPlainText)
 end
 
@@ -461,6 +467,8 @@ mutual
     | .widetilde d => s!"<span style=\"text-decoration: overline\
          dashed\">{mathToHTML d}</span>"
     | .hat d => s!"{mathToHTML d}\u0302"
+    | .sub base s =>
+      s!"{mathToHTML base}<sub>{mathToHTML s}</sub>"
     | .seq ds => String.join (ds.map mathToHTML)
 end
 

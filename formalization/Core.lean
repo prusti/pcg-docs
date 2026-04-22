@@ -17,3 +17,4 @@ import Core.Dsl.DefStruct
 import Core.Dsl.DefFn
 import Core.Dsl.DefOrder
 import Core.Dsl.DefProperty
+import Core.Dsl.LatexParse

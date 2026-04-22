@@ -371,6 +371,8 @@ mutual
     | .cal d => .inlineMath (.mathcal d.toLatexMath)
     | .widetilde d => .inlineMath (.widetilde d.toLatexMath)
     | .hat d => .inlineMath (.hat d.toLatexMath)
+    | .sub base s =>
+      .inlineMath (.sub base.toLatexMath s.toLatexMath)
     | .seq ds => .seq (ds.map MathDoc.toLatex)
 
   /-- Convert `Doc` to math-mode `LatexMath` AST. -/
@@ -406,6 +408,8 @@ mutual
     | .cal d => .mathcal d.toLatexMath
     | .widetilde d => .widetilde d.toLatexMath
     | .hat d => .hat d.toLatexMath
+    | .sub base s =>
+      .sub base.toLatexMath s.toLatexMath
     | .seq ds => .seq (ds.map MathDoc.toLatexMath)
 end
 
