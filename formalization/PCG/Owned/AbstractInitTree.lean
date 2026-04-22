@@ -1,0 +1,25 @@
+import Core.Dsl.DefEnum
+import PCG.PlaceExpansion
+
+defEnum AbstractInitTree {D}
+    (.doc (.plain "t"),
+     .doc (.plain "AbstractInitTree"))
+  "Abstract Initialisation Trees"
+  (.seq [
+    .plain "An abstract initialisation tree ",
+    Doc.defMath (.doc (.plain "t"))
+      (.doc (.plain "AbstractInitTree")) ["D"],
+    .plain " is either a leaf carrying a value drawn from the \
+     parameter set ",
+    .math (.doc (.plain "D")),
+    .plain ", or an internal (unpacked) node whose place \
+     expansion stores each child's sub-tree as the per-child \
+     payload. The leaf-data type is a parameter so that the \
+     ordinary initialisation tree and materialised tree share \
+     a single recursive structure."])
+where
+  | leaf (d : D)
+    "A leaf carrying a per-place payload."
+  | internal (expansion : PlaceExpansion (AbstractInitTree D))
+    "An internal (unpacked) node."
+  deriving Repr
