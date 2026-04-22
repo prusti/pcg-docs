@@ -6,6 +6,7 @@ import PCG.EvalStmtPhase
 import PCG.Nodes
 import PCG.Owned
 import PCG.PcgData
+import PCG.PlaceCapability
 import PCG.PlaceExpansion
 import PCG.RequiredGuide
 import PCG.ValidityConditions
