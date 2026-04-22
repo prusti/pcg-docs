@@ -464,8 +464,11 @@ partial def LeanDecl.toString : LeanDecl → String
     -- inductives that don't derive `Inhabited` (e.g.
     -- `MaybeLabelledPlace P`), so omit `Inhabited` when the
     -- struct is itself generic. Matches the behaviour used
-    -- for generic inductives below.
-    let derives := if usesMap then
+    -- for generic inductives below. Also skip `BEq`/`Hashable`
+    -- when the struct stores a `HashMap`/`HashSet` — those
+    -- underlying types don't derive `BEq`/`Hashable`, so the
+    -- outer struct can't either.
+    let derives := if usesMap || usesSet then
         if typeParams.isEmpty then "Repr, Inhabited" else "Repr"
       else
         if typeParams.isEmpty

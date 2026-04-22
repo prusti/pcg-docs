@@ -2,6 +2,7 @@ import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges
 import PCG.Nodes
+import PCG.PcgData
 import PCG.ValidityConditions
 import MIR
 import OpSem
