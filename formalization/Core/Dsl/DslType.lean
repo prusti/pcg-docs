@@ -255,6 +255,27 @@ def stripOption : DSLType → DSLType
   | .option t => t
   | t => t
 
+/-- Whether this type's named references are all drawn from
+    the given list of type-parameter names (plus primitives
+    and type-parameter-headed applications). Used e.g. by the
+    long-form LaTeX renderer to decide whether a variant's
+    field is "just a type parameter" and can therefore be
+    omitted from the `where` block. -/
+partial def onlyUsesParams (params : List String) :
+    DSLType → Bool
+  | .prim _ => true
+  | .named n => params.contains n.name
+  | .app h args =>
+    params.contains h.name
+      && args.all (onlyUsesParams params)
+  | .option t | .list t | .set t =>
+    onlyUsesParams params t
+  | .map k v =>
+    onlyUsesParams params k && onlyUsesParams params v
+  | .tuple ts => ts.all (onlyUsesParams params)
+  | .arrow a b =>
+    onlyUsesParams params a && onlyUsesParams params b
+
 /-- Strip balanced outer parentheses, e.g.
     `"(Option Nat)"` → `"Option Nat"`. -/
 private def stripParens (s : String) : String :=

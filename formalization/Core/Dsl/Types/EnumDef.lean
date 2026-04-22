@@ -202,7 +202,15 @@ private def longRows
         .escaped a.name, .raw " : ",
         a.type.toLatexMath knownTypes]
       [.raw "", sig, .raw ""]
-    match v.args with
+    -- Drop arguments whose type only references the enum's
+    -- own type parameters (e.g. `d : D` in
+    -- `AbstractInitTree {D}`). The variant header already
+    -- shows the name; repeating the type in the `where`
+    -- block would add noise without new information. If all
+    -- arguments drop out, omit the whole `where` clause.
+    let shownArgs : List ArgDef :=
+      v.args.filter fun a => !a.type.onlyUsesParams d.typeParams
+    match shownArgs with
     | [] => [headerRow]
     | args => headerRow :: whereRow :: args.map argRow
 
