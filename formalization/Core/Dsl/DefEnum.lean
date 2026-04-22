@@ -67,7 +67,7 @@ syntax "| " ident enumVariantArg* term:max
       deriving Repr
     ``` -/
 syntax "defEnum " ident ("{" ident+ "}")?
-    "(" term "," term ")" str "(" term ")"
+    "(" term "," term ")" str "(" term ")" ("long")?
     " where"
     enumVariant* ("deriving " ident,+)? : command
 
@@ -234,11 +234,20 @@ private def defaultDisplayParts
   pure parts
 
 open Lean Elab Command in
-elab_rules : command
-  | `(defEnum $name:ident $[{ $tps:ident* }]?
-       ($symDoc:term, $setDoc:term)
-       $defnName:str ($doc:term) where
-       $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+/-- Shared elaboration body for both `defEnum` forms (short
+    default or explicit `long`). `longDefVal` is stored on the
+    resulting `EnumDef` and controls only the formal LaTeX
+    rendering. -/
+private def elabDefEnum
+    (name : TSyntax `ident)
+    (tps : Option (TSyntaxArray `ident))
+    (symDoc setDoc : TSyntax `term)
+    (defnName : TSyntax `str)
+    (doc : TSyntax `term)
+    (longDefVal : Bool)
+    (vs : TSyntaxArray `enumVariant)
+    (derivs : Option (Syntax.TSepArray `ident ","))
+    : CommandElabM Unit := do
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
             | $vn:ident $args:enumVariantArg*
@@ -336,6 +345,8 @@ elab_rules : command
     let varList ← `([$[$varDefs],*])
     let typeParamsTerm : TSyntax `term :=
       quote typeParamNames
+    let longFormTerm : TSyntax `term ←
+      if longDefVal then `(true) else `(false)
     let enumDefVal ← `(term|
       { name := $ns,
         symbolDoc := ($symDoc : MathDoc),
@@ -343,6 +354,7 @@ elab_rules : command
         defnName := $defnName,
         doc := ($doc : Doc),
         typeParams := $typeParamsTerm,
+        useLongForm := $longFormTerm,
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)
     elabCommand (← `(command|
@@ -351,3 +363,18 @@ elab_rules : command
     let modName : TSyntax `term := quote mod
     elabCommand (← `(command|
       initialize registerEnumDef $defName $modName))
+
+open Lean Elab Command in
+elab_rules : command
+  | `(defEnum $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
+       $defnName:str ($doc:term) where
+       $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    elabDefEnum name tps symDoc setDoc defnName doc
+      false vs derivs
+  | `(defEnum $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
+       $defnName:str ($doc:term) long where
+       $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    elabDefEnum name tps symDoc setDoc defnName doc
+      true vs derivs

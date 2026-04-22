@@ -16,7 +16,7 @@ defEnum AbstractInitTree {D}
      expansion stores each child's sub-tree as the per-child \
      payload. The leaf-data type is a parameter so that the \
      ordinary initialisation tree and materialised tree share \
-     a single recursive structure."])
+     a single recursive structure."]) long
 where
   | leaf (d : D)
     "A leaf carrying a per-place payload."

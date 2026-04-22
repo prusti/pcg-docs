@@ -141,7 +141,8 @@ private def moduleBodyLatex
                .newline, .newline]
   let enumParts := reg.enums.flatMap fun e =>
     let def_ := Latex.seq
-      [e.enumDef.formalDefLatex, .newline, .newline]
+      [e.enumDef.formalDefLatex ctx.knownTypes,
+       .newline, .newline]
     let orderParts := reg.orders.filter
       (·.enumName == e.enumDef.name.name) |>.map
         fun o =>

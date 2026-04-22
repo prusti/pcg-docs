@@ -53,6 +53,14 @@ structure EnumDef where
       `MaybeLabelledPlace {P}`). These render as implicit
       type parameters in Lean and as generics in Rust. -/
   typeParams : List String := []
+  /-- When true, the formal LaTeX definition renders each
+      variant with an explicit `where` sub-block listing
+      its arguments (name and type), in the style of a
+      struct's where-block. When false (the default), the
+      short `c ::= A | B | C` form is used. This affects
+      only the math portion of the definition; the prose
+      description is unchanged either way. -/
+  useLongForm : Bool := false
   /-- The variants of the enum. -/
   variants : List VariantDef
   deriving Repr
@@ -114,6 +122,15 @@ namespace VariantDef
 def displayLatexMath (v : VariantDef) : LatexMath :=
   .seq (v.display.map DisplayPart.toLatexMath)
 
+/-- Like `displayLatexMath`, but renders argument references
+    using the argument's declared name rather than its
+    auto-looked-up `symbolDoc`. Used for the long form, where
+    the subsequent `where`-block binds each name explicitly. -/
+def displayLatexMathNamed (v : VariantDef) : LatexMath :=
+  .seq (v.display.map fun
+    | .lit d => d.toLatexMath
+    | .arg name _ => .escaped name)
+
 /-- Render the variant's display template as a `MathDoc`
     (using the symbolic form of each argument). -/
 def displayMathDoc (v : VariantDef) : MathDoc :=
@@ -125,10 +142,10 @@ end VariantDef
 
 namespace EnumDef
 
-/-- Render the enum as a LaTeX `definition` environment. -/
-def formalDefLatex (d : EnumDef) : Latex :=
-  let sym := d.symbolDoc.toLatexMath
-  let rows := d.variants.zipIdx.map fun (v, i) =>
+/-- Rows for the short (default) math body: one row per
+    variant, each row `| variantDisplay (variantDoc)`. -/
+private def shortRows (d : EnumDef) : List (List LatexMath) :=
+  d.variants.zipIdx.map fun (v, i) =>
     let sep : LatexMath :=
       if i == 0 then .raw "  "
       else .cmd "mid"
@@ -141,25 +158,73 @@ def formalDefLatex (d : EnumDef) : Latex :=
       .raw s!"\\hypertarget\{ctor:{d.name.name}.{v.name.name}}\{}"
     let variant : LatexMath :=
       .seq [.raw " ", target, v.displayLatexMath]
-    -- Wrap the description in a `\parbox` so long descriptions
-    -- wrap onto multiple lines instead of overflowing the
-    -- array row. The width is `\linewidth - 8cm` so the box
-    -- adapts to the remaining horizontal space after the
-    -- first two columns.
     let desc : LatexMath :=
       .seq [.raw "~", .text (Latex.parbox
         "\\dimexpr\\linewidth-8cm\\relax" (.seq [
           .raw "(", v.doc.toLatex, .raw ")"]))]
     [sep, variant, desc]
+
+/-- Rows for the long math body: each variant still gets
+    a `| variantDisplay (variantDoc)` row, but variants with
+    arguments follow it with one row per argument listing
+    `argName : argType`, mirroring the `where`-block of a
+    struct definition. -/
+private def longRows
+    (d : EnumDef) (knownTypes : String → Bool) :
+    List (List LatexMath) :=
+  d.variants.zipIdx.flatMap fun (v, i) =>
+    let sep : LatexMath :=
+      if i == 0 then .raw "  "
+      else .cmd "mid"
+    let target : LatexMath :=
+      .raw s!"\\hypertarget\{ctor:{d.name.name}.{v.name.name}}\{}"
+    -- In the long form the variant row renders each argument
+    -- reference as the argument's declared name; the subsequent
+    -- `where` rows then bind those names to their types.
+    let variant : LatexMath :=
+      .seq [.raw " ", target, v.displayLatexMathNamed]
+    let desc : LatexMath :=
+      .seq [.raw "~", .text (Latex.parbox
+        "\\dimexpr\\linewidth-8cm\\relax" (.seq [
+          .raw "(", v.doc.toLatex, .raw ")"]))]
+    let headerRow : List LatexMath := [sep, variant, desc]
+    -- The `where` keyword and argument rows go in the array's
+    -- second column (aligned with the variant display above),
+    -- with a `\quad` indent so `where` sits slightly in from
+    -- the variant and each `argName : argType` sits further
+    -- in from `where`.
+    let whereRow : List LatexMath :=
+      [.raw "", .seq [.raw "\\quad ", .text (.text "where")],
+       .raw ""]
+    let argRow (a : ArgDef) : List LatexMath :=
+      let sig : LatexMath := .seq [
+        .raw "\\quad\\quad ",
+        .escaped a.name, .raw " : ",
+        a.type.toLatexMath knownTypes]
+      [.raw "", sig, .raw ""]
+    match v.args with
+    | [] => [headerRow]
+    | args => headerRow :: whereRow :: args.map argRow
+
+/-- Render the enum as a LaTeX `definition` environment.
+
+    The body of the definition is a `sym ∈ Set ::= …` display
+    where the right-hand side uses either the short `A | B | C`
+    form or — when `d.longDef` is set — the long form that
+    also lists each variant's arguments in `where`-block
+    style. The prose description preceding the environment is
+    the same in both cases. -/
+def formalDefLatex (d : EnumDef)
+    (knownTypes : String → Bool := fun _ => false) : Latex :=
+  let sym := d.symbolDoc.toLatexMath
+  let rows : List (List LatexMath) :=
+    if d.useLongForm then longRows d knownTypes
+    else shortRows d
   -- Invisible hypertarget so cross-references to this type
   -- (e.g. from function signatures) can link here via
   -- `\hyperlink{type:<name>}{...}`.
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{d.name.name}}\{}"
-  -- Render the prose description as a paragraph BEFORE the
-  -- `definition` environment, so the formal `\begin{definition}
-  -- ... \end{definition}` block contains only the formal
-  -- syntax (sym ∈ Set ::= variant | variant | ...).
   let typeParamsLM : LatexMath :=
     .seq (d.typeParams.flatMap fun p =>
       [.raw "~", .var p])
