@@ -61,6 +61,13 @@ structure EnumDef where
       only the math portion of the definition; the prose
       description is unchanged either way. -/
   useLongForm : Bool := false
+  /-- When `true`, the LaTeX presentation attaches the
+      type parameters as a subscript to `symbolDoc` in the
+      formal definition (e.g. `rg_D` instead of `rg` for
+      `RequiredGuide {D}`). Defaults to `false` so existing
+      definitions are unaffected; opt in by passing
+      `subscript` in the DSL. -/
+  subscriptTypeParams : Bool := false
   /-- The variants of the enum. -/
   variants : List VariantDef
   deriving Repr
@@ -214,6 +221,18 @@ private def longRows
     | [] => [headerRow]
     | args => headerRow :: whereRow :: args.map argRow
 
+/-- Render the enum's symbol for the formal definition,
+    adding a `_{T₁ T₂ …}` subscript listing the type
+    parameters when `subscriptTypeParams` is set. -/
+def formalSymbolLatexMath (d : EnumDef) : LatexMath :=
+  let base := d.symbolDoc.toLatexMath
+  if d.subscriptTypeParams && !d.typeParams.isEmpty then
+    let subscript : LatexMath :=
+      LatexMath.intercalate (.raw "~")
+        (d.typeParams.map LatexMath.var)
+    .sub base subscript
+  else base
+
 /-- Render the enum as a LaTeX `definition` environment.
 
     The body of the definition is a `sym ∈ Set ::= …` display
@@ -224,7 +243,7 @@ private def longRows
     the same in both cases. -/
 def formalDefLatex (d : EnumDef)
     (knownTypes : String → Bool := fun _ => false) : Latex :=
-  let sym := d.symbolDoc.toLatexMath
+  let sym := d.formalSymbolLatexMath
   let rows : List (List LatexMath) :=
     if d.useLongForm then longRows d knownTypes
     else shortRows d

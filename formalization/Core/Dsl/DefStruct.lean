@@ -19,6 +19,11 @@ syntax "| " ident term ":" term : structField
     The long-form description is a `Doc` term, allowing rich
     content (inline code, links, math) rather than a plain string.
 
+    Pass `subscript` before `where` to render the type symbol
+    with its type parameters as a subscript in the LaTeX
+    presentation (e.g. `rg_D` instead of `rg` for a struct
+    parameterised by `D`).
+
     Example:
     ```
     defStruct RegionVid (.doc (.plain "vid"),
@@ -31,6 +36,7 @@ syntax "| " ident term ":" term : structField
 syntax "defStruct " ident ("{" ident+ "}")?
     "(" term "," term ")"
     str "(" term ")" ("constructor" str)? ("note" str)? ("link" str)?
+    ("subscript")?
     " where"
     structField* ("deriving " ident,+)? : command
 
@@ -47,13 +53,22 @@ private def parseStructField
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in
-elab_rules : command
-  | `(defStruct $name:ident $[{ $tps:ident* }]?
-       ($symDoc:term, $setDoc:term)
-       $docParam:str ($doc:term) $[constructor $ctorName:str]?
-       $[note $noteLit:str]? $[link $linkLit:str]? where
-       $fs:structField* $[deriving $derivs:ident,*]?)
-    => do
+/-- Shared elaboration body for the `defStruct` syntax forms.
+    `subscriptFlag` controls whether the generated `StructDef`
+    has `subscriptTypeParams := true`. -/
+private def elabDefStruct
+    (name : TSyntax `ident)
+    (tps : Option (TSyntaxArray `ident))
+    (symDoc setDoc : TSyntax `term)
+    (docParam : TSyntax `str)
+    (doc : TSyntax `term)
+    (ctorName : Option (TSyntax `str))
+    (noteLit : Option (TSyntax `str))
+    (linkLit : Option (TSyntax `str))
+    (subscriptFlag : Bool)
+    (fs : TSyntaxArray `structField)
+    (derivs : Option (Syntax.TSepArray `ident ","))
+    : CommandElabM Unit := do
     let fieldData ← fs.mapM parseStructField
     let typeParamNames : List String := match tps with
       | some ids => ids.toList.map (toString ·.getId)
@@ -166,6 +181,8 @@ elab_rules : command
     let sdId := mkIdent (name.getId ++ `structDef)
     let typeParamsTerm : TSyntax `term :=
       quote typeParamNames
+    let subscriptTerm : TSyntax `term ←
+      if subscriptFlag then `(true) else `(false)
     -- Expose `symDoc`, `setDoc`, and `typeParams` as
     -- unhygienic identifiers so user-written doc terms
     -- (and the `defMathSelf` macro) can reference them.
@@ -187,8 +204,29 @@ elab_rules : command
           «note» := $noteTerm,
           «link» := $linkTerm,
           typeParams := $typeParamsTerm,
+          subscriptTypeParams := $subscriptTerm,
           fields := $fieldList }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod
     elabCommand (← `(command|
       initialize registerStructDef $sdId $modName))
+
+open Lean Elab Command in
+elab_rules : command
+  | `(defStruct $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
+       $docParam:str ($doc:term) $[constructor $ctorName:str]?
+       $[note $noteLit:str]? $[link $linkLit:str]? where
+       $fs:structField* $[deriving $derivs:ident,*]?)
+    => do
+    elabDefStruct name tps symDoc setDoc docParam doc
+      ctorName noteLit linkLit false fs derivs
+  | `(defStruct $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
+       $docParam:str ($doc:term) $[constructor $ctorName:str]?
+       $[note $noteLit:str]? $[link $linkLit:str]?
+       subscript where
+       $fs:structField* $[deriving $derivs:ident,*]?)
+    => do
+    elabDefStruct name tps symDoc setDoc docParam doc
+      ctorName noteLit linkLit true fs derivs

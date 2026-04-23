@@ -14,6 +14,7 @@ defEnum RequiredGuide {D}
      payload drawn from a parameter set ",
     .math (.doc (.plain "D")),
     .plain "."])
+  subscript
 where
   | downcast (variant : VariantIdx) (data : D)
     "An enum downcast."

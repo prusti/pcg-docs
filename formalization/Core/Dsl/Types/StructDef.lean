@@ -41,16 +41,35 @@ structure StructDef where
       `LifetimeProjection {B I}`). These render as implicit
       type parameters in Lean and as generics in Rust. -/
   typeParams : List String := []
+  /-- When `true`, the LaTeX presentation attaches the
+      type parameters as a subscript to `symbolDoc` wherever
+      the symbol is rendered in the formal definition
+      (e.g. `rg_D` instead of `rg` for `RequiredGuide {D}`).
+      Defaults to `false` so existing definitions are
+      unaffected; opt in by passing `subscript` in the DSL. -/
+  subscriptTypeParams : Bool := false
   /-- The fields of the struct. -/
   fields : List FieldDef
   deriving Repr
 
 namespace StructDef
 
+/-- Render the struct's symbol for the formal definition,
+    adding a `_{T₁ T₂ …}` subscript listing the type
+    parameters when `subscriptTypeParams` is set. -/
+def formalSymbolLatexMath (s : StructDef) : LatexMath :=
+  let base := s.symbolDoc.toLatexMath
+  if s.subscriptTypeParams && !s.typeParams.isEmpty then
+    let subscript : LatexMath :=
+      LatexMath.intercalate (.raw "~")
+        (s.typeParams.map LatexMath.var)
+    .sub base subscript
+  else base
+
 /-- Render the struct as a LaTeX `definition` environment. -/
 def formalDefLatex (s : StructDef)
     (knownTypes : String → Bool := fun _ => false) : Latex :=
-  let sym := s.symbolDoc.toLatexMath
+  let sym := s.formalSymbolLatexMath
   let sp := MathSym.space.toLatex
   let fieldSym (f : FieldDef) : LatexMath :=
     match f.symbolDoc with

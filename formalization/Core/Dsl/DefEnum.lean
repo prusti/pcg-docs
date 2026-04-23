@@ -67,7 +67,8 @@ syntax "| " ident enumVariantArg* term:max
       deriving Repr
     ``` -/
 syntax "defEnum " ident ("{" ident+ "}")?
-    "(" term "," term ")" str "(" term ")" ("long")?
+    "(" term "," term ")" str "(" term ")"
+    ("long")? ("subscript")?
     " where"
     enumVariant* ("deriving " ident,+)? : command
 
@@ -234,10 +235,11 @@ private def defaultDisplayParts
   pure parts
 
 open Lean Elab Command in
-/-- Shared elaboration body for both `defEnum` forms (short
-    default or explicit `long`). `longDefVal` is stored on the
-    resulting `EnumDef` and controls only the formal LaTeX
-    rendering. -/
+/-- Shared elaboration body for the `defEnum` forms.
+    `longDefVal` controls the formal LaTeX rendering (short
+    `::=` vs. long `where`-style form). `subscriptDefVal`
+    controls whether the type symbol gets a subscript of its
+    type parameters in the LaTeX presentation. -/
 private def elabDefEnum
     (name : TSyntax `ident)
     (tps : Option (TSyntaxArray `ident))
@@ -245,6 +247,7 @@ private def elabDefEnum
     (defnName : TSyntax `str)
     (doc : TSyntax `term)
     (longDefVal : Bool)
+    (subscriptDefVal : Bool)
     (vs : TSyntaxArray `enumVariant)
     (derivs : Option (Syntax.TSepArray `ident ","))
     : CommandElabM Unit := do
@@ -347,6 +350,8 @@ private def elabDefEnum
       quote typeParamNames
     let longFormTerm : TSyntax `term ←
       if longDefVal then `(true) else `(false)
+    let subscriptTerm : TSyntax `term ←
+      if subscriptDefVal then `(true) else `(false)
     -- Expose `symDoc`, `setDoc`, and `typeParams` as
     -- unhygienic identifiers so user-written doc terms
     -- (and the `defMathSelf` macro) can reference them.
@@ -365,6 +370,7 @@ private def elabDefEnum
           ($doc : Doc)),
         typeParams := $typeParamsTerm,
         useLongForm := $longFormTerm,
+        subscriptTypeParams := $subscriptTerm,
         variants := $varList : EnumDef })
     let defName := mkIdent (name.getId ++ `enumDef)
     elabCommand (← `(command|
@@ -381,10 +387,22 @@ elab_rules : command
        $defnName:str ($doc:term) where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
     elabDefEnum name tps symDoc setDoc defnName doc
-      false vs derivs
+      false false vs derivs
   | `(defEnum $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
        $defnName:str ($doc:term) long where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
     elabDefEnum name tps symDoc setDoc defnName doc
-      true vs derivs
+      true false vs derivs
+  | `(defEnum $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
+       $defnName:str ($doc:term) subscript where
+       $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    elabDefEnum name tps symDoc setDoc defnName doc
+      false true vs derivs
+  | `(defEnum $name:ident $[{ $tps:ident* }]?
+       ($symDoc:term, $setDoc:term)
+       $defnName:str ($doc:term) long subscript where
+       $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    elabDefEnum name tps symDoc setDoc defnName doc
+      true true vs derivs
