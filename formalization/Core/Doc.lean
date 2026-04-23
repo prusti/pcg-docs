@@ -259,7 +259,7 @@ def defMath (sym set : MathDoc)
     `(unicode, textMode, mathMode)`. -/
 private def latexReplacements :
     List (String × String × String) :=
-  [ ("_", "\\_", "_")
+  [ ("_", "\\_", "\\_")
   , ("#", "\\#", "\\#")
   , ("%", "\\%", "\\%")
   , ("`", "'", "'")
