@@ -164,22 +164,18 @@ defFn placeUnpackChain (.plain "placeUnpackChain")
   projUnpackChain ‹p↦base, [], p↦projection›
 
 defFn localsUnpackEdges (.plain "localsUnpackEdges")
-  (.seq [.plain "Walk a list of owned locals, starting at the \
-    given local index, and collect every unpack edge derived \
-    from each allocated local's initialisation tree. \
-    Unallocated slots contribute no edges but still consume an \
-    index slot."])
-  (locals "The remaining owned locals to walk."
-      : List OwnedLocal)
-  (idx "The local index corresponding to the head of the list."
-      : Nat)
-  : List (UnpackEdge (PcgNode Place)) where
-  | [] ; _ => []
-  | .unallocated :: rest ; idx =>
-      localsUnpackEdges ‹rest, idx + 1›
-  | .allocated it :: rest ; idx =>
-      let itEdges := itUnpackEdges ‹it, Local⟨idx⟩, []› ;
-      itEdges ++ localsUnpackEdges ‹rest, idx + 1›
+  (.seq [.plain "For every allocated local in an owned state, \
+    collect the unpack edges derived from that local's \
+    initialisation tree. Unallocated slots contribute nothing. \
+    The local index carried by each entry is recovered from the \
+    list position via ", .code "zipIdx", .plain "."])
+  (locals "The owned locals to walk." : List OwnedLocal)
+  : List (UnpackEdge (PcgNode Place)) :=
+    locals·zipIdx·flatMap fun ⟨ol, idx⟩ =>
+      match ol with
+      | .allocated it => itUnpackEdges ‹it, Local⟨idx⟩, []›
+      | .unallocated => []
+      end
 
 -- ══════════════════════════════════════════════
 -- Collecting all edges represented by PcgData
@@ -196,7 +192,7 @@ defFn edges (.plain "edges")
     and (3) every edge already recorded in the borrows graph."])
   (pd "The PCG data." : PcgData Place)
   : List (PcgEdge Place) :=
-    let treeEdges := localsUnpackEdges ‹pd↦ownedState↦locals, 0› ;
+    let treeEdges := localsUnpackEdges ‹pd↦ownedState↦locals› ;
     let targets := pd↦readPlaces·toList
       ++ BorrowsGraph.blockedCurrentPlaces ‹pd↦bg› ;
     let matEdges := targets·flatMap fun p => placeUnpackChain ‹p› ;
