@@ -30,6 +30,32 @@ where
   deriving Repr
 
 -- ══════════════════════════════════════════════
+-- Borrow-graph helpers used by the edge extractor
+-- ══════════════════════════════════════════════
+
+namespace BorrowsGraph
+
+defFn blockedCurrentPlaces (.plain "blockedCurrentPlaces")
+  (.seq [.plain "The current (unlabelled) blocked places \
+    appearing as the source of a deref edge in the graph. \
+    Labelled blocked places are skipped; the remaining \
+    places are the candidates for the owned places that \
+    the materialised tree should expose."])
+  (bg "The borrows graph." : BorrowsGraph Place)
+  : List Place :=
+  bg↦edges·toList·flatMap fun ⟨e, _⟩ =>
+    match e with
+    | .deref de =>
+        match de↦blockedPlace with
+        | .current p => [p]
+        | .labelled _ _ => []
+        end
+    | _ => []
+    end
+
+end BorrowsGraph
+
+-- ══════════════════════════════════════════════
 -- Converting owned init trees to unpack edges
 -- ══════════════════════════════════════════════
 
@@ -57,36 +83,31 @@ defFn itUnpackEdges (.plain "itUnpackEdges")
   : List (UnpackEdge (PcgNode Place)) where
   | .leaf _ ; _ ; _ => []
   | .internal (.fields fs) ; base ; projAcc =>
-      let self :=
-        UnpackEdge⟨
-          placeNode ‹Place⟨base, projAcc⟩›,
-          fs·map fun ⟨fi, ty, _⟩ =>
-            placeNode
-              ‹Place⟨base,
-                projAcc ++ [ProjElem.field ‹fi, ty›]⟩›⟩ ;
+      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
+      let children := fs·map fun ⟨fi, ty, _⟩ =>
+        let step := ProjElem.field ‹fi, ty› ;
+        placeNode ‹Place⟨base, projAcc ++ [step]⟩› ;
+      let self := UnpackEdge⟨basePlace, children⟩ ;
       self :: fieldsSubedges ‹fs, base, projAcc›
   | .internal (.deref d) ; base ; projAcc =>
       let proj := projAcc ++ [ProjElem.deref] ;
-      let self :=
-        UnpackEdge⟨
-          placeNode ‹Place⟨base, projAcc⟩›,
-          [placeNode ‹Place⟨base, proj⟩›]⟩ ;
+      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
+      let childPlace := placeNode ‹Place⟨base, proj⟩› ;
+      let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
       self :: itUnpackEdges ‹d, base, proj›
   | .internal (.guided (.downcast v d)) ; base ; projAcc =>
       let proj := projAcc ++ [ProjElem.downcast ‹v›] ;
-      let self :=
-        UnpackEdge⟨
-          placeNode ‹Place⟨base, projAcc⟩›,
-          [placeNode ‹Place⟨base, proj⟩›]⟩ ;
+      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
+      let childPlace := placeNode ‹Place⟨base, proj⟩› ;
+      let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
       self :: itUnpackEdges ‹d, base, proj›
   | .internal (.guided (.constantIndex _ d)) ; base ; projAcc =>
       itUnpackEdges ‹d, base, projAcc›
   | .internal (.guided (.index l d)) ; base ; projAcc =>
       let proj := projAcc ++ [ProjElem.index ‹l›] ;
-      let self :=
-        UnpackEdge⟨
-          placeNode ‹Place⟨base, projAcc⟩›,
-          [placeNode ‹Place⟨base, proj⟩›]⟩ ;
+      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
+      let childPlace := placeNode ‹Place⟨base, proj⟩› ;
+      let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
       self :: itUnpackEdges ‹d, base, proj›
   | .internal (.guided (.subslice _ _ _ d)) ; base ; projAcc =>
       itUnpackEdges ‹d, base, projAcc›
@@ -103,10 +124,44 @@ defFn fieldsSubedges (.plain "fieldsSubedges")
   : List (UnpackEdge (PcgNode Place)) where
   | [] ; _ ; _ => []
   | ⟨fi, ty, sub⟩ :: rest ; base ; projAcc =>
-      itUnpackEdges ‹sub, base,
-        projAcc ++ [ProjElem.field ‹fi, ty›]›
-      ++ fieldsSubedges ‹rest, base, projAcc›
+      let step := ProjElem.field ‹fi, ty› ;
+      let subEdges := itUnpackEdges ‹sub, base, projAcc ++ [step]› ;
+      subEdges ++ fieldsSubedges ‹rest, base, projAcc›
 end
+
+-- ══════════════════════════════════════════════
+-- Materialising the tree up to target places
+-- ══════════════════════════════════════════════
+
+defFn projUnpackChain (.plain "projUnpackChain")
+  (.seq [.plain "Emit single-child unpack edges walking a \
+    remaining projection one step at a time from a base local. \
+    Used to materialise the owned part of the PCG beyond the \
+    existing init-tree shape so that each target place becomes \
+    reachable via an unbroken chain of unpack edges. Because \
+    sibling places at each synthetic step are unknown without \
+    type information, the expansion of every emitted edge \
+    contains just the single child that extends the prefix."])
+  (base "The base local the chain is rooted at." : Local)
+  (projAcc "The projection covered so far." : List ProjElem)
+  (remaining "The projection steps still to walk."
+      : List ProjElem)
+  : List (UnpackEdge (PcgNode Place)) where
+  | _ ; _ ; [] => []
+  | base ; projAcc ; π :: rest =>
+      let projExt := projAcc ++ [π] ;
+      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
+      let childPlace := placeNode ‹Place⟨base, projExt⟩› ;
+      let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
+      self :: projUnpackChain ‹base, projExt, rest›
+
+defFn placeUnpackChain (.plain "placeUnpackChain")
+  (.plain "Emit a chain of single-child unpack edges from a \
+    place's base local to the place itself, one edge per \
+    projection step.")
+  (p "The target place." : Place)
+  : List (UnpackEdge (PcgNode Place)) :=
+  projUnpackChain ‹p↦base, [], p↦projection›
 
 defFn localsUnpackEdges (.plain "localsUnpackEdges")
   (.seq [.plain "Walk a list of owned locals, starting at the \
@@ -123,20 +178,28 @@ defFn localsUnpackEdges (.plain "localsUnpackEdges")
   | .unallocated :: rest ; idx =>
       localsUnpackEdges ‹rest, idx + 1›
   | .allocated it :: rest ; idx =>
-      itUnpackEdges ‹it, Local⟨idx⟩, []›
-      ++ localsUnpackEdges ‹rest, idx + 1›
+      let itEdges := itUnpackEdges ‹it, Local⟨idx⟩, []› ;
+      itEdges ++ localsUnpackEdges ‹rest, idx + 1›
+
+-- ══════════════════════════════════════════════
+-- Collecting all edges represented by PcgData
+-- ══════════════════════════════════════════════
 
 defFn edges (.plain "edges")
   (.seq [.plain "All PCG hyperedges represented by the per-\
-    program-point PCG data. Combines the unpack edges derived \
-    from the internal structure of each allocated owned \
-    initialisation tree with every edge recorded in the \
-    borrows graph. Unpack edges needed to materialise the \
-    tree further (to cover ", .code "readPlaces",
-    .plain " or owned deref-edge sources that extend beyond \
-    the current tree shape) are a follow-up."])
+    program-point PCG data. The result is the union of three \
+    sources: (1) unpack edges derived from the internal \
+    structure of each allocated owned init tree, (2) unpack \
+    edges materialising the tree further to reach every place \
+    in ", .code "readPlaces",
+    .plain " and every owned place blocked by a deref edge, \
+    and (3) every edge already recorded in the borrows graph."])
   (pd "The PCG data." : PcgData Place)
   : List (PcgEdge Place) :=
-    (localsUnpackEdges ‹pd↦ownedState↦locals, 0›
-      ·map fun ue => PcgEdge.unpack ‹ue›)
-    ++ (pd↦bg↦edges·toList·map fun ⟨e, _⟩ => e)
+    let treeEdges := localsUnpackEdges ‹pd↦ownedState↦locals, 0› ;
+    let targets := pd↦readPlaces·toList
+      ++ BorrowsGraph.blockedCurrentPlaces ‹pd↦bg› ;
+    let matEdges := targets·flatMap fun p => placeUnpackChain ‹p› ;
+    let unpackEdges := (treeEdges ++ matEdges)
+      ·map fun ue => PcgEdge.unpack ‹ue› ;
+    unpackEdges ++ pd↦bg↦edges·toList·map fun ⟨e, _⟩ => e
