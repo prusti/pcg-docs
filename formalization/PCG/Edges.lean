@@ -3,6 +3,7 @@ import PCG.Edges.AbstractionEdge
 import PCG.Edges.BorrowEdge
 import PCG.Edges.BorrowFlowEdge
 import PCG.Edges.DerefEdge
+import PCG.Edges.EdgeMutability
 import PCG.Edges.PcgEdge
 import PCG.Edges.UnpackEdge
 
