@@ -103,6 +103,11 @@ inductive DslExpr where
   | ifThenElse (cond : DslExpr) (t : DslExpr) (e : DslExpr)
   /-- Inequality: `lhs ≠ rhs`. -/
   | neq (lhs : DslExpr) (rhs : DslExpr)
+  /-- Equality: `lhs == rhs`. -/
+  | eq (lhs : DslExpr) (rhs : DslExpr)
+  /-- List existential: `list.any fun param => body`. -/
+  | anyList (list : DslExpr) (param : String)
+      (body : DslExpr)
   /-- Set/List membership: `elem ∈ col`. -/
   | memberOf (elem : DslExpr) (col : DslExpr)
   deriving Repr, Inhabited, Lean.Quote
@@ -169,8 +174,10 @@ def mapChildren (f : DslExpr → DslExpr)
   | .or l r => .or (f l) (f r)
   | .implies l r => .implies (f l) (f r)
   | .neq l r => .neq (f l) (f r)
+  | .eq l r => .eq (f l) (f r)
   | .memberOf l r => .memberOf (f l) (f r)
   -- Ternary (with String parameter)
+  | .anyList l p b => .anyList (f l) p (f b)
   | .setAll s p b => .setAll (f s) p (f b)
   | .setFlatMap l p b => .setFlatMap (f l) p (f b)
   | .letIn n v b => .letIn n (f v) (f b)
@@ -505,6 +512,11 @@ partial def toDoc
          , keyword "then", go t, .sym .space
          , keyword "else", go e ]
   | .neq l r => .seq [go l, .sym .neq, go r]
+  | .eq l r => .seq [go l, .sym .eq, go r]
   | .memberOf l r => .seq [go l, .sym .setContains, go r]
+  | .anyList list param body =>
+    -- `∃ param ∈ list, body` — an existential over a list.
+    .seq [.sym .exists_, .raw param, .sym .setContains,
+          go list, .sym .comma, go body]
 
 end DslExpr

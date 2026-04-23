@@ -133,6 +133,10 @@ syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
 syntax "if " fnExpr " then " fnExpr " else " fnExpr : fnExpr
 -- Inequality: expr ≠ expr
 syntax fnExpr " ≠ " fnExpr : fnExpr
+-- Equality: expr == expr
+syntax fnExpr " == " fnExpr : fnExpr
+-- List existential: expr ·any fun pat => expr
+syntax fnExpr "·any" "fun" fnPat "=>" fnExpr : fnExpr
 
 -- Let-in expression: let x := e1 ; e2
 syntax "let " ident " := " fnExpr " ; " fnExpr : fnExpr
@@ -417,6 +421,13 @@ partial def parseExpr
       (← parseExpr e))
   | `(fnExpr| $l:fnExpr ≠ $r:fnExpr) =>
     pure (.neq (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr == $r:fnExpr) =>
+    pure (.eq (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $e:fnExpr ·any fun $p:fnPat =>
+        $b:fnExpr) => do
+    let paramStr := BodyPat.toLean (← parsePat p)
+    pure (.anyList (← parseExpr e) paramStr
+      (← parseExpr b))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 /-- Fold a sequence of `fnStmt` syntax nodes followed by a

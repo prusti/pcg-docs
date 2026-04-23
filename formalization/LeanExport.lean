@@ -86,42 +86,6 @@ open AbstractByte
 "def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
   ∃ h : validPlace body p, isOwned body p h = true
 ")
-  , (`PCG.PlaceCapability, .middle,
-"namespace BorrowsGraph
-
-def derefEdges (bg : BorrowsGraph Place)
-    : List (DerefEdge Place) :=
-  bg.edges.toList.filterMap fun (e, _) =>
-    match e with
-    | .deref de => some de
-    | _ => none
-
-private def currentPlace
-    : MaybeLabelledPlace Place → Option Place
-  | .current p => some p
-  | .labelled _ _ => none
-
-def derefEdgesTo (bg : BorrowsGraph Place) (p : Place)
-    : List (DerefEdge Place) :=
-  bg.derefEdges.filter fun de =>
-    currentPlace de.derefPlace == some p
-
-def projectsSharedBorrow
-    (bg : BorrowsGraph Place) (p : Place) : Bool :=
-  (bg.derefEdgesTo p).any fun de =>
-    de.blockedLifetimeProjection.label.isNone
-
-def placeIsBlocked
-    (bg : BorrowsGraph Place) (p : Place) : Bool :=
-  bg.derefEdges.any fun de =>
-    currentPlace de.blockedPlace == some p
-
-def placeIsBorrowLeaf
-    (bg : BorrowsGraph Place) (p : Place) : Bool :=
-  !(bg.derefEdgesTo p).isEmpty && !bg.placeIsBlocked p
-
-end BorrowsGraph
-")
   ]
 
 -- ══════════════════════════════════════════════
@@ -146,14 +110,18 @@ private def inferNamespace
     (f : FnDef) (allTypes : List String)
     (aliasNames : List String := [])
     : Option String :=
+  let headName : DSLType → Option String
+    | .named n => some n.name
+    | .app head _ => some head.name
+    | _ => none
   match f.params.head? with
   | some p =>
-    match p.ty with
-    | .named n =>
-      if aliasNames.contains n.name then none
-      else if allTypes.contains n.name then some n.name
+    match headName p.ty with
+    | some n =>
+      if aliasNames.contains n then none
+      else if allTypes.contains n then some n
       else none
-    | _ => none
+    | none => none
   | none => none
 
 private def LeanDefItem.toLeanAST
@@ -254,8 +222,13 @@ private def topoSort
     (items : List LeanDefItem) : List LeanDefItem :=
   let getName (i : LeanDefItem) : Option String :=
     i.definedTypeName
+  -- A reference may be qualified (`BorrowsGraph.placeIsBlocked`
+  -- when called cross-namespace); strip the prefix so it matches
+  -- the short names stored in `definedTypeName`.
+  let shortName (n : String) : String :=
+    (n.splitOn ".").getLast?.getD n
   let getRefs (i : LeanDefItem) : List String :=
-    i.referencedNames
+    i.referencedNames.map shortName
   let defined := items.filterMap getName
   -- For each mutual group tag, the names of every item in
   -- that group. Members of the same group can be emitted

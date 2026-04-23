@@ -310,6 +310,8 @@ def toLatex : MathSym → LatexMath
   | .gt => .raw " > "
   | .le => .raw " \\leqslant "
   | .neq => .raw " \\neq "
+  | .eq => .raw " = "
+  | .exists_ => .raw "\\exists "
   | .add => .raw " + "
   | .sub => .raw " - "
   | .mul => .raw " \\cdot "

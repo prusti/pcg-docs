@@ -55,59 +55,79 @@ defFn getAlloc (.plain "getAlloc")
       end
 
 -- ══════════════════════════════════════════════
--- Borrow-state helpers (plain Lean)
+-- Borrow-state helpers
 -- ══════════════════════════════════════════════
 
 namespace BorrowsGraph
 
-/-- Every `DerefEdge` recorded in the graph. -/
-def derefEdges (bg : BorrowsGraph Place) : List (DerefEdge Place) :=
-  bg.edges.toList.filterMap fun (e, _) =>
+defFn derefEdges (.plain "derefEdges")
+  (.plain "Every deref edge recorded in the graph.")
+  (bg "The borrows graph." : BorrowsGraph Place)
+  : List (DerefEdge Place) :=
+  bg↦edges·toList·flatMap fun ⟨e, _⟩ =>
     match e with
-    | .deref de => some de
-    | _ => none
+    | .deref de => [de]
+    | _ => []
+    end
 
-/-- The current (unlabelled) MIR place at the source of a
-    `MaybeLabelledPlace`, when it has one. -/
-private def currentPlace : MaybeLabelledPlace Place → Option Place
-  | .current p => some p
-  | .labelled _ _ => none
+defFn currentPlace (.plain "currentPlace")
+  (.plain "The current (unlabelled) MIR place at the source of \
+    a maybe-labelled place, when it has one.")
+  (mlp "The maybe-labelled place." : MaybeLabelledPlace Place)
+  : Option Place where
+  | .current p => Some p
+  | .labelled _ _ => None
 
-/-- The deref edges whose `derefPlace` is the current
-    (unlabelled) form of `p`. -/
-def derefEdgesTo (bg : BorrowsGraph Place) (p : Place)
-    : List (DerefEdge Place) :=
-  bg.derefEdges.filter fun de =>
-    currentPlace de.derefPlace == some p
+defFn derefEdgesTo (.plain "derefEdgesTo")
+  (.plain "The deref edges whose deref target is the current \
+    (unlabelled) form of the given place.")
+  (bg "The borrows graph." : BorrowsGraph Place)
+  (p "The target place." : Place)
+  : List (DerefEdge Place) :=
+  bg·derefEdges·flatMap fun de =>
+    if currentPlace ‹de↦derefPlace› == Some p then [de] else []
 
-/-- Whether some deref edge ending at `p` blocks a *shared*
-    reference. We use the documented convention on
-    `DerefEdge.blockedLifetimeProjection`: an unlabelled
-    projection corresponds to a shared borrow, a labelled one
-    to a mutable borrow. -/
-def projectsSharedBorrow
-    (bg : BorrowsGraph Place) (p : Place) : Bool :=
-  (bg.derefEdgesTo p).any fun de =>
-    de.blockedLifetimeProjection.label.isNone
+defFn projectsSharedBorrow (.plain "projectsSharedBorrow")
+  (.seq [.plain "Whether some deref edge ending at ",
+    .math (.raw "p"),
+    .plain " blocks a shared reference. Uses the convention on ",
+    .code "DerefEdge.blockedLifetimeProjection",
+    .plain ": an unlabelled projection corresponds to a shared \
+      borrow, a labelled one to a mutable borrow."])
+  (bg "The borrows graph." : BorrowsGraph Place)
+  (p "The target place." : Place)
+  : Bool :=
+  derefEdgesTo ‹bg, p›·any fun de =>
+    de↦blockedLifetimeProjection↦label·isNone
 
-/-- Whether the current-form of `p` appears as the *blocked*
-    side of any edge in the graph. Used as a coarse proxy for
-    "`p` has a non-trivial out-edge in the borrow PCG". Only
-    deref-edge blockers are considered for now; refining this
-    to cover the other edge kinds is a follow-up. -/
-def placeIsBlocked
-    (bg : BorrowsGraph Place) (p : Place) : Bool :=
-  bg.derefEdges.any fun de =>
-    currentPlace de.blockedPlace == some p
+defFn placeIsBlocked (.plain "placeIsBlocked")
+  (.seq [.plain "Whether the current form of ",
+    .math (.raw "p"),
+    .plain " appears as the blocked side of any edge in the \
+      graph. Used as a coarse proxy for \"",
+    .math (.raw "p"),
+    .plain " has a non-trivial out-edge in the borrow PCG\". \
+      Only deref-edge blockers are considered for now; \
+      refining this to cover the other edge kinds is a \
+      follow-up."])
+  (bg "The borrows graph." : BorrowsGraph Place)
+  (p "The target place." : Place)
+  : Bool :=
+  bg·derefEdges·any fun de =>
+    currentPlace ‹de↦blockedPlace› == Some p
 
-/-- Whether `p` is a leaf in the borrow PCG: it appears as a
-    deref target somewhere in the graph and is not itself
-    blocked by another edge. -/
-def placeIsBorrowLeaf
-    (bg : BorrowsGraph Place) (p : Place) : Bool :=
-  !(bg.derefEdgesTo p).isEmpty && !bg.placeIsBlocked p
-
-end BorrowsGraph
+defFn placeIsBorrowLeaf (.plain "placeIsBorrowLeaf")
+  (.seq [.plain "Whether ", .math (.raw "p"),
+    .plain " is a leaf in the borrow PCG: it appears as a \
+      deref target somewhere in the graph and is not itself \
+      blocked by another edge."])
+  (bg "The borrows graph." : BorrowsGraph Place)
+  (p "The target place." : Place)
+  : Bool :=
+  match derefEdgesTo ‹bg, p› with
+  | [] => false
+  | _ :: _ => placeIsBlocked ‹bg, p› == false
+  end
 
 defFn borrowedPlaceCapability
   (.plain "borrowedPlaceCapability")
@@ -129,12 +149,14 @@ defFn borrowedPlaceCapability
   (bg "The borrows graph." : BorrowsGraph Place)
   (p "The place whose capability is requested." : Place)
   : Capability :=
-    if BorrowsGraph.projectsSharedBorrow ‹bg, p› then
+    if projectsSharedBorrow ‹bg, p› then
       Capability.read
-    else if BorrowsGraph.placeIsBorrowLeaf ‹bg, p› then
+    else if placeIsBorrowLeaf ‹bg, p› then
       Capability.exclusive
     else
       Capability.none
+
+end BorrowsGraph
 
 defFn getCapability (.plain "getCapability")
   (.seq [.plain "Compute the capability of a MIR place from \
@@ -153,6 +175,6 @@ defFn getCapability (.plain "getCapability")
   | pd ; body; p =>
       let t ← getAlloc ‹pd↦ownedState, p↦base› ;
       match treeCapability ‹p↦projection, t› with
-      | .none => borrowedPlaceCapability ‹pd↦bg, p›
+      | .none => BorrowsGraph.borrowedPlaceCapability ‹pd↦bg, p›
       | c => c
       end

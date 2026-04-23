@@ -30,6 +30,10 @@ inductive MathSym where
   | le
   /-- Not-equal: `≠` (with surrounding spaces). -/
   | neq
+  /-- Equal: `=` (with surrounding spaces). -/
+  | eq
+  /-- Existential quantifier: `∃` (with trailing space). -/
+  | exists_
   /-- Addition: `+` (with surrounding spaces). -/
   | add
   /-- Subtraction: `-` (with surrounding spaces). -/
@@ -185,6 +189,8 @@ def toPlainText : MathSym → String
   | .gt => " > "
   | .le => " ≤ "
   | .neq => " ≠ "
+  | .eq => " = "
+  | .exists_ => "∃ "
   | .add => " + "
   | .sub => " - "
   | .mul => " * "
@@ -288,8 +294,8 @@ private def latexReplacements :
   , ("₇", "$_7$", "_7")
   , ("₈", "$_8$", "_8")
   , ("₉", "$_9$", "_9")
-  , ("⟨", "$\\langle$", "\\langle")
-  , ("⟩", "$\\rangle$", "\\rangle")
+  , ("⟨", "$\\langle$", "\\langle{}")
+  , ("⟩", "$\\rangle$", "\\rangle{}")
   , ("Δ", "$\\Delta$", "\\Delta")
   , ("′", "\\ensuremath{'}", "'")
   ]
@@ -439,6 +445,8 @@ mutual
     | .sym .gt => " &gt; "
     | .sym .le => " &le; "
     | .sym .neq => " &ne; "
+    | .sym .eq => " = "
+    | .sym .exists_ => "&exist; "
     | .sym .add => " + "
     | .sym .sub => " - "
     | .sym .mul => " * "
