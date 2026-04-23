@@ -242,10 +242,36 @@ partial def toDoc
   -- a non-breaking space after the word.
   let keyword (s : String) : MathDoc :=
     .seq [MathDoc.text s, .sym .space]
+  -- Resolve a variable reference to a variant's display when it
+  -- names a qualified constructor — e.g. `Capability.none`
+  -- should render as `∅` rather than the literal text
+  -- `Capability.none`. Only qualified names (containing `.`)
+  -- are rewritten: a bare short name in value position almost
+  -- always refers to a local binder rather than a variant, and
+  -- short-name lookup could collide across enums (e.g. the
+  -- `none` variant exists on several types). Nullary variants
+  -- use the variant's full display template; variants with
+  -- arguments still pass through to `.raw` to avoid silently
+  -- dropping unapplied arguments.
+  let varToVariantDoc (n : String) : Option MathDoc :=
+    if !n.contains '.' then none
+    else match ctx.resolveVariant n with
+      | some v =>
+        if v.args.isEmpty then
+          match ctx.resolveCtor n with
+          | some qualified =>
+            some (.doc (.link (.math v.displayMathDoc)
+              s!"#ctor:{qualified}"))
+          | none => some v.displayMathDoc
+        else none
+      | none => none
   fun
   | .var n => match varDisplay n with
     | some sym => sym
-    | none => .raw n
+    | none =>
+      match varToVariantDoc n with
+      | some md => md
+      | none => .raw n
   | .natLit n => .raw (toString n)
   | .true_ =>
     if isProperty then .sym .top
