@@ -19,6 +19,13 @@ use crate::pcgnode::PcgNode;
   , ("PCG", "analysislocation", .raw
 "use formal_mir::body::Location;
 ")
+  , ("PCG", "borrowedge", .raw
+"use formal_mir::body::Location;
+use formal_mir::region::Region;
+use formal_mir::ty::Mutability;
+use crate::lifetimeprojectionlabel::LifetimeProjectionLabel;
+use crate::maybelabelledplace::MaybeLabelledPlace;
+")
   , ("PCG", "snapshotlocation", .raw
 "use formal_mir::body::BasicBlockIdx;
 ")
