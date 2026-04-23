@@ -368,12 +368,66 @@ partial def toDoc
       | .sorryProof => false
       | .leanProof _ => false
       | _ => true
-    let fnDoc := match fn with
-      | .var n => fnRef n
-      | _ => go fn
-    .seq [ fnDoc, MathDoc.paren
-             (mathIntercalate (.sym .comma)
-               (visibleArgs.map go)) ]
+    -- A call whose head names a known enum variant renders
+    -- using the variant's display template, with each arg
+    -- reference replaced by the rendered argument. This
+    -- produces the natural `leaf cap` / `internal (fields fs)`
+    -- form instead of the Lean-source `.leaf(cap)`. Accepts
+    -- both the qualified form (`AbstractInitTree.leaf`) and
+    -- the anonymous-constructor sugar (`.leaf`) — the leading
+    -- `.` is stripped before lookup. Compound arguments
+    -- (themselves calls / constructors / cons chains) are
+    -- wrapped in parentheses so that nested juxtapositions
+    -- remain unambiguous.
+    let needsParen : DslExpr → Bool
+      | .call .. => true
+      | .mkStruct name _ => name != ""
+      | .cons .. => false
+      | .some_ _ => true
+      | _ => false
+    let renderArg (e : DslExpr) : MathDoc :=
+      let d := go e
+      if needsParen e then MathDoc.paren d else d
+    let findVariant (short : String) : Option VariantDef :=
+      -- The global `resolveVariant` returns the first variant
+      -- with a matching short name, which can mis-resolve when
+      -- several enums share a constructor name (`deref`,
+      -- `downcast`, `index`, …). Prefer a variant whose arity
+      -- matches the call's visible arguments; fall back to the
+      -- first match only if no arity-matching variant exists.
+      let arityMatch :=
+        ctx.variants.find? fun v =>
+          v.name.name == short &&
+          v.args.length == visibleArgs.length
+      arityMatch.orElse fun _ => ctx.resolveVariant short
+    let ctorCallDoc : Option MathDoc := match fn with
+      | .var n =>
+        let lookup :=
+          if n.startsWith "." then (n.drop 1).toString else n
+        match findVariant lookup with
+        | some v =>
+          if v.args.length == visibleArgs.length then
+            let argMap : List (String × DslExpr) :=
+              (v.args.map (·.name)).zip visibleArgs
+            let parts : List MathDoc := v.display.map fun
+              | .lit d => d
+              | .arg name _ =>
+                match argMap.find? (·.1 == name) with
+                | some (_, e) => renderArg e
+                | none => MathDoc.text name
+            some (MathDoc.seq parts)
+          else none
+        | none => none
+      | _ => none
+    match ctorCallDoc with
+    | some md => md
+    | none =>
+      let fnDoc := match fn with
+        | .var n => fnRef n
+        | _ => go fn
+      .seq [ fnDoc, MathDoc.paren
+               (mathIntercalate (.sym .comma)
+                 (visibleArgs.map go)) ]
   | .foldlM fn init list =>
     -- `^*` is a superscript that decorates the function
     -- reference; no backend-independent form yet.
