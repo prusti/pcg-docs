@@ -38,6 +38,22 @@ defFn treeCapability (.plain "treeCapability")
       treeCapability ‹rest, sub›
   | _ :: _ ; .internal _ => Capability.none
 
+defFn getAlloc (.plain "getAlloc")
+  (.seq [.plain "Look up the owned allocation for a local in \
+    an owned state. Returns the ",
+    .code "InitTree", .plain " when the local is in bounds \
+    and has been allocated, and ", .code "None",
+    .plain " when it is out of bounds or still unallocated."])
+  (os "The owned state." : OwnedState)
+  (l "The local whose allocation is requested." : Local)
+  : Option InitTree where
+  | os ; l =>
+      let ol ← os↦locals !! l↦index ;
+      match ol with
+      | .allocated t => Some t
+      | _ => None
+      end
+
 -- ══════════════════════════════════════════════
 -- Borrow-state helpers (plain Lean)
 -- ══════════════════════════════════════════════
@@ -135,12 +151,8 @@ defFn getCapability (.plain "getCapability")
   (p "The place whose capability is requested." : Place)
   : Option Capability where
   | pd ; body; p =>
-      let alloc ← pd↦ownedState↦locals !! p↦base↦index ;
-      match alloc with
-      | .allocated t =>
-          match treeCapability ‹p↦projection, t› with
-          | .none => borrowedPlaceCapability ‹pd↦bg, p›
-          | c => c
-          end
-      | _ => None
+      let t ← getAlloc ‹pd↦ownedState, p↦base› ;
+      match treeCapability ‹p↦projection, t› with
+      | .none => borrowedPlaceCapability ‹pd↦bg, p›
+      | c => c
       end
