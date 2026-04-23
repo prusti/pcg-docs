@@ -432,9 +432,19 @@ partial def toDoc
       let fnDoc := match fn with
         | .var n => fnRef n
         | _ => go fn
-      .seq [ fnDoc, MathDoc.paren
-               (mathIntercalate (.sym .comma)
-                 (visibleArgs.map go)) ]
+      if isProperty then
+        -- Inside an inductive-property rule, render calls in
+        -- prefix-application style with space-separated
+        -- arguments (e.g. `HasNonDeepLeaf d`) — matching the
+        -- way propositions are typeset on paper. Compound
+        -- arguments are still parenthesised by `renderArg`,
+        -- so `HasNonDeepLeaf (leaf cap)` stays unambiguous.
+        .seq ([fnDoc] ++ visibleArgs.flatMap fun e =>
+          [.sym .space, renderArg e])
+      else
+        .seq [ fnDoc, MathDoc.paren
+                 (mathIntercalate (.sym .comma)
+                   (visibleArgs.map go)) ]
   | .foldlM fn init list =>
     -- `^*` is a superscript that decorates the function
     -- reference; no backend-independent form yet.
