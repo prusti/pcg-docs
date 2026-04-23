@@ -40,27 +40,27 @@ defInductiveProperty HasNonDeepLeaf
 where
   | leaf {cap : InitialisationState}
       from (cap ≠ .deep)
-      ⊢ HasNonDeepLeaf (.leaf cap)
-  | fields {fs} {x}
-      from (x ∈ fs, HasNonDeepLeaf x.2.2)
-      ⊢ HasNonDeepLeaf (.internal (.fields fs))
+      ⊢ HasNonDeepLeaf ‹.leaf ‹cap››
+  | fields {fs} {fi : FieldIdx} {ty : Ty} {sub : InitTree}
+      from (⟨fi, ty, sub⟩ ∈ fs, HasNonDeepLeaf ‹sub›)
+      ⊢ HasNonDeepLeaf ‹.internal ‹.fields ‹fs›››
   | deref {d}
-      from (HasNonDeepLeaf d)
-      ⊢ HasNonDeepLeaf (.internal (.deref d))
+      from (HasNonDeepLeaf ‹d›)
+      ⊢ HasNonDeepLeaf ‹.internal ‹.deref ‹d›››
   | guidedDowncast {v} {d}
-      from (HasNonDeepLeaf d)
-      ⊢ HasNonDeepLeaf (.internal (.guided (.downcast v d)))
+      from (HasNonDeepLeaf ‹d›)
+      ⊢ HasNonDeepLeaf ‹.internal ‹.guided ‹.downcast ‹v, d››››
   | guidedConstantIndex {n} {d}
-      from (HasNonDeepLeaf d)
+      from (HasNonDeepLeaf ‹d›)
       ⊢ HasNonDeepLeaf
-          (.internal (.guided (.constantIndex n d)))
+          ‹.internal ‹.guided ‹.constantIndex ‹n, d››››
   | guidedIndex {l} {d}
-      from (HasNonDeepLeaf d)
-      ⊢ HasNonDeepLeaf (.internal (.guided (.index l d)))
+      from (HasNonDeepLeaf ‹d›)
+      ⊢ HasNonDeepLeaf ‹.internal ‹.guided ‹.index ‹l, d››››
   | guidedSubslice {f} {t} {fromEnd} {d}
-      from (HasNonDeepLeaf d)
+      from (HasNonDeepLeaf ‹d›)
       ⊢ HasNonDeepLeaf
-          (.internal (.guided (.subslice f t fromEnd d)))
+          ‹.internal ‹.guided ‹.subslice ‹f, t, fromEnd, d››››
 
 defFnMutual
 defFn itPlaces (.plain "itPlaces")

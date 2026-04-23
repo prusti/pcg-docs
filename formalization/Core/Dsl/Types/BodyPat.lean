@@ -38,7 +38,12 @@ namespace BodyPat
     `Latex.internalLink`. -/
 def ctorRef
     (resolveCtor : String → Option String) (n : String) : MathDoc :=
-  match resolveCtor n with
+  -- A leading `.` is the anonymous-constructor sugar that the
+  -- DSL preserves in names (e.g. `.leaf`); strip it before
+  -- looking up the qualified form.
+  let lookupName :=
+    if n.startsWith "." then (n.drop 1).toString else n
+  match resolveCtor lookupName with
   | some qualified =>
     .doc (.link (.plain n) s!"#ctor:{qualified}")
   | none => MathDoc.text n

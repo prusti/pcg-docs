@@ -175,6 +175,7 @@ private def toLeanASTAlg
   | .letBindIn name val body => .letBindIn name val body
   | .ifThenElse c t e => .ifThenElse c t e
   | .neq l r => .binop "≠" l r
+  | .memberOf l r => .binop "∈" l r
 
 /-- Lower a `DslExpr` to a `LeanExpr`.
     `selfName` is the current function name (for
@@ -480,6 +481,7 @@ private def calledNamesAlg :
   | .letBindIn _ (_, v) (_, b) => v ++ b
   | .ifThenElse (_, c) (_, t) (_, e) => c ++ t ++ e
   | .neq (_, l) (_, r) => l ++ r
+  | .memberOf (_, l) (_, r) => l ++ r
 
 /-- Collect all function/method names called. -/
 def calledNames (e : DslExpr) : List String :=

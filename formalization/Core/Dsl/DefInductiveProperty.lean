@@ -26,13 +26,14 @@ declare_syntax_cat inductivePropRule
     variables (rendered as `∀ {bvar*}` in Lean and as a
     side-condition label in the LaTeX inference rule).
 
-    Premises are Lean terms whose source is preserved and
-    rendered above the inference line. The conclusion is the
-    predicate applied to its indices, also a Lean term. -/
+    Premises and the conclusion are DSL `fnExpr` expressions
+    — structured DSL terms — so the LaTeX renderer can
+    hyperlink constructor/function references and use math
+    notation for operators. -/
 syntax "| " ident
     inductivePropBinder*
-    ("from " "(" term,+ ")")?
-    "⊢ " term
+    ("from " "(" fnExpr,+ ")")?
+    "⊢ " fnExpr
     : inductivePropRule
 
 /-- Define an inductive property exported to Lean (as an
@@ -81,17 +82,23 @@ private def parseRuleBinder
       (toString n.getId, some ty))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
-private def termToString
-    (t : Lean.TSyntax `term) : String :=
-  if t.raw.isIdent then toString t.raw.getId
-  else (t.raw.reprint.getD (toString t.raw)).trimAscii.toString
-
 private structure ParsedRule where
   name : Lean.Ident
   binders : List (String × Option String)
-  premises : List (String × Lean.TSyntax `term)
-  conclusion : String
-  conclusionStx : Lean.TSyntax `term
+  /-- Each premise is both its DSL `DslExpr` (for LaTeX and
+      registry purposes) and its Lean source (for emission
+      into the `inductive … where | …` declaration). -/
+  premises : List (DslExpr × String)
+  /-- Conclusion as a DSL expression paired with its Lean
+      source form. -/
+  conclusion : DslExpr × String
+
+/-- Convert a parsed `DslExpr` to a Lean-source string using
+    `DslExpr.toLean`, which the defInductiveProperty command
+    splices into the generated `inductive … where | …`
+    declaration. -/
+private def dslExprToLeanStr (e : DslExpr) : String :=
+  e.toLeanWith "" []
 
 private def parseInductivePropRule
     (stx : Lean.Syntax)
@@ -100,22 +107,24 @@ private def parseInductivePropRule
   | `(inductivePropRule|
         | $name:ident
           $bgroups:inductivePropBinder*
-          $[from ( $prems:term,* )]?
-          ⊢ $concl:term) =>
+          $[from ( $prems:fnExpr,* )]?
+          ⊢ $concl:fnExpr) =>
     let bgroupLists ←
       bgroups.toList.mapM fun b => parseRuleBinder b.raw
     let bs := bgroupLists.flatten
-    let premList : List (Lean.TSyntax `term) :=
+    let premList : List (Lean.TSyntax `fnExpr) :=
       match prems with
       | some sep => sep.getElems.toList
       | none => []
-    let premPairs := premList.map fun p => (termToString p, p)
+    let premAsts ← premList.mapM (parseExpr ·.raw)
+    let concAst ← parseExpr concl.raw
+    let premPairs := premAsts.map
+      fun a => (a, dslExprToLeanStr a)
     pure
       { name := name
         binders := bs
         premises := premPairs
-        conclusion := termToString concl
-        conclusionStx := concl }
+        conclusion := (concAst, dslExprToLeanStr concAst) }
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in
@@ -153,7 +162,7 @@ elab_rules : command
       | (n, some t) => "{" ++ n ++ " : " ++ t ++ "}"
     let ctorStrs := parsedRules.toList.map fun r =>
       let bs := r.binders.map renderBinder
-      let parts := r.premises.map (·.1) ++ [r.conclusion]
+      let parts := r.premises.map (·.2) ++ [r.conclusion.2]
       let arrowChain := " → ".intercalate parts
       let typ := match bs with
         | [] => arrowChain
@@ -194,11 +203,11 @@ elab_rules : command
             `({ name := $bnStr, type := some $tStr
                 : InductiveRuleBinder })
       let bindersTerm ← `([$[$binderTerms],*])
-      let premStrs := r.premises.map (·.1)
+      let premExprs := r.premises.map (·.1)
       let premTerms : Array (TSyntax `term) :=
-        premStrs.toArray.map fun s => quote s
+        premExprs.toArray.map fun e => quote e
       let premsTerm ← `([$[$premTerms],*])
-      let conclusionTerm : TSyntax `term := quote r.conclusion
+      let conclusionTerm : TSyntax `term := quote r.conclusion.1
       `({ name := $nameStr,
           binders := $bindersTerm,
           premises := $premsTerm,

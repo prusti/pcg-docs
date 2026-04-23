@@ -981,6 +981,11 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
       | _ => .block [] (some eExpr)
     pure (.«if» cExpr tBlock (some eBlock))
   | .neq (_, l) (_, r) => pure (.binOp .ne l r)
+  | .memberOf (_, _) (_, r) =>
+    -- Rust has no direct `∈`; approximate with the receiver
+    -- (placeholder — memberOf is only used at the Prop level,
+    -- which the Rust backend does not emit).
+    pure r
 
 /-- Convert a `DslExpr` to a typed `RustExpr` in the
     `FreshM` monad (for generating fresh variable names). -/

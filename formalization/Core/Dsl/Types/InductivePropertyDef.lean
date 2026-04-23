@@ -1,4 +1,6 @@
 import Core.Export.Latex
+import Core.Dsl.Types.DslExpr
+import Core.Dsl.Types.RenderCtx
 import Core.Dsl.Types.StructDef
 
 /-- A binder appearing in an inductive-property rule, e.g.
@@ -14,27 +16,25 @@ structure InductiveRuleBinder where
   deriving Repr
 
 /-- A single inference-rule of an inductive property: a list of
-    quantified binders, a list of premises (each a Lean term whose
-    source is preserved verbatim), and the rule's conclusion (also
-    a Lean term).
+    quantified binders, a list of premises (structured DSL
+    expressions), and the rule's conclusion (also a DSL
+    expression).
 
-    The premises and conclusion are kept as plain strings so the
-    DSL can emit a Lean `inductive` constructor that delegates to
-    Lean's own elaborator for type-checking, while still rendering
-    each rule as an inference rule in LaTeX. -/
+    Storing premises and the conclusion as `DslExpr` lets the
+    LaTeX backend render constructor and function references as
+    hyperlinks and use math notation for operators (`∈`, `≠`, …)
+    rather than dumping raw Lean source. -/
 structure InductiveRule where
   /-- Constructor name (e.g. `"leaf"`, `"fields"`). -/
   name : String
   /-- Universally-quantified binders (rendered above the line as
       a side-condition like `cap, fs, x`). -/
   binders : List InductiveRuleBinder
-  /-- Premises (rendered above the inference line, separated by
-      thin spaces). Each is a Lean term whose source is preserved
-      verbatim. -/
-  premises : List String
-  /-- Rule conclusion: the predicate applied to its indices,
-      preserved as Lean source. -/
-  conclusion : String
+  /-- Premises rendered above the inference line, separated by
+      thin spaces. -/
+  premises : List DslExpr
+  /-- Rule conclusion: the predicate applied to its indices. -/
+  conclusion : DslExpr
   deriving Repr
 
 /-- An exportable inductive-property definition. Produces a Lean
@@ -73,25 +73,31 @@ structure InductivePropertyDef where
 
 namespace InductivePropertyDef
 
-/-- Render a Lean-source fragment (premise or conclusion) as
-    a `LatexMath.raw` with Unicode-to-LaTeX substitution
-    applied. We avoid `LatexMath.escaped`, which would wrap
-    multi-character identifiers in `\mathit{}` and obscure the
-    structure of the term. -/
-private def termLatex (s : String) : LatexMath :=
-  .raw (Doc.escapeLatexMath s)
+/-- Render a DSL expression as `LatexMath` using
+    `DslExpr.toDoc` so constructor and function references
+    become hyperlinks and operators use math notation.
+    `ctx` supplies the renderer's constructor/function
+    resolution; `fnName` is used for self-reference. -/
+private def exprLatex
+    (ctx : RenderCtx) (fnName : String) (e : DslExpr)
+    : LatexMath :=
+  -- `isProperty := true` switches boolean literals and
+  -- related atoms to their Prop-mode presentations.
+  (DslExpr.toDoc fnName ctx (fun _ => none) true e).toLatexMath
 
 /-- Render a single rule as a `\inferrule`. Premises sit
     above the inference line (separated by `\\\\`),
     conclusion below. -/
-private def ruleLatex (r : InductiveRule) : Latex :=
+private def ruleLatex
+    (ctx : RenderCtx) (fnName : String) (r : InductiveRule)
+    : Latex :=
   let premiseLines : List LatexMath :=
-    r.premises.map termLatex
+    r.premises.map (exprLatex ctx fnName)
   let premises : LatexMath :=
     if r.premises.isEmpty then .raw ""
     else
       LatexMath.intercalate (.raw " \\\\ ") premiseLines
-  let conclusion : LatexMath := termLatex r.conclusion
+  let conclusion : LatexMath := exprLatex ctx fnName r.conclusion
   let bindersComment : LatexMath :=
     if r.binders.isEmpty then .raw ""
     else
@@ -118,7 +124,8 @@ private def ruleLatex (r : InductiveRule) : Latex :=
 
 /-- Render the inductive property as a LaTeX `definition`
     environment (prose) followed by one `\inferrule` per rule. -/
-def formalDefLatex (p : InductivePropertyDef) : Latex :=
+def formalDefLatex
+    (p : InductivePropertyDef) (ctx : RenderCtx) : Latex :=
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{p.name}}\{}"
   let paramSig : LatexMath :=
@@ -136,7 +143,8 @@ def formalDefLatex (p : InductivePropertyDef) : Latex :=
       typeTarget, .newline,
       .displayMath header, .newline ])
   let rulesBlock : Latex :=
-    .seq (p.rules.map ruleLatex |>.intersperse .newline)
+    .seq (p.rules.map (ruleLatex ctx p.name)
+      |>.intersperse .newline)
   .seq [prose, defBlock, .newline, rulesBlock, .newline]
 
 end InductivePropertyDef

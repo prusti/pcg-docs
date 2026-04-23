@@ -168,7 +168,7 @@ private def moduleBodyLatex
                .newline, .newline]
   let inductivePropParts :=
     reg.inductiveProperties.map fun p =>
-      Latex.seq [p.inductivePropertyDef.formalDefLatex,
+      Latex.seq [p.inductivePropertyDef.formalDefLatex ctx,
                  .newline, .newline]
   .seq (descrParts ++ structParts ++ aliasParts ++ enumParts
     ++ inductivePropParts ++ fnParts ++ propParts)

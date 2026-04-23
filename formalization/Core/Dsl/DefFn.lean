@@ -56,6 +56,10 @@ syntax fnExpr "!!" fnExpr : fnExpr
 syntax fnExpr "!" fnExpr : fnExpr
 -- Function call: fn ‹ arg1, arg2 ›
 syntax ident "‹" fnExpr,* "›" : fnExpr
+-- Dot-prefixed nullary variant: .leaf
+syntax "." ident : fnExpr
+-- Dot-prefixed applied variant: .leaf ‹arg1, arg2›
+syntax "." ident "‹" fnExpr,* "›" : fnExpr
 -- FoldlM: expr "·foldlM" ident expr
 syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 -- Less-than: expr < expr
@@ -101,6 +105,8 @@ syntax fnExpr "·setFlatMap" "fun" fnPat "=>" fnExpr
 -- destructuring in the binder.
 syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
     : fnExpr
+-- Set/list membership: expr ∈ expr
+syntax fnExpr " ∈ " fnExpr : fnExpr
 -- Logical conjunction: expr ∧ expr
 syntax fnExpr " ∧ " fnExpr : fnExpr
 -- Logical disjunction: expr ∨ expr
@@ -261,6 +267,11 @@ partial def parseExpr
   | `(fnExpr| $fn:ident ‹ $args:fnExpr,* ›) => do
     let as_ ← args.getElems.mapM parseExpr
     pure (.call (.var (toString fn.getId)) as_.toList)
+  | `(fnExpr| . $n:ident ‹ $args:fnExpr,* ›) => do
+    let as_ ← args.getElems.mapM parseExpr
+    pure (.call (.var s!".{n.getId}") as_.toList)
+  | `(fnExpr| . $n:ident) =>
+    pure (.var s!".{n.getId}")
   | `(fnExpr| $e:fnExpr ·foldlM $fn:ident
         $init:fnExpr) =>
     pure (.foldlM (.var (toString fn.getId))
@@ -303,6 +314,8 @@ partial def parseExpr
         $b:fnExpr) => do
     pure (.setAll (← parseExpr e)
       (toString p.getId) (← parseExpr b))
+  | `(fnExpr| $l:fnExpr ∈ $r:fnExpr) =>
+    pure (.memberOf (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr ∧ $r:fnExpr) =>
     pure (.and (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr ∨ $r:fnExpr) =>

@@ -103,6 +103,8 @@ inductive DslExpr where
   | ifThenElse (cond : DslExpr) (t : DslExpr) (e : DslExpr)
   /-- Inequality: `lhs ≠ rhs`. -/
   | neq (lhs : DslExpr) (rhs : DslExpr)
+  /-- Set/List membership: `elem ∈ col`. -/
+  | memberOf (elem : DslExpr) (col : DslExpr)
   deriving Repr, Inhabited, Lean.Quote
 
 -- Generate `DslExprF`, `project`, `embed`, `map`, `mapM`, `cata`, `cataM`,
@@ -167,6 +169,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .or l r => .or (f l) (f r)
   | .implies l r => .implies (f l) (f r)
   | .neq l r => .neq (f l) (f r)
+  | .memberOf l r => .memberOf (f l) (f r)
   -- Ternary (with String parameter)
   | .setAll s p b => .setAll (f s) p (f b)
   | .setFlatMap l p b => .setFlatMap (f l) p (f b)
@@ -254,11 +257,16 @@ partial def toDoc
   -- arguments still pass through to `.raw` to avoid silently
   -- dropping unapplied arguments.
   let varToVariantDoc (n : String) : Option MathDoc :=
+    -- Accept both qualified names (`Capability.none`) and
+    -- the anonymous-constructor sugar `.none` — strip the
+    -- leading `.` so the bare variant name resolves.
+    let lookupName :=
+      if n.startsWith "." then (n.drop 1).toString else n
     if !n.contains '.' then none
-    else match ctx.resolveVariant n with
+    else match ctx.resolveVariant lookupName with
       | some v =>
         if v.args.isEmpty then
-          match ctx.resolveCtor n with
+          match ctx.resolveCtor lookupName with
           | some qualified =>
             some (.doc (.link (.math v.displayMathDoc)
               s!"#ctor:{qualified}"))
@@ -443,5 +451,6 @@ partial def toDoc
          , keyword "then", go t, .sym .space
          , keyword "else", go e ]
   | .neq l r => .seq [go l, .sym .neq, go r]
+  | .memberOf l r => .seq [go l, .sym .setContains, go r]
 
 end DslExpr
