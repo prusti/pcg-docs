@@ -166,6 +166,62 @@ syntax "defFn " ident "(" term ")" "(" term ")"
 -- Parsing helpers
 -- ══════════════════════════════════════════════
 
+-- Buffer of `(identifierSyntax, name)` pairs collected while
+-- parsing a `defFn` body. After the generated Lean `def` has
+-- been elaborated, each pair whose name resolves to a constant
+-- in the environment is replayed as a `TermInfo` leaf, so the
+-- LSP can offer go-to-definition and hover for DSL-level
+-- identifiers (e.g. `initStateCapability` in `treeCapability`'s
+-- body). We use a module-level `IO.Ref` rather than threading
+-- state through `parseExpr`/`parsePat` because `parseExpr` is
+-- partial and mutually called from many places.
+private initialize identRefBuffer :
+    IO.Ref (Array (Lean.Syntax × Lean.Name)) ← IO.mkRef #[]
+
+/-- Record an identifier reference for later `TermInfo`
+    emission. Called from the parser whenever an `ident` token
+    syntactically denotes a potential global reference
+    (function call head, free variable, struct/enum
+    constructor, higher-order function argument, ...). -/
+private def recordIdentRef (stx : Lean.Syntax)
+    (name : Lean.Name) : IO Unit :=
+  identRefBuffer.modify (·.push (stx, name))
+
+/-- Take the currently-buffered identifier references and
+    empty the buffer, so subsequent `defFn` invocations start
+    from a clean slate. -/
+private def takeIdentRefs :
+    IO (Array (Lean.Syntax × Lean.Name)) := do
+  let refs ← identRefBuffer.get
+  identRefBuffer.set #[]
+  return refs
+
+open Lean Elab Command in
+/-- Push a `TermInfo` leaf for each recorded identifier whose
+    name resolves to an existing constant, so the LSP can jump
+    from a DSL-level identifier to the backing Lean
+    definition. Resolution respects the current namespace and
+    any `open` declarations in scope, so e.g.
+    `writeBytesAt` inside `namespace Memory` correctly
+    resolves to `Memory.writeBytesAt`. Identifiers that don't
+    resolve (locally bound variables, forward references
+    inside a mutual group that hasn't been elaborated yet,
+    ...) are silently skipped. -/
+private def flushIdentRefs : CommandElabM Unit := do
+  let refs ← takeIdentRefs
+  let env ← getEnv
+  let ns ← getCurrNamespace
+  let opens ← getOpenDecls
+  let opts ← getOptions
+  for (stx, name) in refs do
+    let candidates :=
+      Lean.ResolveName.resolveGlobalName env opts ns opens name
+    let resolved := candidates.filterMap fun (n, parts) =>
+      if parts.isEmpty && env.contains n then some n else none
+    match resolved with
+    | [n] => addConstInfo stx n
+    | _ => pure ()
+
 mutual
 partial def parsePatAtom
     (stx : Lean.Syntax)
@@ -227,7 +283,9 @@ partial def parseExpr
     match name with
     | "true" => pure .true_
     | "false" => pure .false_
-    | _ => pure (.var name)
+    | _ =>
+      recordIdentRef n n.getId
+      pure (.var name)
   | `(fnExpr| ($e:fnExpr)) => parseExpr e
   | `(fnExpr| $r:fnExpr · $m:ident) =>
     pure (.dot (← parseExpr r)
@@ -243,6 +301,7 @@ partial def parseExpr
     pure (.map (← parseExpr r)
       (.lambda ⟨paramStr⟩ (← parseExpr b)))
   | `(fnExpr| $r:fnExpr ·map $fn:ident) => do
+    recordIdentRef fn fn.getId
     pure (.map (← parseExpr r)
       (.var (toString fn.getId)))
   | `(fnExpr| $h:fnExpr :: $t:fnExpr) =>
@@ -256,6 +315,7 @@ partial def parseExpr
     let as_ ← args.getElems.mapM parseExpr
     pure (.mkStruct "" as_.toList)
   | `(fnExpr| $n:ident ⟨$args:fnExpr,*⟩) => do
+    recordIdentRef n n.getId
     let as_ ← args.getElems.mapM parseExpr
     pure (.mkStruct (toString n.getId) as_.toList)
   | `(fnExpr| $e:fnExpr ↦ $f:ident) =>
@@ -265,6 +325,7 @@ partial def parseExpr
   | `(fnExpr| $e:fnExpr ! $i:fnExpr) =>
     pure (.indexBang (← parseExpr e) (← parseExpr i))
   | `(fnExpr| $fn:ident ‹ $args:fnExpr,* ›) => do
+    recordIdentRef fn fn.getId
     let as_ ← args.getElems.mapM parseExpr
     pure (.call (.var (toString fn.getId)) as_.toList)
   | `(fnExpr| . $n:ident ‹ $args:fnExpr,* ›) => do
@@ -273,7 +334,8 @@ partial def parseExpr
   | `(fnExpr| . $n:ident) =>
     pure (.var s!".{n.getId}")
   | `(fnExpr| $e:fnExpr ·foldlM $fn:ident
-        $init:fnExpr) =>
+        $init:fnExpr) => do
+    recordIdentRef fn fn.getId
     pure (.foldlM (.var (toString fn.getId))
       (← parseExpr init) (← parseExpr e))
   | `(fnExpr| $a:fnExpr < $b:fnExpr < $c:fnExpr) =>
@@ -502,6 +564,7 @@ elab_rules : command
        $ps:fnParam* $[requires $reqs:fnPrecond,*]?
        : $retTy:term where
        $arms:fnArm*) => do
+    identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     let preconds ← match reqs with
       | some pcs =>
@@ -573,6 +636,7 @@ elab_rules : command
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds
+    flushIdentRefs
 
 -- ══════════════════════════════════════════════
 -- Direct expression form
@@ -583,6 +647,7 @@ elab_rules : command
   | `(defFn $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[requires $reqs:fnPrecond,*]?
        : $retTy:term := $rhs:fnExpr) => do
+    identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     let preconds ← match reqs with
       | some pcs =>
@@ -620,6 +685,7 @@ elab_rules : command
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds
+    flushIdentRefs
 
 -- ══════════════════════════════════════════════
 -- Do-block form
@@ -631,6 +697,7 @@ elab_rules : command
        $ps:fnParam* $[requires $reqs:fnPrecond,*]?
        : $retTy:term begin
        $stmts:fnStmt* return $ret:fnExpr) => do
+    identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     let preconds ← match reqs with
       | some pcs =>
@@ -669,6 +736,7 @@ elab_rules : command
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds
+    flushIdentRefs
 
 
 -- ══════════════════════════════════════════════
@@ -772,6 +840,7 @@ private def parseMutualEntry
 open Lean Elab Command Term in
 elab_rules : command
   | `(defFnMutual $entries:mutualFnEntry* end) => do
+    identRefBuffer.set #[]
     if entries.isEmpty then
       throwError "defFnMutual: expected at least one entry"
     let results ← entries.mapM parseMutualEntry
@@ -802,3 +871,4 @@ elab_rules : command
       let bodyTerm ← `(FnBody.matchArms $armList)
       buildFnDef ⟨r.name, r.symDoc, r.doc⟩ r.paramData
         r.retTy bodyTerm r.preconds (mutualGroup := some groupTag)
+    flushIdentRefs
