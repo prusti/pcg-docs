@@ -2,7 +2,7 @@ import Core.Dsl.Descr
 import PCG.Owned.AbstractInitTree
 import PCG.Owned.InitialisationState
 import PCG.Owned.InitialisationState.Order
-import PCG.Owned.InitialisationTree
+import PCG.Owned.InitTree
 import PCG.Owned.MaterializedTree
 import PCG.Owned.MaterializedTreeLeaf
 import PCG.Owned.OwnedLocal

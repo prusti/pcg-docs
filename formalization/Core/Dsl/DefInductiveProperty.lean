@@ -47,7 +47,7 @@ syntax "| " ident
         (.plain "h", .plain "HasNonDeepLeaf")
       "Has Non-Deep Leaf"
       (.plain "An init tree has a non-`.deep` descendant leaf.")
-      (it : InitialisationTree)
+      (it : InitTree)
     where
       | leaf {cap : InitialisationState}
           from (cap ≠ .deep)
@@ -139,15 +139,15 @@ elab_rules : command
     let tpStr := if typeParamNames.isEmpty then ""
       else " " ++ " ".intercalate
         (typeParamNames.map fun p => s!"({p} : Type)")
-    let paramStr := paramData.toList.foldl
-      (init := "") fun acc (pn, _, pt) =>
+    let paramItems := paramData.toList.map
+      fun (pn, _, pt) =>
         let typeStr :=
           if pt.isIdent then toString pt.getId
           else pt.reprint.getD (toString pt) |>.trimAscii.toString
-        acc ++ s!" ({pn.getId} : {typeStr})"
+        s!"({pn.getId} : {typeStr})"
     let paramSig :=
-      if paramData.isEmpty then " : Prop"
-      else s!" :{paramStr} → Prop"
+      if paramItems.isEmpty then " : Prop"
+      else s!" : {" → ".intercalate paramItems} → Prop"
     let renderBinder : String × Option String → String
       | (n, none)   => "{" ++ n ++ "}"
       | (n, some t) => "{" ++ n ++ " : " ++ t ++ "}"

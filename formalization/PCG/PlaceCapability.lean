@@ -2,7 +2,7 @@ import Core.Dsl.DefFn
 import MIR.Place
 import PCG.Capability
 import PCG.Owned.InitialisationState
-import PCG.Owned.InitialisationTree
+import PCG.Owned.InitTree
 import PCG.Owned.OwnedLocal
 import PCG.PcgData
 
@@ -30,7 +30,7 @@ defFn treeCapability (.plain "treeCapability")
     will walk struct/tuple and guided expansions exactly."])
   (projs "The remaining projection elements."
       : List ProjElem)
-  (t "The initialisation tree." : InitialisationTree)
+  (t "The initialisation tree." : InitTree)
   : Capability where
   | _ ; .leaf i => initStateCapability ‹i›
   | [] ; .internal _ => Capability.none

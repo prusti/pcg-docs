@@ -39,6 +39,11 @@ structure FnDef where
       this function. -/
   preconditions : List Precondition := []
   body : FnBody
+  /-- When set, this function is part of a mutual-recursion
+      group identified by the given tag. The Lean backend
+      emits all functions sharing a tag together inside a
+      single `mutual … end` block. -/
+  mutualGroup : Option String := none
   deriving Repr
 
 namespace FnDef

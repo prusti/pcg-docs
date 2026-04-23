@@ -36,9 +36,9 @@ syntax num : fnExpr
 syntax ident : fnExpr
 syntax "(" fnExpr ")" : fnExpr
 syntax fnExpr "·" ident : fnExpr
-syntax fnExpr "·flatMap" "fun" ident "=>" fnExpr
+syntax fnExpr "·flatMap" "fun" fnPat "=>" fnExpr
     : fnExpr
-syntax fnExpr "·map" "fun" ident "=>" fnExpr
+syntax fnExpr "·map" "fun" fnPat "=>" fnExpr
     : fnExpr
 syntax fnExpr "·map" ident : fnExpr
 syntax fnExpr " :: " fnExpr : fnExpr
@@ -90,11 +90,15 @@ syntax "∅" : fnExpr
 syntax "⦃" fnExpr "⦄" : fnExpr
 -- Set union: expr ∪ expr
 syntax fnExpr " ∪ " fnExpr : fnExpr
--- Set flat-map: expr ·setFlatMap fun ident => expr
-syntax fnExpr "·setFlatMap" "fun" ident "=>" fnExpr
+-- Set flat-map: expr ·setFlatMap fun pat => expr.
+-- The pattern may destructure tuples (⟨a, b, c⟩) so that
+-- recursive callers can project parts without a nested match.
+syntax fnExpr "·setFlatMap" "fun" fnPat "=>" fnExpr
     : fnExpr
--- Universal quantifier over a set:
--- expr ·forAll fun ident => expr
+-- Universal quantifier over a set: expr ·forAll fun ident =>
+-- expr. Uses ident only (not fnPat) because the generated
+-- Lean form `∀ param ∈ set, body` does not accept anonymous
+-- destructuring in the binder.
 syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
     : fnExpr
 -- Logical conjunction: expr ∧ expr
@@ -222,14 +226,16 @@ partial def parseExpr
   | `(fnExpr| $r:fnExpr · $m:ident) =>
     pure (.dot (← parseExpr r)
       (toString m.getId))
-  | `(fnExpr| $r:fnExpr ·flatMap fun $p:ident =>
+  | `(fnExpr| $r:fnExpr ·flatMap fun $p:fnPat =>
         $b:fnExpr) => do
+    let paramStr := BodyPat.toLean (← parsePat p)
     pure (.flatMap (← parseExpr r)
-      (.lambda ⟨toString p.getId⟩ (← parseExpr b)))
-  | `(fnExpr| $r:fnExpr ·map fun $p:ident =>
+      (.lambda ⟨paramStr⟩ (← parseExpr b)))
+  | `(fnExpr| $r:fnExpr ·map fun $p:fnPat =>
         $b:fnExpr) => do
+    let paramStr := BodyPat.toLean (← parsePat p)
     pure (.map (← parseExpr r)
-      (.lambda ⟨toString p.getId⟩ (← parseExpr b)))
+      (.lambda ⟨paramStr⟩ (← parseExpr b)))
   | `(fnExpr| $r:fnExpr ·map $fn:ident) => do
     pure (.map (← parseExpr r)
       (.var (toString fn.getId)))
@@ -288,10 +294,11 @@ partial def parseExpr
     pure (.setSingleton (← parseExpr e))
   | `(fnExpr| $l:fnExpr ∪ $r:fnExpr) =>
     pure (.setUnion (← parseExpr l) (← parseExpr r))
-  | `(fnExpr| $e:fnExpr ·setFlatMap fun $p:ident =>
+  | `(fnExpr| $e:fnExpr ·setFlatMap fun $p:fnPat =>
         $b:fnExpr) => do
+    let paramStr := BodyPat.toLean (← parsePat p)
     pure (.setFlatMap (← parseExpr e)
-      (toString p.getId) (← parseExpr b))
+      paramStr (← parseExpr b))
   | `(fnExpr| $e:fnExpr ·forAll fun $p:ident =>
         $b:fnExpr) => do
     pure (.setAll (← parseExpr e)
@@ -417,6 +424,7 @@ def buildFnDef
     (retTy : TSyntax `term)
     (body : TSyntax `term)
     (preconds : List (String × List String) := [])
+    (mutualGroup : Option String := none)
     : CommandElabM Unit := do
   let name := hdr.name
   let symDoc := hdr.symDoc
@@ -443,6 +451,7 @@ def buildFnDef
     `({ name := $(quote pn),
         args := $(quote args) : Precondition })
   let precondList ← `([$[$precondDefs.toArray],*])
+  let mutualGroupTerm : TSyntax `term := quote mutualGroup
   let fnDefId := mkIdent (name.getId ++ `fnDef)
   elabCommand (← `(command|
     def $fnDefId : FnDef :=
@@ -452,7 +461,8 @@ def buildFnDef
         params := $paramList,
         returnType := $retTn,
         preconditions := $precondList,
-        body := $body }))
+        body := $body,
+        mutualGroup := $mutualGroupTerm }))
   let mod ← getMainModule
   let modName : TSyntax `term := quote mod
   elabCommand (← `(command|
@@ -646,3 +656,136 @@ elab_rules : command
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds
+
+
+-- ══════════════════════════════════════════════
+-- Mutual form
+-- ══════════════════════════════════════════════
+
+/-- One entry of a `defFnMutual` group. Same syntax as the
+    pattern-matching form of `defFn` but parsed inside the
+    mutual-group command. -/
+declare_syntax_cat mutualFnEntry
+syntax "defFn " ident "(" term ")" "(" term ")"
+    fnParam* ("requires " fnPrecond,+)?
+    ":" term " where" fnArm*
+    : mutualFnEntry
+
+/-- A group of mutually-recursive pattern-matching
+    `defFn`s, enclosed in `defFnMutual … end` and emitted as
+    a single `mutual … end` block to the Lean backend. Each
+    entry is individually registered with the DSL registry. -/
+syntax "defFnMutual" mutualFnEntry+ "end" : command
+
+/-- Parsed result for one mutual entry: the generated `def …`
+    string plus the syntactic pieces needed to register the
+    `FnDef` entry. -/
+private structure MutualEntryResult where
+  defStr : String
+  name : Lean.Ident
+  symDoc : Lean.TSyntax `term
+  doc : Lean.TSyntax `term
+  paramData : Array (Lean.Ident × Lean.TSyntax `term
+    × Lean.Syntax)
+  retTy : Lean.TSyntax `term
+  preconds : List (String × List String)
+  parsed : Array (Array BodyPat × DslExpr)
+
+open Lean Elab Command Term in
+private def parseMutualEntry
+    (entry : Lean.TSyntax `mutualFnEntry)
+    : CommandElabM MutualEntryResult := do
+  match entry with
+  | `(mutualFnEntry|
+        defFn $name:ident ($symDoc:term) ($doc:term)
+          $ps:fnParam* $[requires $reqs:fnPrecond,*]?
+          : $retTy:term where
+          $arms:fnArm*) => do
+    let paramData ← ps.mapM parseFnParam
+    let preconds ← match reqs with
+      | some pcs =>
+        pcs.getElems.toList.mapM (parsePrecond ·.raw)
+      | none => pure []
+    let parsed ← arms.mapM fun arm => match arm with
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+            => $rhs:fnExpr) => do
+        pure (#[← parsePat p1, ← parsePat p2,
+          ← parsePat p3], ← parseExpr rhs)
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
+            $rhs:fnExpr) => do
+        pure (#[← parsePat p1, ← parsePat p2],
+          ← parseExpr rhs)
+      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
+        pure (#[← parsePat p], ← parseExpr rhs)
+      | _ => throwError "invalid fnArm"
+    let fnNameStr := toString name.getId
+    let precondNames := preconds.map (·.1)
+    let armStrs := parsed.toList.map
+      fun (patAst, rhsAst) =>
+        let patStr := ", ".intercalate
+          (patAst.toList.map BodyPat.toLean)
+        let rhsStr := rhsAst.toLeanWith
+          fnNameStr precondNames
+        s!"  | {patStr} => {rhsStr}"
+    let defStr ←
+      if preconds.isEmpty then
+        let tyStr ← buildFnType paramData retTy
+        pure s!"def {name.getId} : {tyStr}\n\
+          {"\n".intercalate armStrs}"
+      else do
+        let paramBinds := " ".intercalate
+          (paramData.toList.map fun (pn, _, pt) =>
+            let tyStr :=
+              if pt.isIdent then toString pt.getId
+              else pt.reprint.getD (toString pt)
+            s!"({pn.getId} : {normaliseLeanType tyStr})")
+        let precBinds := precondParamBinds preconds
+        let retRaw :=
+          if retTy.raw.isIdent
+          then toString retTy.raw.getId
+          else retTy.raw.reprint.getD (toString retTy)
+        let retRepr := normaliseLeanType retRaw
+        let paramNames := paramData.toList.map
+          fun (pn, _, _) => toString pn.getId
+        let matchArgs := ", ".intercalate paramNames
+        pure s!"def {name.getId} \
+          {paramBinds} {precBinds} : {retRepr} :=\n\
+          match {matchArgs} with\n\
+          {"\n".intercalate armStrs}"
+    pure { defStr, name, symDoc, doc, paramData, retTy,
+           preconds, parsed }
+  | _ => throwError "invalid mutualFnEntry"
+
+open Lean Elab Command Term in
+elab_rules : command
+  | `(defFnMutual $entries:mutualFnEntry* end) => do
+    if entries.isEmpty then
+      throwError "defFnMutual: expected at least one entry"
+    let results ← entries.mapM parseMutualEntry
+    let mutualStr :=
+      "mutual\n"
+        ++ "\n".intercalate (results.toList.map (·.defStr))
+        ++ "\nend"
+    let env ← getEnv
+    match Parser.runParserCategory env `command
+      mutualStr with
+    | .ok stx => elabCommand stx
+    | .error e =>
+      throwError s!"defFnMutual: parse error: {e}\n\
+        ---\n{mutualStr}\n---"
+    -- Tag every entry with a shared group id derived from
+    -- the first entry's name, so the Lean backend can emit
+    -- them inside a single `mutual … end` block.
+    let groupTag ← match results[0]? with
+      | some r => pure s!"{r.name.getId}"
+      | none => throwError "defFnMutual: expected at least one entry"
+    for r in results do
+      let armDefs ← r.parsed.mapM
+        fun (patAst, rhsAst) => do
+          let pq : TSyntax `term := quote patAst.toList
+          let rq : TSyntax `term := quote rhsAst
+          `({ pat := $pq, rhs := $rq : BodyArm })
+      let armList ← `([$[$armDefs],*])
+      let bodyTerm ← `(FnBody.matchArms $armList)
+      buildFnDef ⟨r.name, r.symDoc, r.doc⟩ r.paramData
+        r.retTy bodyTerm r.preconds (mutualGroup := some groupTag)

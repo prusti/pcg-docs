@@ -1,5 +1,5 @@
 import Core.Dsl.DefEnum
-import PCG.Owned.InitialisationTree
+import PCG.Owned.InitTree
 
 defEnum OwnedLocal
     (.doc (.plain "ol"), .doc (.plain "OwnedLocal"))
@@ -15,6 +15,6 @@ where
   | unallocated
     "Unallocated."
     (.bold (.raw "U"))
-  | allocated (it : InitialisationTree)
+  | allocated (it : InitTree)
     "Allocated."
   deriving Repr

@@ -82,6 +82,10 @@ def listDrop := @List.drop
 
 open AbstractByte
 ")
+  , (`PCG.Owned.InitTree, .middle,
+"def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
+  ∃ h : validPlace body p, isOwned body p h = true
+")
   ]
 
 -- ══════════════════════════════════════════════
@@ -98,31 +102,43 @@ private inductive LeanDefItem where
   | inductiveProperty_ (p : InductivePropertyDef)
 
 /-- Infer a namespace for a function from its first
-    parameter type, if it matches a known type. -/
+    parameter type, if it matches a known non-alias type.
+    Alias type names are excluded because `namespace <alias>`
+    does not create a valid namespace the generated code can
+    `open` from the top of the file. -/
 private def inferNamespace
     (f : FnDef) (allTypes : List String)
+    (aliasNames : List String := [])
     : Option String :=
   match f.params.head? with
   | some p =>
     match p.ty with
     | .named n =>
-      if allTypes.contains n.name then some n.name
+      if aliasNames.contains n.name then none
+      else if allTypes.contains n.name then some n.name
       else none
     | _ => none
   | none => none
 
 private def LeanDefItem.toLeanAST
     (definedTypes : List String)
+    (aliasNames : List String)
     : LeanDefItem → LeanDecl
   | .struct_ s => s.toLeanAST
   | .enum_ e => e.toLeanAST
   | .alias_ a => a.toLeanAST
   | .fn_ f =>
-    match inferNamespace f definedTypes with
-    | some ns => .namespaced ns f.toLeanAST
-    | none => f.toLeanAST
+    -- Functions belonging to a mutual-recursion group are
+    -- emitted together inside a single `mutual … end` block
+    -- at render time, so they can't sit inside a per-function
+    -- `namespace`.
+    if f.mutualGroup.isSome then f.toLeanAST
+    else
+      match inferNamespace f definedTypes aliasNames with
+      | some ns => .namespaced ns f.toLeanAST
+      | none => f.toLeanAST
   | .property_ p =>
-    match inferNamespace p.fnDef definedTypes with
+    match inferNamespace p.fnDef definedTypes aliasNames with
     | some ns => .namespaced ns p.toLeanAST
     | none => p.toLeanAST
   | .inductiveProperty_ p => p.toLeanAST
@@ -183,9 +199,21 @@ private def moduleToPath (mod : Lean.Name) : String :=
   let components := mod.components.map toString
   "/".intercalate components ++ ".lean"
 
+/-- The mutual-group tag of an item, if any. Used by
+    `topoSort` so members of a mutual group are considered
+    satisfied by each other, and by `groupByMutual` below
+    to emit adjacent group members together. -/
+private def LeanDefItem.mutualGroupTag
+    : LeanDefItem → Option String
+  | .fn_ f => f.mutualGroup
+  | _ => none
+
 /-- Topologically sort definition items so that types
     are defined before they are referenced. Self-references
-    (recursive types) are treated as already satisfied. -/
+    (recursive types) are treated as already satisfied, as
+    are references to other members of the same mutual
+    group so that an entire mutual block can be emitted at
+    once. -/
 private def topoSort
     (items : List LeanDefItem) : List LeanDefItem :=
   let getName (i : LeanDefItem) : Option String :=
@@ -193,6 +221,18 @@ private def topoSort
   let getRefs (i : LeanDefItem) : List String :=
     i.referencedNames
   let defined := items.filterMap getName
+  -- For each mutual group tag, the names of every item in
+  -- that group. Members of the same group can be emitted
+  -- together without any having been emitted first.
+  let groupMembers : List (String × List String) :=
+    items.foldl (init := []) fun acc i =>
+      match i.mutualGroupTag, getName i with
+      | some tag, some n =>
+        match acc.find? (·.1 == tag) with
+        | some (_, ns) =>
+          (acc.filter (·.1 != tag)) ++ [(tag, ns ++ [n])]
+        | none => acc ++ [(tag, [n])]
+      | _, _ => acc
   let rec go
       (remaining : List LeanDefItem)
       (emitted : List String)
@@ -207,10 +247,17 @@ private def topoSort
         let (ready, blocked) := remaining.partition
           fun item =>
             let selfName := getName item
+            let ownGroup : List String :=
+              match item.mutualGroupTag with
+              | some tag =>
+                (groupMembers.find? (·.1 == tag)).map
+                  (·.2) |>.getD []
+              | none => []
             let refs := getRefs item
             refs.all fun r =>
               selfName == some r ||
-              emitted.contains r || !defined.contains r
+              emitted.contains r || !defined.contains r ||
+              ownGroup.contains r
         if ready.isEmpty then acc ++ remaining
         else
           let newEmitted := emitted ++
@@ -289,11 +336,12 @@ private def computeImports
 private def fnNamespaceMap
     (modules : List (Lean.Name × List LeanDefItem))
     (allTypes : List String)
+    (aliasNames : List String)
     : List (String × String) :=
   modules.flatMap fun (_, items) =>
     items.filterMap fun item =>
       item.fnDef?.bind fun f =>
-        (inferNamespace f allTypes).map (f.name, ·)
+        (inferNamespace f allTypes aliasNames).map (f.name, ·)
 
 /-- Compute which namespaces need to be opened in a
     module so that cross-namespace calls resolve. -/
@@ -311,6 +359,22 @@ private def computeOpens
   needed.foldl (init := []) fun acc ns =>
     if acc.contains ns then acc else acc ++ [ns]
 
+/-- Group consecutive items by mutual-group tag: adjacent
+    items sharing a non-`none` tag become one sub-list. -/
+private def groupByMutual
+    (items : List LeanDefItem)
+    : List (List LeanDefItem) :=
+  items.foldl (init := []) fun acc item =>
+    match acc.getLast?, item.mutualGroupTag with
+    | some last, some tag =>
+      match last.head?.bind LeanDefItem.mutualGroupTag with
+      | some lastTag =>
+        if lastTag == tag then
+          acc.dropLast ++ [last ++ [item]]
+        else acc ++ [[item]]
+      | none => acc ++ [[item]]
+    | _, _ => acc ++ [[item]]
+
 /-- Render a module to Lean source, with optional
     extra code before/between/after auto-generated defs.
     `middle` extras are inserted between type definitions
@@ -319,12 +383,13 @@ private def renderModule
     (items : List LeanDefItem)
     (imports : List Lean.Name)
     (allTypes : List String)
+    (aliasNames : List String)
     (opens : List String := [])
     (extrasBefore : List String := [])
     (extrasMiddle : List String := [])
     (extrasAfter : List String := [])
     : String :=
-  let toLeanAST := LeanDefItem.toLeanAST allTypes
+  let toLeanAST := LeanDefItem.toLeanAST allTypes aliasNames
   let importStr := imports.map toString |>.map
     (s!"import {·}") |> "\n".intercalate
   let openStr := if opens.isEmpty then ""
@@ -342,7 +407,15 @@ private def renderModule
     |> "\n\n".intercalate
   let middleStr := if extrasMiddle.isEmpty then ""
     else "\n" ++ "\n".intercalate extrasMiddle ++ "\n"
-  let codeStr := codeDefs.map (toString ∘ toLeanAST)
+  let renderGroup (group : List LeanDefItem) : String :=
+    let hasMutualTag := group.any fun i =>
+      i.mutualGroupTag.isSome
+    let rendered := group.map (toString ∘ toLeanAST)
+    if hasMutualTag && group.length > 1 then
+      "mutual\n" ++ "\n".intercalate rendered ++ "\nend"
+    else
+      "\n\n".intercalate rendered
+  let codeStr := (groupByMutual codeDefs).map renderGroup
     |> "\n\n".intercalate
   let codeBlock := if codeDefs.isEmpty then ""
     else s!"\n{codeStr}\n"
@@ -400,7 +473,8 @@ def main (args : List String) : IO Unit := do
       inductiveProps
   let typeMap := typeToModuleMap modules
   let allTypes := typeMap.map (·.1)
-  let nsMap := fnNamespaceMap modules allTypes
+  let aliasNames := aliases.map (·.aliasDef.name)
+  let nsMap := fnNamespaceMap modules allTypes aliasNames
   -- Collect top-level lib names (e.g. MIR, PCG, OpSem)
   let topLibs := modules.map
     fun (m, _) => m.getRoot.toString
@@ -431,7 +505,7 @@ def main (args : List String) : IO Unit := do
     let opens := computeOpens items nsMap
     let path := s!"{outDir}/{moduleToPath mod}"
     let contents := renderModule items imports allTypes
-      opens (extrasFor .before) (extrasFor .middle)
+      aliasNames opens (extrasFor .before) (extrasFor .middle)
       (extrasFor .after)
     writeFile path contents
   -- Write root files for each lean_lib
