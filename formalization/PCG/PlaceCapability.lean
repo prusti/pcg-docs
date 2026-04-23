@@ -38,19 +38,109 @@ defFn treeCapability (.plain "treeCapability")
       treeCapability ‹rest, sub›
   | _ :: _ ; .internal _ => Capability.none
 
+-- ══════════════════════════════════════════════
+-- Borrow-state helpers (plain Lean)
+-- ══════════════════════════════════════════════
+
+namespace BorrowsGraph
+
+/-- Every `DerefEdge` recorded in the graph. -/
+def derefEdges (bg : BorrowsGraph Place) : List (DerefEdge Place) :=
+  bg.edges.toList.filterMap fun (e, _) =>
+    match e with
+    | .deref de => some de
+    | _ => none
+
+/-- The current (unlabelled) MIR place at the source of a
+    `MaybeLabelledPlace`, when it has one. -/
+private def currentPlace : MaybeLabelledPlace Place → Option Place
+  | .current p => some p
+  | .labelled _ _ => none
+
+/-- The deref edges whose `derefPlace` is the current
+    (unlabelled) form of `p`. -/
+def derefEdgesTo (bg : BorrowsGraph Place) (p : Place)
+    : List (DerefEdge Place) :=
+  bg.derefEdges.filter fun de =>
+    currentPlace de.derefPlace == some p
+
+/-- Whether some deref edge ending at `p` blocks a *shared*
+    reference. We use the documented convention on
+    `DerefEdge.blockedLifetimeProjection`: an unlabelled
+    projection corresponds to a shared borrow, a labelled one
+    to a mutable borrow. -/
+def projectsSharedBorrow
+    (bg : BorrowsGraph Place) (p : Place) : Bool :=
+  (bg.derefEdgesTo p).any fun de =>
+    de.blockedLifetimeProjection.label.isNone
+
+/-- Whether the current-form of `p` appears as the *blocked*
+    side of any edge in the graph. Used as a coarse proxy for
+    "`p` has a non-trivial out-edge in the borrow PCG". Only
+    deref-edge blockers are considered for now; refining this
+    to cover the other edge kinds is a follow-up. -/
+def placeIsBlocked
+    (bg : BorrowsGraph Place) (p : Place) : Bool :=
+  bg.derefEdges.any fun de =>
+    currentPlace de.blockedPlace == some p
+
+/-- Whether `p` is a leaf in the borrow PCG: it appears as a
+    deref target somewhere in the graph and is not itself
+    blocked by another edge. -/
+def placeIsBorrowLeaf
+    (bg : BorrowsGraph Place) (p : Place) : Bool :=
+  !(bg.derefEdgesTo p).isEmpty && !bg.placeIsBlocked p
+
+end BorrowsGraph
+
+defFn borrowedPlaceCapability
+  (.plain "borrowedPlaceCapability")
+  (.seq [.plain "Compute the capability of a place that is \
+    not tracked by the owned state but lives in the borrow \
+    PCG, following the \"Computing Capabilities for Borrowed \
+    Places\" rules in ",
+    .code "computing-place-capabilities.md",
+    .plain ". Returns ", .math (.bold (.raw "R")),
+    .plain " when the place is reached through a shared \
+    borrow, ", .math (.bold (.raw "E")),
+    .plain " when it is a leaf in the borrow PCG, and ",
+    .math (.sym .emptySet),
+    .plain " otherwise. The shared/mutable distinction relies \
+    on the labelling convention on a deref edge's blocked \
+    lifetime projection (unlabelled = shared, labelled = \
+    mutable); a precise check using the place's reference \
+    type is left as a follow-up."])
+  (bg "The borrows graph." : BorrowsGraph Place)
+  (p "The place whose capability is requested." : Place)
+  : Capability :=
+    if BorrowsGraph.projectsSharedBorrow ‹bg, p› then
+      Capability.read
+    else if BorrowsGraph.placeIsBorrowLeaf ‹bg, p› then
+      Capability.exclusive
+    else
+      Capability.none
+
 defFn getCapability (.plain "getCapability")
   (.seq [.plain "Compute the capability of a MIR place from \
     the per-program-point PCG data, following ",
     .code "computing-place-capabilities.md",
-    .plain ". This implementation covers the owned-state \
-    lookup; borrow-state adjustments will be added \
-    incrementally."])
+    .plain ". The owned-state lookup runs first; when it \
+    yields no capability (the local is unallocated, or the \
+    projection takes us off the owned init tree — typically \
+    because the place is reached through a non-Box \
+    reference), the borrow state is consulted via ",
+    .code "borrowedPlaceCapability", .plain "."])
   (pd "The PCG data." : PcgData Place)
+  (body "Body" : Body)
   (p "The place whose capability is requested." : Place)
-  : Capability where
-  | pd ; p =>
-      match pd↦ownedState↦locals !! p↦base↦index with
-      | .some (.allocated t) =>
-          treeCapability ‹p↦projection, t›
-      | _ => Capability.none
+  : Option Capability where
+  | pd ; body; p =>
+      let alloc ← pd↦ownedState↦locals !! p↦base↦index ;
+      match alloc with
+      | .allocated t =>
+          match treeCapability ‹p↦projection, t› with
+          | .none => borrowedPlaceCapability ‹pd↦bg, p›
+          | c => c
+          end
+      | _ => None
       end

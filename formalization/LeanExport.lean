@@ -86,6 +86,42 @@ open AbstractByte
 "def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
   ∃ h : validPlace body p, isOwned body p h = true
 ")
+  , (`PCG.PlaceCapability, .middle,
+"namespace BorrowsGraph
+
+def derefEdges (bg : BorrowsGraph Place)
+    : List (DerefEdge Place) :=
+  bg.edges.toList.filterMap fun (e, _) =>
+    match e with
+    | .deref de => some de
+    | _ => none
+
+private def currentPlace
+    : MaybeLabelledPlace Place → Option Place
+  | .current p => some p
+  | .labelled _ _ => none
+
+def derefEdgesTo (bg : BorrowsGraph Place) (p : Place)
+    : List (DerefEdge Place) :=
+  bg.derefEdges.filter fun de =>
+    currentPlace de.derefPlace == some p
+
+def projectsSharedBorrow
+    (bg : BorrowsGraph Place) (p : Place) : Bool :=
+  (bg.derefEdgesTo p).any fun de =>
+    de.blockedLifetimeProjection.label.isNone
+
+def placeIsBlocked
+    (bg : BorrowsGraph Place) (p : Place) : Bool :=
+  bg.derefEdges.any fun de =>
+    currentPlace de.blockedPlace == some p
+
+def placeIsBorrowLeaf
+    (bg : BorrowsGraph Place) (p : Place) : Bool :=
+  !(bg.derefEdgesTo p).isEmpty && !bg.placeIsBlocked p
+
+end BorrowsGraph
+")
   ]
 
 -- ══════════════════════════════════════════════
