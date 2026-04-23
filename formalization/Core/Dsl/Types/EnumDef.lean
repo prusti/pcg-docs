@@ -25,7 +25,7 @@ inductive DisplayPart where
 /-- A single variant in an exportable enum definition. -/
 structure VariantDef where
   /-- The variant name (e.g. `"exclusive"`). -/
-  name : DSLNamedTy
+  name : DSLIdent
   /-- Documentation for this variant. -/
   doc : Doc
   /-- Display template: a list of literal fragments and
@@ -40,7 +40,7 @@ structure VariantDef where
     code generation and presentation. -/
 structure EnumDef where
   /-- The enum name (e.g. `"Capability"`). -/
-  name : DSLNamedTy
+  name : DSLIdent
   /-- Formatted type symbol for document exports. -/
   symbolDoc : MathDoc
   /-- Symbol for the set of all values of this type. -/

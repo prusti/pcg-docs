@@ -23,7 +23,7 @@ inductive DSLPrimTy where
   deriving Repr, DecidableEq
 
 /-- A named type from `defEnum` or `defStruct`. -/
-structure DSLNamedTy where
+structure DSLIdent where
   /-- The type name. -/
   name : String
   deriving Repr, DecidableEq, Inhabited
@@ -35,10 +35,10 @@ inductive DSLType where
   /-- A primitive type. -/
   | prim (p : DSLPrimTy)
   /-- A named type from `defEnum` or `defStruct`. -/
-  | named (n : DSLNamedTy)
+  | named (n : DSLIdent)
   /-- Generic type application, e.g. `MaybeLabelledPlace P`
       or `LifetimeProjection (PcgPlace P) Nat`. -/
-  | app (head : DSLNamedTy) (args : List DSLType)
+  | app (head : DSLIdent) (args : List DSLType)
   /-- `Option T`. -/
   | option (inner : DSLType)
   /-- `List T`. -/

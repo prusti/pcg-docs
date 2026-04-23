@@ -12,7 +12,7 @@ defStruct BorrowsGraph {P}
       (.doc (.plain "BorrowsGraph")) ["P"],
     .plain " is the portion of the PCG that tracks borrow \
      edges: it maps each PCG edge to the validity conditions \
-     under which the edge holds."])
+     under which the edge holds."]) subscript
 where
   | edges "Map from each edge in the graph to the validity \
        conditions under which it holds."

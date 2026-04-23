@@ -307,7 +307,7 @@ private def elabDefEnum
       varData.mapM fun (vn, args, vd, dps) => do
         let vnStr : TSyntax `term :=
           quote (toString vn.getId)
-        let ns ← `(DSLNamedTy.mk $vnStr)
+        let ns ← `(DSLIdent.mk $vnStr)
         let argDefs ← args.mapM fun a => do
           let (argName, argType) ← parseVariantArg a
           let an : TSyntax `term :=
@@ -344,7 +344,7 @@ private def elabDefEnum
             : VariantDef })
     let enumNameStr : TSyntax `term :=
       quote (toString name.getId)
-    let ns ← `(DSLNamedTy.mk $enumNameStr)
+    let ns ← `(DSLIdent.mk $enumNameStr)
     let varList ← `([$[$varDefs],*])
     let typeParamsTerm : TSyntax `term :=
       quote typeParamNames

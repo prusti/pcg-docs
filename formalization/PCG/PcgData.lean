@@ -14,7 +14,7 @@ defStruct PcgData {P}
      the PCG: the borrows graph, the owned state, the current \
      basic block, and the set of places read at this point."])
 where
-  | borrowsGraph "The borrows portion of the PCG."
+  | bg "The borrows portion of the PCG."
       : BorrowsGraph P
   | ownedState "The owned portion of the PCG."
       : OwnedState
