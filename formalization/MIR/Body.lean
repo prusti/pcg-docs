@@ -161,8 +161,8 @@ defStruct Body (.doc (.plain "body"),
   "Bodies"
   (.plain "A MIR function body.")
 where
-  | decls "The local variable declarations."
-      : List Ty
+  | decls "The local variable declarations." : List Ty
+  | numArgs "The number of arguments" : Nat
   | basicBlocks "The basic blocks." : List BasicBlock
   deriving Repr, BEq, Hashable
 
@@ -172,7 +172,7 @@ defFn bodyPlaces (.plain "bodyPlaces")
   (.plain "All places referenced in a function body.")
   (body "The function body." : Body)
   : Set Place where
-  | ⟨_, bbs⟩ =>
+  | ⟨_, _, bbs⟩ =>
       bbs·setFlatMap fun bb => bb·basicBlockPlaces
 
 end Body
