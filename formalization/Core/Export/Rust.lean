@@ -665,6 +665,11 @@ structure RustExprCtxt where
   currentPrefix : String := ""
   /-- The current module name (e.g. "ty"). -/
   currentModule : String := ""
+  /-- Resolve a variant's short name (e.g. "sized") to
+      its enum (e.g. "LayoutStrategy"). Used to qualify
+      nested variant patterns whose enclosing scrutinee
+      type is unknown. -/
+  variantToEnum : String → Option String := fun _ => none
 
 instance : Inhabited RustExprCtxt where
   default :=
@@ -694,10 +699,15 @@ namespace BodyPat
 /-- Convert a `BodyPat` to a typed `RustPat`.
     `enumName` is the enum type name (for qualifying
     variant paths). `structFields` returns field names
-    for struct destructuring. -/
+    for struct destructuring. `variantToEnum` resolves a
+    variant's short name to its enum, used to qualify
+    nested variant patterns whose enclosing scrutinee
+    type is unknown. -/
 partial def toRustPat (enumName : String)
     (structFields : String → Option (List String)
       := fun _ => none)
+    (variantToEnum : String → Option String :=
+      fun _ => none)
     : BodyPat → RustPat
   | .wild => .wild
   | .var n => .ident (leanToRustIdent n)
@@ -705,22 +715,27 @@ partial def toRustPat (enumName : String)
     match structFields enumName with
     | some fields =>
       let bindings := (fields.map (⟨·⟩ : String → RustIdent)).zip
-        (args.map (toRustPat "" structFields))
+        (args.map (toRustPat "" structFields variantToEnum))
       .struct_ (.simple enumName) bindings false
     | none =>
-      .tuple (args.map (toRustPat "" structFields))
+      .tuple (args.map (toRustPat "" structFields variantToEnum))
   | .ctor n args =>
+    -- Args may be patterns of any other enum, so reset
+    -- `enumName` for nested calls and let `variantToEnum`
+    -- pick up the qualification.
     let rustArgs :=
-      args.map (toRustPat enumName structFields)
+      args.map (toRustPat "" structFields variantToEnum)
     match n.splitOn "." with
     | [en, v] =>
       .pathArgs ⟨[⟨en⟩, ⟨capitalise v⟩]⟩ rustArgs
     | _ =>
       let capName := capitalise n
-      if enumName.isEmpty then
-        .pathArgs (.simple capName) rustArgs
-      else
-        .pathArgs ⟨[⟨enumName⟩, ⟨capName⟩]⟩ rustArgs
+      let qualifyingEnum :=
+        if enumName.isEmpty then variantToEnum n
+        else some enumName
+      match qualifyingEnum with
+      | some en => .pathArgs ⟨[⟨en⟩, ⟨capName⟩]⟩ rustArgs
+      | none => .pathArgs (.simple capName) rustArgs
   | .nil => .slice [] none
   | .cons h tail =>
     let stripParens (s : String) : String :=
@@ -740,11 +755,12 @@ partial def toRustPat (enumName : String)
       | other => ([], some other)
     let (headPats, restTail) := collect (.cons h tail)
     let rustHeads := headPats.map
-      fun p => p.toRustPat elemName structFields
+      fun p => p.toRustPat elemName structFields variantToEnum
     let restPat := restTail.map fun t => match t with
       | .var rest => RustPat.ident (leanToRustIdent rest)
       | .wild => RustPat.wild
-      | _ => t.toRustPat (s!"List ({elemName})") structFields
+      | _ => t.toRustPat (s!"List ({elemName})")
+        structFields variantToEnum
     .slice rustHeads restPat
   | .natLit n => .path (.simple (toString n))
 
@@ -758,7 +774,8 @@ namespace DslExpr
     `.clone`, etc. `recur` is the top-level `toRustExpr`, used by the
     `.mkStruct` arm to re-lower an inner `DslExpr` whose already-computed
     `.some_`-wrapped Rust translation is not what we want there. -/
-private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
+private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
+    (variantToEnum : String → Option String := fun _ => none) :
     DslExprF (DslExpr × RustExpr) → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
   | .natLit n => pure (.raw s!"{n}usize")
@@ -961,8 +978,9 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
   | .match_ (_, scrutExpr) arms => do
     let rustArms := arms.map fun (pats, (origRhs, rustRhs)) =>
       let pat := if pats.length == 1
-        then pats.head!.toRustPat ""
-        else .tuple (pats.map (·.toRustPat ""))
+        then pats.head!.toRustPat "" (fun _ => none) variantToEnum
+        else .tuple (pats.map
+          (·.toRustPat "" (fun _ => none) variantToEnum))
       let rhsExpr := match origRhs with
         | .var _ => RustExpr.clone rustRhs
         | _ => rustRhs
@@ -1005,9 +1023,24 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
 partial def toRustExpr (e : DslExpr) : FreshM RustExpr :=
   DslExpr.paraM (toRustAlg toRustExpr) e
 
+/-- Like `toRustExpr` but threads a variant-to-enum lookup
+    used to qualify nested variant patterns inside `match`
+    expressions. -/
+partial def toRustExprWith
+    (variantToEnum : String → Option String) (e : DslExpr)
+    : FreshM RustExpr :=
+  DslExpr.paraM
+    (toRustAlg (toRustExprWith variantToEnum) variantToEnum) e
+
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : DslExpr) : RustExpr :=
   e.toRustExpr.run' 0
+
+/-- Run `toRustExprWith` with a fresh counter starting at 0. -/
+def toRustWith
+    (variantToEnum : String → Option String) (e : DslExpr)
+    : RustExpr :=
+  (toRustExprWith variantToEnum e).run' 0
 
 /-- Resolve a qualified function call name to its Rust
     path given the context. Returns the original name
@@ -1059,7 +1092,8 @@ def toRustItem (f : FnDef)
   let retTy := f.returnType.toRust
   let rustName : RustIdent := ⟨toSnakeCase f.name⟩
   let qualify := DslExpr.qualifyFnCalls ctx
-  let re (b : DslExpr) := (qualify b).toRust
+  let re (b : DslExpr) :=
+    DslExpr.toRustWith ctx.variantToEnum (qualify b)
   let paramNames := f.params.map
     fun p => leanToRustIdent p.name
   let assertStmts := f.preconditions.map fun pc =>
@@ -1078,7 +1112,8 @@ def toRustItem (f : FnDef)
           else .tuple (paramNames.map RustExpr.ident)
         let rustArms := arms.map fun arm =>
           let pats := arm.pat.zip enumNames |>.map
-            fun (p, en) => p.toRustPat en structFields
+            fun (p, en) =>
+              p.toRustPat en structFields ctx.variantToEnum
           let pat := if pats.length == 1
             then pats.head!
             else .tuple pats
@@ -1291,6 +1326,20 @@ def buildModules
       if newly.isEmpty then known
       else loopMapSet (known ++ newly) fuel
   let mapSetTypes := loopMapSet directMapSetUsers structs.length
+  -- Build a variant → enum lookup so nested variant patterns
+  -- inside `match` arms can be qualified with their owning enum
+  -- (e.g. `LayoutStrategy::Sized(..)` instead of `Sized(..)`,
+  -- which Rust would resolve to the `Sized` trait). Skip
+  -- `none`/`some`: these belong to `Option`, are not in the
+  -- registry, and their unqualified `None`/`Some` work via
+  -- Rust's prelude — qualifying them would mis-resolve to the
+  -- first registered enum with a `none` variant.
+  let variantToEnum : String → Option String := fun n =>
+    if n == "none" || n == "some" then none
+    else enums.findSome? fun re =>
+      if re.enumDef.variants.any (·.name.name == n) then
+        some re.enumDef.name.name
+      else none
   uniqueModNames.map fun modName =>
     let modEnums := enums.filter
       (rustModuleNameOf ·.leanModule == modName)
@@ -1311,7 +1360,8 @@ def buildModules
             toSnakeCase f.name)
         else none
     let modCtx := { ctx with
-      currentModule := modName }
+      currentModule := modName,
+      variantToEnum := variantToEnum }
     let items :=
       modStructs.flatMap
         (·.structDef.toRustItemsWith mapSetTypes) ++

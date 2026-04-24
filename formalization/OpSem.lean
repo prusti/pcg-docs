@@ -5,6 +5,7 @@ import OpSem.Pointer
 import OpSem.RuntimePlace
 import OpSem.Memory
 import OpSem.Value
+import OpSem.Layout
 import OpSem.StackFrame
 import OpSem.Thread
 import OpSem.Program

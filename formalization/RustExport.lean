@@ -210,6 +210,9 @@ use formal_mir::place::*;
   , ("OpSem", "program", .raw
 "use formal_mir::body::Body;
 ")
+  , ("OpSem", "layout", .raw
+"use formal_mir::ty::*;
+")
   , ("OpSem", "statements", .raw
 "use formal_mir::ty::Ty;
 ")
