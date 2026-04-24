@@ -181,6 +181,32 @@ defFn localsUnpackEdges (.plain "localsUnpackEdges")
 -- Collecting all edges represented by PcgData
 -- ══════════════════════════════════════════════
 
+namespace PcgData
+
+defFn join (.plain "join")
+  (.seq [
+    .plain "Join two PCG data values at the program-point \
+     entry of basic block ", .code "bb",
+    .plain ": pointwise-join the borrows graphs and the \
+     owned states (per-local, via ", .code "OwnedState.join",
+    .plain "), tag the result with ", .code "bb",
+    .plain " as its current basic block, and reset ",
+    .code "readPlaces", .plain " to the empty set — read \
+    places are local to a single program point and do not \
+    propagate across joins."])
+  (pd1 "The first PCG data." : PcgData Place)
+  (pd2 "The second PCG data." : PcgData Place)
+  (bb "The basic block of the joined program point."
+      : BasicBlockIdx)
+  : PcgData Place :=
+    PcgData⟨
+      BorrowsGraph.join ‹pd1↦bg, pd2↦bg›,
+      OwnedState.join ‹pd1↦ownedState, pd2↦ownedState›,
+      bb,
+      ∅⟩
+
+end PcgData
+
 defFn edges (.plain "edges")
   (.seq [.plain "All PCG hyperedges represented by the per-\
     program-point PCG data. The result is the union of three \
