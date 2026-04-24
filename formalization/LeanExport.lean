@@ -127,8 +127,9 @@ private def inferNamespace
 private def LeanDefItem.toLeanAST
     (definedTypes : List String)
     (aliasNames : List String)
+    (mapSetTypes : List String)
     : LeanDefItem → LeanDecl
-  | .struct_ s => s.toLeanAST
+  | .struct_ s => s.toLeanASTWith mapSetTypes
   | .enum_ e => e.toLeanAST
   | .alias_ a => a.toLeanAST
   | .fn_ f =>
@@ -384,6 +385,32 @@ private def groupByMutual
       | none => acc ++ [[item]]
     | _, _ => acc ++ [[item]]
 
+/-- Compute the names of structs whose fields hold (directly
+    or transitively through another struct) a `Map`/`Set`. The
+    generated Lean project needs this because `HashMap`/`HashSet`
+    do not derive `BEq`/`Hashable`, so any wrapping struct must
+    omit those derives as well. Iterated to a fixed point. -/
+private def computeMapSetTypes
+    (structs : List RegisteredStruct) : List String :=
+  let directUsers : List String := structs.filterMap fun rs =>
+    let anyDirect := rs.structDef.fields.any fun f =>
+      f.ty.usesMap || f.ty.usesSet
+    if anyDirect then some rs.structDef.name else none
+  let rec loop (known : List String)
+      (fuel : Nat) : List String :=
+    match fuel with
+    | 0 => known
+    | fuel + 1 =>
+      let newly : List String := structs.filterMap fun rs =>
+        if known.contains rs.structDef.name then none
+        else if rs.structDef.fields.any fun f =>
+            f.ty.namedTypes.any fun n => known.contains n
+        then some rs.structDef.name
+        else none
+      if newly.isEmpty then known
+      else loop (known ++ newly) fuel
+  loop directUsers structs.length
+
 /-- Render a module to Lean source, with optional
     extra code before/between/after auto-generated defs.
     `middle` extras are inserted between type definitions
@@ -393,12 +420,14 @@ private def renderModule
     (imports : List Lean.Name)
     (allTypes : List String)
     (aliasNames : List String)
+    (mapSetTypes : List String)
     (opens : List String := [])
     (extrasBefore : List String := [])
     (extrasMiddle : List String := [])
     (extrasAfter : List String := [])
     : String :=
-  let toLeanAST := LeanDefItem.toLeanAST allTypes aliasNames
+  let toLeanAST :=
+    LeanDefItem.toLeanAST allTypes aliasNames mapSetTypes
   let importStr := imports.map toString |>.map
     (s!"import {·}") |> "\n".intercalate
   let openStr := if opens.isEmpty then ""
@@ -484,6 +513,7 @@ def main (args : List String) : IO Unit := do
   let allTypes := typeMap.map (·.1)
   let aliasNames := aliases.map (·.aliasDef.name)
   let nsMap := fnNamespaceMap modules allTypes aliasNames
+  let mapSetTypes := computeMapSetTypes structs
   -- Collect top-level lib names (e.g. MIR, PCG, OpSem)
   let topLibs := modules.map
     fun (m, _) => m.getRoot.toString
@@ -514,8 +544,8 @@ def main (args : List String) : IO Unit := do
     let opens := computeOpens items nsMap
     let path := s!"{outDir}/{moduleToPath mod}"
     let contents := renderModule items imports allTypes
-      aliasNames opens (extrasFor .before) (extrasFor .middle)
-      (extrasFor .after)
+      aliasNames mapSetTypes opens (extrasFor .before)
+      (extrasFor .middle) (extrasFor .after)
     writeFile path contents
   -- Write root files for each lean_lib
   for lib in uniqueLibs do

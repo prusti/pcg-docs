@@ -6,11 +6,13 @@ namespace Machine
 defFn evalLocal (.plain "evalLocal")
   (.seq [.plain "Evaluate a local variable, returning its \
     runtime place. Returns ", .code "None",
-    .plain " if the local is dead."])
+    .plain " if the thread's stack is empty or the local \
+    is dead."])
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
   : Option RuntimePlace begin
-  let ptr ← mapGet ‹machine↦locals, lcl›
+  let frame ← currentFrame ‹machine›
+  let ptr ← mapGet ‹frame↦locals, lcl›
   return Some (RuntimePlace⟨ptr⟩)
 
 defFn fieldOffset (.plain "fieldOffset")
@@ -75,8 +77,9 @@ defFn evalPlace (.plain "evalPlace")
   (machine "The machine state." : Machine)
   (place "The place to evaluate." : Place)
   : Option (RuntimePlace × Ty) begin
+  let frame ← currentFrame ‹machine›
   let rootPlace ← evalLocal ‹machine, place↦base›
-  let rootTy := machine↦body↦decls ! place↦base↦index
+  let rootTy := frame↦body↦decls ! place↦base↦index
   return evalProjs ‹rootPlace, rootTy, place↦projection›
 
 end Machine

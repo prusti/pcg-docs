@@ -830,6 +830,12 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr) :
       return .methodCall
         (.methodCall rustRecv ⟨"into_iter"⟩ [])
         ⟨"collect"⟩ [] (typeArgs := [hsWild])
+    | "head?" =>
+      -- `List.head?` in Lean becomes `.first().cloned()`
+      -- in Rust so the returned `Option` owns its element.
+      return .methodCall
+        (.methodCall rustRecv ⟨"first"⟩ [])
+        ⟨"cloned"⟩ []
     | _ =>
       return .call (.identStr (toSnakeCase method))
         [.borrow rustRecv]
@@ -1098,7 +1104,8 @@ namespace StructDef
 /-- Convert a `StructDef` to Rust items: the struct
     itself plus `From<Box<T>>` impls for its field
     types. -/
-def toRustItems (s : StructDef) : List RustItem :=
+def toRustItemsWith (s : StructDef)
+    (mapSetTypes : List String) : List RustItem :=
   let selfTy : RustTy := .adt (.simple s.name) []
   let fieldTys := [selfTy]
   let isCopyPrim : DSLType → Bool
@@ -1107,9 +1114,10 @@ def toRustItems (s : StructDef) : List RustItem :=
     | .prim _ => true
     | _ => false
   let allCopy := s.fields.all fun f => isCopyPrim f.ty
-  let hasUnhashable := s.fields.any fun f =>
-    match f.ty with
-    | .map _ _ | .set _ => true | _ => false
+  let fieldUsesMapSet (f : FieldDef) : Bool :=
+    f.ty.usesMap || f.ty.usesSet ||
+    f.ty.namedTypes.any (fun n => mapSetTypes.contains n)
+  let hasUnhashable := s.fields.any fieldUsesMapSet
   -- Closure trait objects (`Box<dyn Fn(..)>`) can only
   -- derive `Debug`-less traits; drop the default derives
   -- and skip the `From<Box<T>>` impl when the struct has
@@ -1156,6 +1164,11 @@ def toRustItems (s : StructDef) : List RustItem :=
     if hasArrow || isGeneric then []
     else fromBoxImpls fieldTys
   .struct_ rs :: newImplItems ++ boxImpls
+
+/-- Backward-compatible wrapper for callers that don't
+    supply a transitive `Map`/`Set` user list. -/
+def toRustItems (s : StructDef) : List RustItem :=
+  s.toRustItemsWith []
 
 end StructDef
 
@@ -1255,6 +1268,29 @@ def buildModules
       rustModuleNameOf p.leanModule)
   let uniqueModNames := allModNames.foldl (init := [])
     fun acc m => if acc.contains m then acc else acc ++ [m]
+  -- Transitively compute the set of struct names that hold a
+  -- `Map`/`Set` (directly or via another struct). `HashMap`/
+  -- `HashSet` don't implement `PartialEq` / `Eq` / `Hash`, so
+  -- these structs must also skip those derives.
+  let directMapSetUsers : List String := structs.filterMap
+    fun rs =>
+      let any := rs.structDef.fields.any fun f =>
+        f.ty.usesMap || f.ty.usesSet
+      if any then some rs.structDef.name else none
+  let rec loopMapSet (known : List String)
+      (fuel : Nat) : List String :=
+    match fuel with
+    | 0 => known
+    | fuel + 1 =>
+      let newly : List String := structs.filterMap fun rs =>
+        if known.contains rs.structDef.name then none
+        else if rs.structDef.fields.any fun f =>
+            f.ty.namedTypes.any fun n => known.contains n
+        then some rs.structDef.name
+        else none
+      if newly.isEmpty then known
+      else loopMapSet (known ++ newly) fuel
+  let mapSetTypes := loopMapSet directMapSetUsers structs.length
   uniqueModNames.map fun modName =>
     let modEnums := enums.filter
       (rustModuleNameOf ·.leanModule == modName)
@@ -1277,7 +1313,8 @@ def buildModules
     let modCtx := { ctx with
       currentModule := modName }
     let items :=
-      modStructs.flatMap (·.structDef.toRustItems) ++
+      modStructs.flatMap
+        (·.structDef.toRustItemsWith mapSetTypes) ++
       modEnums.map (·.enumDef.toRustItem) ++
       modAliases.map (·.aliasDef.toRustItem) ++
       modFns.map

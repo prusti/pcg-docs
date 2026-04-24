@@ -203,6 +203,10 @@ use formal_mir::place::*;
 use formal_mir::ty::Ty;
 use crate::value::*;
 ")
+  , ("OpSem", "stackframe", .raw
+"use formal_mir::body::*;
+use formal_mir::place::*;
+")
   , ("OpSem", "statements", .raw
 "use formal_mir::ty::Ty;
 ")

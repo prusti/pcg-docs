@@ -318,6 +318,12 @@ structure LeanBinder where
 structure LeanField where
   name : String
   type : LeanTy
+  /-- True when this field's type transitively contains a
+      `Map`/`Set` (either directly or through a struct that
+      does). Used by the struct renderer to suppress
+      `BEq`/`Hashable` derives when the `HashMap`/`HashSet`
+      runtime representation does not satisfy them. -/
+  usesMapSet : Bool := false
   deriving Inhabited
 
 /-- A constructor of an `inductive`. -/
@@ -458,13 +464,16 @@ partial def LeanDecl.toString : LeanDecl → String
   | .structure_ name typeParams fields =>
     let fieldStrs := fields.map renderField
     let usesMap := fields.any fun f =>
-      (f.type.toString).find? "HashMap" |>.isSome
+      f.usesMapSet ||
+      ((f.type.toString).find? "HashMap" |>.isSome)
     let usesSet := fields.any fun f =>
-      let s := f.type.toString
-      -- `HashSet T` from Runtime.Set; surface tokens match
-      -- the `Set T`/`HashSet T` forms we may render.
-      s.splitOn " " |>.any fun tok =>
-        tok == "HashSet" || tok == "Set"
+      if f.usesMapSet then true
+      else
+        let s := f.type.toString
+        -- `HashSet T` from Runtime.Set; surface tokens match
+        -- the `Set T`/`HashSet T` forms we may render.
+        s.splitOn " " |>.any fun tok =>
+          tok == "HashSet" || tok == "Set"
     let needsHashBounds := usesMap || usesSet
     -- Generic structs may hold fields whose types are generic
     -- inductives that don't derive `Inhabited` (e.g.

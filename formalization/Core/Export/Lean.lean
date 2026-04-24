@@ -74,6 +74,17 @@ partial def usesSet : DSLType → Bool
   | .arrow a b => a.usesSet || b.usesSet
   | _ => false
 
+/-- Whether this type uses `Map`. -/
+partial def usesMap : DSLType → Bool
+  | .map _ _ => true
+  | .app _ args => args.any usesMap
+  | .option t => t.usesMap
+  | .list t => t.usesMap
+  | .set t => t.usesMap
+  | .tuple ts => ts.any usesMap
+  | .arrow a b => a.usesMap || b.usesMap
+  | _ => false
+
 end DSLType
 
 namespace FieldDef
@@ -240,10 +251,23 @@ end FnBody
 
 namespace StructDef
 
+/-- Lower a struct definition to a `LeanDecl`. `mapSetTypes`
+    names struct types that transitively hold a `Map`/`Set`;
+    any field referencing one such type is flagged via
+    `LeanField.usesMapSet` so the renderer can suppress
+    `BEq`/`Hashable` derives. -/
+def toLeanASTWith (s : StructDef)
+    (mapSetTypes : List String) : LeanDecl :=
+  .structure_ s.name s.typeParams <| s.fields.map fun f =>
+    let fieldUsesMapSet :=
+      f.ty.usesMap || f.ty.usesSet ||
+      f.ty.namedTypes.any (fun n => mapSetTypes.contains n)
+    { name := f.name, type := f.ty.toLeanAST,
+      usesMapSet := fieldUsesMapSet }
+
 /-- Lower a struct definition to a `LeanDecl`. -/
 def toLeanAST (s : StructDef) : LeanDecl :=
-  .structure_ s.name s.typeParams <| s.fields.map fun f =>
-    { name := f.name, type := f.ty.toLeanAST }
+  s.toLeanASTWith []
 
 /-- Render a struct definition to Lean syntax. -/
 def toLean (s : StructDef) : String :=

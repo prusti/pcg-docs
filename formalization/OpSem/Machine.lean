@@ -1,5 +1,6 @@
 import OpSem.Memory
 import OpSem.RuntimePlace
+import OpSem.Thread
 import OpSem.Value
 import OpSem.Decode
 import MIR.Body
@@ -7,16 +8,26 @@ import Core.Dsl.DefFn
 
 defStruct Machine (.raw "\\mu", .doc (.plain "Machine"))
   "Machines"
-  (.plain "A machine state: a function body, program counter, \
-   and memory.")
+  (.seq [
+    .plain "A machine state ",
+    Doc.defMath (.raw "\\mu") (.doc (.plain "Machine")),
+    .plain " bundles the single-threaded execution context \
+     and the shared memory. Per-call state — the function \
+     body, program counter, and local pointer map — lives on \
+     the thread's current stack frame."])
 where
-  | body "The function body." : Body
-  | pc "The program counter." : Location
-  | locals "The local variable pointers." : Map Local ThinPointer
+  | thread "The single thread of execution." : Thread
   | mem "The memory." : Memory
   deriving Repr
 
 namespace Machine
+
+defFn currentFrame (.plain "currentFrame")
+  (.plain "The currently executing stack frame, i.e. the head \
+    of the thread's call stack.")
+  (m "The machine state." : Machine)
+  : Option StackFrame :=
+    m↦thread↦stackFrames·head?
 
 defFn evalConstant (.plain "evalConstant")
   (.plain "Convert a compile-time constant to a runtime value.")
