@@ -4,6 +4,7 @@ import PCG.Edges
 import PCG.Nodes
 import PCG.PcgData
 import PCG.PlaceCapability
+import PCG.PlaceTriple
 import PCG.ValidityConditions
 import MIR
 import OpSem

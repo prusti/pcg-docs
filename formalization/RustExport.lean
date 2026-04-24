@@ -2,6 +2,7 @@ import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges
 import PCG.Nodes
+import PCG.PlaceTriple
 import PCG.ValidityConditions
 import MIR
 import OpSem
@@ -32,6 +33,9 @@ use crate::maybelabelledplace::MaybeLabelledPlace;
   , ("PCG", "pcgplace", .raw
 "use formal_mir::place::Local;
 use crate::maybelabelledplace::MaybeLabelledPlace;
+")
+  , ("PCG", "placetriple", .raw
+"use formal_mir::place::Place;
 ")
   , ("PCG", "pcglifetimeprojectionbase", .raw
 "use formal_mir::constvalue::ConstValue;

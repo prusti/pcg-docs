@@ -8,6 +8,7 @@ import PCG.Owned
 import PCG.PcgData
 import PCG.PlaceCapability
 import PCG.PlaceExpansion
+import PCG.PlaceTriple
 import PCG.RequiredGuide
 import PCG.ValidityConditions
 import MIR
