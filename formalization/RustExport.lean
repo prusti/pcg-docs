@@ -154,10 +154,8 @@ pub fn list_drop<T: Clone>(n: &usize, xs: &[T]) -> Vec<T> {
 }
 ")
   , ("OpSem", "decode", .raw
-"use formal_mir::ty::{size_bytes, IntType, IntValue, Size, Ty};
+"use formal_mir::ty::{size_bytes, IntType, IntValue, Ty};
 use formal_mir::constvalue::*;
-use crate::abstractbyte::AbstractByte::*;
-use crate::value::*;
 
 pub fn encode_le_unsigned(n: &usize, num_bytes: &usize) -> Vec<AbstractByte> {
     let mut out = Vec::with_capacity(*num_bytes);
@@ -201,7 +199,11 @@ pub fn map_get<'a, K: Eq + std::hash::Hash, V>(m: &'a std::collections::HashMap<
 use formal_mir::constvalue::*;
 use formal_mir::place::*;
 use formal_mir::ty::Ty;
-use crate::value::*;
+
+pub fn map_empty<K: Eq + std::hash::Hash, V>()
+    -> std::collections::HashMap<K, V> {
+    std::collections::HashMap::new()
+}
 ")
   , ("OpSem", "stackframe", .raw
 "use formal_mir::body::*;
@@ -277,7 +279,8 @@ def buildCrate
       for the PCG formalization."
     edition := "2021"
     crateAttrs := ["allow(unused_parens)",
-                   "allow(unreachable_patterns)"]
+                   "allow(unreachable_patterns)",
+                   "allow(unused_variables)"]
     deps := deps
     reexports := reexports
     modules := buildModules crateEnums crateStructs

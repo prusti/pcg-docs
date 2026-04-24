@@ -65,4 +65,63 @@ defFn typedStore (.plain "typedStore")
   : Memory :=
     Memory.store ‹m, ptr, encode ‹v››
 
+defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
+  (.seq [.plain "Per-argument helper for ", .code "createFrame",
+    .plain ": iterate the caller-provided value list with ",
+    .code "k", .plain " tracking the current callee local \
+    index (starting at 1 for the first argument). For each \
+    value, allocate the local's backing storage via ",
+    .code "StackFrame.storageLive",
+    .plain " and write the value into that allocation with ",
+    .code "typedStore", .plain ". Returns ", .code "None",
+    .plain " if any allocation fails."])
+  (args "The caller-provided argument values." : List Value)
+  (k "The current callee local index." : Nat)
+  (frame "The stack frame under construction." : StackFrame)
+  (mem "The memory state." : Memory)
+  : Option (StackFrame × Memory) where
+  | [] ; _ ; frame ; mem => Some ⟨frame, mem⟩
+  | v :: rest ; k ; frame ; mem =>
+      match StackFrame.storageLive ‹frame, mem, Local⟨k⟩› with
+      | .none => None
+      | .some ⟨frame1, mem1⟩ =>
+          match mapGet ‹frame1↦locals, Local⟨k⟩› with
+          | .none => None
+          | .some ptr =>
+              liveAndStoreArgs ‹rest, k + 1, frame1,
+                typedStore ‹mem1, ptr, v››
+          end
+      end
+
+defFn createFrame (.plain "createFrame")
+  (.seq [.plain "Build a fresh stack frame for a call into ",
+    .code "body", .plain " and push it onto the thread's \
+    call stack. Allocates the return place (local 0) and \
+    each argument local via ", .code "StackFrame.storageLive",
+    .plain ", then writes the caller-provided argument \
+    values into those allocations with ", .code "typedStore",
+    .plain ". The program counter starts at statement 0 of \
+    basic block 0. Returns ", .code "None",
+    .plain " if any allocation fails. ABI, calling \
+    convention, and stack-pop-action handling from MiniRust's ",
+    .code "create_frame", .plain " are intentionally not \
+    modelled here."])
+  (m "The machine state." : Machine)
+  (body "The function body being called." : Body)
+  (args "The caller-provided argument values." : List Value)
+  : Option Machine :=
+    let initFrame := StackFrame⟨body,
+      Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
+    match StackFrame.storageLive ‹initFrame, m↦mem, Local⟨0⟩› with
+    | .none => None
+    | .some ⟨frame1, mem1⟩ =>
+        match liveAndStoreArgs ‹args, 1, frame1, mem1› with
+        | .none => None
+        | .some ⟨frame2, mem2⟩ =>
+            Some Machine⟨m↦program,
+              Thread⟨frame2 :: m↦thread↦stackFrames⟩,
+              mem2⟩
+        end
+    end
+
 end Machine
