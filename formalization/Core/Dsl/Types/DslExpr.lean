@@ -434,9 +434,22 @@ partial def toDoc
           else none
         | none => none
       | _ => none
-    match ctorCallDoc with
-    | some md => md
-    | none =>
+    -- A call of the form `<ns>.join a b` is rendered as
+    -- `a ∪ b` in math mode — for example a call to
+    -- `InitialisationState.join` inside `InitTree.join`'s
+    -- body, or a call to `ValidityConditions.join` inside
+    -- `BorrowsGraph.join`'s body.
+    let joinCupDoc : Option MathDoc := match fn, visibleArgs with
+      | .var n, [a, b] =>
+        let short := (n.splitOn ".").getLast?.getD n
+        if short == "join" then
+          some (.seq [renderArg a, .sym .cup, renderArg b])
+        else none
+      | _, _ => none
+    match ctorCallDoc, joinCupDoc with
+    | some md, _ => md
+    | _, some md => md
+    | none, none =>
       let fnDoc := match fn with
         | .var n => fnRef n
         | _ => go fn

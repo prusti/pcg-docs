@@ -1,4 +1,6 @@
+import Core.Dsl.DefFn
 import Core.Dsl.DefStruct
+import MIR.Place
 import PCG.Edges.PcgEdge
 import PCG.ValidityConditions
 
@@ -18,3 +20,22 @@ where
        conditions under which it holds."
       : Map (PcgEdge P) ValidityConditions
   deriving Repr
+
+namespace BorrowsGraph
+
+defFn join (.plain "join")
+  (.seq [
+    .plain "Join two borrows graphs by merging their edge \
+     maps. An edge present in only one graph is kept with its \
+     validity conditions unchanged; for edges present in both \
+     graphs the validity conditions are combined with ",
+    .code "ValidityConditions.join",
+    .plain " (pointwise ", .math (.sym .cup),
+    .plain " of the allowed-target sets per source block)."])
+  (bg1 "First borrows graph." : BorrowsGraph Place)
+  (bg2 "Second borrows graph." : BorrowsGraph Place)
+  : BorrowsGraph Place :=
+    BorrowsGraph⟨mapMergeWith ‹ValidityConditions.join,
+      bg1↦edges, bg2↦edges›⟩
+
+end BorrowsGraph

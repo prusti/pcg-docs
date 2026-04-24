@@ -97,8 +97,8 @@ defFn singleton (.plain "singleton")
     ValidityConditions⟨
       mapSingleton ‹d↦source, ⦃d↦target⦄›⟩
 
-defFn union (.plain "union")
-  (.plain "Pointwise union of two validity conditions: for \
+defFn join (.plain "join")
+  (.plain "Pointwise join of two validity conditions: for \
     every source block, the allowed-target set is the union \
     of the two operands' allowed-target sets at that source.")
   (pc1 "First validity conditions." : ValidityConditions)

@@ -253,8 +253,19 @@ def buildCrate
     (·.leanModule.getRoot.toString == prefix_)
   let crateAliases := aliases.filter
     (·.leanModule.getRoot.toString == prefix_)
-  let crateFns := fns.filter
-    (·.leanModule.getRoot.toString == prefix_)
+  -- Functions whose body uses constructs the Rust exporter
+  -- doesn't (yet) lower faithfully — e.g. passing a
+  -- namespaced function as a first-class argument, or
+  -- constructing a generic-parameterised struct via its
+  -- record-literal shorthand. The Lean and LaTeX versions
+  -- remain the authoritative ones until the exporter can
+  -- translate these forms itself.
+  let rustUnsupported : List (Lean.Name × String) :=
+    [(`PCG.BorrowsGraph, "join")]
+  let crateFns := fns.filter fun f =>
+    f.leanModule.getRoot.toString == prefix_ &&
+      !rustUnsupported.contains
+        (f.leanModule, f.fnDef.name)
   let crateProps := properties.filter
     (·.leanModule.getRoot.toString == prefix_)
   let extras := extraItems.filterMap fun (p, m, item) =>

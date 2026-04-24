@@ -42,3 +42,13 @@ def mapUnionSets {κ α : Type} [BEq κ] [Hashable κ]
     match acc.get? k with
     | some v' => acc.insert k (v'.union v)
     | none => acc.insert k v) m₁
+
+/-- Merge two maps, combining the values of shared keys with
+    `f`. Keys present in only one map are kept with their
+    existing value. -/
+def mapMergeWith {κ ν : Type} [BEq κ] [Hashable κ]
+    (f : ν → ν → ν) (m₁ m₂ : Map κ ν) : Map κ ν :=
+  m₂.fold (fun acc k v =>
+    match acc.get? k with
+    | some v' => acc.insert k (f v' v)
+    | none => acc.insert k v) m₁
