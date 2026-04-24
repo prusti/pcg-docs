@@ -194,6 +194,13 @@ structure RustEnum where
   /-- Generic type parameters (e.g. `["P"]` for
       `enum Foo<P>`). Empty means non-generic. -/
   generics : List RustIdent := []
+  /-- Per-type-parameter trait bounds (parallel to
+      `generics`). Each entry is the list of bound paths for
+      the corresponding parameter, e.g.
+      `[["std::cmp::Eq", "std::hash::Hash"]]` to render
+      `enum Foo<P: std::cmp::Eq + std::hash::Hash>`. Empty
+      list (or per-param empty list) means no bounds. -/
+  genericBounds : List (List String) := []
   variants : List RustVariant
   deriving Repr
 

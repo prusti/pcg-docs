@@ -172,6 +172,16 @@ private def buildArgRef
       let ref := mkIdent
         (tnName ++ `aliasDef ++ `symbolDoc)
       `(DisplayPart.arg $ns $ref)
+    else if ["Set", "List", "Option", "Map", "Nat",
+             "Bool", "Int", "String"].contains head then
+      -- DSL primitive container or scalar (`Set P`, `List X`,
+      -- `Option Y`, `Map K V`, `Nat`, …): no registered
+      -- `symbolDoc` exists, so fall back to rendering the
+      -- argument by its name in the variant's default
+      -- display template.
+      let raw : TSyntax `term := quote argName
+      `(DisplayPart.arg $ns
+          (MathDoc.doc (Doc.plain $raw)))
     else
       throwError
         s!"defEnum: no enumDef, structDef, or aliasDef \
@@ -276,11 +286,44 @@ private def elabDefEnum
     if isGeneric then
       -- Generic inductives embed `deriving` in the
       -- declaration and take `(P : Type)` binders for
-      -- each parameter.
+      -- each parameter. When a variant argument uses `Map`
+      -- or `Set` (which expand to `Std.HashMap`/
+      -- `Std.HashSet`, whose element type requires `BEq` and
+      -- `Hashable`), append `[BEq P] [Hashable P]` instance
+      -- binders so the generated inductive type-checks under
+      -- `autoImplicit := false` — mirroring `defStruct`.
+      let propagating ← hashPropagatingTypes.get
+      let argsUseHash := varData.any fun (_, args, _, _) =>
+        args.any fun a => match a with
+          | `(enumVariantArg| ($_:ident : $t:term)) =>
+            let typeStr :=
+              if t.raw.isIdent then toString t.raw.getId
+              else t.raw.reprint.getD (toString t)
+            let chars := typeStr.toList.map fun c =>
+              if c == '(' || c == ')' then ' ' else c
+            let tokens : List String :=
+              String.mk chars
+                |>.splitOn " "
+                |>.filter (· != "")
+            tokens.any fun tok =>
+              tok == "Map" || tok == "Set" ||
+                propagating.contains tok
+          | _ => false
       let tpBinders : Array (TSyntax ``Lean.Parser.Term.bracketedBinder)
-        ← typeParamNames.toArray.mapM fun p => do
-          let pId := mkIdent (Name.mkSimple p)
-          `(Lean.Parser.Term.bracketedBinderF| ($pId : Type))
+        ← typeParamNames.toArray.foldlM
+            (init := #[]) fun acc p => do
+              let pId := mkIdent (Name.mkSimple p)
+              let typeBinder ← `(Lean.Parser.Term.bracketedBinderF|
+                ($pId : Type))
+              if argsUseHash then
+                let beq ← `(Lean.Parser.Term.bracketedBinderF|
+                  [BEq $pId])
+                let hash ← `(Lean.Parser.Term.bracketedBinderF|
+                  [Hashable $pId])
+                pure (acc.push typeBinder |>.push beq
+                          |>.push hash)
+              else
+                pure (acc.push typeBinder)
       let derivIds : Array Ident := match derivs with
         | some ds => ds.getElems
         | none => #[mkIdent `DecidableEq,
@@ -379,6 +422,37 @@ private def elabDefEnum
     let modName : TSyntax `term := quote mod
     elabCommand (← `(command|
       initialize registerEnumDef $defName $modName))
+    -- A generic enum that uses `Map`/`Set` (directly or
+    -- transitively, via a previously-registered hash-
+    -- propagating type) propagates `BEq`/`Hashable`
+    -- constraints to its type parameters; record this so
+    -- downstream `defStruct` / `defEnum` declarations
+    -- referencing this enum drag in the same constraints.
+    -- Recorded via an `initialize` block so the registration
+    -- survives across module loads.
+    if isGeneric then
+      let propagating ← hashPropagatingTypes.get
+      let argsUseHash := varData.any fun (_, args, _, _) =>
+        args.any fun a => match a with
+          | `(enumVariantArg| ($_:ident : $t:term)) =>
+            let typeStr :=
+              if t.raw.isIdent then toString t.raw.getId
+              else t.raw.reprint.getD (toString t)
+            let chars := typeStr.toList.map fun c =>
+              if c == '(' || c == ')' then ' ' else c
+            let tokens : List String :=
+              String.mk chars
+                |>.splitOn " "
+                |>.filter (· != "")
+            tokens.any fun tok =>
+              tok == "Map" || tok == "Set" ||
+                propagating.contains tok
+          | _ => false
+      if argsUseHash then
+        let nameTerm : TSyntax `term :=
+          quote (toString name.getId)
+        elabCommand (← `(command|
+          initialize registerHashPropagating $nameTerm))
 
 open Lean Elab Command in
 elab_rules : command

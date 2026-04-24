@@ -6,6 +6,7 @@ import PCG.Obtain
 import PCG.PcgData
 import PCG.PlaceCapability
 import PCG.PlaceTriple
+import PCG.TransientState
 import PCG.ValidityConditions
 import MIR
 import OpSem
@@ -245,6 +246,20 @@ private def topoSort
           (acc.filter (·.1 != tag)) ++ [(tag, ns ++ [n])]
         | none => acc ++ [(tag, [n])]
       | _, _ => acc
+  let isReady (item : LeanDefItem) (emitted : List String)
+      : Bool :=
+    let selfName := getName item
+    let ownGroup : List String :=
+      match item.mutualGroupTag with
+      | some tag =>
+        (groupMembers.find? (·.1 == tag)).map
+          (·.2) |>.getD []
+      | none => []
+    let refs := getRefs item
+    refs.all fun r =>
+      selfName == some r ||
+      emitted.contains r || !defined.contains r ||
+      ownGroup.contains r
   let rec go
       (remaining : List LeanDefItem)
       (emitted : List String)
@@ -256,20 +271,20 @@ private def topoSort
     | fuel + 1 =>
       if remaining.isEmpty then acc
       else
+        -- A mutual-group item only becomes ready when every
+        -- member of its group is ready, so the entire group
+        -- can be emitted contiguously and `groupByMutual`
+        -- can wrap them in a single `mutual … end` block.
+        let groupReady (tag : String) : Bool :=
+          remaining.all fun other =>
+            other.mutualGroupTag != some tag ||
+              isReady other emitted
         let (ready, blocked) := remaining.partition
           fun item =>
-            let selfName := getName item
-            let ownGroup : List String :=
-              match item.mutualGroupTag with
-              | some tag =>
-                (groupMembers.find? (·.1 == tag)).map
-                  (·.2) |>.getD []
-              | none => []
-            let refs := getRefs item
-            refs.all fun r =>
-              selfName == some r ||
-              emitted.contains r || !defined.contains r ||
-              ownGroup.contains r
+            isReady item emitted &&
+              (match item.mutualGroupTag with
+               | some tag => groupReady tag
+               | none => true)
         if ready.isEmpty then acc ++ remaining
         else
           let newEmitted := emitted ++

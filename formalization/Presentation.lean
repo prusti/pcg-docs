@@ -11,6 +11,7 @@ import PCG.PlaceCapability
 import PCG.PlaceExpansion
 import PCG.PlaceTriple
 import PCG.RequiredGuide
+import PCG.TransientState
 import PCG.ValidityConditions
 import MIR
 import Core.Dsl.Types.OrderDef

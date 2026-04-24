@@ -86,15 +86,27 @@ private def elabDefStruct
     -- `Map K V` / `Set T` expand to `Std.HashMap` /
     -- `Std.HashSet`, whose `κ` / `α` require `BEq` and
     -- `Hashable`. When a generic struct uses either in a
-    -- field type, emit the same constraints on every type
-    -- parameter so the generated structure type-checks under
-    -- `autoImplicit := false`.
+    -- field type — or a generic type already known to
+    -- propagate those constraints — emit the same
+    -- constraints on every type parameter so the generated
+    -- structure type-checks under `autoImplicit := false`.
+    let propagating ← hashPropagatingTypes.get
+    let typeTokens (s : String) : List String :=
+      -- Split on spaces and parens so that `Option
+      -- (TransientState P)` produces `["Option",
+      -- "TransientState", "P"]`.
+      let chars := s.toList.map fun c =>
+        if c == '(' || c == ')' then ' ' else c
+      String.mk chars
+        |>.splitOn " "
+        |>.filter (· != "")
     let fieldsUseHash := fieldData.any fun (_, ft, _) =>
       let typeStr :=
         if ft.isIdent then toString ft.getId
         else ft.reprint.getD (toString ft)
-      typeStr.splitOn " " |>.any fun tok =>
-        tok == "Map" || tok == "Set"
+      typeTokens typeStr |>.any fun tok =>
+        tok == "Map" || tok == "Set" ||
+          propagating.contains tok
     -- Type-parameter binders for generic structures. When
     -- fields use `Map` / `Set`, append `[BEq P] [Hashable P]`
     -- instance binders after each `(P : Type)`.
@@ -210,6 +222,18 @@ private def elabDefStruct
     let modName : TSyntax `term := quote mod
     elabCommand (← `(command|
       initialize registerStructDef $sdId $modName))
+    -- A generic struct that uses `Map`/`Set` (directly or
+    -- transitively) propagates `BEq`/`Hashable` constraints
+    -- to its type parameters, so anything mentioning this
+    -- type as a field component must do likewise. Recorded
+    -- in an `initialize` block so the registration survives
+    -- across module loads (the IO.Ref state persists through
+    -- `import`).
+    if isGeneric && fieldsUseHash then
+      let nameTerm : TSyntax `term :=
+        quote (toString name.getId)
+      elabCommand (← `(command|
+        initialize registerHashPropagating $nameTerm))
 
 open Lean Elab Command in
 elab_rules : command

@@ -166,7 +166,8 @@ defFn obtain (.plain "obtain")
   : Option (PcgData Place) where
   | pd ; p ; .write =>
       let newOs ← obtainWriteOwned ‹pd↦ownedState, p› ;
-      Some (PcgData⟨pd↦bg, newOs, pd↦basicBlock, pd↦readPlaces⟩)
+      Some (PcgData⟨pd↦bg, newOs, pd↦basicBlock,
+              pd↦transientState⟩)
   | _ ; _ ; _ => None
 
 end PcgData

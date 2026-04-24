@@ -3,6 +3,7 @@ import PCG.Capability.Order
 import PCG.Edges
 import PCG.Nodes
 import PCG.PlaceTriple
+import PCG.TransientState
 import PCG.ValidityConditions
 import MIR
 import OpSem
@@ -49,6 +50,9 @@ use crate::maybelabelledplace::MaybeLabelledPlace;
 ")
   , ("PCG", "placetriple", .raw
 "use formal_mir::place::Place;
+")
+  , ("PCG", "transientstate", .raw
+"use std::collections::HashSet;
 ")
   , ("PCG", "pcglifetimeprojectionbase", .raw
 "use formal_mir::constvalue::ConstValue;

@@ -58,6 +58,22 @@ partial def LeanTy.toString : LeanTy → String
 
 end
 
+/-- Whether this `LeanTy` mentions the `Map` or `Set`
+    abbreviations anywhere in its tree. Used by the
+    `inductive` renderer to decide whether a generic enum
+    should add `[BEq P] [Hashable P]` constraints. -/
+partial def LeanTy.usesHashContainer : LeanTy → Bool
+  | .const _ => false
+  | .app head arg =>
+    head == "Set" || head == "Map" || head == "Std.HashSet"
+      || head == "Std.HashMap" || arg.usesHashContainer
+  | .app2 head a b =>
+    head == "Map" || head == "Std.HashMap"
+      || a.usesHashContainer || b.usesHashContainer
+  | .appN _ args => args.any usesHashContainer
+  | .arrow a b => a.usesHashContainer || b.usesHashContainer
+  | .product ts => ts.any usesHashContainer
+
 instance : ToString LeanTy := ⟨LeanTy.toString⟩
 
 -- ══════════════════════════════════════════════
@@ -503,14 +519,29 @@ partial def LeanDecl.toString : LeanDecl → String
        deriving {derives}"
   | .inductive_ name typeParams ctors =>
     let ctorStrs := ctors.map renderCtor
+    -- A ctor whose argument type mentions `Map`/`Set` (or
+    -- their `Std.HashMap`/`Std.HashSet` runtime forms) drags
+    -- `BEq`/`Hashable` constraints onto every type parameter,
+    -- so the type-parameter binders must reflect that — and
+    -- the `Repr` derive can't piggy-back on `BEq` because
+    -- `HashSet`/`HashMap` themselves don't derive it.
+    let usesHash := ctors.any fun c =>
+      c.args.any fun a => a.type.usesHashContainer
     let tpStr :=
       if typeParams.isEmpty then ""
-      else " " ++ " ".intercalate
-        (typeParams.map fun p => s!"({p} : Type)")
+      else
+        let binders := typeParams.map fun p =>
+          if usesHash then
+            s!"({p} : Type) [BEq {p}] [Hashable {p}]"
+          else s!"({p} : Type)"
+        " " ++ " ".intercalate binders
     -- Generic inductives can't derive `Inhabited` without
     -- knowing the parameters are inhabited, so omit it.
-    let derives := if typeParams.isEmpty
-      then "Repr, BEq, Hashable, Inhabited"
+    let derives :=
+      if usesHash then
+        if typeParams.isEmpty then "Repr, Inhabited" else "Repr"
+      else if typeParams.isEmpty then
+        "Repr, BEq, Hashable, Inhabited"
       else "Repr, BEq, Hashable"
     s!"inductive {name}{tpStr} where\n\
        {"\n".intercalate ctorStrs}\n\

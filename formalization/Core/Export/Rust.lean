@@ -367,7 +367,7 @@ namespace RustEnum
 def render (e : RustEnum) : String :=
   let attrLines := e.attrs.map (·.render ++ "\n")
   let variantLines := e.variants.map renderVariant
-  let gen := renderGenerics e.generics
+  let gen := renderGenericsWithBounds e.generics e.genericBounds
   s!"/// {e.doc}\n\
      {String.join attrLines}\
      {e.vis.render}enum {e.name.val}{gen} \{\n\
@@ -627,12 +627,31 @@ namespace EnumDef
     Variant arguments become tuple fields. Self-referential
     fields are wrapped in `Box<>`. -/
 def toRustItem (d : EnumDef) : RustItem :=
+  -- A variant argument that uses `Map`/`Set` (lowering to
+  -- `HashMap`/`HashSet`) breaks the default `Hash` derive and
+  -- — for generic enums — requires `Eq + Hash` bounds on each
+  -- type parameter for the `PartialEq`/`Eq` derives to
+  -- type-check. Mirrors the `defStruct` logic.
+  let argUsesMapSet (a : ArgDef) : Bool :=
+    a.type.usesMap || a.type.usesSet
+  let hasUnhashable := d.variants.any fun v =>
+    v.args.any argUsesMapSet
+  let isGeneric := !d.typeParams.isEmpty
+  let derives := if hasUnhashable
+    then defaultRustDerives.filter (·.val != "Hash")
+    else defaultRustDerives
+  let bounds : List (List String) :=
+    if hasUnhashable && isGeneric then
+      d.typeParams.map fun _ =>
+        ["std::cmp::Eq", "std::hash::Hash"]
+    else []
   .enum {
     doc := d.doc.toPlainText
-    attrs := [.derive defaultRustDerives]
+    attrs := [.derive derives]
     vis := .pub
     name := ⟨d.name.name⟩
     generics := d.typeParams.map (⟨·⟩)
+    genericBounds := bounds
     variants := d.variants.map fun v =>
       { doc := v.doc.toPlainText
         name := ⟨capitalise v.name.name⟩

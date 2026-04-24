@@ -30,6 +30,24 @@ initialize enumRegistry : IO.Ref (List RegisteredEnum) ←
 initialize structRegistry : IO.Ref (List RegisteredStruct) ←
   IO.mkRef []
 
+/-- Generic-type names whose type parameters must carry
+    `BEq` and `Hashable` instances (directly, because a field
+    or variant uses `Map` / `Set`, or transitively, because a
+    field or variant references another type already in this
+    list). Populated by `defStruct` / `defEnum` when they
+    detect such usage, and read by both commands when
+    deciding whether a new generic type's fields drag in
+    those constraints. -/
+initialize hashPropagatingTypes : IO.Ref (List String) ←
+  IO.mkRef []
+
+/-- Record that `name` is a generic type whose parameters
+    must carry `BEq` and `Hashable` constraints. Idempotent. -/
+def registerHashPropagating (name : String) : IO Unit := do
+  let cur ← hashPropagatingTypes.get
+  unless cur.contains name do
+    hashPropagatingTypes.set (cur ++ [name])
+
 /-- Registry mapping symbol strings to the type name that
     claimed them, for duplicate detection. -/
 initialize symbolRegistry :

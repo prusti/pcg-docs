@@ -164,6 +164,22 @@ defFn isPrefixOfReadPlace (.plain "isPrefixOfReadPlace")
   : Bool :=
   reads·toList·any fun q => isPrefixOfPlace ‹p, q›
 
+defFn isPrefixOfTransientReadPlace
+    (.plain "isPrefixOfTransientReadPlace")
+  (.seq [.plain "Whether a place is a prefix of some place in \
+    the transient read set carried by the optional ",
+    .code "TransientState",
+    .plain ". Returns ", .code "false",
+    .plain " when the transient place is absent or carries a \
+    write-borrowed place rather than a read-place set."])
+  (tp "The optional transient place."
+      : Option (TransientState Place))
+  (p "The candidate prefix." : Place)
+  : Bool where
+  | .some (.readPlaces reads) ; p =>
+      isPrefixOfReadPlace ‹reads, p›
+  | _ ; _ => false
+
 -- ══════════════════════════════════════════════
 -- Top-level capability lookup
 -- ══════════════════════════════════════════════
@@ -182,8 +198,9 @@ defFn getCapability (.plain "getCapability")
     .math (.bold (.raw "R")),
     .plain " when it projects from a shared reference, (4) \
     return ", .math (.bold (.raw "R")),
-    .plain " when it is a prefix of some place in ",
-    .code "readPlaces", .plain ", otherwise (5) ",
+    .plain " when it is a prefix of some place in the \
+    transient read-place set carried by ",
+    .code "transientState", .plain ", otherwise (5) ",
     .math (.bold (.raw "E")), .plain "."])
   (pd "The PCG data." : PcgData Place)
   (p "The place whose capability is requested." : Place)
@@ -208,7 +225,8 @@ defFn getCapability (.plain "getCapability")
       | .none =>
           if BorrowsGraph.projectsSharedBorrow ‹pd↦bg, p› then
             Some Capability.read
-          else if isPrefixOfReadPlace ‹pd↦readPlaces, p› then
+          else if isPrefixOfTransientReadPlace
+              ‹pd↦transientState, p› then
             Some Capability.read
           else
             Some Capability.exclusive

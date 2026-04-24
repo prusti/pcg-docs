@@ -8,6 +8,7 @@ import PCG.EvalStmtPhase
 import PCG.Nodes.PcgNode
 import PCG.Owned.InitTree
 import PCG.Owned.OwnedState
+import PCG.TransientState
 
 defStruct PcgData {P}
     (.doc (.plain "pd"), .doc (.plain "PcgData"))
@@ -18,7 +19,9 @@ defStruct PcgData {P}
       (.doc (.plain "PcgData")) ["P"],
     .plain " bundles the per-program-point state tracked by \
      the PCG: the borrows graph, the owned state, the current \
-     basic block, and the set of places read at this point."])
+     basic block, and an optional ", .code "TransientState",
+    .plain " carrying either the set of places read at this \
+     point or a single write-borrowed place."])
 where
   | bg "The borrows portion of the PCG."
       : BorrowsGraph P
@@ -26,8 +29,9 @@ where
       : OwnedState
   | basicBlock "The current basic block."
       : BasicBlockIdx
-  | readPlaces "The places read at this program point."
-      : Set P
+  | transientState "Transient read- or write-borrow side \
+      condition for this program point."
+      : Option (TransientState P)
   deriving Repr
 
 -- ══════════════════════════════════════════════
@@ -192,9 +196,10 @@ defFn join (.plain "join")
      owned states (per-local, via ", .code "OwnedState.join",
     .plain "), tag the result with ", .code "bb",
     .plain " as its current basic block, and reset ",
-    .code "readPlaces", .plain " to the empty set — read \
-    places are local to a single program point and do not \
-    propagate across joins."])
+    .code "transientState", .plain " to ", .code "None",
+    .plain " — the transient read/write-borrow side condition \
+    is local to a single program point and does not propagate \
+    across joins."])
   (pd1 "The first PCG data." : PcgData Place)
   (pd2 "The second PCG data." : PcgData Place)
   (bb "The basic block of the joined program point."
@@ -204,7 +209,7 @@ defFn join (.plain "join")
       BorrowsGraph.join ‹pd1↦bg, pd2↦bg›,
       OwnedState.join ‹pd1↦ownedState, pd2↦ownedState›,
       bb,
-      ∅⟩
+      None⟩
 
 defFn analyze (.plain "analyze")
   (.seq [
@@ -233,19 +238,34 @@ defFn analyze (.plain "analyze")
 
 end PcgData
 
+defFn transientReadPlaces (.plain "transientReadPlaces")
+  (.seq [.plain "Extract the read-place set from the optional \
+    transient place: returns the carried set when ",
+    .code "transientState", .plain " is ",
+    .code "TransientState.readPlaces",
+    .plain ", and the empty list otherwise (",
+    .code "None", .plain " or a write-borrowed place)."])
+  (tp "The optional transient place."
+      : Option (TransientState Place))
+  : List Place where
+  | .some (.readPlaces s) => s·toList
+  | _ => []
+
 defFn edges (.plain "edges")
   (.seq [.plain "All PCG hyperedges represented by the per-\
     program-point PCG data. The result is the union of three \
     sources: (1) unpack edges derived from the internal \
     structure of each allocated owned init tree, (2) unpack \
     edges materialising the tree further to reach every place \
-    in ", .code "readPlaces",
-    .plain " and every owned place blocked by a deref edge, \
+    in the transient read-place set (when ",
+    .code "transientState", .plain " carries ",
+    .code "TransientState.readPlaces",
+    .plain ") and every owned place blocked by a deref edge, \
     and (3) every edge already recorded in the borrows graph."])
   (pd "The PCG data." : PcgData Place)
   : List (PcgEdge Place) :=
     let treeEdges := localsUnpackEdges ‹pd↦ownedState↦locals› ;
-    let targets := pd↦readPlaces·toList
+    let targets := transientReadPlaces ‹pd↦transientState›
       ++ BorrowsGraph.blockedCurrentPlaces ‹pd↦bg› ;
     let matEdges := targets·flatMap fun p => placeUnpackChain ‹p› ;
     let unpackEdges := (treeEdges ++ matEdges)
