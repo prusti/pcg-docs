@@ -238,15 +238,36 @@ partial def toDoc
       .doc (.link (.plain n) s!"#type:{n}")
     else ctorRef n
   let fnRef (fn : String) : MathDoc :=
-    -- Strip any namespace prefix (e.g. `Memory.store` →
-    -- `store`) so qualified calls still resolve to the
-    -- labelled function. Fall back to a constructor
-    -- reference (e.g. `Value.int`) when the name does
-    -- not match a known function.
+    -- Fn-reference resolution, in order:
+    --  (1) If the call is qualified (`X.y`) and `X.y` matches a
+    --      known `fn:` anchor, link to `#fn:X.y`. This handles
+    --      explicit qualifications at the call site.
+    --  (2) If the short name resolves to an unambiguous known
+    --      fn, link to `#fn:shortName`.
+    --  (3) If the short name is ambiguous, try to resolve it
+    --      against the enclosing function's module — a bare
+    --      `join` inside `PCG.Owned.InitTree` resolves to
+    --      `#fn:InitTree.join`. This is the best-effort
+    --      resolution for unqualified ambiguous calls.
+    --  (4) Otherwise fall back to a constructor reference.
     let shortName := (fn.splitOn ".").getLast?.getD fn
-    if ctx.knownFns shortName then
+    let mkLink (target : String) : MathDoc :=
       .doc (.link (.plain (Doc.fnNameDisplay fn))
-        s!"#fn:{shortName}")
+        s!"#fn:{target}")
+    if fn != shortName && ctx.knownFnAnchors fn then
+      mkLink fn
+    else if ctx.knownFns shortName && !ctx.ambiguousFns shortName then
+      mkLink shortName
+    else if ctx.knownFns shortName then
+      match ctx.currentFnModule with
+      | some mod =>
+        let candidate := s!"{mod}.{shortName}"
+        if ctx.knownFnAnchors candidate then
+          mkLink candidate
+        else
+          .doc (.underline .dashed (.plain (Doc.fnNameDisplay fn)))
+      | none =>
+        .doc (.underline .dashed (.plain (Doc.fnNameDisplay fn)))
     else ctorRef fn
   -- A trailing keyword like `let ` / `if ` / `match ` with
   -- a non-breaking space after the word.

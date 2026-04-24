@@ -181,11 +181,18 @@ private partial def exprLinesTop
           , Latex.state (.inlineMath (.seq [
               mkIndent depth, goExpr e ])) ]]
 
-/-- Render the function as a LaTeX algorithm. -/
+/-- Render the function as a LaTeX algorithm.
+
+    `labelKey` overrides the `\hypertarget` / `\label` key used
+    for this function's anchor. Callers pass a qualified key
+    (e.g. `"OwnedState.join"`) for functions whose short name
+    collides with another registered function; `none` falls
+    back to `f.name`. -/
 def formalDefLatex
     (f : FnDef)
     (ctx : RenderCtx := {})
     (isProperty : Bool := false)
+    (labelKey : Option String := none)
     : Latex :=
   let paramParts : List Latex := f.params.map fun p =>
     Latex.seq [.text p.name, .raw " : ",
@@ -381,10 +388,22 @@ def formalDefLatex
         -- (registered under the shared `fn:` label via
         -- `knownFns`).
         let nameMath : LatexMath :=
-          if ctx.knownFns pc.name then
-            .raw s!"\\text\{\\hyperref[fn:{pc.name}]\
+          let resolveAmbiguous : Option String :=
+            ctx.currentFnModule.bind fun mod =>
+              let candidate := s!"{mod}.{pc.name}"
+              if ctx.knownFnAnchors candidate then some candidate
+              else none
+          let mkHyperref (tgt : String) : LatexMath :=
+            .raw s!"\\text\{\\hyperref[fn:{tgt}]\
                     \{\\dashuline\{{pc.name}}}}"
-          else .escaped pc.name
+          if ctx.knownFns pc.name && !ctx.ambiguousFns pc.name then
+            mkHyperref pc.name
+          else match resolveAmbiguous with
+            | some tgt => mkHyperref tgt
+            | none =>
+              if ctx.knownFns pc.name then
+                .raw s!"\\text\{\\dashuline\{{pc.name}}}"
+              else .escaped pc.name
         .seq [ .raw "    "
              , Latex.require_ (.inlineMath
                  (.seq [nameMath
@@ -394,9 +413,10 @@ def formalDefLatex
   let descBlock : List Latex :=
     if f.doc.toPlainText.isEmpty then []
     else [.textit f.doc.toLatex, .newline]
+  let key := labelKey.getD f.name
   .env "algorithm" (.seq [
     Latex.caption caption, .newline,
-    .raw s!"\\hypertarget\{fn:{f.name}}\{}\\label\{fn:{f.name}}", .newline,
+    .raw s!"\\hypertarget\{fn:{key}}\{}\\label\{fn:{key}}", .newline,
     .seq descBlock,
     .env "algorithmic"
       (.seq [Latex.lines allLines, .newline]),

@@ -4,6 +4,7 @@ import PCG.Capability.Order
 import PCG.Edges
 import PCG.EvalStmtPhase
 import PCG.Nodes
+import PCG.Obtain
 import PCG.Owned
 import PCG.PcgData
 import PCG.PlaceCapability
@@ -161,11 +162,30 @@ private def moduleBodyLatex
             o.orderDef.hasseDiagram e.enumDef,
             .newline, .newline ]
     def_ :: orderParts
+  -- When a function's short name collides with another
+  -- registered function, tag its anchor with the module's last
+  -- segment (e.g. `OwnedState.join`) so each `\\label{fn:...}`
+  -- is unique.
+  let moduleLastSeg (m : Lean.Name) : String :=
+    m.components.getLast?.map toString |>.getD m.toString
+  let qualifiedLabelKey : Lean.Name → String → Option String :=
+    fun mod name =>
+      if ctx.ambiguousFns name then
+        some s!"{moduleLastSeg mod}.{name}"
+      else none
+  -- Per-fn ctx: sets `currentFnModule` so unqualified
+  -- ambiguous calls inside this fn's body resolve against the
+  -- enclosing module.
+  let ctxFor : Lean.Name → RenderCtx := fun mod =>
+    { ctx with currentFnModule := some (moduleLastSeg mod) }
   let fnParts := reg.fns.map fun f =>
-    Latex.seq [f.fnDef.formalDefLatex ctx,
+    Latex.seq [f.fnDef.formalDefLatex (ctxFor f.leanModule) false
+                 (qualifiedLabelKey f.leanModule f.fnDef.name),
                .newline, .newline]
   let propParts := reg.properties.map fun p =>
-    Latex.seq [p.propertyDef.formalDefLatex ctx,
+    Latex.seq [p.propertyDef.formalDefLatex (ctxFor p.leanModule)
+                 (qualifiedLabelKey p.leanModule
+                   p.propertyDef.fnDef.name),
                .newline, .newline]
   let inductivePropParts :=
     reg.inductiveProperties.map fun p =>
@@ -209,6 +229,33 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
   let fnNameSet : List String :=
     reg.fns.map (·.fnDef.name)
       ++ reg.properties.map (·.propertyDef.fnDef.name)
+  -- Short names shared by two or more registered functions or
+  -- properties. These cannot resolve unambiguously to a single
+  -- `\\hypertarget{fn:...}`, so `formalDefLatex` qualifies the
+  -- label with the module's last segment (e.g.
+  -- `fn:InitTree.join`) and references resolve through
+  -- `DslExpr.fnRef`'s `knownFnAnchors` / `currentFnModule`
+  -- lookup rather than the bare short name.
+  let ambiguousFnNames : List String :=
+    fnNameSet.foldl (init := []) fun acc n =>
+      if fnNameSet.count n > 1 && !acc.contains n
+      then acc ++ [n] else acc
+  let moduleLastSegment (m : Lean.Name) : String :=
+    m.components.getLast?.map toString |>.getD m.toString
+  -- The set of strings that become `\\hypertarget{fn:...}`
+  -- anchors in the LaTeX output: the short name of every
+  -- unambiguous fn or property, and the qualified
+  -- `{moduleSegment}.{name}` of every ambiguous one.
+  let anchorKeyOf (leanMod : Lean.Name) (name : String)
+      : String :=
+    if ambiguousFnNames.contains name then
+      s!"{moduleLastSegment leanMod}.{name}"
+    else name
+  let knownAnchorSet : List String :=
+    (reg.fns.map fun f =>
+      anchorKeyOf f.leanModule f.fnDef.name) ++
+    (reg.properties.map fun p =>
+      anchorKeyOf p.leanModule p.propertyDef.fnDef.name)
   -- Build a table of `(shortName, qualifiedName)` pairs where
   -- the qualified name is `EnumName.variantName`. This is
   -- used to resolve constructor references to their
@@ -241,6 +288,8 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
   { ctorDisplay := mkCtorDisplay reg.enums
     variants := reg.enums.flatMap (·.enumDef.variants)
     knownFns := fun n => fnNameSet.contains n
+    ambiguousFns := fun n => ambiguousFnNames.contains n
+    knownFnAnchors := fun n => knownAnchorSet.contains n
     -- Resolve a constructor reference to its fully-qualified
     -- name. Accepts either short (`int`) or already-qualified
     -- (`Value.int`) forms. Returns `none` if the name does

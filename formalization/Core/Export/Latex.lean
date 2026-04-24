@@ -271,7 +271,7 @@ mutual
       s!"{lhs.render} {op} {rhs.render}"
     | .sub base subscript =>
       s!"{base.render}_\{{subscript.render}}"
-    | .cmd name => s!"\\{name}"
+    | .cmd name => s!"\\{name}\{}"
     | .delimited open_ close_ body =>
       s!"{open_}{body.render}{close_}"
     | .array align cols rows =>

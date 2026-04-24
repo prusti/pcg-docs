@@ -24,16 +24,21 @@ def defaultDoc (p : PropertyDef) : Doc :=
   p.doc (p.fnDef.params.map fun f => .plain f.name)
 
 /-- Render the property as a LaTeX definition
-    environment followed by an algorithm block. -/
+    environment followed by an algorithm block.
+
+    `labelKey` overrides the `\hypertarget` / `\label` key
+    used for the underlying function's anchor (see
+    `FnDef.formalDefLatex`). -/
 def formalDefLatex
     (p : PropertyDef)
     (ctx : RenderCtx := {})
+    (labelKey : Option String := none)
     : Latex :=
   let defBlock : Latex :=
     .envOpts "definition" (.text p.fnDef.name)
       (.seq [p.defaultDoc.toLatex, .newline])
   let algoBlock := p.fnDef.formalDefLatex ctx
-    (isProperty := true)
+    (isProperty := true) (labelKey := labelKey)
   .seq [defBlock, .newline, .newline, algoBlock]
 
 end PropertyDef
