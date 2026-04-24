@@ -125,6 +125,8 @@ syntax "| " fnPat " => " fnExpr : fnArm
 syntax "| " fnPat "; " fnPat " => " fnExpr : fnArm
 syntax "| " fnPat "; " fnPat "; " fnPat " => " fnExpr
     : fnArm
+syntax "| " fnPat "; " fnPat "; " fnPat "; " fnPat
+    " => " fnExpr : fnArm
 
 -- Match expression: match expr with | pat => expr end
 syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
@@ -398,6 +400,10 @@ partial def parseExpr
     let scrutAst ← parseExpr scrut
     let parsedArms ← arms.mapM fun arm =>
       match arm with
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+            $p4:fnPat => $rhs:fnExpr) => do
+        pure ([← parsePat p1, ← parsePat p2,
+          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
             => $rhs:fnExpr) => do
         pure ([← parsePat p1, ← parsePat p2,
@@ -583,6 +589,10 @@ elab_rules : command
           (parsePrecond ·.raw)
       | none => pure []
     let parsed ← arms.mapM fun arm => match arm with
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+            $p4:fnPat => $rhs:fnExpr) => do
+        pure (#[← parsePat p1, ← parsePat p2,
+          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
             => $rhs:fnExpr) => do
         pure (#[← parsePat p1, ← parsePat p2,
@@ -799,6 +809,10 @@ private def parseMutualEntry
         pcs.getElems.toList.mapM (parsePrecond ·.raw)
       | none => pure []
     let parsed ← arms.mapM fun arm => match arm with
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+            $p4:fnPat => $rhs:fnExpr) => do
+        pure (#[← parsePat p1, ← parsePat p2,
+          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
             => $rhs:fnExpr) => do
         pure (#[← parsePat p1, ← parsePat p2,

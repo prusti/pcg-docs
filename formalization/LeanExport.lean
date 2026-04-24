@@ -318,21 +318,29 @@ private def typeToModuleMap
       item.definedTypeName.map (·, mod)
 
 /-- Compute the imports for a module based on its
-    type references. -/
+    type and function references. -/
 private def computeImports
     (mod : Lean.Name)
     (items : List LeanDefItem)
     (typeMap : List (String × Lean.Name))
+    (fnMap : List (String × Lean.Name) := [])
     : List Lean.Name :=
   let refdTypes := items.flatMap
     LeanDefItem.referencedNames
   let needsSet := items.any LeanDefItem.usesSet
   let mapHelpers := ["mapGet", "mapEmpty", "mapSingleton",
-                      "mapUnionSets"]
+                      "mapUnionSets", "mapInsert", "mapRemove"]
   let needsMap := mapHelpers.any refdTypes.contains
-  let depMods := refdTypes.filterMap fun tn =>
+  -- Lookup both by short name and by the last segment of a
+  -- qualified reference, so `Ty.layout` resolves via the `layout`
+  -- entry fnMap registers.
+  let shortName (n : String) : String :=
+    (n.splitOn ".").getLast?.getD n
+  let typeDeps := refdTypes.filterMap fun tn =>
     typeMap.find? (·.1 == tn) |>.map (·.2)
-  let depMods := depMods.filter (· != mod)
+  let fnDeps := refdTypes.filterMap fun fn =>
+    fnMap.find? (·.1 == shortName fn) |>.map (·.2)
+  let depMods := (typeDeps ++ fnDeps).filter (· != mod)
   let unique := depMods.foldl (init := [])
     fun acc m => if acc.contains m then acc
       else acc ++ [m]
@@ -514,6 +522,12 @@ def main (args : List String) : IO Unit := do
   let aliasNames := aliases.map (·.aliasDef.name)
   let nsMap := fnNamespaceMap modules allTypes aliasNames
   let mapSetTypes := computeMapSetTypes structs
+  -- Map every registered function name to the module it lives
+  -- in so `computeImports` can pull in cross-module callees.
+  let fnMap : List (String × Lean.Name) :=
+    modules.flatMap fun (mod, items) =>
+      items.filterMap fun item =>
+        item.fnDef?.map fun f => (f.name, mod)
   -- Collect top-level lib names (e.g. MIR, PCG, OpSem)
   let topLibs := modules.map
     fun (m, _) => m.getRoot.toString
@@ -537,7 +551,7 @@ def main (args : List String) : IO Unit := do
         contents
   -- Write module files
   for (mod, items) in modules do
-    let imports := computeImports mod items typeMap
+    let imports := computeImports mod items typeMap fnMap
     let extrasFor (pos : ExtraPos) :=
       extraLeanItems.filterMap fun (m, p, code) =>
         if m == mod && p == pos then some code else none

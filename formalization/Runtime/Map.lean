@@ -11,6 +11,17 @@ def mapGet {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     (m : Map κ ν) (k : κ) : Option ν :=
   m.get? k
 
+/-- Insert or overwrite a key/value pair in a `Map`. -/
+def mapInsert {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
+    (m : Map κ ν) (k : κ) (v : ν) : Map κ ν :=
+  m.insert k v
+
+/-- Remove a key (and its value) from a `Map`. Returns
+    the map unchanged if the key is absent. -/
+def mapRemove {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
+    (m : Map κ ν) (k : κ) : Map κ ν :=
+  m.erase k
+
 /-- The empty map. -/
 def mapEmpty {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     : Map κ ν :=

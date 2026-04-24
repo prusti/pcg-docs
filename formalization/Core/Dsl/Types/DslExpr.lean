@@ -350,6 +350,14 @@ partial def toDoc
              (.seq [go b, .sym .mapsto, go c]) ]
   | .call (.var "mapGet") [a, b] =>
     .seq [go a, MathDoc.bracket (go b)]
+  | .call (.var "mapInsert") [a, b, c] =>
+    -- `mapInsert m k v` renders as `m[k ↦ v]`.
+    .seq [ go a, MathDoc.bracket
+             (.seq [go b, .sym .mapsto, go c]) ]
+  | .call (.var "mapRemove") [a, b] =>
+    -- `mapRemove m k` renders as `m \ {k}` using LaTeX's
+    -- `\setminus` for set difference.
+    .seq [go a, rawMath " \\setminus ", MathDoc.brace (go b)]
   | .call (.var "mapEmpty") [] => .sym .emptySet
   | .call (.var "mapSingleton") [a] =>
     -- `mapSingleton ⟨k, v⟩` is an anonymous-tuple call;

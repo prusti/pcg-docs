@@ -206,6 +206,22 @@ use crate::value::*;
   , ("OpSem", "stackframe", .raw
 "use formal_mir::body::*;
 use formal_mir::place::*;
+
+pub fn map_insert<K: Eq + std::hash::Hash + Clone, V: Clone>(
+    m: &std::collections::HashMap<K, V>, k: &K, v: &V,
+) -> std::collections::HashMap<K, V> {
+    let mut out = m.clone();
+    out.insert(k.clone(), v.clone());
+    out
+}
+
+pub fn map_remove<K: Eq + std::hash::Hash + Clone, V: Clone>(
+    m: &std::collections::HashMap<K, V>, k: &K,
+) -> std::collections::HashMap<K, V> {
+    let mut out = m.clone();
+    out.remove(k);
+    out
+}
 ")
   , ("OpSem", "program", .raw
 "use formal_mir::body::Body;
