@@ -32,6 +32,8 @@ where
      accessible)."
     (.bold (.raw "D"))
 
+namespace InitialisationState
+
 defFn join (.plain "join")
   (.seq [
     .plain "Join two initialisation states. This is the leaf \
@@ -61,6 +63,8 @@ defFn join (.plain "join")
 /-- The leaf join on `InitialisationState` is commutative:
     `a ∪ b = b ∪ a`. Witnesses the symmetry of the join
     rules documented in `owned-state.md`. -/
-theorem InitialisationState.join_comm
+theorem join_comm
     (a b : InitialisationState) : join a b = join b a := by
   cases a <;> cases b <;> rfl
+
+end InitialisationState

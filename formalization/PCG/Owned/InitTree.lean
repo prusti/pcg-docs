@@ -145,3 +145,74 @@ defProperty ValidInitTree (.plain "ValidInitTree")
   (it "The initialisation tree." : InitTree)
   :=
     HasNonDeepLeaf ‹it› ∧ AllPlacesOwned ‹body, base, it›
+
+namespace InitTree
+
+defFn join (.plain "join")
+  (.seq [
+    .plain "Join two initialisation trees, implementing the \
+     recursive join of ",
+    .code "owned-state.md", .plain ". At matching leaves we \
+     take the minimum via ", .code "InitialisationState.join",
+    .plain ". When one side is a leaf and the other is \
+     internal, the uninitialised/shallow leaf dominates (its \
+     initialisation state covers every descendant place), \
+     while a fully-initialised leaf yields to the more \
+     precise internal expansion. When both sides are ",
+    .code "deref", .plain " nodes we recurse on the child. \
+     Other internal/internal cases (",
+    .code "fields", .plain " against ", .code "fields", .plain ", \
+     mismatched expansion shapes, or ", .code "guided",
+    .plain " expansions) conservatively collapse to ",
+    .math (.bold (.raw "U")),
+    .plain "; a faithful pointwise handling of those cases is \
+     a follow-up."])
+  (a "The first tree." : InitTree)
+  (b "The second tree." : InitTree)
+  : InitTree where
+  -- Leaf + Leaf: take the minimum initialisation state.
+  | .leaf x ; .leaf y =>
+      .leaf ‹InitialisationState.join ‹x, y››
+  -- Leaf U vs Internal (either side): U dominates.
+  | .leaf (.uninit) ; .internal _ => .leaf ‹.uninit›
+  | .internal _ ; .leaf (.uninit) => .leaf ‹.uninit›
+  -- Leaf S vs Internal (either side): S dominates.
+  | .leaf (.shallow) ; .internal _ => .leaf ‹.shallow›
+  | .internal _ ; .leaf (.shallow) => .leaf ‹.shallow›
+  -- Leaf D vs Internal: the internal expansion wins.
+  | .leaf (.deep) ; .internal xp => .internal ‹xp›
+  | .internal xp ; .leaf (.deep) => .internal ‹xp›
+  -- Matching `.deref` internals: recurse on the child.
+  | .internal (.deref a) ; .internal (.deref b) =>
+      .internal ‹.deref ‹join ‹a, b›››
+  -- Other internal / internal combinations: conservative.
+  | .internal _ ; .internal _ => .leaf ‹.uninit›
+
+/-- The initialisation-tree join is commutative:
+    `join a b = join b a`. Case analysis reduces nearly every
+    branch to `rfl`; the matching-leaf branch follows from
+    `InitialisationState.join_comm`, and the matching
+    `.deref` branch reduces by structural recursion. -/
+theorem join_comm
+    : ∀ (a b : InitTree), join a b = join b a
+  | .leaf x, .leaf y => by
+      simp only [join, InitialisationState.join_comm]
+  | .leaf .uninit, .internal _ => rfl
+  | .internal _, .leaf .uninit => rfl
+  | .leaf .shallow, .internal _ => rfl
+  | .internal _, .leaf .shallow => rfl
+  | .leaf .deep, .internal _ => rfl
+  | .internal _, .leaf .deep => rfl
+  | .internal (.deref a), .internal (.deref b) => by
+      simp only [join, join_comm a b]
+  | .internal (.deref _), .internal (.fields _) => rfl
+  | .internal (.deref _), .internal (.guided _) => rfl
+  | .internal (.fields _), .internal (.deref _) => rfl
+  | .internal (.fields _), .internal (.fields _) => rfl
+  | .internal (.fields _), .internal (.guided _) => rfl
+  | .internal (.guided _), .internal (.deref _) => rfl
+  | .internal (.guided _), .internal (.fields _) => rfl
+  | .internal (.guided _), .internal (.guided _) => rfl
+termination_by a _ => sizeOf a
+
+end InitTree
