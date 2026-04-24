@@ -297,7 +297,7 @@ function computeCouplingUnblockingFrontierExpiries(nodes: Node[], edges: Edge[])
 
     const maximallyCoupled = findMaximallyCoupledSets(effectivelyCoupled);
 
-    return maximallyCoupled.map((edgeIdSet, idx) => {
+    return maximallyCoupled.map((edgeIdSet) => {
         const underlyingEdges = graph.edges.filter(e => edgeIdSet.has(e.id));
         const coupled = new CoupledEdge(underlyingEdges);
         return {
@@ -447,8 +447,6 @@ function isEffectivelyCoupled(
     edgeIds: string[],
     reachableGraphs: HypergraphForCoupling[]
 ): boolean {
-    const edgeSet = new Set(edgeIds);
-
     for (const graph of reachableGraphs) {
         const graphEdgeIds = new Set(graph.edges.map(e => e.id));
 
@@ -495,14 +493,14 @@ function computeCouplingExpireTogether(nodes: Node[], edges: Edge[]): CoupledEdg
     const allReachableGraphs = getAllReachableGraphs(graph);
 
     const edgeIds = graph.edges.map(e => e.id);
-    const expireTogetherSets = findExpireTogetherSets(
+    const expireTogetherSets = findEffectivelyCoupledSets(
         allReachableGraphs,
         edgeIds
     );
 
     const maximalSets = findMaximallyCoupledSets(expireTogetherSets);
 
-    return maximalSets.map((edgeIdSet, idx) => {
+    return maximalSets.map((edgeIdSet) => {
         const underlyingEdges = graph.edges.filter(e => edgeIdSet.has(e.id));
         const coupled = new CoupledEdge(underlyingEdges);
         return {
@@ -548,57 +546,6 @@ function getAllReachableGraphs(graph: HypergraphForCoupling): HypergraphForCoupl
     }
 
     return reachableGraphs;
-}
-
-/**
- * Find all sets of edges that expire together
- */
-function findExpireTogetherSets(
-    reachableGraphs: HypergraphForCoupling[],
-    edgeIds: string[]
-): Set<string>[] {
-    const expireTogether: Set<string>[] = [];
-
-    const numSubsets = Math.pow(2, edgeIds.length);
-    for (let i = 1; i < numSubsets; i++) {
-        const subset: string[] = [];
-        for (let j = 0; j < edgeIds.length; j++) {
-            if (i & (1 << j)) {
-                subset.push(edgeIds[j]);
-            }
-        }
-
-        if (doEdgesExpireTogether(subset, reachableGraphs)) {
-            expireTogether.push(new Set(subset));
-        }
-    }
-
-    return expireTogether;
-}
-
-/**
- * Check if a set of edges expire together
- * Edges expire together if for all reachable graphs, the graph contains
- * either all edges or none of them.
- */
-function doEdgesExpireTogether(
-    edgeIds: string[],
-    reachableGraphs: HypergraphForCoupling[]
-): boolean {
-    const edgeSet = new Set(edgeIds);
-
-    for (const graph of reachableGraphs) {
-        const graphEdgeIds = new Set(graph.edges.map(e => e.id));
-
-        const containsAll = edgeIds.every(id => graphEdgeIds.has(id));
-        const containsNone = edgeIds.every(id => !graphEdgeIds.has(id));
-
-        if (!containsAll && !containsNone) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /**
