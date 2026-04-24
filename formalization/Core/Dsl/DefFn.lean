@@ -193,6 +193,19 @@ private def recordIdentRef (stx : Lean.Syntax)
     (name : Lean.Name) : IO Unit :=
   identRefBuffer.modify (·.push (stx, name))
 
+/-- Walk a type-position `Syntax` tree and record every
+    identifier inside it via `recordIdentRef`, so the LSP can
+    jump from a type name in a `defFn` parameter or return
+    type (e.g. `Body` in `(body : Body)`) to the corresponding
+    struct/enum/alias definition. -/
+private partial def recordTypeIdents
+    (stx : Lean.Syntax) : IO Unit := do
+  if stx.isIdent then
+    recordIdentRef stx stx.getId
+  else
+    for arg in stx.getArgs do
+      recordTypeIdents arg
+
 /-- Take the currently-buffered identifier references and
     empty the buffer, so subsequent `defFn` invocations start
     from a clean slate. -/
@@ -583,6 +596,8 @@ elab_rules : command
        $arms:fnArm*) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (_, _, ty) in paramData do recordTypeIdents ty
+    recordTypeIdents retTy
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -670,6 +685,8 @@ elab_rules : command
        : $retTy:term := $rhs:fnExpr) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (_, _, ty) in paramData do recordTypeIdents ty
+    recordTypeIdents retTy
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -720,6 +737,8 @@ elab_rules : command
        $stmts:fnStmt* return $ret:fnExpr) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (_, _, ty) in paramData do recordTypeIdents ty
+    recordTypeIdents retTy
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -804,6 +823,8 @@ private def parseMutualEntry
           : $retTy:term where
           $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
+    for (_, _, ty) in paramData do recordTypeIdents ty
+    recordTypeIdents retTy
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM (parsePrecond ·.raw)
