@@ -6,38 +6,6 @@ import PCG.Owned.InitTree
 import PCG.Owned.OwnedLocal
 import PCG.PcgData
 
-defFn initStateCapability (.plain "initStateCapability")
-  (.seq [.plain "Translate an initialisation state into the \
-    place capability implied by that state in isolation \
-    (without consulting the borrow state). See ",
-    .code "computing-place-capabilities.md", .plain "."])
-  (i "The initialisation state." : InitialisationState)
-  : Capability where
-  | .uninit => Capability.write
-  | .shallow => Capability.shallowExclusive
-  | .deep => Capability.exclusive
-
-defFn treeCapability (.plain "treeCapability")
-  (.seq [.plain "Walk an initialisation tree along a place \
-    projection and return the implied capability. A leaf \
-    determines the capability of every descendant place via ",
-    .code "initStateCapability", .plain ". An internal node \
-    reached with no remaining projection is partially \
-    initialised, so the capability is ", .math (.sym .emptySet),
-    .plain ". This function conservatively returns ",
-    .math (.sym .emptySet),
-    .plain " at any tree/projection mismatch; a follow-up \
-    will walk struct/tuple and guided expansions exactly."])
-  (projs "The remaining projection elements."
-      : List ProjElem)
-  (t "The initialisation tree." : InitTree)
-  : Capability where
-  | _ ; .leaf i => initStateCapability ‹i›
-  | [] ; .internal _ => Capability.none
-  | .deref :: rest ; .internal (.deref sub) =>
-      treeCapability ‹rest, sub›
-  | _ :: _ ; .internal _ => Capability.none
-
 defFn getAlloc (.plain "getAlloc")
   (.seq [.plain "Look up the owned allocation for a local in \
     an owned state. Returns the ",
@@ -100,81 +68,148 @@ defFn projectsSharedBorrow (.plain "projectsSharedBorrow")
   derefEdgesTo ‹bg, p›·any fun de =>
     de↦blockedLifetimeProjection↦label·isNone
 
-defFn placeIsBlocked (.plain "placeIsBlocked")
+defFn placeIsBlockedMutable (.plain "placeIsBlockedMutable")
   (.seq [.plain "Whether the current form of ",
     .math (.raw "p"),
-    .plain " appears as the blocked side of any edge in the \
-      graph. Used as a coarse proxy for \"",
-    .math (.raw "p"),
-    .plain " has a non-trivial out-edge in the borrow PCG\". \
-      Only deref-edge blockers are considered for now; \
-      refining this to cover the other edge kinds is a \
-      follow-up."])
+    .plain " is the blocked side of a mutable deref edge in \
+      the graph. A deref edge is mutable when its blocked \
+      lifetime projection carries a label (the snapshot \
+      location at which the mutable reference was taken)."])
   (bg "The borrows graph." : BorrowsGraph Place)
   (p "The target place." : Place)
   : Bool :=
   bg·derefEdges·any fun de =>
-    currentPlace ‹de↦blockedPlace› == Some p
-
-defFn placeIsBorrowLeaf (.plain "placeIsBorrowLeaf")
-  (.seq [.plain "Whether ", .math (.raw "p"),
-    .plain " is a leaf in the borrow PCG: it appears as a \
-      deref target somewhere in the graph and is not itself \
-      blocked by another edge."])
-  (bg "The borrows graph." : BorrowsGraph Place)
-  (p "The target place." : Place)
-  : Bool :=
-  match derefEdgesTo ‹bg, p› with
-  | [] => false
-  | _ :: _ => placeIsBlocked ‹bg, p› == false
-  end
-
-defFn borrowedPlaceCapability
-  (.plain "borrowedPlaceCapability")
-  (.seq [.plain "Compute the capability of a place that is \
-    not tracked by the owned state but lives in the borrow \
-    PCG, following the \"Computing Capabilities for Borrowed \
-    Places\" rules in ",
-    .code "computing-place-capabilities.md",
-    .plain ". Returns ", .math (.bold (.raw "R")),
-    .plain " when the place is reached through a shared \
-    borrow, ", .math (.bold (.raw "E")),
-    .plain " when it is a leaf in the borrow PCG, and ",
-    .math (.sym .emptySet),
-    .plain " otherwise. The shared/mutable distinction relies \
-    on the labelling convention on a deref edge's blocked \
-    lifetime projection (unlabelled = shared, labelled = \
-    mutable); a precise check using the place's reference \
-    type is left as a follow-up."])
-  (bg "The borrows graph." : BorrowsGraph Place)
-  (p "The place whose capability is requested." : Place)
-  : Capability :=
-    if projectsSharedBorrow ‹bg, p› then
-      Capability.read
-    else if placeIsBorrowLeaf ‹bg, p› then
-      Capability.exclusive
-    else
-      Capability.none
+    if currentPlace ‹de↦blockedPlace› == Some p then
+      de↦blockedLifetimeProjection↦label·isSome
+    else false
 
 end BorrowsGraph
 
+-- ══════════════════════════════════════════════
+-- Walking an init tree for a place
+-- ══════════════════════════════════════════════
+
+defFn treeIsInternal (.plain "treeIsInternal")
+  (.seq [.plain "Whether walking an initialisation tree along \
+    the given projection ends at an internal (partially \
+    initialised) node. A leaf anywhere in the walk returns ",
+    .code "false", .plain "; so does a projection step that \
+    does not match the tree's expansion shape (the walk leaves \
+    the tree)."])
+  (projs "The remaining projection elements."
+      : List ProjElem)
+  (t "The initialisation tree." : InitTree)
+  : Bool where
+  | _ ; .leaf _ => false
+  | [] ; .internal _ => true
+  | .deref :: rest ; .internal (.deref sub) =>
+      treeIsInternal ‹rest, sub›
+  | _ :: _ ; .internal _ => false
+
+defFn treeLeafCapability (.plain "treeLeafCapability")
+  (.seq [.plain "The capability implied by the initialisation \
+    state of the leaf reached by walking the given projection \
+    through an initialisation tree: ",
+    .math (.bold (.raw "W")),
+    .plain " for an uninitialised leaf, ",
+    .math (.bold (.raw "e")),
+    .plain " for a shallowly initialised leaf. Fully \
+    initialised leaves and walks that end at (or fall off) an \
+    internal node return ", .code "None",
+    .plain ", deferring to the rest of ", .code "getCapability",
+    .plain "'s cascade."])
+  (projs "The remaining projection elements."
+      : List ProjElem)
+  (t "The initialisation tree." : InitTree)
+  : Option Capability where
+  | _ ; .leaf (.uninit) => Some Capability.write
+  | _ ; .leaf (.shallow) => Some Capability.shallowExclusive
+  | _ ; .leaf (.deep) => None
+  | [] ; .internal _ => None
+  | .deref :: rest ; .internal (.deref sub) =>
+      treeLeafCapability ‹rest, sub›
+  | _ :: _ ; .internal _ => None
+
+-- ══════════════════════════════════════════════
+-- Prefix-of-read-place check
+-- ══════════════════════════════════════════════
+
+defFn isPrefixOf (.plain "isPrefixOf")
+  (.plain "Whether one projection is a prefix of another.")
+  (l1 "The candidate prefix." : List ProjElem)
+  (l2 "The full projection." : List ProjElem)
+  : Bool where
+  | [] ; _ => true
+  | _ :: _ ; [] => false
+  | a :: as ; b :: bs =>
+      if a == b then isPrefixOf ‹as, bs› else false
+
+defFn isPrefixOfPlace (.plain "isPrefixOfPlace")
+  (.plain "Whether one place is a prefix of another: same base \
+    local and the first's projection is a prefix of the \
+    second's.")
+  (p "The candidate prefix." : Place)
+  (q "The full place." : Place)
+  : Bool :=
+  if p↦base == q↦base then
+    isPrefixOf ‹p↦projection, q↦projection›
+  else false
+
+defFn isPrefixOfReadPlace (.plain "isPrefixOfReadPlace")
+  (.plain "Whether a place is a prefix of some place in the \
+    read set.")
+  (reads "The set of places read at this program point."
+      : Set Place)
+  (p "The candidate prefix." : Place)
+  : Bool :=
+  reads·toList·any fun q => isPrefixOfPlace ‹p, q›
+
+-- ══════════════════════════════════════════════
+-- Top-level capability lookup
+-- ══════════════════════════════════════════════
+
 defFn getCapability (.plain "getCapability")
   (.seq [.plain "Compute the capability of a MIR place from \
-    the per-program-point PCG data, following ",
-    .code "computing-place-capabilities.md",
-    .plain ". The owned-state lookup runs first; when it \
-    yields no capability (the local is unallocated, or the \
-    projection takes us off the owned init tree — typically \
-    because the place is reached through a non-Box \
-    reference), the borrow state is consulted via ",
-    .code "borrowedPlaceCapability", .plain "."])
+    the per-program-point PCG data. The cascade: (1) return ",
+    .code "None",
+    .plain " when the place lands on an internal node of the \
+    init tree or is the blocked side of a mutable deref edge, \
+    (2) return ",
+    .math (.bold (.raw "W")),
+    .plain " or ", .math (.bold (.raw "e")),
+    .plain " when it is an uninitialised or shallowly \
+    initialised leaf in the init tree, (3) return ",
+    .math (.bold (.raw "R")),
+    .plain " when it projects from a shared reference, (4) \
+    return ", .math (.bold (.raw "R")),
+    .plain " when it is a prefix of some place in ",
+    .code "readPlaces", .plain ", otherwise (5) ",
+    .math (.bold (.raw "E")), .plain "."])
   (pd "The PCG data." : PcgData Place)
-  (body "Body" : Body)
   (p "The place whose capability is requested." : Place)
-  : Option Capability where
-  | pd ; body; p =>
-      let t ← getAlloc ‹pd↦ownedState, p↦base› ;
-      match treeCapability ‹p↦projection, t› with
-      | .none => BorrowsGraph.borrowedPlaceCapability ‹pd↦bg, p›
-      | c => c
+  : Option Capability :=
+    let tree? := getAlloc ‹pd↦ownedState, p↦base› ;
+    let projs := p↦projection ;
+    let isInternal :=
+      match tree? with
+      | .some t => treeIsInternal ‹projs, t›
+      | .none => false
+      end ;
+    let leafCap :=
+      match tree? with
+      | .some t => treeLeafCapability ‹projs, t›
+      | .none => None
+      end ;
+    if isInternal then None
+    else if BorrowsGraph.placeIsBlockedMutable ‹pd↦bg, p› then None
+    else
+      match leafCap with
+      | .some c => Some c
+      | .none =>
+          if BorrowsGraph.projectsSharedBorrow ‹pd↦bg, p› then
+            Some Capability.read
+          else if isPrefixOfReadPlace ‹pd↦readPlaces, p› then
+            Some Capability.read
+          else
+            Some Capability.exclusive
       end
