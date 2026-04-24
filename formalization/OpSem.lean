@@ -7,6 +7,7 @@ import OpSem.Memory
 import OpSem.Value
 import OpSem.StackFrame
 import OpSem.Thread
+import OpSem.Program
 import OpSem.Machine
 import OpSem.Decode
 import OpSem.Expressions

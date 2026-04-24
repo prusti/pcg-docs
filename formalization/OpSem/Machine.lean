@@ -1,4 +1,5 @@
 import OpSem.Memory
+import OpSem.Program
 import OpSem.RuntimePlace
 import OpSem.Thread
 import OpSem.Value
@@ -11,11 +12,13 @@ defStruct Machine (.raw "\\mu", .doc (.plain "Machine"))
   (.seq [
     .plain "A machine state ",
     Doc.defMath (.raw "\\mu") (.doc (.plain "Machine")),
-    .plain " bundles the single-threaded execution context \
-     and the shared memory. Per-call state — the function \
-     body, program counter, and local pointer map — lives on \
-     the thread's current stack frame."])
+    .plain " bundles the whole program being executed, the \
+     single-threaded execution context, and the shared memory. \
+     Per-call state — the function body, program counter, and \
+     local pointer map — lives on the thread's current stack \
+     frame."])
 where
+  | program "The program being executed." : Program
   | thread "The single thread of execution." : Thread
   | mem "The memory." : Memory
   deriving Repr

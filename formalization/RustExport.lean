@@ -207,6 +207,9 @@ use crate::value::*;
 "use formal_mir::body::*;
 use formal_mir::place::*;
 ")
+  , ("OpSem", "program", .raw
+"use formal_mir::body::Body;
+")
   , ("OpSem", "statements", .raw
 "use formal_mir::ty::Ty;
 ")
