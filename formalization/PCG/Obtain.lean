@@ -1,4 +1,5 @@
 import Core.Dsl.DefFn
+import MIR.Body
 import MIR.Place
 import MIR.Ty
 import PCG.Capability
@@ -8,6 +9,7 @@ import PCG.Owned.OwnedLocal
 import PCG.Owned.OwnedState
 import PCG.PcgData
 import PCG.PlaceExpansion
+import PCG.TransientState
 
 -- ══════════════════════════════════════════════
 -- Obtain Write on an owned initialisation tree
@@ -153,21 +155,53 @@ namespace PcgData
 
 defFn obtain (.plain "obtain")
   (.seq [.plain "Restructure the PCG so that the given place \
-    holds the given capability. Only the simple case of \
-    obtaining write (", .math (.bold (.raw "W")),
-    .plain ") capability on an owned place is handled: the \
-    borrows graph, basic block, and read places are left \
-    untouched and only the owned state is updated via ",
-    .code "obtainWriteOwned", .plain ". Other capabilities \
-    return ", .code "None", .plain "."])
+    holds the given capability. Three cases are currently \
+    handled. (1) Write (", .math (.bold (.raw "W")),
+    .plain ") on a place that projects through a reference \
+    (i.e. ", .code "isOwned", .plain " is ", .code "false",
+    .plain "): leave the borrows graph and owned state \
+    untouched and stash the place in ",
+    .code "transientState", .plain " as a ",
+    .code "TransientState.writeBorrowedPlace",
+    .plain " — the borrow's expiry is what will eventually \
+    surrender the write capability. (2) Write on an owned \
+    place: restructure the owned state's initialisation \
+    tree via ", .code "obtainWriteOwned",
+    .plain ". (3) Read (", .math (.bold (.raw "R")),
+    .plain ") on any place (owned or borrowed): add the \
+    place to the transient read-place set. ",
+    .code "transientState", .plain " moves from ",
+    .code "None", .plain " to ",
+    .code "Some (TransientState.readPlaces {p})",
+    .plain " or extends the existing read-place set; an \
+    existing ", .code "TransientState.writeBorrowedPlace",
+    .plain " is incompatible with a read obtain and yields ",
+    .code "None", .plain ". Other capabilities return ",
+    .code "None", .plain "."])
   (pd "The PCG data." : PcgData Place)
+  (body "The function body." : Body)
   (p "The place to obtain." : Place)
   (c "The capability to obtain." : Capability)
+  requires validPlace(body, p)
   : Option (PcgData Place) where
-  | pd ; p ; .write =>
-      let newOs ← obtainWriteOwned ‹pd↦ownedState, p› ;
-      Some (PcgData⟨pd↦bg, newOs, pd↦basicBlock,
-              pd↦transientState⟩)
-  | _ ; _ ; _ => None
+  | pd ; body ; p ; .write =>
+      if isOwned ‹body, p, lean_proof("h_validPlace")› then
+        let newOs ← obtainWriteOwned ‹pd↦ownedState, p› ;
+        Some (PcgData⟨pd↦bg, newOs, pd↦basicBlock,
+                pd↦transientState⟩)
+      else
+        Some (PcgData⟨pd↦bg, pd↦ownedState, pd↦basicBlock,
+                Some (.writeBorrowedPlace ‹p›)⟩)
+  | pd ; _ ; p ; .read =>
+      match pd↦transientState with
+      | .none =>
+          Some (PcgData⟨pd↦bg, pd↦ownedState, pd↦basicBlock,
+                  Some (.readPlaces ‹⦃p⦄›)⟩)
+      | .some (.readPlaces s) =>
+          Some (PcgData⟨pd↦bg, pd↦ownedState, pd↦basicBlock,
+                  Some (.readPlaces ‹s ∪ ⦃p⦄›)⟩)
+      | .some (.writeBorrowedPlace _) => None
+      end
+  | _ ; _ ; _ ; _ => None
 
 end PcgData
