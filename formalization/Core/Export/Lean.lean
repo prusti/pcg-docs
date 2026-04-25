@@ -191,6 +191,8 @@ private def toLeanASTAlg
   | .anyList list param body =>
     -- `list.any (fun param => body)` in Lean.
     .dot list "any" [.lambda param body]
+  | .structUpdate recv fieldName value =>
+    .recordUpdate recv fieldName value
 
 /-- Lower a `DslExpr` to a `LeanExpr`.
     `selfName` is the current function name (for
@@ -512,6 +514,7 @@ private def calledNamesAlg :
   | .eq (_, l) (_, r) => l ++ r
   | .memberOf (_, l) (_, r) => l ++ r
   | .anyList (_, l) _ (_, b) => l ++ b
+  | .structUpdate (_, recv) _ (_, value) => recv ++ value
 
 /-- Collect all function/method names called. -/
 def calledNames (e : DslExpr) : List String :=

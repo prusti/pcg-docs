@@ -50,6 +50,9 @@ syntax "⟨" fnExpr,+ "⟩" : fnExpr
 syntax ident "⟨" fnExpr,+ "⟩" : fnExpr
 -- Field access chain: expr ↦ name
 syntax fnExpr "↦" ident : fnExpr
+-- Functional struct update: expr[field => newValue].
+-- Returns a copy of `expr` with `field` replaced.
+syntax fnExpr "[" ident " => " fnExpr "]" : fnExpr
 -- Fallible indexing: expr !! expr (for list[idx]?)
 syntax fnExpr "!!" fnExpr : fnExpr
 -- Infallible indexing: expr ! expr (for list[idx])
@@ -339,6 +342,9 @@ partial def parseExpr
     pure (.mkStruct (toString n.getId) as_.toList)
   | `(fnExpr| $e:fnExpr ↦ $f:ident) =>
     pure (.field (← parseExpr e) (toString f.getId))
+  | `(fnExpr| $r:fnExpr [ $f:ident => $v:fnExpr ]) =>
+    pure (.structUpdate (← parseExpr r)
+      (toString f.getId) (← parseExpr v))
   | `(fnExpr| $e:fnExpr !! $i:fnExpr) =>
     pure (.index (← parseExpr e) (← parseExpr i))
   | `(fnExpr| $e:fnExpr ! $i:fnExpr) =>

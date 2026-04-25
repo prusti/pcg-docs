@@ -16,6 +16,9 @@ preprocessors/*.js
 formalization/.lake
 formalization/generated
 
+# Cargo / build directories anywhere in the tree
+target-*
+
 # LaTeX build artifacts
 *.aux
 *.fdb_latexmk

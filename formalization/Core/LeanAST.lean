@@ -199,6 +199,9 @@ inductive LeanExpr where
            (init : LeanExpr)
   /-- Lambda: `fun param => body`. -/
   | lambda (param : String) (body : LeanExpr)
+  /-- Functional record update: `{ recv with field := value }`. -/
+  | recordUpdate (recv : LeanExpr) (field : String)
+                 (value : LeanExpr)
   /-- A raw escape hatch (used for `sorry` and
       hand-written proof terms). The contents are
       copied verbatim. -/
@@ -302,6 +305,8 @@ partial def LeanExpr.toString : LeanExpr → String
     s!"{list.toString}.foldlM {fn} {init.toString}"
   | .lambda param body =>
     s!"fun {param} => {body.toString}"
+  | .recordUpdate recv fieldName value =>
+    s!"\{ {recv.toString} with {fieldName} := {value.toString} }"
   | .raw t => t
 
 /-- Render an expression in "argument" position,

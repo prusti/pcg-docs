@@ -117,9 +117,13 @@ mutual
     | try_ (e : RustExpr)
     /-- Closure: `|params| body`. -/
     | closure (params : List RustIdent) (body : RustExpr)
-    /-- Struct literal: `Path { field: expr, ... }`. -/
+    /-- Struct literal: `Path { field: expr, ... [..base] }`.
+        When `base` is `some b`, emits the functional-update
+        form `Path { field: expr, ..b }` so unspecified
+        fields are copied from `b`. -/
     | structInit (path : RustPath)
         (fields : List (RustIdent × RustExpr))
+        (base : Option RustExpr)
     /-- Index expression: `expr[idx]`. -/
     | index (recv : RustExpr) (idx : RustExpr)
     /-- Raw string (for macros like `vec![]`,
@@ -467,7 +471,7 @@ partial def rustTy (sym : SymbolTable)
     match e.rustTy sym with
     | .adt ⟨[⟨"Result"⟩]⟩ (ok :: _) => ok
     | ty => ty
-  | .structInit p _ => .adt p []
+  | .structInit p _ _ => .adt p []
   | .path p => (sym p).rustTy
   | .call (.path p) _ => (sym p).retTy
   | .call _ _ => .infer

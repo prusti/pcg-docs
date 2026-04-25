@@ -110,6 +110,12 @@ inductive DslExpr where
       (body : DslExpr)
   /-- Set/List membership: `elem ∈ col`. -/
   | memberOf (elem : DslExpr) (col : DslExpr)
+  /-- Functional struct update: `recv[fieldName => newValue]`
+      — a copy of `recv` with the named field replaced. The
+      receiver's type is inferred from the surrounding
+      context (function parameters) at codegen time. -/
+  | structUpdate (recv : DslExpr) (fieldName : String)
+      (newValue : DslExpr)
   deriving Repr, Inhabited, Lean.Quote
 
 -- Generate `DslExprF`, `project`, `embed`, `map`, `mapM`, `cata`, `cataM`,
@@ -191,6 +197,7 @@ def mapChildren (f : DslExpr → DslExpr)
   -- Match (recurse into scrutinee and arm RHSs)
   | .match_ s arms =>
     .match_ (f s) (arms.map fun (p, rhs) => (p, f rhs))
+  | .structUpdate r fld v => .structUpdate (f r) fld (f v)
 
 /-- Bottom-up rewrite: recurse into all children first,
     then apply `f` to the rebuilt node. Equivalent to
@@ -570,5 +577,12 @@ partial def toDoc
     -- `∃ param ∈ list, body` — an existential over a list.
     .seq [.sym .exists_, .raw param, .sym .setContains,
           go list, .sym .comma, go body]
+  | .structUpdate recv fieldName newValue =>
+    -- `recv[fieldName ↦ newValue]` — same bracket/`\mapsto`
+    -- form used for `mapInsert`, since both express
+    -- "value of `recv` with one slot replaced".
+    .seq [ go recv, MathDoc.bracket
+             (.seq [MathDoc.text fieldName, .sym .mapsto,
+                    go newValue]) ]
 
 end DslExpr

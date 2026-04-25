@@ -259,12 +259,15 @@ mutual
     | .closure params body =>
       let ps := String.intercalate ", " (params.map (·.val))
       s!"|{ps}| {renderExpr d body}"
-    | .structInit path fields =>
+    | .structInit path fields base =>
       let i := ind (d + 1)
       let fieldStrs := fields.map fun (n, e) =>
         s!"{i}{n.val}: {renderExpr (d + 1) e},"
+      let baseLine := match base with
+        | some b => [s!"{i}..{renderExpr (d + 1) b}"]
+        | none => []
       s!"{path.render} \{\n\
-         {String.intercalate "\n" fieldStrs}\n\
+         {String.intercalate "\n" (fieldStrs ++ baseLine)}\n\
          {ind d}}"
     | .index recv idx =>
       s!"{renderExpr d recv}[{renderExpr d idx}]"
@@ -409,6 +412,7 @@ def newImpl (s : RustStruct) : Option RustImpl :=
     let init := RustExpr.structInit .self_
       (fields.map fun (_, n, _) =>
         (n, RustExpr.methodCall (.path ⟨[n]⟩) ⟨"into"⟩ []))
+      none
     let body := RustExpr.block [] (some init)
     some {
       trait_ := none
@@ -689,6 +693,11 @@ structure RustExprCtxt where
       nested variant patterns whose enclosing scrutinee
       type is unknown. -/
   variantToEnum : String → Option String := fun _ => none
+  /-- Resolve a variable name to its struct type's name
+      (e.g. `pd` → `"PcgData"`). Used by `structUpdate`
+      lowering, which needs the receiver's struct type
+      to emit `Path { field: value, ..recv.clone() }`. -/
+  varStructName : String → Option String := fun _ => none
 
 instance : Inhabited RustExprCtxt where
   default :=
@@ -794,7 +803,8 @@ namespace DslExpr
     `.mkStruct` arm to re-lower an inner `DslExpr` whose already-computed
     `.some_`-wrapped Rust translation is not what we want there. -/
 private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
-    (variantToEnum : String → Option String := fun _ => none) :
+    (variantToEnum : String → Option String := fun _ => none)
+    (varStructName : String → Option String := fun _ => none) :
     DslExprF (DslExpr × RustExpr) → FreshM RustExpr
   | .var n => pure (.ident (leanToRustIdent n))
   | .natLit n => pure (.raw s!"{n}usize")
@@ -1036,6 +1046,22 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
             (.methodCall list ⟨"iter"⟩ [])
             ⟨"any"⟩
             [.closure [leanToRustIdent param] body])
+  | .structUpdate (recv, rustRecv) fieldName (_, rustVal) => do
+    -- `recv[field => value]` lowers to a Rust struct
+    -- literal `Path { field: value, ..recv.clone() }`.
+    -- The path comes from `varStructName` when `recv` is
+    -- a known variable; otherwise we fall back to a raw
+    -- `..base` spread on `Self`, which only type-checks
+    -- inside an inherent method.
+    let path : RustPath := match recv with
+      | .var n =>
+        match varStructName n with
+        | some sName => ⟨[⟨sName⟩]⟩
+        | none => .self_
+      | _ => .self_
+    pure (.structInit path
+      [(⟨toSnakeCase fieldName⟩, rustVal)]
+      (some (.clone rustRecv)))
 
 /-- Convert a `DslExpr` to a typed `RustExpr` in the
     `FreshM` monad (for generating fresh variable names). -/
@@ -1046,10 +1072,13 @@ partial def toRustExpr (e : DslExpr) : FreshM RustExpr :=
     used to qualify nested variant patterns inside `match`
     expressions. -/
 partial def toRustExprWith
-    (variantToEnum : String → Option String) (e : DslExpr)
+    (variantToEnum : String → Option String)
+    (varStructName : String → Option String := fun _ => none)
+    (e : DslExpr)
     : FreshM RustExpr :=
   DslExpr.paraM
-    (toRustAlg (toRustExprWith variantToEnum) variantToEnum) e
+    (toRustAlg (toRustExprWith variantToEnum varStructName)
+      variantToEnum varStructName) e
 
 /-- Run `toRustExpr` with a fresh counter starting at 0. -/
 def toRust (e : DslExpr) : RustExpr :=
@@ -1057,9 +1086,11 @@ def toRust (e : DslExpr) : RustExpr :=
 
 /-- Run `toRustExprWith` with a fresh counter starting at 0. -/
 def toRustWith
-    (variantToEnum : String → Option String) (e : DslExpr)
+    (variantToEnum : String → Option String)
+    (varStructName : String → Option String := fun _ => none)
+    (e : DslExpr)
     : RustExpr :=
-  (toRustExprWith variantToEnum e).run' 0
+  (toRustExprWith variantToEnum varStructName e).run' 0
 
 /-- Resolve a qualified function call name to its Rust
     path given the context. Returns the original name
@@ -1111,8 +1142,21 @@ def toRustItem (f : FnDef)
   let retTy := f.returnType.toRust
   let rustName : RustIdent := ⟨toSnakeCase f.name⟩
   let qualify := DslExpr.qualifyFnCalls ctx
+  -- Map each function-parameter name to its struct type's
+  -- name (when its type is a named struct), so that
+  -- `structUpdate` lowering can resolve `pd → "PcgData"`
+  -- and emit `PcgData { field: ..., ..pd.clone() }`.
+  let paramStructName : String → Option String := fun n =>
+    f.params.findSome? fun p =>
+      if p.name == n then
+        match p.ty with
+        | .app h _ => some h.name
+        | .named h => some h.name
+        | _ => none
+      else none
   let re (b : DslExpr) :=
-    DslExpr.toRustWith ctx.variantToEnum (qualify b)
+    DslExpr.toRustWith ctx.variantToEnum
+      paramStructName (qualify b)
   let paramNames := f.params.map
     fun p => leanToRustIdent p.name
   let assertStmts := f.preconditions.map fun pc =>

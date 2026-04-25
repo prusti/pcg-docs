@@ -187,19 +187,17 @@ defFn obtain (.plain "obtain")
   | pd ; body ; p ; .write =>
       if isOwned ‹body, p, lean_proof("h_validPlace")› then
         let newOs ← obtainWriteOwned ‹pd↦ownedState, p› ;
-        Some (PcgData⟨pd↦bg, newOs, pd↦basicBlock,
-                pd↦transientState⟩)
+        Some pd[ownedState => newOs]
       else
-        Some (PcgData⟨pd↦bg, pd↦ownedState, pd↦basicBlock,
-                Some (.writeBorrowedPlace ‹p›)⟩)
+        Some pd[transientState =>
+          Some (.writeBorrowedPlace ‹p›)]
   | pd ; _ ; p ; .read =>
       match pd↦transientState with
       | .none =>
-          Some (PcgData⟨pd↦bg, pd↦ownedState, pd↦basicBlock,
-                  Some (.readPlaces ‹⦃p⦄›)⟩)
+          Some pd[transientState => Some (.readPlaces ‹⦃p⦄›)]
       | .some (.readPlaces s) =>
-          Some (PcgData⟨pd↦bg, pd↦ownedState, pd↦basicBlock,
-                  Some (.readPlaces ‹s ∪ ⦃p⦄›)⟩)
+          Some pd[transientState =>
+            Some (.readPlaces ‹s ∪ ⦃p⦄›)]
       | .some (.writeBorrowedPlace _) => None
       end
   | _ ; _ ; _ ; _ => None
