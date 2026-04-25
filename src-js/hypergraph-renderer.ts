@@ -302,8 +302,6 @@ const CYTOSCAPE_STYLES = [
           nodes,
           edges
         );
-        console.log("coupledEdges", coupledEdges);
-
         const coupledEdgeObjects = coupledEdges.map(function (coupled, idx) {
           return {
             id: `coupled-${idx}`,
@@ -439,8 +437,6 @@ const CYTOSCAPE_STYLES = [
         data.nodes,
         couplingAlgorithmId
       );
-      console.log("edgesToRender", edgesToRender);
-
       const { edgeElements, hyperedgeGroups } = processEdges(edgesToRender);
 
       return {
