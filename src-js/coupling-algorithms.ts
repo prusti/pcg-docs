@@ -61,6 +61,12 @@ interface InternalEdge {
     originalIndex?: number;
 }
 
+/** Returns true iff two sets contain exactly the same elements. */
+function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
+    if (a.size !== b.size) return false;
+    return [...a].every(x => b.has(x));
+}
+
 /**
  * Graph representation for coupling algorithms
  */
@@ -391,15 +397,13 @@ function isImmediatelySubsumedBy(u1: Unblocking, u2: Unblocking): boolean {
 
         const u2Part = new Set(u2.partitions[i] || []);
 
-        if (merged.size === u2Part.size &&
-            Array.from(merged).every(n => u2Part.has(n))) {
+        if (setsEqual(merged, u2Part)) {
 
             let beforeMatch = true;
             for (let j = 0; j < i; j++) {
                 const u1Set = new Set(u1.partitions[j]);
                 const u2Set = new Set(u2.partitions[j]);
-                if (u1Set.size !== u2Set.size ||
-                    !Array.from(u1Set).every(n => u2Set.has(n))) {
+                if (!setsEqual(u1Set, u2Set)) {
                     beforeMatch = false;
                     break;
                 }
@@ -411,8 +415,7 @@ function isImmediatelySubsumedBy(u1: Unblocking, u2: Unblocking): boolean {
             for (let j = i + 1; j < u1.partitions.length; j++) {
                 const u1Set = new Set(u1.partitions[j]);
                 const u2Set = new Set(u2.partitions[j + 1] || []);
-                if (u1Set.size !== u2Set.size ||
-                    !Array.from(u1Set).every(n => u2Set.has(n))) {
+                if (!setsEqual(u1Set, u2Set)) {
                     afterMatch = false;
                     break;
                 }
@@ -638,9 +641,7 @@ function filterRedundantCoupledEdges(coupledEdges: CoupledEdgeResult[]): Coupled
 
                 const unionIds = new Set([...edge1UnderlyingIds, ...edge2UnderlyingIds]);
 
-                if (unionIds.size === edgeUnderlyingIds.size &&
-                    Array.from(unionIds).every(id => edgeUnderlyingIds.has(id)) &&
-                    Array.from(edgeUnderlyingIds).every(id => unionIds.has(id))) {
+                if (setsEqual(unionIds, edgeUnderlyingIds)) {
                     return false;
                 }
             }
