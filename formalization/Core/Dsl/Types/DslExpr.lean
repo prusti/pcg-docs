@@ -546,7 +546,8 @@ partial def toDoc
       arms.map fun (pats, rhs) =>
         let patMath := mathIntercalate (.sym .comma)
           (pats.map (BodyPat.toDoc noCtor
-            ctx.resolveCtor ctx.resolveVariant))
+            ctx.resolveCtor ctx.resolveVariant
+            ctx.variants))
         -- Two-column `{ll}` array: pattern in the first
         -- column, `⇒ rhs` in the second, so every row
         -- aligns on the fat arrow. `&` is the LaTeX array

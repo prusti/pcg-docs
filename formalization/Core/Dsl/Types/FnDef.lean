@@ -80,7 +80,7 @@ private partial def exprLines
     (DslExpr.toDoc fnName ctx varDisplay isProperty e).toLatexMath
   let goPat (p : BodyPat) : LatexMath :=
     (BodyPat.toDoc ctorDisplay resolveCtor
-      resolveVariant p).toLatexMath
+      resolveVariant ctx.variants p).toLatexMath
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
   let recur := exprLines fnName ctx isProperty varDisplay
@@ -281,7 +281,8 @@ def formalDefLatex
         fun (p, ty) =>
           (BodyPat.toDoc ctx.ctorDisplay
             (scopedResolveCtor ty)
-            (scopedResolveVariant ty) p).toLatexMath)
+            (scopedResolveVariant ty)
+            ctx.variants p).toLatexMath)
     let isSimple := match arm.rhs with
       | .letBindIn .. => false
       | .letIn .. => false

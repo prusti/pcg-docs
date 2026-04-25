@@ -17,18 +17,33 @@ import MIR
 import Core.Dsl.Types.OrderDef
 import Core.Registry
 
-/-- Build a lookup function that maps enum constructor
-    names to their `MathDoc` display form. -/
+/-- Build a lookup function that maps enum constructor names
+    to their `MathDoc` display form. Accepts either a short
+    name (e.g. `deref`) or a fully-qualified `EnumName.varName`
+    form (e.g. `PcgEdge.deref`); the qualified form is the
+    canonical lookup key and avoids ambiguity when several
+    enums share a short variant name — for example
+    `ProjElem.deref` (display `*`) and `PcgEdge.deref` (which
+    takes a `DerefEdge` argument). A short-name lookup falls
+    back to the first registered match. -/
 private def mkCtorDisplay
     (enums : List RegisteredEnum)
     : String → Option MathDoc :=
   fun ctorName =>
-    let found := enums.flatMap fun e =>
-      e.enumDef.variants.filterMap fun v =>
-        if v.name.name == ctorName then
-          some v.displayMathDoc
-        else none
-    found.head?
+    if ctorName.contains '.' then
+      match ctorName.splitOn "." with
+      | [enumName, varName] =>
+        (enums.find? (·.enumDef.name.name == enumName)).bind
+          fun e => (e.enumDef.variants.find?
+            (·.name.name == varName)).map (·.displayMathDoc)
+      | _ => none
+    else
+      let found := enums.flatMap fun e =>
+        e.enumDef.variants.filterMap fun v =>
+          if v.name.name == ctorName then
+            some v.displayMathDoc
+          else none
+      found.head?
 
 /-- Get the module name (last component of a Lean name). -/
 private def moduleName (n : Lean.Name) : String :=

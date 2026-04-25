@@ -48,11 +48,55 @@ def ctorRef
     .doc (.link (.plain n) s!"#ctor:{qualified}")
   | none => MathDoc.text n
 
+/-- Strip a leading `.` (the anonymous-constructor sugar
+    sometimes preserved in pattern names) so that lookups
+    use the bare short name. -/
+private def stripDot (n : String) : String :=
+  if n.startsWith "." then (n.drop 1).toString else n
+
+/-- Resolve a constructor short or qualified name to its
+    `VariantDef`, treating `(name, arity)` as the
+    fully-qualified identifier of the variant. Arity
+    disambiguates between variants that share a short name
+    across enums but differ in their argument count
+    (e.g. `ProjElem.deref` is nullary while `PcgEdge.deref`
+    takes one argument).
+
+    Resolution order:
+    1. Trust the caller-supplied `resolveVariant` whenever
+       it returns a variant whose arity matches the pattern
+       — this preserves scoped lookups from
+       `FnDef.scopedResolveVariant`, which prefers a variant
+       under the scrutinee parameter's type namespace.
+    2. Otherwise pick the first variant in `variants` whose
+       short name and arity both match — useful for inner
+       `match` expressions where the scrutinee's type isn't
+       available.
+    3. Fall back to whatever `resolveVariant` returned (or
+       `none` if it returned nothing). -/
+private def lookupVariant
+    (variants : List VariantDef)
+    (resolveVariant : String → Option VariantDef)
+    (n : String) (arity : Nat) : Option VariantDef :=
+  let short := stripDot n
+  let viaResolver := resolveVariant n
+  let resolverArityMatch :=
+    viaResolver.filter (·.args.length == arity)
+  let arityMatch := variants.find? fun v =>
+    v.name.name == short && v.args.length == arity
+  match resolverArityMatch with
+  | some v => some v
+  | none =>
+    match arityMatch with
+    | some v => some v
+    | none => viaResolver
+
 partial def toDoc
     (ctorDisplay : String → Option MathDoc)
     (resolveCtor : String → Option String := fun _ => none)
     (resolveVariant : String → Option VariantDef :=
       fun _ => none)
+    (variants : List VariantDef := [])
     : BodyPat → MathDoc
   | .wild => .sym .underscore
   | .var n => .raw n
@@ -60,20 +104,29 @@ partial def toDoc
     .seq [ .sym .langle
          , mathIntercalate (.sym .comma)
              (args.map (toDoc ctorDisplay
-               resolveCtor resolveVariant))
+               resolveCtor resolveVariant variants))
          , .sym .rangle ]
   | .ctor n args =>
     if args.isEmpty then
+      -- Nullary patterns use the caller-supplied
+      -- `ctorDisplay` (the registry-wide variant→display
+      -- map at top-level patterns, or `none` for inner
+      -- matches that prefer a linked bare name). No arity
+      -- disambiguation is needed: a nullary pattern
+      -- already encodes its own arity (0).
       match ctorDisplay n with
       | some display => display
       | none => ctorRef resolveCtor n
     else
-      -- When the constructor resolves to a known variant, render
-      -- the pattern using the variant's display template, with
-      -- each argument reference replaced by the rendering of the
-      -- corresponding sub-pattern. This mirrors the form used in
-      -- the enum definition (e.g. `intTy it` for `.int it`).
-      match resolveVariant n with
+      -- Non-nullary patterns: resolve the variant via
+      -- arity-aware lookup so that patterns like
+      -- `.deref de` (1 arg) resolve to the unique
+      -- arity-1 variant (`PcgEdge.deref`,
+      -- `PlaceExpansion.deref`, …) rather than the
+      -- nullary `ProjElem.deref`. The pair
+      -- `(short name, arity)` acts as the
+      -- fully-qualified identifier of the variant.
+      match lookupVariant variants resolveVariant n args.length with
       | some v =>
         let argMap : List (String × BodyPat) :=
           (v.args.map (·.name)).zip args
@@ -82,12 +135,14 @@ partial def toDoc
           | .arg name _ =>
             match argMap.find? (·.1 == name) with
             | some (_, p) =>
-              toDoc ctorDisplay resolveCtor resolveVariant p
+              toDoc ctorDisplay resolveCtor resolveVariant
+                variants p
             | none => MathDoc.text name
         .seq parts
       | none =>
         let argParts :=
-          args.map (toDoc ctorDisplay resolveCtor resolveVariant)
+          args.map (toDoc ctorDisplay resolveCtor
+            resolveVariant variants)
         .seq [ ctorRef resolveCtor n
              , MathDoc.paren
                  (mathIntercalate (.sym .comma) argParts) ]
@@ -100,11 +155,14 @@ partial def toDoc
     match flatten (.cons h t) with
     | some elems =>
       MathDoc.bracket (mathIntercalate (.sym .comma)
-        (elems.map (toDoc ctorDisplay resolveCtor resolveVariant)))
+        (elems.map (toDoc ctorDisplay resolveCtor
+          resolveVariant variants)))
     | none =>
       .seq [ h.toDoc ctorDisplay resolveCtor resolveVariant
+               variants
            , .sym .cons
-           , t.toDoc ctorDisplay resolveCtor resolveVariant ]
+           , t.toDoc ctorDisplay resolveCtor resolveVariant
+               variants ]
   | .natLit n => .raw (toString n)
 
 end BodyPat
