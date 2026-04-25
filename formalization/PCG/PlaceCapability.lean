@@ -1,5 +1,7 @@
 import Core.Dsl.DefFn
+import MIR.Body
 import MIR.Place
+import MIR.Ty
 import PCG.Capability
 import PCG.Owned.InitialisationState
 import PCG.Owned.InitTree
@@ -45,28 +47,6 @@ defFn currentPlace (.plain "currentPlace")
   : Option Place where
   | .current p => Some p
   | .labelled _ _ => None
-
-defFn derefEdgesTo (.plain "derefEdgesTo")
-  (.plain "The deref edges whose deref target is the current \
-    (unlabelled) form of the given place.")
-  (bg "The borrows graph." : BorrowsGraph Place)
-  (p "The target place." : Place)
-  : List (DerefEdge Place) :=
-  bg·derefEdges·flatMap fun de =>
-    if currentPlace ‹de↦derefPlace› == Some p then [de] else []
-
-defFn projectsSharedBorrow (.plain "projectsSharedBorrow")
-  (.seq [.plain "Whether some deref edge ending at ",
-    .math (.raw "p"),
-    .plain " blocks a shared reference. Uses the convention on ",
-    .code "DerefEdge.blockedLifetimeProjection",
-    .plain ": an unlabelled projection corresponds to a shared \
-      borrow, a labelled one to a mutable borrow."])
-  (bg "The borrows graph." : BorrowsGraph Place)
-  (p "The target place." : Place)
-  : Bool :=
-  derefEdgesTo ‹bg, p›·any fun de =>
-    de↦blockedLifetimeProjection↦label·isNone
 
 defFn placeIsBlockedMutable (.plain "placeIsBlockedMutable")
   (.seq [.plain "Whether the current form of ",
@@ -181,6 +161,51 @@ defFn isPrefixOfTransientReadPlace
   | _ ; _ => false
 
 -- ══════════════════════════════════════════════
+-- Type-directed query: does the place project through
+-- a shared-reference dereference?
+-- ══════════════════════════════════════════════
+
+defFn projectsSharedRef' (.plain "projectsSharedRef'")
+  (.seq [.plain "Walk a projection list against a starting \
+    type and report whether any ", .code "*", .plain " step \
+    is applied to a shared-reference type. Returns ",
+    .code "true", .plain " on the first ",
+    .code ".deref", .plain " step taken on a ",
+    .code ".ref _ shared _", .plain "; ",
+    .code "false",
+    .plain " when the projection finishes without one."])
+  (τ "The current type." : Ty)
+  (projs "The remaining projection elements."
+      : List ProjElem)
+  requires validProjTy(τ, projs)
+  : Bool where
+  | _ ; [] => false
+  | .ref _ (.shared) _ ; .deref :: _ => true
+  | .ref _ _ pointee ; .deref :: π =>
+      projectsSharedRef' ‹pointee, π›
+  | .box inner ; .deref :: π =>
+      projectsSharedRef' ‹inner, π›
+  | _ ; (.field _ τ) :: π =>
+      projectsSharedRef' ‹τ, π›
+  | .array elem _ ; (.index _) :: π =>
+      projectsSharedRef' ‹elem, π›
+  | τ ; (.downcast _) :: π =>
+      projectsSharedRef' ‹τ, π›
+
+defFn projectsSharedRef (.plain "projectsSharedRef")
+  (.seq [.plain "Whether the place's projection ever \
+    dereferences a shared-reference-typed place: walks the \
+    projection from the base local's declared type and \
+    reports the first such dereference."])
+  (body "The function body." : Body)
+  (p "The place." : Place)
+  requires validPlace(body, p)
+  : Bool :=
+    projectsSharedRef'
+      ‹body↦decls ! p↦base↦index, p↦projection,
+        lean_proof("h_validPlace.2")›
+
+-- ══════════════════════════════════════════════
 -- Top-level capability lookup
 -- ══════════════════════════════════════════════
 
@@ -203,7 +228,9 @@ defFn getCapability (.plain "getCapability")
     .code "transientState", .plain ", otherwise (5) ",
     .math (.bold (.raw "E")), .plain "."])
   (pd "The PCG data." : PcgData Place)
+  (body "The function body." : Body)
   (p "The place whose capability is requested." : Place)
+  requires validPlace(body, p)
   : Option Capability :=
     let tree? := getAlloc ‹pd↦ownedState, p↦base› ;
     let projs := p↦projection ;
@@ -223,7 +250,8 @@ defFn getCapability (.plain "getCapability")
       match leafCap with
       | .some c => Some c
       | .none =>
-          if BorrowsGraph.projectsSharedBorrow ‹pd↦bg, p› then
+          if projectsSharedRef
+              ‹body, p, lean_proof("h_validPlace")› then
             Some Capability.read
           else if isPrefixOfTransientReadPlace
               ‹pd↦transientState, p› then
