@@ -260,6 +260,26 @@ interface Unblocking {
 }
 
 /**
+ * Maps a collection of edge-ID sets to CoupledEdgeResult objects by
+ * looking up the matching edges in `graph`.
+ */
+function buildCoupledEdgeResults(
+    graph: HypergraphForCoupling,
+    edgeIdSets: Set<string>[]
+): CoupledEdgeResult[] {
+    return edgeIdSets.map((edgeIdSet) => {
+        const underlyingEdges = graph.edges.filter(e => edgeIdSet.has(e.id));
+        const coupled = new CoupledEdge(underlyingEdges);
+        return {
+            type: 'coupled',
+            underlyingEdges,
+            sources: coupled.sources,
+            targets: coupled.targets,
+        };
+    });
+}
+
+/**
  * Coupling algorithm based on unblocking frontier expiries
  *
  * This algorithm generates coupled edges by finding maximally coupled edges.
@@ -297,16 +317,7 @@ function computeCouplingUnblockingFrontierExpiries(nodes: Node[], edges: Edge[])
 
     const maximallyCoupled = findMaximallyCoupledSets(effectivelyCoupled);
 
-    return maximallyCoupled.map((edgeIdSet) => {
-        const underlyingEdges = graph.edges.filter(e => edgeIdSet.has(e.id));
-        const coupled = new CoupledEdge(underlyingEdges);
-        return {
-            type: 'coupled',
-            underlyingEdges: underlyingEdges,
-            sources: coupled.sources,
-            targets: coupled.targets
-        };
-    });
+    return buildCoupledEdgeResults(graph, maximallyCoupled);
 }
 
 /**
@@ -500,16 +511,7 @@ function computeCouplingExpireTogether(nodes: Node[], edges: Edge[]): CoupledEdg
 
     const maximalSets = findMaximallyCoupledSets(expireTogetherSets);
 
-    return maximalSets.map((edgeIdSet) => {
-        const underlyingEdges = graph.edges.filter(e => edgeIdSet.has(e.id));
-        const coupled = new CoupledEdge(underlyingEdges);
-        return {
-            type: 'coupled',
-            underlyingEdges: underlyingEdges,
-            sources: coupled.sources,
-            targets: coupled.targets
-        };
-    });
+    return buildCoupledEdgeResults(graph, maximalSets);
 }
 
 /**
