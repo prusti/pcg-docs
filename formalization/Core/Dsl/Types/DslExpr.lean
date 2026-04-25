@@ -462,6 +462,29 @@ partial def toDoc
           else none
         | none => none
       | _ => none
+    -- A call whose head names a function with a custom
+    -- display template renders using that template, with each
+    -- `#param` reference replaced by the rendered argument at
+    -- the matching positional slot. Falls through to the
+    -- default `fn(args)` rendering when no template is found.
+    let fnDisplayDoc : Option MathDoc := match fn with
+      | .var n =>
+        let short := (n.splitOn ".").getLast?.getD n
+        match ctx.resolveFnDisplay short with
+        | some (parts, paramNames) =>
+          if paramNames.length == visibleArgs.length then
+            let argMap : List (String × DslExpr) :=
+              paramNames.zip visibleArgs
+            let rendered : List MathDoc := parts.map fun
+              | .lit d => d
+              | .arg name _ =>
+                match argMap.find? (·.1 == name) with
+                | some (_, e) => renderArg e
+                | none => MathDoc.text name
+            some (MathDoc.seq rendered)
+          else none
+        | none => none
+      | _ => none
     -- A call of the form `<ns>.join a b` is rendered as
     -- `a ∪ b` in math mode — for example a call to
     -- `InitialisationState.join` inside `InitTree.join`'s
@@ -474,10 +497,11 @@ partial def toDoc
           some (.seq [renderArg a, .sym .cup, renderArg b])
         else none
       | _, _ => none
-    match ctorCallDoc, joinCupDoc with
-    | some md, _ => md
-    | _, some md => md
-    | none, none =>
+    match ctorCallDoc, fnDisplayDoc, joinCupDoc with
+    | some md, _, _ => md
+    | _, some md, _ => md
+    | _, _, some md => md
+    | none, none, none =>
       let fnDoc := match fn with
         | .var n => fnRef n
         | _ => go fn

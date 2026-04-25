@@ -44,6 +44,15 @@ structure FnDef where
       emits all functions sharing a tag together inside a
       single `mutual … end` block. -/
   mutualGroup : Option String := none
+  /-- Optional custom display template for the function
+      signature. When set, the LaTeX presentation renders the
+      caption using this template (an interleaving of literal
+      math fragments and parameter references) instead of the
+      default `name(p₁, p₂, …)` form. Argument references
+      use the parameter's auto-looked-up `symbolDoc` (or an
+      explicit one supplied at the call site), mirroring
+      enum-variant display templates. -/
+  display : Option (List DisplayPart) := none
   deriving Repr
 
 namespace FnDef
@@ -54,6 +63,12 @@ def shortSig (f : FnDef) : Doc :=
   .seq [ f.symbolDoc, .plain "(",
     Doc.intercalate (.plain ", ") paramDocs,
     .plain ") → ", f.returnType.toDoc .normal ]
+
+/-- Render the function's custom display template to
+    `LatexMath`, or `none` if no template was supplied. -/
+def displayLatexMath? (f : FnDef) : Option LatexMath :=
+  f.display.map fun parts =>
+    .seq (parts.map DisplayPart.toLatexMath)
 
 /-- Render a single `DslExpr` as a list of `\State` lines for
     the algorithmic environment. Used both for `expr`-bodied
@@ -391,11 +406,19 @@ def formalDefLatex
   let descBlock : List Latex :=
     if f.doc.toPlainText.isEmpty then []
     else [.textit f.doc.toLatex, .newline]
+  let displayBlock : List Latex := match f.displayLatexMath? with
+    | some disp =>
+      [.raw "\\par ",
+       .textbf (.text "Rendered as "),
+       .inlineMath disp, .raw ".",
+       .newline]
+    | none => []
   let key := labelKey.getD f.name
   .env "algorithm" (.seq [
     Latex.caption caption, .newline,
     .raw s!"\\hypertarget\{fn:{key}}\{}\\label\{fn:{key}}", .newline,
     .seq descBlock,
+    .seq displayBlock,
     .env "algorithmic"
       (.seq [Latex.lines allLines, .newline]),
     .newline

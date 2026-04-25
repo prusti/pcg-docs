@@ -123,6 +123,8 @@ defFn setOwnedLocalAt (.plain "setOwnedLocalAt")
   (os "The owned state." : OwnedState)
   (idx "The local index to replace." : Nat)
   (newOl "The replacement owned local." : OwnedLocal)
+  displayed (#os, .sym .lbracket, #idx, .sym .mapsto, #newOl,
+             .sym .rbracket)
   : OwnedState :=
     OwnedState⟨os↦locals·zipIdx·map fun ⟨ol, i⟩ =>
       if i == idx then newOl else ol⟩

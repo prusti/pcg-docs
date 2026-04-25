@@ -1,5 +1,6 @@
 import Core.Registry
 import Core.Export.Lean
+import Core.Dsl.DefEnum
 import Runtime
 import Lean
 
@@ -155,19 +156,50 @@ syntax "let " ident " ← " fnExpr : fnStmt
 declare_syntax_cat fnPrecond
 syntax ident "(" ident,+ ")" : fnPrecond
 
-/-- Pattern-matching function. -/
+/-- Pattern-matching function.
+
+    An optional `displayed (part, …)` clause may follow the
+    parameter list (before `requires` / `:`). It controls how
+    the function signature is rendered in the LaTeX
+    presentation, mirroring the display templates of `defEnum`
+    variants. Argument references inside the template (`#name`)
+    auto-look-up the parameter type's `symbolDoc`; an explicit
+    symbol may be supplied as `#name (symbolDoc)`. Literal
+    parts are `MathDoc` terms (e.g. `.sym .lbracket`,
+    `.sym .mapsto`, raw strings via the `String → Doc`
+    coercion). When omitted, the LaTeX caption falls back to
+    the default `name(p₁, p₂, …)` rendering.
+
+    Example:
+    ```
+    defFn setOwnedLocalAt (.plain "setOwnedLocalAt")
+      (.plain "Replace the owned local at a given index.")
+      (os "The owned state." : OwnedState)
+      (idx "The local index." : Nat)
+      (newOl "The replacement local." : OwnedLocal)
+      displayed (#os, .sym .lbracket, #idx,
+                 .sym .mapsto, #newOl, .sym .rbracket)
+      : OwnedState := …
+    ```
+    renders the algorithm caption as `os[idx ↦ ol] → OwnedState`
+    instead of `setOwnedLocalAt(os, idx, newOl) → OwnedState`. -/
 syntax "defFn " ident "(" term ")" "(" term ")"
-    fnParam* ("requires " fnPrecond,+)?
+    fnParam* ("displayed " "(" displayPart,+ ")")?
+    ("requires " fnPrecond,+)?
     ":" term " where" fnArm* : command
 
-/-- Direct expression function (no pattern match). -/
+/-- Direct expression function (no pattern match). See the
+    pattern-matching form for the optional `displayed` clause. -/
 syntax "defFn " ident "(" term ")" "(" term ")"
-    fnParam* ("requires " fnPrecond,+)?
+    fnParam* ("displayed " "(" displayPart,+ ")")?
+    ("requires " fnPrecond,+)?
     ":" term " :=" fnExpr : command
 
-/-- Imperative do-block function. -/
+/-- Imperative do-block function. See the pattern-matching
+    form for the optional `displayed` clause. -/
 syntax "defFn " ident "(" term ")" "(" term ")"
-    fnParam* ("requires " fnPrecond,+)?
+    fnParam* ("displayed " "(" displayPart,+ ")")?
+    ("requires " fnPrecond,+)?
     ":" term " begin" fnStmt*
     "return " fnExpr : command
 
@@ -528,6 +560,32 @@ structure FnDefHeader where
   doc : Lean.TSyntax `term
 
 open Lean Elab Command in
+/-- Parse the optional display-template syntax attached to a
+    `defFn`. Each `displayPart` references parameters by name
+    via `#paramName`; the parameter's auto-looked-up
+    `symbolDoc` is used when no explicit symbol is given. -/
+def parseFnDisplay
+    (paramData : Array (Lean.Ident × Lean.TSyntax `term
+      × Lean.Syntax))
+    (dps : Lean.TSyntaxArray `displayPart)
+    : Lean.Elab.Command.CommandElabM
+        (Lean.TSyntax `term) := do
+  let argTypes : List (String × String) :=
+    paramData.toList.map fun (pn, _, pt) =>
+      let tyStr :=
+        if pt.isIdent then toString pt.getId
+        else pt.reprint.getD (toString pt)
+      (toString pn.getId, tyStr)
+  -- A `defFn` is not self-referential in the way enum
+  -- variants are, so `selfName`/`selfSym` are unused;
+  -- pass dummy values that won't be matched.
+  let dummySym : Lean.TSyntax `term ←
+    `((MathDoc.raw ""))
+  let dpDefs ← dps.mapM
+    (parseDisplayPart argTypes "" dummySym [])
+  `([$[$dpDefs],*])
+
+open Lean Elab Command in
 def buildFnDef
     (hdr : FnDefHeader)
     (paramData : Array (Ident × TSyntax `term
@@ -536,6 +594,7 @@ def buildFnDef
     (body : TSyntax `term)
     (preconds : List (String × List String) := [])
     (mutualGroup : Option String := none)
+    (display : Option (TSyntax `term) := none)
     : CommandElabM Unit := do
   let name := hdr.name
   let symDoc := hdr.symDoc
@@ -563,6 +622,9 @@ def buildFnDef
         args := $(quote args) : Precondition })
   let precondList ← `([$[$precondDefs.toArray],*])
   let mutualGroupTerm : TSyntax `term := quote mutualGroup
+  let displayTerm : TSyntax `term ← match display with
+    | some dpList => `((some $dpList : Option (List DisplayPart)))
+    | none => `((none : Option (List DisplayPart)))
   let fnDefId := mkIdent (name.getId ++ `fnDef)
   elabCommand (← `(command|
     def $fnDefId : FnDef :=
@@ -573,7 +635,8 @@ def buildFnDef
         returnType := $retTn,
         preconditions := $precondList,
         body := $body,
-        mutualGroup := $mutualGroupTerm }))
+        mutualGroup := $mutualGroupTerm,
+        display := $displayTerm }))
   let mod ← getMainModule
   let modName : TSyntax `term := quote mod
   elabCommand (← `(command|
@@ -597,13 +660,17 @@ private def precondParamBinds
 open Lean Elab Command Term in
 elab_rules : command
   | `(defFn $name:ident ($symDoc:term) ($doc:term)
-       $ps:fnParam* $[requires $reqs:fnPrecond,*]?
+       $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
+       $[requires $reqs:fnPrecond,*]?
        : $retTy:term where
        $arms:fnArm*) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
+    let displayTerm ← match dps with
+      | some d => Option.some <$> parseFnDisplay paramData d.getElems
+      | none => pure none
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -677,7 +744,7 @@ elab_rules : command
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
-      bodyTerm preconds
+      bodyTerm preconds (display := displayTerm)
     flushIdentRefs
 
 -- ══════════════════════════════════════════════
@@ -687,12 +754,16 @@ elab_rules : command
 open Lean Elab Command in
 elab_rules : command
   | `(defFn $name:ident ($symDoc:term) ($doc:term)
-       $ps:fnParam* $[requires $reqs:fnPrecond,*]?
+       $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
+       $[requires $reqs:fnPrecond,*]?
        : $retTy:term := $rhs:fnExpr) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
+    let displayTerm ← match dps with
+      | some d => Option.some <$> parseFnDisplay paramData d.getElems
+      | none => pure none
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -728,7 +799,7 @@ elab_rules : command
     let bodyTerm ←
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
-      bodyTerm preconds
+      bodyTerm preconds (display := displayTerm)
     flushIdentRefs
 
 -- ══════════════════════════════════════════════
@@ -738,13 +809,17 @@ elab_rules : command
 open Lean Elab Command Term in
 elab_rules : command
   | `(defFn $name:ident ($symDoc:term) ($doc:term)
-       $ps:fnParam* $[requires $reqs:fnPrecond,*]?
+       $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
+       $[requires $reqs:fnPrecond,*]?
        : $retTy:term begin
        $stmts:fnStmt* return $ret:fnExpr) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
+    let displayTerm ← match dps with
+      | some d => Option.some <$> parseFnDisplay paramData d.getElems
+      | none => pure none
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -781,7 +856,7 @@ elab_rules : command
     let bodyTerm ←
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
-      bodyTerm preconds
+      bodyTerm preconds (display := displayTerm)
     flushIdentRefs
 
 
@@ -794,7 +869,8 @@ elab_rules : command
     mutual-group command. -/
 declare_syntax_cat mutualFnEntry
 syntax "defFn " ident "(" term ")" "(" term ")"
-    fnParam* ("requires " fnPrecond,+)?
+    fnParam* ("displayed " "(" displayPart,+ ")")?
+    ("requires " fnPrecond,+)?
     ":" term " where" fnArm*
     : mutualFnEntry
 
@@ -817,6 +893,7 @@ private structure MutualEntryResult where
   retTy : Lean.TSyntax `term
   preconds : List (String × List String)
   parsed : Array (Array BodyPat × DslExpr)
+  display : Option (Lean.TSyntax `term)
 
 open Lean Elab Command Term in
 private def parseMutualEntry
@@ -825,12 +902,16 @@ private def parseMutualEntry
   match entry with
   | `(mutualFnEntry|
         defFn $name:ident ($symDoc:term) ($doc:term)
-          $ps:fnParam* $[requires $reqs:fnPrecond,*]?
+          $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
+          $[requires $reqs:fnPrecond,*]?
           : $retTy:term where
           $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
+    let displayTerm ← match dps with
+      | some d => Option.some <$> parseFnDisplay paramData d.getElems
+      | none => pure none
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM (parsePrecond ·.raw)
@@ -886,7 +967,7 @@ private def parseMutualEntry
           match {matchArgs} with\n\
           {"\n".intercalate armStrs}"
     pure { defStr, name, symDoc, doc, paramData, retTy,
-           preconds, parsed }
+           preconds, parsed, display := displayTerm }
   | _ => throwError "invalid mutualFnEntry"
 
 open Lean Elab Command Term in
@@ -923,4 +1004,5 @@ elab_rules : command
       let bodyTerm ← `(FnBody.matchArms $armList)
       buildFnDef ⟨r.name, r.symDoc, r.doc⟩ r.paramData
         r.retTy bodyTerm r.preconds (mutualGroup := some groupTag)
+        (display := r.display)
     flushIdentRefs

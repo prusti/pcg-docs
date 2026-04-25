@@ -97,7 +97,7 @@ private def elabDefStruct
       -- "TransientState", "P"]`.
       let chars := s.toList.map fun c =>
         if c == '(' || c == ')' then ' ' else c
-      String.mk chars
+      String.ofList chars
         |>.splitOn " "
         |>.filter (· != "")
     let fieldsUseHash := fieldData.any fun (_, ft, _) =>

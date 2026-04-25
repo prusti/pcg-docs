@@ -126,7 +126,7 @@ open Lean Elab Command in
     symbol is auto-looked-up from its type's `enumDef`/
     `structDef`. See `parseDisplayPart` for argument
     descriptions. -/
-private def buildArgRef
+def buildArgRef
     (argName : String)
     (argTypes : List (String × String))
     (selfName : String)
@@ -196,7 +196,7 @@ open Lean Elab Command in
     the list of enum-level type parameter names; arguments
     of those types render using the parameter name as a
     plain symbol. -/
-private def parseDisplayPart
+def parseDisplayPart
     (argTypes : List (String × String))
     (selfName : String)
     (selfSym : Lean.TSyntax `term)
@@ -302,7 +302,7 @@ private def elabDefEnum
             let chars := typeStr.toList.map fun c =>
               if c == '(' || c == ')' then ' ' else c
             let tokens : List String :=
-              String.mk chars
+              String.ofList chars
                 |>.splitOn " "
                 |>.filter (· != "")
             tokens.any fun tok =>
@@ -441,7 +441,7 @@ private def elabDefEnum
             let chars := typeStr.toList.map fun c =>
               if c == '(' || c == ')' then ' ' else c
             let tokens : List String :=
-              String.mk chars
+              String.ofList chars
                 |>.splitOn " "
                 |>.filter (· != "")
             tokens.any fun tok =>

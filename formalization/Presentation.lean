@@ -316,7 +316,11 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
     precondShortUsage := fun nm args =>
       (reg.properties.find?
           (·.propertyDef.fnDef.name == nm)).map
-        fun rp => rp.propertyDef.doc args }
+        fun rp => rp.propertyDef.doc args
+    resolveFnDisplay := fun n =>
+      (reg.fns.find? (·.fnDef.name == n)).bind fun f =>
+        f.fnDef.display.map fun parts =>
+          (parts, f.fnDef.params.map (·.name)) }
 
 /-- Build the full presentation LaTeX body. -/
 def buildPresentationLatex (reg : Registry) : Latex :=

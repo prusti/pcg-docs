@@ -42,3 +42,11 @@ structure RenderCtx where
       (rendered inside `\Require` blocks). -/
   precondShortUsage : String → List Doc → Option Doc :=
     fun _ _ => none
+  /-- Look up a function's display template and parameter
+      names by short name. Used to render call sites with the
+      callee's pretty form: each `#param` reference in the
+      template is replaced by the rendered argument expression
+      at the matching positional slot. Returns `none` for
+      functions without a custom display. -/
+  resolveFnDisplay : String → Option (List DisplayPart × List String) :=
+    fun _ => none
