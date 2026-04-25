@@ -81,6 +81,13 @@ inductive MathSym where
   | lambda
   /-- Semicolon: `;`. -/
   | semicolon
+  /-- Auto-sized left paren: `\left(` in LaTeX. Use when
+      the wrapped content contains a multi-line construct
+      (e.g. a `match` that produces `\begin{array}` rows)
+      so the paren grows to match its height. -/
+  | lparenAuto
+  /-- Auto-sized right paren: `\right)` in LaTeX. -/
+  | rparenAuto
   deriving Repr
 
 /-- Style of an underline: solid or dashed. -/
@@ -214,6 +221,8 @@ def toPlainText : MathSym → String
   | .pipe => "|"
   | .lambda => "λ "
   | .semicolon => ";"
+  | .lparenAuto => "("
+  | .rparenAuto => ")"
 
 end MathSym
 
@@ -222,9 +231,46 @@ namespace MathDoc
 /-- Text in math mode (rendered as `\text{s}` in LaTeX). -/
 def text (s : String) : MathDoc := .doc (.plain s)
 
-/-- Wrap a math doc in parentheses. -/
+/-- Whether a math doc contains a multi-line LaTeX construct
+    (`\begin{array}` or `\left…`) that forces its surrounding
+    delimiters to grow. Used by `paren` to choose between
+    fixed-size `(`/`)` and auto-sized `\left(`/`\right)`. -/
+partial def containsAutoSize : MathDoc → Bool
+  | .raw s =>
+    let hasSubstr (needle : String) : Bool :=
+      (s.splitOn needle).length > 1
+    hasSubstr "\\begin{array}" || hasSubstr "\\left"
+  | .doc d =>
+    -- `rawMath s` (used by `match_` etc.) wraps the LaTeX
+    -- through `.doc (.raw …)`, so descend into `Doc.raw`
+    -- to spot `\begin{array}` and friends.
+    let rec docHasAutoSize : Doc → Bool
+      | .raw latex _ _ =>
+        let hasSubstr (needle : String) : Bool :=
+          (latex.splitOn needle).length > 1
+        hasSubstr "\\begin{array}" || hasSubstr "\\left"
+      | .seq ds => ds.any docHasAutoSize
+      | .bold d | .italic d
+      | .underline _ d => docHasAutoSize d
+      | .link t _ => docHasAutoSize t
+      | .itemize ds => ds.any docHasAutoSize
+      | .math m => m.containsAutoSize
+      | .plain _ | .code _ | .line => false
+    docHasAutoSize d
+  | .seq ds => ds.any containsAutoSize
+  | .bb d | .bold d | .italic d | .cal d
+  | .widetilde d | .hat d => d.containsAutoSize
+  | .sub b s => b.containsAutoSize || s.containsAutoSize
+  | .sym _ => false
+
+/-- Wrap a math doc in parentheses. Switches to LaTeX
+    `\left(`/`\right)` when the content contains a
+    multi-line construct so the parens grow to match. -/
 def paren (d : MathDoc) : MathDoc :=
-  .seq [.sym .lparen, d, .sym .rparen]
+  if d.containsAutoSize then
+    .seq [.sym .lparenAuto, d, .sym .rparenAuto]
+  else
+    .seq [.sym .lparen, d, .sym .rparen]
 
 /-- Wrap a math doc in square brackets. -/
 def bracket (d : MathDoc) : MathDoc :=
@@ -470,6 +516,8 @@ mutual
     | .sym .pipe => "|"
     | .sym .lambda => "&lambda; "
     | .sym .semicolon => ";"
+    | .sym .lparenAuto => "("
+    | .sym .rparenAuto => ")"
     | .bb d | .bold d => s!"<b>{mathToHTML d}</b>"
     | .italic d => s!"<i>{mathToHTML d}</i>"
     | .cal d => mathToHTML d

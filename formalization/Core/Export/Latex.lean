@@ -335,6 +335,8 @@ def toLatex : MathSym → LatexMath
   | .pipe => .raw "|"
   | .lambda => .raw "\\lambda "
   | .semicolon => .raw ";"
+  | .lparenAuto => .raw "\\left("
+  | .rparenAuto => .raw "\\right)"
 
 end MathSym
 
