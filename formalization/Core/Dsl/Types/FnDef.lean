@@ -55,19 +55,36 @@ def shortSig (f : FnDef) : Doc :=
     Doc.intercalate (.plain ", ") paramDocs,
     .plain ") → ", f.returnType.toDoc .normal ]
 
-private partial def exprLinesTop
+/-- Render a single `DslExpr` as a list of `\State` lines for
+    the algorithmic environment. Used both for `expr`-bodied
+    function definitions (called at the top level with depth 0)
+    and for the rhs of complex match arms in `matchArms`-bodied
+    definitions (called with depth 1 inside the enclosing arm).
+
+    `varDisplay`, `ctorDisplay`, `resolveCtor`, and
+    `resolveVariant` carry the per-arm constructor scope when
+    rendering a match arm's rhs. For `expr` bodies the function
+    has no enclosing arm, so the caller passes `none`-returning
+    defaults plus the registry-wide ctor/variant resolvers from
+    `ctx`. -/
+private partial def exprLines
     (fnName : String)
     (ctx : RenderCtx)
     (isProperty : Bool)
+    (varDisplay : String → Option MathDoc)
+    (ctorDisplay : String → Option MathDoc)
+    (resolveCtor : String → Option String)
+    (resolveVariant : String → Option VariantDef)
     (e : DslExpr) (depth : Nat) : List Latex :=
-  let noDisp : String → Option MathDoc := fun _ => none
   let goExpr (e : DslExpr) : LatexMath :=
-    (DslExpr.toDoc fnName ctx noDisp isProperty e).toLatexMath
+    (DslExpr.toDoc fnName ctx varDisplay isProperty e).toLatexMath
   let goPat (p : BodyPat) : LatexMath :=
-    (BodyPat.toDoc noDisp ctx.resolveCtor
-      ctx.resolveVariant p).toLatexMath
+    (BodyPat.toDoc ctorDisplay resolveCtor
+      resolveVariant p).toLatexMath
   let mkIndent (n : Nat) : LatexMath :=
     .raw (String.join (List.replicate n "\\hskip1.5em "))
+  let recur := exprLines fnName ctx isProperty varDisplay
+    ctorDisplay resolveCtor resolveVariant
   match e with
   | .letIn name val rest =>
     let letLine : Latex :=
@@ -78,7 +95,7 @@ private partial def exprLinesTop
              , .escaped name.name
              , .raw " := "
              , goExpr val ])) ]
-    letLine :: exprLinesTop fnName ctx isProperty rest depth
+    letLine :: recur rest depth
   | .letBindIn name val rest =>
     let letLine : Latex :=
       .seq [ .raw "    "
@@ -88,7 +105,7 @@ private partial def exprLinesTop
              , .escaped name
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
-    letLine :: exprLinesTop fnName ctx isProperty rest depth
+    letLine :: recur rest depth
   | .ifThenElse cond t e =>
     let ifLine : Latex :=
       .seq [ .raw "    "
@@ -97,15 +114,13 @@ private partial def exprLinesTop
              , .text (.raw "if~")
              , goExpr cond
              , .raw "~", .text (.raw "then") ])) ]
-    let thenLines := exprLinesTop fnName ctx isProperty t
-      (depth + 1)
+    let thenLines := recur t (depth + 1)
     let elseLine : Latex :=
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
                mkIndent depth
              , .text (.raw "else") ])) ]
-    let elseLines := exprLinesTop fnName ctx isProperty e
-      (depth + 1)
+    let elseLines := recur e (depth + 1)
     ifLine :: thenLines ++ elseLine :: elseLines
   | .match_ scrut matchArms =>
     let headerLine : Latex :=
@@ -117,7 +132,8 @@ private partial def exprLinesTop
              , .raw ":" ])) ]
     -- Classify an arm; simple arms get batched into an
     -- aligned `{ll}` array and complex arms drop to a
-    -- `case pat ⇒` header followed by the nested rhs lines.
+    -- `\textbf{case} pat ⇒` header followed by the nested
+    -- rhs lines.
     let armEntry
         : (List BodyPat × DslExpr)
         → Sum (LatexMath × LatexMath) (Latex × List Latex) :=
@@ -137,12 +153,11 @@ private partial def exprLinesTop
             .seq [ .raw "    "
                  , Latex.state (.inlineMath (.seq [
                      mkIndent (depth + 1)
-                   , .text (.raw "case~")
+                   , .raw "\\text{\\textbf{case}}~"
                    , patMath
                    , .raw "~"
                    , .cmd "Rightarrow" ])) ]
-          let rhsLs := exprLinesTop fnName ctx isProperty rhs
-            (depth + 2)
+          let rhsLs := recur rhs (depth + 2)
           .inr (caseLine, rhsLs)
     -- Render a batch of consecutive simple arms as one
     -- `\State` carrying a `{ll}` math array so the rows
@@ -153,7 +168,7 @@ private partial def exprLinesTop
         (batch : List (LatexMath × LatexMath)) : Latex :=
       let rows : List LatexMath := batch.map fun (pat, rhs) =>
         .seq [ mkIndent (depth + 1)
-             , .raw "\\text{case}~", pat
+             , .raw "\\text{\\textbf{case}}~", pat
              , .raw " & ", .cmd "Rightarrow", .raw " "
              , rhs, .raw " \\\\" ]
       .seq [ .raw "    "
@@ -267,54 +282,6 @@ def formalDefLatex
           (BodyPat.toDoc ctx.ctorDisplay
             (scopedResolveCtor ty)
             (scopedResolveVariant ty) p).toLatexMath)
-    let goExpr (e : DslExpr) : LatexMath :=
-      (DslExpr.toDoc f.name ctx varDisplay
-        isProperty e).toLatexMath
-    let rec rhsLines : DslExpr → List Latex
-      | .letBindIn name val rest =>
-        .seq [ .raw "    "
-             , Latex.state (.inlineMath (.seq [
-                 .raw "\\hskip1.5em "
-               , .text (.raw "let~")
-               , .escaped name
-               , .raw " ", .cmd "leftarrow", .raw " "
-               , goExpr val ])) ]
-        :: rhsLines rest
-      | .letIn name val rest =>
-        .seq [ .raw "    "
-             , Latex.state (.inlineMath (.seq [
-                 .raw "\\hskip1.5em "
-               , .text (.raw "let~")
-               , .escaped name.name
-               , .raw " := "
-               , goExpr val ])) ]
-        :: rhsLines rest
-      | .ifThenElse cond t e =>
-        let ifLine : Latex := .seq
-          [ .raw "    "
-          , Latex.state (.inlineMath (.seq [
-              .raw "\\hskip1.5em "
-            , .text (.raw "if~")
-            , goExpr cond
-            , .raw "~", .text (.raw "then") ])) ]
-        let branchLine (label : String)
-            (body : DslExpr) : Latex :=
-          .seq [ .raw "    "
-               , Latex.state (.inlineMath (.seq [
-                   .raw "\\hskip3em "
-                 , .text (.raw label)
-                 , goExpr body ])) ]
-        let elseHeader : Latex := .seq
-          [ .raw "    "
-          , Latex.state (.inlineMath (.seq [
-              .raw "\\hskip1.5em "
-            , .text (.raw "else") ])) ]
-        [ ifLine, branchLine "" t, elseHeader
-        , branchLine "" e ]
-      | e =>
-        [.seq [ .raw "    "
-              , Latex.state (.inlineMath (.seq [
-                  .raw "\\hskip1.5em ", goExpr e ])) ]]
     let isSimple := match arm.rhs with
       | .letBindIn .. => false
       | .letIn .. => false
@@ -329,14 +296,21 @@ def formalDefLatex
       -- Complex arm: `\textbf{case} pat ⇒` header followed
       -- by indented rhs lines. Alignment across arms is not
       -- attempted because the multi-line rhs can't live in
-      -- a single array cell.
+      -- a single array cell. The rhs is rendered by
+      -- `exprLines` at depth 1 — inner expressions inherit
+      -- the registry-wide ctor/variant resolvers from `ctx`,
+      -- but variable display in the rhs still resolves
+      -- through this arm's `varDisplay`.
       let caseLine : Latex :=
         .seq [ .raw "    "
              , Latex.state (.seq [
                  .textbf (.raw "case"), .raw " "
                , .inlineMath patMath
                , .raw " ", .inlineMath (.cmd "Rightarrow") ]) ]
-      .inr (caseLine, rhsLines arm.rhs)
+      let rhsLs := exprLines f.name ctx isProperty varDisplay
+        ctx.ctorDisplay ctx.resolveCtor ctx.resolveVariant
+        arm.rhs 1
+      .inr (caseLine, rhsLs)
   -- Render a run of simple arms as one `\State` carrying a
   -- `{ll}` math array so every row aligns on the `⇒`. The
   -- patterns sit in the left column, `⇒ rhs` in the right.
@@ -369,9 +343,12 @@ def formalDefLatex
           if batch.isEmpty then []
           else [renderSimpleBatch batch.reverse]
         prefixLs ++ caseLine :: rhsLs ++ renderArms rest []
+  let noDisp : String → Option MathDoc := fun _ => none
   let bodyLines : List Latex := match f.body with
     | .matchArms arms => renderArms arms []
-    | .expr body => exprLinesTop f.name ctx isProperty body 0
+    | .expr body => exprLines f.name ctx isProperty noDisp
+        ctx.ctorDisplay ctx.resolveCtor ctx.resolveVariant
+        body 0
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argDocs : List Doc :=
