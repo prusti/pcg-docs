@@ -213,8 +213,9 @@ defFn getCapability (.plain "getCapability")
   (.seq [.plain "Compute the capability of a MIR place from \
     the per-program-point PCG data. The cascade: (1) return ",
     .code "None",
-    .plain " when the place lands on an internal node of the \
-    init tree or is the blocked side of a mutable deref edge, \
+    .plain " when the local is not allocated in the owned \
+    state, the place lands on an internal node of the init \
+    tree, or it is the blocked side of a mutable deref edge, \
     (2) return ",
     .math (.bold (.raw "W")),
     .plain " or ", .math (.bold (.raw "e")),
@@ -232,22 +233,12 @@ defFn getCapability (.plain "getCapability")
   (p "The place whose capability is requested." : Place)
   requires validPlace(body, p)
   : Option Capability :=
-    let tree? := getAlloc ‹pd↦ownedState, p↦base› ;
+    let tree ← getAlloc ‹pd↦ownedState, p↦base› ;
     let projs := p↦projection ;
-    let isInternal :=
-      match tree? with
-      | .some t => treeIsInternal ‹projs, t›
-      | .none => false
-      end ;
-    let leafCap :=
-      match tree? with
-      | .some t => treeLeafCapability ‹projs, t›
-      | .none => None
-      end ;
-    if isInternal then None
+    if treeIsInternal ‹projs, tree› then None
     else if BorrowsGraph.placeIsBlockedMutable ‹pd↦bg, p› then None
     else
-      match leafCap with
+      match treeLeafCapability ‹projs, tree› with
       | .some c => Some c
       | .none =>
           if projectsSharedRef
