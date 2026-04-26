@@ -91,6 +91,16 @@ private def lookupVariant
     | some v => some v
     | none => viaResolver
 
+/-- Strip the anonymous-constructor `.` prefix or the
+    `Option.` qualifier from a constructor name, returning
+    the bare short name. Used to detect `Option`'s
+    `some`/`none` constructors regardless of how they were
+    written in the source pattern. -/
+private def stripOptionQualifier (n : String) : String :=
+  if n.startsWith "." then (n.drop 1).toString
+  else if n.startsWith "Option." then (n.drop 7).toString
+  else n
+
 partial def toDoc
     (ctorDisplay : String → Option MathDoc)
     (resolveCtor : String → Option String := fun _ => none)
@@ -107,45 +117,74 @@ partial def toDoc
                resolveCtor resolveVariant variants))
          , .sym .rangle ]
   | .ctor n args =>
-    if args.isEmpty then
-      -- Nullary patterns use the caller-supplied
-      -- `ctorDisplay` (the registry-wide variant→display
-      -- map at top-level patterns, or `none` for inner
-      -- matches that prefer a linked bare name). No arity
-      -- disambiguation is needed: a nullary pattern
-      -- already encodes its own arity (0).
-      match ctorDisplay n with
-      | some display => display
-      | none => ctorRef resolveCtor n
-    else
-      -- Non-nullary patterns: resolve the variant via
-      -- arity-aware lookup so that patterns like
-      -- `.deref de` (1 arg) resolve to the unique
-      -- arity-1 variant (`PcgEdge.deref`,
-      -- `PlaceExpansion.deref`, …) rather than the
-      -- nullary `ProjElem.deref`. The pair
-      -- `(short name, arity)` acts as the
-      -- fully-qualified identifier of the variant.
-      match lookupVariant variants resolveVariant n args.length with
-      | some v =>
-        let argMap : List (String × BodyPat) :=
-          (v.args.map (·.name)).zip args
-        let parts : List MathDoc := v.display.map fun
-          | .lit d => d
-          | .arg name _ =>
-            match argMap.find? (·.1 == name) with
-            | some (_, p) =>
-              toDoc ctorDisplay resolveCtor resolveVariant
-                variants p
-            | none => MathDoc.text name
-        .seq parts
-      | none =>
-        let argParts :=
-          args.map (toDoc ctorDisplay resolveCtor
-            resolveVariant variants)
-        .seq [ ctorRef resolveCtor n
-             , MathDoc.paren
-                 (mathIntercalate (.sym .comma) argParts) ]
+    -- `Option`'s `some`/`none` are not registered as a
+    -- defEnum, so they would otherwise fall through to the
+    -- unknown-ctor branch below and render as
+    -- `\text{some}(x)` / `\text{none}` — lowercase, with
+    -- function-call parens around the argument. Special-case
+    -- them here so they render as `Some x` / `None`,
+    -- matching the explicit `Some`/`None` expression syntax
+    -- and the space-juxtaposition style used by other
+    -- defEnum constructors.
+    let optionCtor : Option (String × Bool) :=
+      match stripOptionQualifier n with
+      | "none" | "None" => some ("None", false)
+      | "some" | "Some" => some ("Some", true)
+      | _ => none
+    match optionCtor, args with
+    | some ("None", _), [] => MathDoc.text "None"
+    | some ("Some", _), [arg] =>
+      let needsParen : BodyPat → Bool
+        | .ctor "⟨⟩" _ => false
+        | .ctor _ as => !as.isEmpty
+        | _ => false
+      let argDoc :=
+        toDoc ctorDisplay resolveCtor resolveVariant
+          variants arg
+      let argRendered :=
+        if needsParen arg then MathDoc.paren argDoc
+        else argDoc
+      .seq [MathDoc.text "Some", .sym .space, argRendered]
+    | _, _ =>
+      if args.isEmpty then
+        -- Nullary patterns use the caller-supplied
+        -- `ctorDisplay` (the registry-wide variant→display
+        -- map at top-level patterns, or `none` for inner
+        -- matches that prefer a linked bare name). No arity
+        -- disambiguation is needed: a nullary pattern
+        -- already encodes its own arity (0).
+        match ctorDisplay n with
+        | some display => display
+        | none => ctorRef resolveCtor n
+      else
+        -- Non-nullary patterns: resolve the variant via
+        -- arity-aware lookup so that patterns like
+        -- `.deref de` (1 arg) resolve to the unique
+        -- arity-1 variant (`PcgEdge.deref`,
+        -- `PlaceExpansion.deref`, …) rather than the
+        -- nullary `ProjElem.deref`. The pair
+        -- `(short name, arity)` acts as the
+        -- fully-qualified identifier of the variant.
+        match lookupVariant variants resolveVariant n args.length with
+        | some v =>
+          let argMap : List (String × BodyPat) :=
+            (v.args.map (·.name)).zip args
+          let parts : List MathDoc := v.display.map fun
+            | .lit d => d
+            | .arg name _ =>
+              match argMap.find? (·.1 == name) with
+              | some (_, p) =>
+                toDoc ctorDisplay resolveCtor resolveVariant
+                  variants p
+              | none => MathDoc.text name
+          .seq parts
+        | none =>
+          let argParts :=
+            args.map (toDoc ctorDisplay resolveCtor
+              resolveVariant variants)
+          .seq [ ctorRef resolveCtor n
+               , MathDoc.paren
+                   (mathIntercalate (.sym .comma) argParts) ]
   | .nil => MathDoc.bracket (.seq [])
   | .cons h t =>
     let rec flatten : BodyPat → Option (List BodyPat)

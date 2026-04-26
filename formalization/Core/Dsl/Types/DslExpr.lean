@@ -325,7 +325,21 @@ partial def toDoc
   | .emptyList => MathDoc.bracket (.seq [])
   | .none_ => MathDoc.text "None"
   | .some_ e =>
-    .seq [MathDoc.text "Some", MathDoc.paren (go e)]
+    -- Render `Some x` like a unary defEnum constructor:
+    -- juxtaposition with a space, parens only around
+    -- compound arguments (calls, named-struct literals,
+    -- nested `Some`s) so the bare-identifier case stays
+    -- paren-free.
+    let needsParen : DslExpr → Bool
+      | .call .. => true
+      | .mkStruct name _ => name != ""
+      | .cons .. => false
+      | .some_ _ => true
+      | _ => false
+    let argDoc := go e
+    let arg := if needsParen e then MathDoc.paren argDoc
+               else argDoc
+    .seq [MathDoc.text "Some", .sym .space, arg]
   | .mkStruct name args =>
     let argDocs := args.map go
     if name == "" then
