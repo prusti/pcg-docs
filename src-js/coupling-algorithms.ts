@@ -713,6 +713,7 @@ export function applyCouplingAlgorithm(algorithmId: CouplingAlgorithmId, nodes: 
 
 export {
     HypergraphForCoupling,
+    Unblocking,
     computeAllUnblockings,
     getDistinctUnblockings,
     findEffectivelyCoupledSets,

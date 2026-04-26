@@ -6,7 +6,16 @@
  * in coupling.md
  */
 
-import { applyCouplingAlgorithm } from "./coupling-algorithms";
+import {
+  applyCouplingAlgorithm,
+  HypergraphForCoupling,
+  Unblocking,
+  computeAllUnblockings,
+  getDistinctUnblockings,
+  findEffectivelyCoupledSets,
+  findMaximallyCoupledSets,
+  isEffectivelyCoupled,
+} from "./coupling-algorithms";
 
 interface Node {
   id: string;
@@ -44,7 +53,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
   describe("Basic Graph Properties", () => {
     test("should identify leaf nodes correctly", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const leaves = graph.getLeafNodes();
@@ -52,7 +60,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("should identify blocked nodes correctly", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const blocked = graph.getBlockedNodes();
@@ -60,7 +67,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("should compute descendants correctly", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const descendantsOfA = graph.getDescendants("a");
@@ -73,7 +79,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
   describe("Frontier Detection", () => {
     test("should identify valid frontiers", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       expect(graph.isFrontier(["c", "d"])).toBe(true);
@@ -88,7 +93,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("should compute all frontiers", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const frontiers = graph.getAllFrontiers();
@@ -102,7 +106,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
   describe("Productive Expiries", () => {
     test("should identify productive expiries", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       expect(graph.isProductiveExpiry(["c", "d"])).toBe(true);
@@ -116,7 +119,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("should compute minimal productive frontiers", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const minimalFrontiers = graph.getMinimalProductiveFrontiers();
@@ -128,11 +130,10 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("should compute expiry edges correctly", () => {
-      const { HypergraphForCoupling } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const expiryEdges = graph.getExpiryEdges(["c", "d"]);
-      const edgeIds = expiryEdges.map((e: any) => e.id).sort();
+      const edgeIds = expiryEdges.map(e => e.id).sort();
 
       expect(edgeIds).toEqual(["ac", "ad", "bc", "bd"]);
     });
@@ -140,17 +141,13 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
   describe("Unblockings", () => {
     test("should compute all unblockings", () => {
-      const {
-        computeAllUnblockings,
-        HypergraphForCoupling,
-      } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const unblockings = computeAllUnblockings(graph);
 
       expect(unblockings.length).toBeGreaterThan(0);
 
-      unblockings.forEach((unblocking: any) => {
+      unblockings.forEach((unblocking: Unblocking) => {
         expect(unblocking.partitions).toBeDefined();
         expect(unblocking.reachableGraphs).toBeDefined();
         expect(unblocking.partitions.length).toBeGreaterThan(0);
@@ -161,15 +158,11 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("unblockings should have valid structure", () => {
-      const {
-        computeAllUnblockings,
-        HypergraphForCoupling,
-      } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const unblockings = computeAllUnblockings(graph);
 
-      unblockings.forEach((unblocking: any) => {
+      unblockings.forEach((unblocking: Unblocking) => {
         const firstPartition = unblocking.partitions[0];
         expect(firstPartition.length).toBeGreaterThan(0);
 
@@ -183,11 +176,6 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("should filter to distinct unblockings", () => {
-      const {
-        computeAllUnblockings,
-        getDistinctUnblockings,
-        HypergraphForCoupling,
-      } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const allUnblockings = computeAllUnblockings(graph);
@@ -202,25 +190,19 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
   describe("Effectively Coupled Sets", () => {
     test("should find effectively coupled edge sets", () => {
-      const {
-        computeAllUnblockings,
-        getDistinctUnblockings,
-        findEffectivelyCoupledSets,
-        HypergraphForCoupling,
-      } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: any[] = [];
+      const reachableGraphs: HypergraphForCoupling[] = [];
       for (const unblocking of distinctUnblockings) {
         for (const g of unblocking.reachableGraphs) {
           reachableGraphs.push(g);
         }
       }
 
-      const edgeIds = graph.edges.map((e: any) => e.id);
+      const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
         reachableGraphs,
         edgeIds
@@ -235,26 +217,19 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("effectively coupled sets should appear together in all reachable graphs", () => {
-      const {
-        computeAllUnblockings,
-        getDistinctUnblockings,
-        findEffectivelyCoupledSets,
-        isEffectivelyCoupled,
-        HypergraphForCoupling,
-      } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: any[] = [];
+      const reachableGraphs: HypergraphForCoupling[] = [];
       for (const unblocking of distinctUnblockings) {
         for (const g of unblocking.reachableGraphs) {
           reachableGraphs.push(g);
         }
       }
 
-      const edgeIds = graph.edges.map((e: any) => e.id);
+      const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
         reachableGraphs,
         edgeIds
@@ -269,26 +244,19 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
   describe("Maximally Coupled Sets", () => {
     test("should find maximally coupled sets", () => {
-      const {
-        computeAllUnblockings,
-        getDistinctUnblockings,
-        findEffectivelyCoupledSets,
-        findMaximallyCoupledSets,
-        HypergraphForCoupling,
-      } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: any[] = [];
+      const reachableGraphs: HypergraphForCoupling[] = [];
       for (const unblocking of distinctUnblockings) {
         for (const g of unblocking.reachableGraphs) {
           reachableGraphs.push(g);
         }
       }
 
-      const edgeIds = graph.edges.map((e: any) => e.id);
+      const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
         reachableGraphs,
         edgeIds
@@ -302,26 +270,19 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
 
     test("maximally coupled sets should not be subsets of each other", () => {
-      const {
-        computeAllUnblockings,
-        getDistinctUnblockings,
-        findEffectivelyCoupledSets,
-        findMaximallyCoupledSets,
-        HypergraphForCoupling,
-      } = require("./coupling-algorithms");
       const graph = new HypergraphForCoupling(testNodes, testEdges);
 
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: any[] = [];
+      const reachableGraphs: HypergraphForCoupling[] = [];
       for (const unblocking of distinctUnblockings) {
         for (const g of unblocking.reachableGraphs) {
           reachableGraphs.push(g);
         }
       }
 
-      const edgeIds = graph.edges.map((e: any) => e.id);
+      const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
         reachableGraphs,
         edgeIds
