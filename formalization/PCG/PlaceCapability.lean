@@ -48,7 +48,7 @@ defFn currentPlace (.plain "currentPlace")
   | .current p => Some p
   | .labelled _ _ => None
 
-defFn placeIsBlockedMutable (.plain "placeIsBlockedMutable")
+defFn placeIsMutablyBorrowed (.plain "placeIsMutablyBorrowed")
   (.seq [.plain "Whether the current form of ",
     .math (.raw "p"),
     .plain " is the blocked side of a mutable deref edge in \
@@ -209,6 +209,7 @@ defFn projectsSharedRef (.plain "projectsSharedRef")
 -- Top-level capability lookup
 -- ══════════════════════════════════════════════
 
+open BorrowsGraph in
 defFn getCapability (.plain "getCapability")
   (.seq [.plain "Compute the capability of a MIR place from \
     the per-program-point PCG data. The cascade: (1) return ",
@@ -235,18 +236,15 @@ defFn getCapability (.plain "getCapability")
   : Option Capability :=
     let tree ← getAlloc ‹pd↦ownedState, p↦base› ;
     let projs := p↦projection ;
-    if treeIsInternal ‹projs, tree› then None
-    else if BorrowsGraph.placeIsBlockedMutable ‹pd↦bg, p› then None
+    if treeIsInternal ‹projs, tree›
+        ∨ placeIsMutablyBorrowed ‹pd↦bg, p›
+      then None
     else
       match treeLeafCapability ‹projs, tree› with
       | .some c => Some c
       | .none =>
-          if projectsSharedRef
-              ‹body, p, lean_proof("h_validPlace")› then
-            Some Capability.read
-          else if isPrefixOfTransientReadPlace
-              ‹pd↦transientState, p› then
-            Some Capability.read
-          else
-            Some Capability.exclusive
+          if projectsSharedRef ‹body, p, lean_proof("h_validPlace")›
+              ∨ isPrefixOfTransientReadPlace ‹pd↦transientState, p›
+            then Some Capability.read
+          else Some Capability.exclusive
       end
