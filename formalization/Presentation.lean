@@ -1,3 +1,4 @@
+import PCG.Analyze
 import PCG.BorrowChecker
 import PCG.BorrowsGraph
 import PCG.Capability.Order
@@ -66,7 +67,7 @@ private def isChildOf (p m : Lean.Name) : Bool :=
     (their name would be redundant to repeat in every child's
     subsubsection heading). -/
 private def genericParentModules : List String :=
-  ["Nodes", "Edges", "Owned"]
+  ["Nodes", "Edges", "Owned", "Obtain", "Analyze"]
 
 /-- Subsubsection title for a nested module: combine the
     module's own last component with its parent's last

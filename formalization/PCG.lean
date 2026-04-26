@@ -1,3 +1,4 @@
+import PCG.Analyze
 import PCG.BorrowChecker
 import PCG.BorrowsGraph
 import PCG.Capability

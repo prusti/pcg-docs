@@ -10,14 +10,16 @@ import OpSem
 import Core.Export.Rust
 import Core.Dsl.Types.OrderDef
 
--- `PCG.Obtain` is deliberately not imported here: its
--- `defFn` bodies use constructs the Rust exporter does not
--- yet lower faithfully (bare-dotted variants whose enum must
--- be disambiguated from the surrounding type, function-level
--- pattern destructuring of `⟨a, b, c⟩` tuples, etc.), and
--- importing it shifts the enum registration order enough to
--- mis-resolve unqualified `.deref` in previously-working
--- modules (`InitTree.itPlaces`, `InitialisationState.join`).
+-- The `PCG.Obtain` submodule (`PCG.Obtain.Tree`,
+-- `PCG.Obtain.Owned`, `PCG.Obtain.PcgData`) is deliberately
+-- not imported here: its `defFn` bodies use constructs the
+-- Rust exporter does not yet lower faithfully (bare-dotted
+-- variants whose enum must be disambiguated from the
+-- surrounding type, function-level pattern destructuring of
+-- `⟨a, b, c⟩` tuples, etc.), and importing it shifts the
+-- enum registration order enough to mis-resolve unqualified
+-- `.deref` in previously-working modules
+-- (`InitTree.itPlaces`, `InitialisationState.join`).
 -- The Lean and LaTeX exports remain the authoritative source
 -- for `obtain` until the Rust exporter can translate these
 -- forms on its own; see `rustUnsupported` below for the
@@ -285,12 +287,12 @@ def buildCrate
   -- translate these forms itself.
   let rustUnsupported : List (Lean.Name × String) :=
     [(`PCG.BorrowsGraph, "join"),
-     (`PCG.Obtain, "expansionOfStep"),
-     (`PCG.Obtain, "obtainWriteInTree"),
-     (`PCG.Obtain, "obtainWriteInFields"),
-     (`PCG.Obtain, "setOwnedLocalAt"),
-     (`PCG.Obtain, "obtainWriteOwned"),
-     (`PCG.Obtain, "obtain")]
+     (`PCG.Obtain.Tree, "expansionOfStep"),
+     (`PCG.Obtain.Tree, "obtainWriteInTree"),
+     (`PCG.Obtain.Tree, "obtainWriteInFields"),
+     (`PCG.Obtain.Owned, "setOwnedLocalAt"),
+     (`PCG.Obtain.Owned, "obtainWriteOwned"),
+     (`PCG.Obtain.PcgData, "obtain")]
   let crateFns := fns.filter fun f =>
     f.leanModule.getRoot.toString == prefix_ &&
       !rustUnsupported.contains
