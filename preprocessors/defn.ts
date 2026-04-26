@@ -221,13 +221,7 @@ function resolveManualRefs(
 
 /// Strips `\noref{content}` wrappers, leaving just the content.
 function stripNoref(text: string): string {
-  let result = text;
-  let prev;
-  do {
-    prev = result;
-    result = result.replace(/\\noref\{/, "{");
-  } while (result !== prev);
-  return result;
+  return text.replace(/\\noref\{/g, "{");
 }
 
 /// Processes a single math segment, replacing `\defn`, `\ref`, `\noref`, and wrapping macro references.

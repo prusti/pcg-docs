@@ -29,15 +29,11 @@ function processChapter(chapter: Chapter): void {
                 parsedData = JSON.parse(rawData);
             }
 
-            const height = parsedData.height || '400px';
-            if (parsedData.height) {
-                delete parsedData.height;
-            }
+            const height = parsedData.height ?? '400px';
+            delete parsedData.height;
 
-            const couplingAlgorithms = parsedData.couplingAlgorithms || [];
-            if (parsedData.couplingAlgorithms) {
-                delete parsedData.couplingAlgorithms;
-            }
+            const couplingAlgorithms = parsedData.couplingAlgorithms ?? [];
+            delete parsedData.couplingAlgorithms;
 
             const jsonData = JSON.stringify(parsedData, null, 2);
             const couplingData = JSON.stringify(couplingAlgorithms);
