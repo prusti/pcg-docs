@@ -41,13 +41,8 @@ class CoupledEdge {
     constructor(underlyingEdges: InternalEdge[]) {
         this.underlyingEdges = underlyingEdges;
 
-        const allSources = new Set<string>();
-        const allTargets = new Set<string>();
-
-        underlyingEdges.forEach(edge => {
-            edge.sources.forEach(s => allSources.add(s));
-            edge.targets.forEach(t => allTargets.add(t));
-        });
+        const allSources = new Set(underlyingEdges.flatMap(edge => edge.sources));
+        const allTargets = new Set(underlyingEdges.flatMap(edge => edge.targets));
 
         this.sources = Array.from(allSources).filter(s => !allTargets.has(s));
         this.targets = Array.from(allTargets).filter(t => !allSources.has(t));
@@ -121,11 +116,7 @@ class HypergraphForCoupling {
      * Get all leaf nodes (nodes with no outgoing edges)
      */
     getLeafNodes(): Set<string> {
-        const sourcesInEdges = new Set<string>();
-        this.edges.forEach(e => {
-            e.sources.forEach(s => sourcesInEdges.add(s));
-        });
-
+        const sourcesInEdges = new Set(this.edges.flatMap(e => e.sources));
         return new Set(Array.from(this.nodes).filter(n => !sourcesInEdges.has(n)));
     }
 
@@ -231,7 +222,6 @@ class HypergraphForCoupling {
                 if (f1 === f2) return false;
 
                 const f1Set = new Set(f1);
-                const f2Set = new Set(f2);
 
                 if (f2.length >= f1.length) return false;
 
