@@ -1,4 +1,5 @@
 import PCG.Analyze
+import PCG.AnalysisObject
 import PCG.BorrowChecker
 import PCG.BorrowsGraph
 import PCG.Capability

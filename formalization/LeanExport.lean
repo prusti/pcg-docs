@@ -1,4 +1,5 @@
 import PCG.Analyze
+import PCG.AnalysisObject
 import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges

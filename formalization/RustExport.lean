@@ -1,3 +1,4 @@
+import PCG.AnalysisObject
 import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges
@@ -35,6 +36,10 @@ use crate::pcgnode::PcgNode;
 ")
   , ("PCG", "analysislocation", .raw
 "use formal_mir::body::Location;
+")
+  , ("PCG", "analysisobject", .raw
+"use formal_mir::body::Terminator;
+use formal_mir::statements::Statement;
 ")
   , ("PCG", "borrowedge", .raw
 "use formal_mir::body::Location;
