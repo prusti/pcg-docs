@@ -1,5 +1,6 @@
 import Core.Export.Latex
 import Core.Dsl.DslType
+import Core.Dsl.Types.EnumDef
 
 /-- A field of an exportable struct definition. -/
 structure FieldDef where
@@ -48,6 +49,14 @@ structure StructDef where
       Defaults to `false` so existing definitions are
       unaffected; opt in by passing `subscript` in the DSL. -/
   subscriptTypeParams : Bool := false
+  /-- Optional display template for the right-hand side of
+      the formal `sym ∈ Set ::= …` definition. When set, the
+      template's literal fragments and field references are
+      rendered in place of the default constructor or
+      angle-bracket form. Field references resolve against the
+      corresponding field's `symbolDoc` (the override if
+      present, otherwise the type's `symbolDoc`). -/
+  display : Option (List DisplayPart) := none
   /-- The fields of the struct. -/
   fields : List FieldDef
   deriving Repr
@@ -78,13 +87,16 @@ def formalDefLatex (s : StructDef)
   let fieldNames : LatexMath :=
     .seq (s.fields.map fun f =>
       .seq [sp, fieldSym f])
-  let rhs : LatexMath := match s.ctorName with
-    | some name =>
-      .seq [.texttt name, fieldNames]
-    | none =>
-      let names := LatexMath.intercalate (.raw ",~")
-        (s.fields.map fieldSym)
-      .delimited "\\langle " "\\rangle" names
+  let rhs : LatexMath := match s.display with
+    | some parts =>
+      .seq (parts.map DisplayPart.toLatexMath)
+    | none => match s.ctorName with
+      | some name =>
+        .seq [.texttt name, fieldNames]
+      | none =>
+        let names := LatexMath.intercalate (.raw ",~")
+          (s.fields.map fieldSym)
+        .delimited "\\langle " "\\rangle" names
   let defLine : Latex :=
     if s.fields.isEmpty then .seq []
     else

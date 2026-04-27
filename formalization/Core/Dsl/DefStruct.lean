@@ -1,4 +1,5 @@
 import Core.Registry
+import Core.Dsl.DefEnum
 import Lean
 
 open Lean in
@@ -45,6 +46,7 @@ syntax "defStruct " ident ("{" ident+ "}")?
     "(" term "," term ")"
     str "(" term ")" ("constructor" str)? ("note" str)? ("link" str)?
     ("subscript")?
+    ("display" "(" displayPart,+ ")")?
     " where"
     structField* ("deriving " ident,+)? : command
 
@@ -65,9 +67,61 @@ private def parseStructField
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in
+/-- Resolve a `#fieldName` display reference for a struct.
+    Prefers the field's `symbol` override; otherwise falls
+    back to the type-based lookup used by `defEnum` variants
+    (`buildArgRef`). -/
+private def buildFieldRef
+    (fieldName : String)
+    (fieldEntries : List
+        (String × String × Option (Lean.TSyntax `term)))
+    (selfName : String)
+    (selfSym : Lean.TSyntax `term)
+    (typeParams : List String)
+    : Lean.Elab.Command.CommandElabM
+        (Lean.TSyntax `term) := do
+  match fieldEntries.find? (·.1 == fieldName) with
+  | none =>
+    throwError
+      s!"defStruct: unknown field '{fieldName}'"
+  | some (_, ty, symOverride) =>
+    let ns : Lean.TSyntax `term := Lean.quote fieldName
+    match symOverride with
+    | some sym =>
+      `(DisplayPart.arg $ns ($sym : MathDoc))
+    | none =>
+      buildArgRef fieldName [(fieldName, ty)]
+        selfName selfSym typeParams
+
+open Lean Elab Command in
+/-- Parse a `displayPart` for a struct, resolving `#fieldName`
+    references via `buildFieldRef`. -/
+private def parseStructDisplayPart
+    (fieldEntries : List
+        (String × String × Option (Lean.TSyntax `term)))
+    (selfName : String)
+    (selfSym : Lean.TSyntax `term)
+    (typeParams : List String)
+    (stx : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM
+        (Lean.TSyntax `term) := do
+  match stx with
+  | `(displayPart| # $n:ident ($sym:term)) =>
+    let ns : Lean.TSyntax `term :=
+      Lean.quote (toString n.getId)
+    `(DisplayPart.arg $ns ($sym : MathDoc))
+  | `(displayPart| # $n:ident) =>
+    buildFieldRef (toString n.getId) fieldEntries
+      selfName selfSym typeParams
+  | `(displayPart| $t:term) =>
+    `(DisplayPart.lit ($t : MathDoc))
+  | _ => Lean.Elab.throwUnsupportedSyntax
+
+open Lean Elab Command in
 /-- Shared elaboration body for the `defStruct` syntax forms.
     `subscriptFlag` controls whether the generated `StructDef`
-    has `subscriptTypeParams := true`. -/
+    has `subscriptTypeParams := true`. `dps` is the optional
+    display template (one or more `displayPart` items). -/
 private def elabDefStruct
     (name : TSyntax `ident)
     (tps : Option (TSyntaxArray `ident))
@@ -78,6 +132,7 @@ private def elabDefStruct
     (noteLit : Option (TSyntax `str))
     (linkLit : Option (TSyntax `str))
     (subscriptFlag : Bool)
+    (dps : Option (Array (TSyntax `displayPart)))
     (fs : TSyntaxArray `structField)
     (derivs : Option (Syntax.TSepArray `ident ","))
     : CommandElabM Unit := do
@@ -209,6 +264,21 @@ private def elabDefStruct
       quote typeParamNames
     let subscriptTerm : TSyntax `term ←
       if subscriptFlag then `(true) else `(false)
+    let fieldEntries : List
+        (String × String × Option (TSyntax `term)) :=
+      fieldData.toList.map fun (fn, ft, _, fsymOverride) =>
+        let typeStr :=
+          if ft.isIdent then toString ft.getId
+          else ft.reprint.getD (toString ft)
+        (toString fn.getId, typeStr, fsymOverride)
+    let selfNStr := toString name.getId
+    let displayTerm : TSyntax `term ← match dps with
+      | some parts => do
+        let dpDefs ← parts.mapM
+          (parseStructDisplayPart fieldEntries selfNStr
+            symDoc typeParamNames)
+        `(some [$[$dpDefs],*])
+      | none => `(none)
     -- Expose `symDoc`, `setDoc`, and `typeParams` as
     -- unhygienic identifiers so user-written doc terms
     -- (and the `defMathSelf` macro) can reference them.
@@ -231,6 +301,7 @@ private def elabDefStruct
           «link» := $linkTerm,
           typeParams := $typeParamsTerm,
           subscriptTypeParams := $subscriptTerm,
+          «display» := $displayTerm,
           fields := $fieldList }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod
@@ -254,17 +325,23 @@ elab_rules : command
   | `(defStruct $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
        $docParam:str ($doc:term) $[constructor $ctorName:str]?
-       $[note $noteLit:str]? $[link $linkLit:str]? where
+       $[note $noteLit:str]? $[link $linkLit:str]?
+       $[display ( $dps:displayPart,* )]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
+    let dpsArr : Option (Array (TSyntax `displayPart)) :=
+      dps.map (·.getElems)
     elabDefStruct name tps symDoc setDoc docParam doc
-      ctorName noteLit linkLit false fs derivs
+      ctorName noteLit linkLit false dpsArr fs derivs
   | `(defStruct $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
        $docParam:str ($doc:term) $[constructor $ctorName:str]?
        $[note $noteLit:str]? $[link $linkLit:str]?
-       subscript where
+       subscript
+       $[display ( $dps:displayPart,* )]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
+    let dpsArr : Option (Array (TSyntax `displayPart)) :=
+      dps.map (·.getElems)
     elabDefStruct name tps symDoc setDoc docParam doc
-      ctorName noteLit linkLit true fs derivs
+      ctorName noteLit linkLit true dpsArr fs derivs

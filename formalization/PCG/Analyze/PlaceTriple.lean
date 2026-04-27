@@ -15,6 +15,10 @@ defStruct PlaceTriple
      executes. A ", .code "None",
     .plain " post indicates that the statement does not \
      establish a post-condition capability on the place."])
+  display
+    (.sym .lbrace, #pre, .sym .rbrace, .sym .space,
+    #place,
+    .sym .space, .sym .lbrace, #post, .sym .rbrace)
 where
   | place "The place whose capability is tracked." : Place
   | pre "The capability required on the place before the \

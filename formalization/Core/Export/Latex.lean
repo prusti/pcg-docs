@@ -371,6 +371,7 @@ mutual
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
   partial def MathDoc.toLatex : MathDoc → Latex
+    | .space => .raw "~"
     | .raw s => .inlineMath (.var s)
     | .doc d => d.toLatex
     | .sym s => .inlineMath s.toLatex
@@ -409,6 +410,7 @@ mutual
   /-- Convert `MathDoc` to math-mode `LatexMath` AST. -/
   partial def MathDoc.toLatexMath : MathDoc → LatexMath
     | .raw s => .escaped s
+    | .space => .raw "~"
     | .doc d => d.toLatexMath
     | .sym s => s.toLatex
     | .bb d => .mathbb d.toLatexMath

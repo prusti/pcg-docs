@@ -128,6 +128,7 @@ mutual
     | sub (base : MathDoc) (sub : MathDoc)
     /-- Concatenation of mathematical documents. -/
     | seq (ds : List MathDoc)
+    | space
     deriving Repr
 
   /-- A backend-agnostic document fragment.
@@ -240,6 +241,7 @@ partial def containsAutoSize : MathDoc → Bool
     let hasSubstr (needle : String) : Bool :=
       (s.splitOn needle).length > 1
     hasSubstr "\\begin{array}" || hasSubstr "\\left"
+  | .space => false
   | .doc d =>
     -- `rawMath s` (used by `match_` etc.) wraps the LaTeX
     -- through `.doc (.raw …)`, so descend into `Doc.raw`
@@ -401,6 +403,7 @@ mutual
 
   /-- Extract plain text from a math fragment. -/
   partial def mathToPlainText : MathDoc → String
+    | .space => " "
     | .raw s => s
     | .doc d => d.toPlainText
     | .sym s => s.toPlainText
@@ -436,6 +439,7 @@ mutual
 
   /-- Render a math fragment to Typst. -/
   partial def mathToTypst : MathDoc → String
+    | .space => " "
     | .raw s => s
     | .doc d => d.toTypst
     | .sym s => s.toPlainText
@@ -474,6 +478,7 @@ mutual
 
   /-- Render a math fragment to HTML. -/
   partial def mathToHTML : MathDoc → String
+    | .space => "&nbsp;"
     | .raw s => s!"<i>{s}</i>"
     | .doc d => d.toHTML
     | .sym .langle => "&langle;"
@@ -530,4 +535,3 @@ mutual
 end
 
 end Doc
-
