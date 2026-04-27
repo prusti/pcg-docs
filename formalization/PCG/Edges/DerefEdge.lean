@@ -1,6 +1,6 @@
 import Core.Dsl.DefStruct
 import PCG.Nodes.LocalLifetimeProjection
-import PCG.Nodes.MaybeLabelledPlace
+import PCG.Nodes.MaybeLabelled
 
 defStruct DerefEdge {P}
     (.doc (.plain "de"), .doc (.plain "DerefEdge"))
@@ -21,10 +21,10 @@ defStruct DerefEdge {P}
      use Unpack Edges instead."])
 where
   | blockedPlace "The reference-typed place that is blocked."
-      : MaybeLabelledPlace P
+      : MaybeLabelled P
   | derefPlace "The place obtained by dereferencing the \
       blocked place."
-      : MaybeLabelledPlace P
+      : MaybeLabelled P
   | blockedLifetimeProjection "The lifetime projection of \
       the blocked place that is blocked by this edge."
       : LocalLifetimeProjection P

@@ -50,7 +50,7 @@ structure EnumDef where
   /-- Top-level documentation. -/
   doc : Doc
   /-- Implicit type parameters (e.g. `["P"]` for
-      `MaybeLabelledPlace {P}`). These render as implicit
+      `MaybeLabelled {P}`). These render as implicit
       type parameters in Lean and as generics in Rust. -/
   typeParams : List String := []
   /-- When true, the formal LaTeX definition renders each

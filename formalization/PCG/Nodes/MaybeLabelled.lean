@@ -1,14 +1,14 @@
 import Core.Dsl.DefEnum
 import PCG.Nodes.SnapshotLocation
 
-defEnum MaybeLabelledPlace {P}
+defEnum MaybeLabelled {P}
     (.widetilde (.raw "p"),
-     .doc (.plain "MaybeLabelledPlace"))
+     .doc (.plain "MaybeLabelled"))
   "Maybe-Labelled Places"
   (.seq [
     .plain "A maybe-labelled place ",
     Doc.defMath (.widetilde (.raw "p"))
-      (.doc (.plain "MaybeLabelledPlace")) ["P"],
+      (.doc (.plain "MaybeLabelled")) ["P"],
     .plain " is either a current (unlabelled) place drawn \
      from the parameter set ",
     .math (.doc (.plain "P")),

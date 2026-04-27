@@ -16,7 +16,7 @@ import Lean
       (.plain "A local lifetime projection is a lifetime \
        projection whose base is a maybe-labelled place and \
        whose index is a natural number.")
-      := LifetimeProjection (MaybeLabelledPlace P) Nat
+      := LifetimeProjection (MaybeLabelled P) Nat
     ``` -/
 syntax "defAlias " ident ("{" ident+ "}")?
     "(" term "," term ")"

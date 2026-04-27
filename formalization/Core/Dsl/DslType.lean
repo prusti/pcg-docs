@@ -36,7 +36,7 @@ inductive DSLType where
   | prim (p : DSLPrimTy)
   /-- A named type from `defEnum` or `defStruct`. -/
   | named (n : DSLIdent)
-  /-- Generic type application, e.g. `MaybeLabelledPlace P`
+  /-- Generic type application, e.g. `MaybeLabelled P`
       or `LifetimeProjection (PcgPlace P) Nat`. -/
   | app (head : DSLIdent) (args : List DSLType)
   /-- `Option T`. -/
@@ -416,7 +416,7 @@ partial def parse (s : String) : DSLType :=
           | none => .named ⟨s⟩
         else
           -- Possibly a generic type application like
-          -- `MaybeLabelledPlace P` or
+          -- `MaybeLabelled P` or
           -- `LifetimeProjection (PcgPlace P) Nat`.
           match splitTopLevelSpaces s with
           | [] => .named ⟨s⟩

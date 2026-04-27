@@ -498,7 +498,7 @@ partial def LeanDecl.toString : LeanDecl → String
     let needsHashBounds := usesMap || usesSet
     -- Generic structs may hold fields whose types are generic
     -- inductives that don't derive `Inhabited` (e.g.
-    -- `MaybeLabelledPlace P`), so omit `Inhabited` when the
+    -- `MaybeLabelled P`), so omit `Inhabited` when the
     -- struct is itself generic. Matches the behaviour used
     -- for generic inductives below. Also skip `BEq`/`Hashable`
     -- when the struct stores a `HashMap`/`HashSet` — those

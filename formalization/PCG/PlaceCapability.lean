@@ -43,7 +43,7 @@ defFn derefEdges (.plain "derefEdges")
 defFn currentPlace (.plain "currentPlace")
   (.plain "The current (unlabelled) MIR place at the source of \
     a maybe-labelled place, when it has one.")
-  (mlp "The maybe-labelled place." : MaybeLabelledPlace Place)
+  (mlp "The maybe-labelled place." : MaybeLabelled Place)
   : Option Place where
   | .current p => Some p
   | .labelled _ _ => None

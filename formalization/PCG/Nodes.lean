@@ -3,7 +3,7 @@ import PCG.Nodes.AnalysisLocation
 import PCG.Nodes.LifetimeProjection
 import PCG.Nodes.LifetimeProjectionLabel
 import PCG.Nodes.LocalLifetimeProjection
-import PCG.Nodes.MaybeLabelledPlace
+import PCG.Nodes.MaybeLabelled
 import PCG.Nodes.PcgLifetimeProjection
 import PCG.Nodes.PcgLifetimeProjectionBase
 import PCG.Nodes.PcgNode

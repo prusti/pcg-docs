@@ -1,6 +1,6 @@
 import Core.Dsl.DefAlias
 import PCG.Nodes.LifetimeProjection
-import PCG.Nodes.MaybeLabelledPlace
+import PCG.Nodes.MaybeLabelled
 
 defAlias LocalLifetimeProjection {P}
     (.doc (.plain "llp"),
@@ -14,4 +14,4 @@ defAlias LocalLifetimeProjection {P}
      maybe-labelled place drawn from the parameter set ",
     .math (.doc (.plain "P")),
     .plain " and whose index is a natural number."])
-  := LifetimeProjection (MaybeLabelledPlace P) Nat
+  := LifetimeProjection (MaybeLabelled P) Nat

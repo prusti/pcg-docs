@@ -71,7 +71,7 @@ defFn placeNode (.plain "placeNode")
   : PcgNode Place :=
     PcgNode.place
       ‹PcgPlace.maybeLabelled
-        ‹MaybeLabelledPlace.current ‹p›››
+        ‹MaybeLabelled.current ‹p›››
 
 defFnMutual
 defFn itUnpackEdges (.plain "itUnpackEdges")

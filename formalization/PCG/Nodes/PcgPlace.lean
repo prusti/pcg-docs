@@ -1,6 +1,6 @@
 import Core.Dsl.DefEnum
 import MIR.Place
-import PCG.Nodes.MaybeLabelledPlace
+import PCG.Nodes.MaybeLabelled
 
 defEnum PcgPlace {P}
     (.hat (.raw "p"), .doc (.plain "PcgPlace"))
@@ -15,7 +15,7 @@ defEnum PcgPlace {P}
     .plain ", or a remote place naming a MIR local from the \
      caller."])
 where
-  | maybeLabelled (mlp : MaybeLabelledPlace P)
+  | maybeLabelled (mlp : MaybeLabelled P)
     "A maybe-labelled place."
     (#mlp (.widetilde (.raw "p")))
   | remote (l : Local)

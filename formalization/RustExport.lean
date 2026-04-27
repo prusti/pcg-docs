@@ -46,14 +46,14 @@ use formal_mir::statements::Statement;
 use formal_mir::region::Region;
 use formal_mir::ty::Mutability;
 use crate::lifetimeprojectionlabel::LifetimeProjectionLabel;
-use crate::maybelabelledplace::MaybeLabelledPlace;
+use crate::maybelabelled::MaybeLabelled;
 ")
   , ("PCG", "snapshotlocation", .raw
 "use formal_mir::body::BasicBlockIdx;
 ")
   , ("PCG", "pcgplace", .raw
 "use formal_mir::place::Local;
-use crate::maybelabelledplace::MaybeLabelledPlace;
+use crate::maybelabelled::MaybeLabelled;
 ")
   , ("PCG", "placetriple", .raw
 "use formal_mir::place::Place;

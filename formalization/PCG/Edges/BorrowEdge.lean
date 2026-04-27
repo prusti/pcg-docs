@@ -3,7 +3,7 @@ import MIR.Body
 import MIR.Region
 import MIR.Ty
 import PCG.Nodes.LifetimeProjectionLabel
-import PCG.Nodes.MaybeLabelledPlace
+import PCG.Nodes.MaybeLabelled
 
 defStruct BorrowEdge {P}
     (.doc (.plain "be"), .doc (.plain "BorrowEdge"))
@@ -31,13 +31,13 @@ where
           (e.g. ",
         .code "y", .plain " in ", .code "let x = &mut y",
         .plain ")."])
-      : MaybeLabelledPlace P
+      : MaybeLabelled P
   | assignedRef (.seq [
         .plain "The place that is assigned by the borrow \
           (e.g. ",
         .code "x", .plain " in ", .code "let x = &mut y",
         .plain ")."])
-      : MaybeLabelledPlace P
+      : MaybeLabelled P
   | kind "Mutability of the borrow." : Mutability
   | reserveLocation "The MIR location at which the borrow \
       was created." : Location
