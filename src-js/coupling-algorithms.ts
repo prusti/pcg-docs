@@ -56,6 +56,22 @@ interface InternalEdge {
     originalIndex?: number;
 }
 
+/** Enumerates all non-empty subsets of `items`. */
+function allNonEmptySubsets<T>(items: T[]): T[][] {
+    const numSubsets = Math.pow(2, items.length);
+    const result: T[][] = [];
+    for (let i = 1; i < numSubsets; i++) {
+        const subset: T[] = [];
+        for (let j = 0; j < items.length; j++) {
+            if (i & (1 << j)) {
+                subset.push(items[j]);
+            }
+        }
+        result.push(subset);
+    }
+    return result;
+}
+
 /** Returns true iff two sets contain exactly the same elements. */
 function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
     if (a.size !== b.size) return false;
@@ -192,24 +208,7 @@ class HypergraphForCoupling {
      * Get all possible frontiers of the graph
      */
     getAllFrontiers(): string[][] {
-        const nodes = [...this.nodes];
-        const frontiers: string[][] = [];
-
-        const numSubsets = Math.pow(2, nodes.length);
-        for (let i = 1; i < numSubsets; i++) {
-            const subset: string[] = [];
-            for (let j = 0; j < nodes.length; j++) {
-                if (i & (1 << j)) {
-                    subset.push(nodes[j]);
-                }
-            }
-
-            if (this.isFrontier(subset)) {
-                frontiers.push(subset);
-            }
-        }
-
-        return frontiers;
+        return allNonEmptySubsets([...this.nodes]).filter(s => this.isFrontier(s));
     }
 
     /**
@@ -427,23 +426,9 @@ function findEffectivelyCoupledSets(
     reachableGraphs: HypergraphForCoupling[],
     edgeIds: string[]
 ): Set<string>[] {
-    const effectivelyCoupled: Set<string>[] = [];
-
-    const numSubsets = Math.pow(2, edgeIds.length);
-    for (let i = 1; i < numSubsets; i++) {
-        const subset: string[] = [];
-        for (let j = 0; j < edgeIds.length; j++) {
-            if (i & (1 << j)) {
-                subset.push(edgeIds[j]);
-            }
-        }
-
-        if (isEffectivelyCoupled(subset, reachableGraphs)) {
-            effectivelyCoupled.push(new Set(subset));
-        }
-    }
-
-    return effectivelyCoupled;
+    return allNonEmptySubsets(edgeIds)
+        .filter(subset => isEffectivelyCoupled(subset, reachableGraphs))
+        .map(subset => new Set(subset));
 }
 
 /**
