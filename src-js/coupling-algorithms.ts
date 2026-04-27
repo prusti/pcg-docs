@@ -44,8 +44,8 @@ class CoupledEdge {
         const allSources = new Set(underlyingEdges.flatMap(edge => edge.sources));
         const allTargets = new Set(underlyingEdges.flatMap(edge => edge.targets));
 
-        this.sources = Array.from(allSources).filter(s => !allTargets.has(s));
-        this.targets = Array.from(allTargets).filter(t => !allSources.has(t));
+        this.sources = [...allSources].filter(s => !allTargets.has(s));
+        this.targets = [...allTargets].filter(t => !allSources.has(t));
     }
 }
 
@@ -86,7 +86,7 @@ class HypergraphForCoupling {
      */
     clone(): HypergraphForCoupling {
         return new HypergraphForCoupling(
-            Array.from(this.nodes).map(id => ({ id })),
+            [...this.nodes].map(id => ({ id })),
             this.edges.map(e => ({...e}))
         );
     }
@@ -96,7 +96,9 @@ class HypergraphForCoupling {
      */
     removeNodes(nodeSet: string[]): void {
         const nodesToRemove = new Set(nodeSet);
-        this.nodes = new Set(Array.from(this.nodes).filter(n => !nodesToRemove.has(n)));
+        for (const n of nodesToRemove) {
+            this.nodes.delete(n);
+        }
         this.edges = this.edges.filter(e => {
             const hasRemovedSource = e.sources.some(s => nodesToRemove.has(s));
             const hasRemovedTarget = e.targets.some(t => nodesToRemove.has(t));
@@ -109,7 +111,7 @@ class HypergraphForCoupling {
      */
     getBlockedNodes(): string[] {
         const leaves = this.getLeafNodes();
-        return Array.from(this.nodes).filter(n => !leaves.has(n));
+        return [...this.nodes].filter(n => !leaves.has(n));
     }
 
     /**
@@ -117,7 +119,7 @@ class HypergraphForCoupling {
      */
     getLeafNodes(): Set<string> {
         const sourcesInEdges = new Set(this.edges.flatMap(e => e.sources));
-        return new Set(Array.from(this.nodes).filter(n => !sourcesInEdges.has(n)));
+        return new Set([...this.nodes].filter(n => !sourcesInEdges.has(n)));
     }
 
     /**
@@ -190,7 +192,7 @@ class HypergraphForCoupling {
      * Get all possible frontiers of the graph
      */
     getAllFrontiers(): string[][] {
-        const nodes = Array.from(this.nodes);
+        const nodes = [...this.nodes];
         const frontiers: string[][] = [];
 
         const numSubsets = Math.pow(2, nodes.length);
@@ -307,7 +309,7 @@ function computeCouplingUnblockingFrontierExpiries(nodes: Node[], edges: Edge[])
 
     const edgeIds = graph.edges.map(e => e.id);
     const effectivelyCoupled = findEffectivelyCoupledSets(
-        Array.from(reachableGraphs),
+        [...reachableGraphs],
         edgeIds
     );
 
@@ -475,7 +477,7 @@ function findMaximallyCoupledSets(effectivelyCoupled: Set<string>[]): Set<string
 
             if (set1.size >= set2.size) return false;
 
-            return Array.from(set1).every(id => set2.has(id));
+            return [...set1].every(id => set2.has(id));
         });
     });
 }
@@ -516,7 +518,7 @@ function getAllReachableGraphs(graph: HypergraphForCoupling): HypergraphForCoupl
     const visited = new Set<string>();
 
     const getGraphSignature = (g: HypergraphForCoupling): string => {
-        const nodeIds = Array.from(g.nodes).sort().join(',');
+        const nodeIds = [...g.nodes].sort().join(',');
         const edgeIds = g.edges.map(e => e.id).sort().join(',');
         return `${nodeIds}|${edgeIds}`;
     };
@@ -587,7 +589,7 @@ function computeCouplingMergedUnblockingFrontierExpiries(nodes: Node[], edges: E
             coupled.underlyingEdges.forEach(edge => allUnderlyingEdges.add(edge));
         });
 
-        const underlyingEdgesArray = Array.from(allUnderlyingEdges);
+        const underlyingEdgesArray = [...allUnderlyingEdges];
         const edgeIdsSignature = underlyingEdgesArray
             .map(e => e.id)
             .sort()
