@@ -171,7 +171,7 @@ private def LeanDefItem.toLeanAST
     (mapSetTypes : List String)
     : LeanDefItem → LeanDecl
   | .struct_ s => s.toLeanASTWith mapSetTypes
-  | .enum_ e => e.toLeanAST
+  | .enum_ e => e.toLeanASTWith mapSetTypes
   | .alias_ a => a.toLeanAST
   | .fn_ f =>
     -- Functions belonging to a mutual-recursion group are

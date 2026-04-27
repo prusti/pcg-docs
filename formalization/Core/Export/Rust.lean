@@ -627,17 +627,24 @@ end AliasDef
 
 namespace EnumDef
 
-/-- Convert an `EnumDef` to a `RustItem.enum`.
+/-- Convert an `EnumDef` to a `RustItem.enum`. `mapSetTypes`
+    names struct types that transitively hold a
+    `HashMap`/`HashSet`; any variant argument referencing one
+    such type is treated like a direct `Map`/`Set` use, so
+    `Hash` is dropped from the derive list (and `Eq + Hash`
+    bounds are added to each type parameter on generic enums).
     Variant arguments become tuple fields. Self-referential
     fields are wrapped in `Box<>`. -/
-def toRustItem (d : EnumDef) : RustItem :=
+def toRustItemWith (d : EnumDef)
+    (mapSetTypes : List String) : RustItem :=
   -- A variant argument that uses `Map`/`Set` (lowering to
   -- `HashMap`/`HashSet`) breaks the default `Hash` derive and
   -- — for generic enums — requires `Eq + Hash` bounds on each
   -- type parameter for the `PartialEq`/`Eq` derives to
   -- type-check. Mirrors the `defStruct` logic.
   let argUsesMapSet (a : ArgDef) : Bool :=
-    a.type.usesMap || a.type.usesSet
+    a.type.usesMap || a.type.usesSet ||
+    a.type.namedTypes.any (fun n => mapSetTypes.contains n)
   let hasUnhashable := d.variants.any fun v =>
     v.args.any argUsesMapSet
   let isGeneric := !d.typeParams.isEmpty
@@ -661,6 +668,11 @@ def toRustItem (d : EnumDef) : RustItem :=
         name := ⟨capitalise v.name.name⟩
         fields := v.args.map
           (argToRustTy (.named d.name)) } }
+
+/-- Convert an `EnumDef` to a `RustItem.enum` without
+    cross-type propagation of `Map`/`Set` usage. -/
+def toRustItem (d : EnumDef) : RustItem :=
+  d.toRustItemWith []
 
 /-- Generate Rust source code for this enum. -/
 def toRust (d : EnumDef) : String :=
@@ -1436,7 +1448,8 @@ def buildModules
     let items :=
       modStructs.flatMap
         (·.structDef.toRustItemsWith mapSetTypes) ++
-      modEnums.map (·.enumDef.toRustItem) ++
+      modEnums.map
+        (·.enumDef.toRustItemWith mapSetTypes) ++
       modAliases.map (·.aliasDef.toRustItem) ++
       modFns.map
         (·.fnDef.toRustItem structFieldLookup modCtx) ++

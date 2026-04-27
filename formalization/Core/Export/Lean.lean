@@ -291,13 +291,27 @@ end AliasDef
 
 namespace EnumDef
 
-/-- Lower an enum definition to an `inductive` declaration. -/
-def toLeanAST (e : EnumDef) : LeanDecl :=
+/-- Lower an enum definition to an `inductive` declaration.
+    `mapSetTypes` names struct types that transitively hold a
+    `Map`/`Set`; any constructor whose argument references one
+    such type is flagged via `LeanCtor.usesMapSet` so the
+    renderer can suppress `BEq`/`Hashable`/`Inhabited`
+    derives. -/
+def toLeanASTWith (e : EnumDef)
+    (mapSetTypes : List String) : LeanDecl :=
   .inductive_ e.name.name e.typeParams <|
     e.variants.map fun v =>
+      let argUsesMapSet := v.args.any fun a =>
+        a.type.usesMap || a.type.usesSet ||
+        a.type.namedTypes.any (mapSetTypes.contains ·)
       { name := v.name.name
         args := v.args.map fun a =>
-          { name := a.name, type := a.type.toLeanAST } }
+          { name := a.name, type := a.type.toLeanAST }
+        usesMapSet := argUsesMapSet }
+
+/-- Lower an enum definition to a `LeanDecl`. -/
+def toLeanAST (e : EnumDef) : LeanDecl :=
+  e.toLeanASTWith []
 
 /-- Render an enum definition to a Lean `inductive`. -/
 def toLean (e : EnumDef) : String :=

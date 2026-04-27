@@ -370,6 +370,12 @@ structure LeanField where
 structure LeanCtor where
   name : String
   args : List LeanBinder
+  /-- True when at least one argument's type transitively
+      contains a `HashMap`/`HashSet` (directly or via a struct
+      type that does). Used by the inductive renderer to
+      suppress `BEq`/`Hashable`/`Inhabited` derives when the
+      runtime container types don't satisfy them. -/
+  usesMapSet : Bool := false
   deriving Inhabited
 
 /-- A do-block statement. -/
@@ -549,8 +555,12 @@ partial def LeanDecl.toString : LeanDecl → String
     -- so the type-parameter binders must reflect that — and
     -- the `Repr` derive can't piggy-back on `BEq` because
     -- `HashSet`/`HashMap` themselves don't derive it.
+    -- A ctor flagged `usesMapSet` (set by the export when an
+    -- arg's type names a struct that transitively holds a
+    -- `Map`/`Set`) is treated the same way.
     let usesHash := ctors.any fun c =>
-      c.args.any fun a => a.type.usesHashContainer
+      c.usesMapSet ||
+        c.args.any fun a => a.type.usesHashContainer
     let tpStr :=
       if typeParams.isEmpty then ""
       else
