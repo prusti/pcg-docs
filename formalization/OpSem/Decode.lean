@@ -1,6 +1,5 @@
 import OpSem.AbstractByte
 import OpSem.Value
-import MIR.ConstValue
 import Core.Dsl.DefFn
 
 open AbstractByte in
@@ -14,9 +13,9 @@ defFn decodeBool (.plain "decode_bool")
       "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool",
     .plain "."])
   (bytes "The bytes to decode." : List AbstractByte)
-  : Option ConstValue where
-  | [.init 0] => Some ConstValue.bool ‹false›
-  | [.init 1] => Some ConstValue.bool ‹true›
+  : Option Bool where
+  | [.init 0] => Some false
+  | [.init 1] => Some true
   | _ => None
 
 open AbstractByte in
@@ -108,24 +107,13 @@ defFn decode (.plain "decode")
   (ty "The type to decode as." : Ty)
   (bs "The bytes to decode." : List AbstractByte)
   : Option Value where
-  | .bool ; [.init 0] => Some (Value.bool‹false›)
-  | .bool ; [.init 1] => Some (Value.bool‹true›)
+  | .bool ; bs =>
+      let b ← decodeBool ‹bs› ;
+      Some (Value.bool‹b›)
   | .int it ; bs =>
       let iv ← decodeInt ‹it, bs› ;
       Some (Value.int‹iv›)
   | _ ; _ => None
-
-defFn encode (.plain "encode")
-  (.plain "Encode a runtime value as a byte sequence. \
-   Returns the empty list for values that cannot \
-   be encoded (tuples, arrays).")
-  (v "The value to encode." : Value)
-  : List AbstractByte where
-  | .bool true => [AbstractByte.init‹1›]
-  | .bool false => [AbstractByte.init‹0›]
-  | .int iv => encodeInt ‹iv›
-  | .tuple _ => []
-  | .array _ => []
 
 open AbstractByte in
 defFn encodeBool (.plain "encode_bool")
@@ -138,3 +126,14 @@ defFn encodeBool (.plain "encode_bool")
   : List AbstractByte where
   | true => [AbstractByte.init‹1›]
   | false => [AbstractByte.init‹0›]
+
+defFn encode (.plain "encode")
+  (.plain "Encode a runtime value as a byte sequence. \
+   Returns the empty list for values that cannot \
+   be encoded (tuples, arrays).")
+  (v "The value to encode." : Value)
+  : List AbstractByte where
+  | .bool b => encodeBool ‹b›
+  | .int iv => encodeInt ‹iv›
+  | .tuple _ => []
+  | .array _ => []
