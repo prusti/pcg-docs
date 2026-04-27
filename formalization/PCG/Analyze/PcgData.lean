@@ -5,6 +5,7 @@ import PCG.Analyze.PlaceTriple
 import PCG.EvalStmtPhase
 import PCG.Obtain.PcgData
 import PCG.PcgData
+import PCG.PcgDomainData
 
 -- ══════════════════════════════════════════════
 -- Stepping the PCG across a single statement phase
@@ -54,5 +55,80 @@ defFn analyze (.plain "analyze")
         | .postMain => ∅
       end ;
     obtainTriples ‹pd, body, triples·toList›
+
+defFn analyzeAt (.plain "analyzeAt")
+  (.seq [
+    .plain "Step the PCG state across all four evaluation \
+     phases at a single location, threading each phase's \
+     output into the next. The returned ",
+    .code "PcgDomainData", .plain " carries the incoming \
+     PCG data as its entry state and the four per-phase \
+     states produced by ", .code "analyze",
+    .plain ". Returns ", .code "None",
+    .plain " if any phase fails."])
+  (pd "The incoming PCG data, at the entry to the location."
+      : PcgData Place)
+  (body "The function body." : Body)
+  (loc "The location at which to step (statement or \
+       terminator)." : Location)
+  : Option PcgDomainData :=
+    let preOp ← analyze ‹pd, body, loc, .preOperands› ;
+    let postOp ← analyze ‹preOp, body, loc, .postOperands› ;
+    let preM ← analyze ‹postOp, body, loc, .preMain› ;
+    let postM ← analyze ‹preM, body, loc, .postMain› ;
+    Some DomainData⟨pd,
+      EvalStmtData⟨preOp, postOp, preM, postM⟩⟩
+
+defFn analyzeStmtsFrom (.plain "analyzeStmtsFrom")
+  (.seq [
+    .plain "Recursively step the PCG through the remaining \
+     statements of a basic block starting at ",
+    .code "idx", .plain ", followed by the basic block's \
+     terminator. Each step calls ", .code "analyzeAt",
+    .plain " at ", .code "Location⟨bb, idx⟩",
+    .plain ", threading the post-main state into the next \
+     step. The empty-list case is the terminator step at \
+     ", .code "stmtIdx == statements.length",
+    .plain ". Returns the per-step ", .code "PcgDomainData",
+    .plain " values, or ", .code "None",
+    .plain " if any phase fails."])
+  (pd "The PCG data on entry to the next step."
+      : PcgData Place)
+  (body "The function body." : Body)
+  (bb "The basic block being analyzed." : BasicBlockIdx)
+  (idx "The current statement index within the block."
+      : Nat)
+  (remaining "The statements that still need to be \
+       processed, in order." : List Statement)
+  : Option (List PcgDomainData) :=
+    match remaining with
+      | [] =>
+          let dd ← analyzeAt ‹pd, body, Location⟨bb, idx⟩› ;
+          Some [dd]
+      | _ :: rest =>
+          let dd ← analyzeAt ‹pd, body, Location⟨bb, idx⟩› ;
+          let restDDs ← analyzeStmtsFrom
+            ‹dd↦states↦postMain, body, bb, idx + 1, rest› ;
+          Some (dd :: restDDs)
+    end
+
+defFn analyzeBlock (.plain "analyzeBlock")
+  (.seq [
+    .plain "Step the PCG state across an entire basic \
+     block: one ", .code "analyzeAt",
+    .plain " call per statement followed by one for the \
+     terminator. Returns the resulting list of ",
+    .code "PcgDomainData", .plain " values of length ",
+    .math (.bold (.raw "n+1")),
+    .plain ", where ", .math (.bold (.raw "n")),
+    .plain " is the statement count, or ", .code "None",
+    .plain " if any phase fails."])
+  (pd "The PCG data on entry to the basic block."
+      : PcgData Place)
+  (body "The function body." : Body)
+  (bb "The basic block to analyze." : BasicBlockIdx)
+  : Option (List PcgDomainData) :=
+    let block := body↦basicBlocks ! bb↦index ;
+    analyzeStmtsFrom ‹pd, body, bb, 0, block↦statements›
 
 end PcgData
