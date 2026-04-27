@@ -25,6 +25,15 @@ import Core.Dsl.Types.OrderDef
 -- for `obtain` until the Rust exporter can translate these
 -- forms on its own; see `rustUnsupported` below for the
 -- companion blocklist used should the import ever return.
+--
+-- `PCG.Analyze.AnalysisObject` is similarly not imported:
+-- its triple-construction helpers reference `Capability.X`
+-- as a fully-qualified ident (which the Rust exporter
+-- mis-renders as the lowercased module path
+-- `capability.X`) and need cross-crate `use` directives
+-- for `Operand`, `Statement`, `Rvalue`, `Mutability`,
+-- `Place`, and `Terminator` that the exporter does not
+-- inject automatically.
 
 /-- Extra Rust items that cannot be auto-generated from
     `defEnum` / `defStruct` (e.g. trait impls). Keyed by
