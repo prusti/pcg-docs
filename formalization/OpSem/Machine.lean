@@ -6,6 +6,7 @@ import OpSem.Value
 import OpSem.Decode
 import MIR.Body
 import Core.Dsl.DefFn
+import Core.Dsl.DefProperty
 
 defStruct Machine (.raw "\\mu", .doc (.plain "Machine"))
   "Machines"
@@ -24,6 +25,13 @@ where
   deriving Repr
 
 namespace Machine
+
+defProperty RunnableMachine (.plain "RunnableMachine")
+  (mDoc) =>
+    (.seq [mDoc, .plain " has at least one stack frame to \
+       execute"])
+  (m "The machine state." : Machine)
+  := m↦thread↦stackFrames ≠ []
 
 defFn currentFrame (.plain "currentFrame")
   (.plain "The currently executing stack frame, i.e. the head \
