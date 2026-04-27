@@ -105,16 +105,11 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   : Option (StackFrame × Memory) where
   | [] ; _ ; frame ; mem => Some ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
-      match StackFrame.storageLive ‹frame, mem, Local⟨k⟩› with
-      | .none => None
-      | .some ⟨frame1, mem1⟩ =>
-          match mapGet ‹frame1↦locals, Local⟨k⟩› with
-          | .none => None
-          | .some ptr =>
-              liveAndStoreArgs ‹rest, k + 1, frame1,
-                typedStore ‹mem1, ptr, v››
-          end
-      end
+      let ⟨frame1, mem1⟩ ←
+        StackFrame.storageLive ‹frame, mem, Local⟨k⟩› ;
+      let ptr ← mapGet ‹frame1↦locals, Local⟨k⟩› ;
+      liveAndStoreArgs ‹rest, k + 1, frame1,
+        typedStore ‹mem1, ptr, v››
 
 defFn createFrame (.plain "createFrame")
   (.seq [.plain "Build a fresh stack frame for a call into ",
