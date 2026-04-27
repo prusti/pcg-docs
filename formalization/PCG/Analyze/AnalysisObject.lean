@@ -87,3 +87,42 @@ defFn operandTriples (.plain "operandTriples")
   : Set PlaceTriple where
   | .stmt s => statementTriples ‹s›
   | .terminator t => terminatorTriples ‹t›
+
+defFn mainTriples (.plain "mainTriples")
+  (.seq [
+    .plain "The set of place triples implied by the main \
+     effect of an analysis object. An assignment requires ",
+    .math (.bold (.raw "W")),
+    .plain " on its destination and establishes ",
+    .math (.bold (.raw "E")),
+    .plain "; ", .code "StorageLive",
+    .plain " transitions the local from ",
+    .math (.sym .emptySet), .plain " to ",
+    .math (.bold (.raw "E")), .plain "; ", .code "StorageDead",
+    .plain " transitions it from ", .math (.bold (.raw "E")),
+    .plain " back to ", .math (.sym .emptySet), .plain "; a ",
+    .code "drop", .plain " consumes ", .math (.bold (.raw "E")),
+    .plain " and leaves ", .math (.sym .emptySet),
+    .plain "; a ", .code "call",
+    .plain " requires ", .math (.bold (.raw "W")),
+    .plain " on its destination and establishes ",
+    .math (.bold (.raw "E")),
+    .plain "; other terminators contribute nothing."])
+  (ao "The analysis object." : AnalysisObject)
+  : Set PlaceTriple where
+  | .stmt (.assign lhs _) =>
+      ⦃PlaceTriple⟨lhs, Capability.write,
+        Some Capability.exclusive⟩⦄
+  | .stmt (.storageLive lcl) =>
+      ⦃PlaceTriple⟨Place⟨lcl, []⟩, Capability.none,
+        Some Capability.exclusive⟩⦄
+  | .stmt (.storageDead lcl) =>
+      ⦃PlaceTriple⟨Place⟨lcl, []⟩, Capability.exclusive,
+        Some Capability.none⟩⦄
+  | .terminator (.drop p _) =>
+      ⦃PlaceTriple⟨p, Capability.exclusive,
+        Some Capability.none⟩⦄
+  | .terminator (.call _ _ dest _) =>
+      ⦃PlaceTriple⟨dest, Capability.write,
+        Some Capability.exclusive⟩⦄
+  | .terminator _ => ∅
