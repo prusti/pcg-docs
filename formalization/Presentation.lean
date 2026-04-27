@@ -321,7 +321,11 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
     resolveFnDisplay := fun n =>
       (reg.fns.find? (·.fnDef.name == n)).bind fun f =>
         f.fnDef.display.map fun parts =>
-          (parts, f.fnDef.params.map (·.name)) }
+          (parts, f.fnDef.params.map (·.name))
+    resolveStructDisplay := fun n =>
+      (reg.structs.find? (·.structDef.name == n)).bind fun s =>
+        s.structDef.display.map fun parts =>
+          (parts, s.structDef.fields.map (·.name)) }
 
 /-- Build the full presentation LaTeX body. -/
 def buildPresentationLatex (reg : Registry) : Latex :=

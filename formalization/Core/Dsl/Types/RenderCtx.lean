@@ -50,3 +50,12 @@ structure RenderCtx where
       functions without a custom display. -/
   resolveFnDisplay : String → Option (List DisplayPart × List String) :=
     fun _ => none
+  /-- Look up a struct's display template and field names by
+      struct name. Used to render constructor expressions with
+      the struct's pretty form: each `#field` reference in the
+      template is replaced by the rendered argument at the
+      matching positional slot (matched against the struct's
+      field declaration order). Returns `none` for structs
+      without a custom display template. -/
+  resolveStructDisplay : String → Option (List DisplayPart × List String) :=
+    fun _ => none

@@ -349,9 +349,41 @@ partial def toDoc
            , mathIntercalate (.sym .comma) argDocs
            , .sym .rangle ]
     else
-      .seq [ structRef name
-           , MathDoc.paren
-               (mathIntercalate (.sym .comma) argDocs) ]
+      -- A constructor of a struct with a custom display template
+      -- renders using that template, with each `#field` reference
+      -- replaced by the rendered argument at the matching
+      -- positional slot. This produces the pretty form (e.g.
+      -- `{R} p {None}` for a `PlaceTriple`) instead of the
+      -- Lean-source `PlaceTriple(p, R, None)`. Compound arguments
+      -- (calls / nested constructors / cons chains) are wrapped
+      -- in parentheses so juxtapositions remain unambiguous.
+      let needsParen : DslExpr → Bool
+        | .call .. => true
+        | .mkStruct n _ => n != ""
+        | .cons .. => false
+        | .some_ _ => true
+        | _ => false
+      let templated : Option MathDoc :=
+        ctx.resolveStructDisplay name |>.bind fun (parts, fields) =>
+          if fields.length == args.length then
+            let argMap : List (String × DslExpr × MathDoc) :=
+              (fields.zip args).zip argDocs |>.map
+                fun ((f, e), d) => (f, e, d)
+            let rendered : List MathDoc := parts.map fun
+              | .lit d => d
+              | .arg fname _ =>
+                match argMap.find? (·.1 == fname) with
+                | some (_, e, d) =>
+                  if needsParen e then MathDoc.paren d else d
+                | none => MathDoc.text fname
+            some (MathDoc.seq rendered)
+          else none
+      match templated with
+      | some md => md
+      | none =>
+        .seq [ structRef name
+             , MathDoc.paren
+                 (mathIntercalate (.sym .comma) argDocs) ]
   | .cons h t =>
     -- Flatten cons chains ending in `emptyList` into a
     -- list literal `[e₁, e₂, …]`.

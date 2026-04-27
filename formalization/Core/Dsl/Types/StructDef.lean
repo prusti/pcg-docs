@@ -55,7 +55,15 @@ structure StructDef where
       rendered in place of the default constructor or
       angle-bracket form. Field references resolve against the
       corresponding field's `symbolDoc` (the override if
-      present, otherwise the type's `symbolDoc`). -/
+      present, otherwise the type's `symbolDoc`).
+
+      Constructor expressions (`Name⟨a, b, …⟩`) inside `defFn`
+      bodies also render through this template — each `#field`
+      reference is replaced by the rendered argument at the
+      matching positional slot, so a `PlaceTriple⟨p, R, None⟩`
+      constructor renders as `{R} p {None}` in the algorithm
+      pretty-print rather than the Lean-source `PlaceTriple(p, R,
+      None)`. -/
   display : Option (List DisplayPart) := none
   /-- The fields of the struct. -/
   fields : List FieldDef
