@@ -15,24 +15,9 @@ import {
   findEffectivelyCoupledSets,
   findMaximallyCoupledSets,
   isEffectivelyCoupled,
+  Node,
+  Edge,
 } from "./coupling-algorithms";
-
-interface Node {
-  id: string;
-  x?: number;
-  y?: number;
-  place?: string;
-  lifetime?: string;
-  label?: string;
-}
-
-interface Edge {
-  id?: string;
-  sources?: string[];
-  targets?: string[];
-  label?: string;
-  originalIndex?: number;
-}
 
 describe("Coupling Algorithms - Test Graph from coupling.md", () => {
   const testNodes: Node[] = [

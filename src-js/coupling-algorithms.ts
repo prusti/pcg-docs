@@ -5,7 +5,7 @@
  * different definitions of when edges must expire simultaneously.
  */
 
-interface Node {
+export interface Node {
     id: string;
     x?: number;
     y?: number;
@@ -14,7 +14,7 @@ interface Node {
     label?: string;
 }
 
-interface Edge {
+export interface Edge {
     id?: string;
     sources?: string[];
     targets?: string[];
