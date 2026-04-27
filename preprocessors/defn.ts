@@ -58,6 +58,20 @@ interface MathSegment {
   isDisplay: boolean;
 }
 
+interface WrapperConfig {
+  name: string;
+  /// Number of arguments to skip before the content argument being checked.
+  skipArgs: number;
+}
+
+/// Macros whose content argument should not be auto-linked.
+const WRAPPER_CONFIGS: WrapperConfig[] = [
+  { name: "\\defn", skipArgs: 1 },
+  { name: "\\href", skipArgs: 1 },
+  { name: "\\htmlId", skipArgs: 1 },
+  { name: "\\noref", skipArgs: 0 },
+];
+
 /// Finds all math segments (both `$...$` and `$$...$$`) in the content,
 /// returning their start/end positions (of the inner content, excluding delimiters).
 function findMathSegments(content: string): MathSegment[] {
@@ -113,48 +127,27 @@ function matchBraceArg(
 }
 
 /// Checks whether position `pos` in `text` is inside the content argument of
-/// a two-arg wrapper (`\defn`, `\href`, `\htmlId`) or a one-arg wrapper (`\noref`).
+/// any wrapper macro defined in WRAPPER_CONFIGS.
 function isInsideWrapper(text: string, pos: number): boolean {
-  const twoArgWrappers = ["\\defn", "\\href", "\\htmlId"];
-  for (const wrapper of twoArgWrappers) {
+  for (const { name, skipArgs } of WRAPPER_CONFIGS) {
     let searchStart = 0;
     while (true) {
-      const idx = text.indexOf(wrapper, searchStart);
+      const idx = text.indexOf(name, searchStart);
       if (idx === -1 || idx >= pos) break;
-      let cursor = idx + wrapper.length;
-      const firstArg = matchBraceArg(text, cursor);
-      if (!firstArg) {
-        searchStart = cursor;
-        continue;
+      let cursor = idx + name.length;
+      let skipped = true;
+      for (let k = 0; k < skipArgs; k++) {
+        const arg = matchBraceArg(text, cursor);
+        if (!arg) { skipped = false; break; }
+        cursor = arg.end;
       }
-      cursor = firstArg.end;
-      const secondArg = matchBraceArg(text, cursor);
-      if (!secondArg) {
-        searchStart = cursor;
-        continue;
-      }
-      if (pos > cursor && pos < secondArg.end) return true;
-      searchStart = secondArg.end;
+      if (!skipped) { searchStart = cursor; continue; }
+      const targetArg = matchBraceArg(text, cursor);
+      if (!targetArg) { searchStart = cursor; continue; }
+      if (pos > cursor && pos < targetArg.end) return true;
+      searchStart = targetArg.end;
     }
   }
-
-  const oneArgWrappers = ["\\noref"];
-  for (const wrapper of oneArgWrappers) {
-    let searchStart = 0;
-    while (true) {
-      const idx = text.indexOf(wrapper, searchStart);
-      if (idx === -1 || idx >= pos) break;
-      const cursor = idx + wrapper.length;
-      const arg = matchBraceArg(text, cursor);
-      if (!arg) {
-        searchStart = cursor;
-        continue;
-      }
-      if (pos > cursor && pos < arg.end) return true;
-      searchStart = arg.end;
-    }
-  }
-
   return false;
 }
 
