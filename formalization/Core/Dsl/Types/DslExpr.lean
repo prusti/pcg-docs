@@ -99,8 +99,11 @@ inductive DslExpr where
       that tuple destructuring (`let ⟨a, b⟩ := …`) is expressible
       in addition to the simple `let x := …` form. -/
   | letIn (pat : BodyPat) (val : DslExpr) (body : DslExpr)
-  /-- `let name ← val ; body` (monadic bind on Option). -/
-  | letBindIn (name : String) (val : DslExpr) (body : DslExpr)
+  /-- `let pat ← val ; body` (monadic bind on Option). The
+      binder is a `BodyPat` so that destructuring binds
+      (`let ⟨a, b⟩ ← …`) are expressible in addition to the
+      simple `let n ← …` form. -/
+  | letBindIn (pat : BodyPat) (val : DslExpr) (body : DslExpr)
   /-- `if cond then t else e`. -/
   | ifThenElse (cond : DslExpr) (t : DslExpr) (e : DslExpr)
   /-- Inequality: `lhs ≠ rhs`. -/
@@ -189,7 +192,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .setAll s p b => .setAll (f s) p (f b)
   | .setFlatMap l p b => .setFlatMap (f l) p (f b)
   | .letIn p v b => .letIn p (f v) (f b)
-  | .letBindIn n v b => .letBindIn n (f v) (f b)
+  | .letBindIn p v b => .letBindIn p (f v) (f b)
   | .ifThenElse c t e => .ifThenElse (f c) (f t) (f e)
   | .foldlM fn init list => .foldlM (f fn) (f init) (f list)
   -- List children
@@ -640,8 +643,10 @@ partial def toDoc
       ctx.resolveCtor ctx.resolveVariant ctx.variants pat
     .seq [ keyword "let", patDoc, .sym .assign
          , go val, .sym .semicolon, .sym .space, go body ]
-  | .letBindIn name val body =>
-    .seq [ keyword "let", .raw name, .sym .leftarrow
+  | .letBindIn pat val body =>
+    let patDoc := BodyPat.toDoc (fun _ => none)
+      ctx.resolveCtor ctx.resolveVariant ctx.variants pat
+    .seq [ keyword "let", patDoc, .sym .leftarrow
          , go val, .sym .semicolon, .sym .space, go body ]
   | .ifThenElse c t e =>
     .seq [ keyword "if", go c, .sym .space

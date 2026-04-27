@@ -148,12 +148,13 @@ syntax fnExpr "·any" "fun" fnPat "=>" fnExpr : fnExpr
 -- any `fnPat` so that tuple destructuring (`let ⟨a, b⟩ := …`)
 -- works; a bare identifier reduces to the single-binder form.
 syntax "let " fnPat " := " fnExpr " ; " fnExpr : fnExpr
--- Option bind: let x ← e1 ; e2
-syntax "let " ident " ← " fnExpr " ; " fnExpr : fnExpr
+-- Option bind: let pat ← e1 ; e2 (pattern allows
+-- destructuring such as `let ⟨a, b⟩ ← …`).
+syntax "let " fnPat " ← " fnExpr " ; " fnExpr : fnExpr
 
 declare_syntax_cat fnStmt
 syntax "let " fnPat " := " fnExpr : fnStmt
-syntax "let " ident " ← " fnExpr : fnStmt
+syntax "let " fnPat " ← " fnExpr : fnStmt
 
 declare_syntax_cat fnPrecond
 syntax ident "(" ident,+ ")" : fnPrecond
@@ -464,8 +465,8 @@ partial def parseExpr
   | `(fnExpr| let $p:fnPat := $v:fnExpr ; $b:fnExpr) => do
     pure (.letIn (← parsePat p)
       (← parseExpr v) (← parseExpr b))
-  | `(fnExpr| let $n:ident ← $v:fnExpr ; $b:fnExpr) => do
-    pure (.letBindIn (toString n.getId)
+  | `(fnExpr| let $p:fnPat ← $v:fnExpr ; $b:fnExpr) => do
+    pure (.letBindIn (← parsePat p)
       (← parseExpr v) (← parseExpr b))
   | `(fnExpr| if $c:fnExpr then $t:fnExpr else $e:fnExpr) =>
     pure (.ifThenElse (← parseExpr c) (← parseExpr t)
@@ -492,8 +493,8 @@ def parseStmtsAsExpr
     match stx with
     | `(fnStmt| let $p:fnPat := $e:fnExpr) =>
       acc := .letIn (← parsePat p) (← parseExpr e) acc
-    | `(fnStmt| let $n:ident ← $e:fnExpr) =>
-      acc := .letBindIn (toString n.getId)
+    | `(fnStmt| let $p:fnPat ← $e:fnExpr) =>
+      acc := .letBindIn (← parsePat p)
         (← parseExpr e) acc
     | _ => Lean.Elab.throwUnsupportedSyntax
   pure acc

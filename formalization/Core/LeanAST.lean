@@ -195,8 +195,11 @@ inductive LeanExpr where
       patterns (`let ⟨a, b⟩ := …`) are representable. -/
   | letIn (pat : LeanPat) (val : LeanExpr)
           (body : LeanExpr)
-  /-- `do let n ← v; body` (Option monad bind). -/
-  | letBindIn (name : String) (val : LeanExpr)
+  /-- `do let pat ← v; body` (Option monad bind). The binder
+      is a `LeanPat` so that destructuring (`let ⟨a, b⟩ ← …`)
+      is expressible in addition to the simple `let n ← …`
+      form. -/
+  | letBindIn (pat : LeanPat) (val : LeanExpr)
               (body : LeanExpr)
   /-- `if c then t else e`. -/
   | ifThenElse (cond : LeanExpr) (then_ : LeanExpr)
@@ -305,8 +308,9 @@ partial def LeanExpr.toString : LeanExpr → String
        {"\n".intercalate armStrs})"
   | .letIn pat val body =>
     s!"let {pat.toString} := {val.toString}\n{body.toString}"
-  | .letBindIn name val body =>
-    s!"({val.toAtom}.bind (fun {name} => {body.toString}))"
+  | .letBindIn pat val body =>
+    s!"({val.toAtom}.bind (fun {pat.toString} => \
+       {body.toString}))"
   | .ifThenElse c t e =>
     s!"if {c.toString} then {t.toString} else {e.toString}"
   | .listFlatMap list param body =>

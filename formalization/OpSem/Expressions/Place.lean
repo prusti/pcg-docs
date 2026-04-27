@@ -62,10 +62,8 @@ defFn evalProjs (.plain "evalProjs")
   : Option (RuntimePlace × Ty) where
   | place ; ty ; [] => Some ⟨place, ty⟩
   | place ; ty ; (.field idx _) :: rest =>
-      match evalField ‹place, idx, ty› with
-        | .some ⟨fp, ft⟩ => evalProjs ‹fp, ft, rest›
-        | .none => None
-      end
+      let ⟨fp, ft⟩ ← evalField ‹place, idx, ty› ;
+      evalProjs ‹fp, ft, rest›
   | _ ; _ ; _ :: _ => None
 
 defFn evalPlace (.plain "evalPlace")

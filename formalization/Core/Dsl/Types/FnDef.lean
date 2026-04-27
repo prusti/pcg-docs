@@ -112,13 +112,14 @@ private partial def exprLines
              , .raw " := "
              , goExpr val ])) ]
     letLine :: recur rest depth
-  | .letBindIn name val rest =>
+  | .letBindIn pat val rest =>
+    let patMath := goPat pat
     let letLine : Latex :=
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
                mkIndent depth
              , .text (.raw "let~")
-             , .escaped name
+             , patMath
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
     letLine :: recur rest depth

@@ -1040,9 +1040,11 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
     pure (.block
       [ .«let» rustPat none rhs (mutable := false) ]
       (some bExpr))
-  | .letBindIn name (_, vExpr) (_, bExpr) =>
+  | .letBindIn pat (_, vExpr) (_, bExpr) =>
+    let rustPat := pat.toRustPat "" (fun _ => none)
+      variantToEnum
     pure (.block
-      [ .«let» (.ident (leanToRustIdent name)) none
+      [ .«let» rustPat none
           (.try_ (.clone vExpr)) (mutable := false) ]
       (some bExpr))
   | .ifThenElse (_, cExpr) (_, tExpr) (_, eExpr) =>
