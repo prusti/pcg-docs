@@ -894,6 +894,18 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
       return .methodCall
         (.methodCall rustRecv ⟨"first"⟩ [])
         ⟨"cloned"⟩ []
+    | "head!" =>
+      -- `List.head!` in Lean becomes
+      -- `.first().cloned().unwrap()` in Rust. The DSL
+      -- caller is expected to uphold a non-emptiness
+      -- precondition (typically a `requires` clause); the
+      -- `.unwrap()` panics if violated, mirroring Lean's
+      -- `head!` semantics on the empty list.
+      return .methodCall
+        (.methodCall
+          (.methodCall rustRecv ⟨"first"⟩ [])
+          ⟨"cloned"⟩ [])
+        ⟨"unwrap"⟩ []
     | _ =>
       return .call (.identStr (toSnakeCase method))
         [.borrow rustRecv]

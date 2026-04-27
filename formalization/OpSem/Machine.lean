@@ -33,12 +33,24 @@ defProperty RunnableMachine (.plain "RunnableMachine")
   (m "The machine state." : Machine)
   := m↦thread↦stackFrames ≠ []
 
+-- Source-only `Inhabited StackFrame` so `head!` inside
+-- `currentFrame` (which relies on the precondition for
+-- safety) elaborates against the source `defStruct`, which
+-- only derives `Repr`. The Lean exporter adds `Inhabited`
+-- automatically to the corresponding generated declaration,
+-- so this is not re-emitted there.
+private instance : Inhabited StackFrame :=
+  ⟨⟨⟨[], 0, []⟩, ⟨⟨0⟩, 0⟩, ∅⟩⟩
+
 defFn currentFrame (.plain "currentFrame")
   (.plain "The currently executing stack frame, i.e. the head \
-    of the thread's call stack.")
+    of the thread's call stack. Safe because the \
+    `RunnableMachine` precondition guarantees the stack is \
+    non-empty.")
   (m "The machine state." : Machine)
-  : Option StackFrame :=
-    m↦thread↦stackFrames·head?
+  requires RunnableMachine(m)
+  : StackFrame :=
+    m↦thread↦stackFrames·head!
 
 defFn evalConstant (.plain "evalConstant")
   (.plain "Convert a compile-time constant to a runtime value.")

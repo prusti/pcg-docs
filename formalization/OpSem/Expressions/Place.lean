@@ -6,12 +6,13 @@ namespace Machine
 defFn evalLocal (.plain "evalLocal")
   (.seq [.plain "Evaluate a local variable, returning its \
     runtime place. Returns ", .code "None",
-    .plain " if the thread's stack is empty or the local \
-    is dead."])
+    .plain " if the local is dead."])
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
+  requires RunnableMachine(machine)
   : Option RuntimePlace :=
-    let frame ← currentFrame ‹machine› ;
+    let frame := currentFrame
+      ‹machine, lean_proof("h_RunnableMachine")› ;
     let ptr ← mapGet ‹frame↦locals, lcl› ;
     Some RuntimePlace⟨ptr⟩
 
@@ -74,9 +75,12 @@ defFn evalPlace (.plain "evalPlace")
     .plain "."])
   (machine "The machine state." : Machine)
   (place "The place to evaluate." : Place)
+  requires RunnableMachine(machine)
   : Option (RuntimePlace × Ty) :=
-    let frame ← currentFrame ‹machine› ;
-    let rootPlace ← evalLocal ‹machine, place↦«local»› ;
+    let frame := currentFrame
+      ‹machine, lean_proof("h_RunnableMachine")› ;
+    let rootPlace ← evalLocal
+      ‹machine, place↦«local», lean_proof("h_RunnableMachine")› ;
     let rootTy := frame↦body↦decls ! place↦«local»↦index ;
     evalProjs ‹rootPlace, rootTy, place↦projection›
 

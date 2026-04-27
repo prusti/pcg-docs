@@ -66,41 +66,44 @@ defFn step (.plain "step")
     the block's terminator (which itself produces the next ",
     .code "StepResult", .plain "); otherwise evaluates the \
     statement at ", .code "pc.stmtIdx",
-    .plain " and advances the statement index by one. \
-    Mirrors MiniRust's ", .code "Machine::step",
+    .plain " and advances the statement index by one. The ",
+    .code "RunnableMachine",
+    .plain " precondition guarantees that the call stack has \
+    at least one frame, so the current frame is fetched \
+    directly via ", .code "currentFrame", .plain ". Mirrors \
+    MiniRust's ", .code "Machine::step",
     .plain ", minus thread scheduling, deadlock detection, \
     and data-race tracking — this model has only one thread."])
   (m "The machine state." : Machine)
+  requires RunnableMachine(m)
   : StepResult :=
-    match currentFrame ‹m› with
+    let frame := currentFrame
+      ‹m, lean_proof("h_RunnableMachine")› ;
+    match frame↦body↦blocks
+        !! frame↦pc↦block↦index with
     | .none => StepResult.done‹.error›
-    | .some frame =>
-        match frame↦body↦blocks
-            !! frame↦pc↦block↦index with
-        | .none => StepResult.done‹.error›
-        | .some block =>
-            if frame↦pc↦stmtIdx == block↦statements·length
-            then evalTerminator ‹m, block↦terminator›
-            else
-              match block↦statements !! frame↦pc↦stmtIdx with
+    | .some block =>
+        if frame↦pc↦stmtIdx == block↦statements·length
+        then evalTerminator ‹m, block↦terminator›
+        else
+          match block↦statements !! frame↦pc↦stmtIdx with
+          | .none => StepResult.done‹.error›
+          | .some stmt =>
+              match evalStatement ‹m, stmt› with
               | .none => StepResult.done‹.error›
-              | .some stmt =>
-                  match evalStatement ‹m, stmt› with
-                  | .none => StepResult.done‹.error›
-                  | .some m' =>
-                      match m'↦thread↦stackFrames with
-                      | [] => StepResult.done‹.error›
-                      | frame' :: rest =>
-                          let newPc :=
-                            Location⟨frame'↦pc↦block,
-                              frame'↦pc↦stmtIdx + 1⟩ ;
-                          StepResult.ok‹m'[thread =>
-                            Thread⟨frame'[pc => newPc]
-                              :: rest⟩]›
-                      end
+              | .some m' =>
+                  match m'↦thread↦stackFrames with
+                  | [] => StepResult.done‹.error›
+                  | frame' :: rest =>
+                      let newPc :=
+                        Location⟨frame'↦pc↦block,
+                          frame'↦pc↦stmtIdx + 1⟩ ;
+                      StepResult.ok‹m'[thread =>
+                        Thread⟨frame'[pc => newPc]
+                          :: rest⟩]›
                   end
               end
-        end
+          end
     end
 
 end Machine
