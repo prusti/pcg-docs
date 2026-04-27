@@ -21,21 +21,12 @@ function processChapter(chapter: Chapter): void {
         const graphId = `hypergraph-${(chapter.name || 'unknown').replace(/[^a-zA-Z0-9]/g, '-')}-${counter++}`;
 
         try {
-            let parsedData: any;
+            const rawParsed: Record<string, unknown> = isYaml
+                ? yaml.load(rawData) as Record<string, unknown>
+                : JSON.parse(rawData);
+            const { height = '400px', couplingAlgorithms = [], ...graphData } = rawParsed;
 
-            if (isYaml) {
-                parsedData = yaml.load(rawData);
-            } else {
-                parsedData = JSON.parse(rawData);
-            }
-
-            const height = parsedData.height ?? '400px';
-            delete parsedData.height;
-
-            const couplingAlgorithms = parsedData.couplingAlgorithms ?? [];
-            delete parsedData.couplingAlgorithms;
-
-            const jsonData = JSON.stringify(parsedData, null, 2);
+            const jsonData = JSON.stringify(graphData, null, 2);
             const couplingData = JSON.stringify(couplingAlgorithms);
 
             const replacement = `<div class="hypergraph-container" id="${graphId}" data-height="${height}" data-coupling-algorithms='${couplingData}'>
