@@ -1015,10 +1015,18 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
         | _ => rustRhs
       RustMatchArm.mk pat rhsExpr
     pure (.«match» scrutExpr rustArms)
-  | .letIn name (_, vExpr) (_, bExpr) =>
+  | .letIn pat (_, vExpr) (_, bExpr) =>
+    let rustPat := pat.toRustPat "" (fun _ => none) variantToEnum
+    -- Simple identifier bindings borrow the value (matching the
+    -- prior single-name behaviour); destructuring patterns
+    -- (e.g. `⟨a, b⟩`) bind by value so the tuple's components
+    -- can be moved out. `RustPat.ident` is the simple-binder
+    -- shape produced by `BodyPat.var`.
+    let rhs := match rustPat with
+      | .ident _ => RustExpr.borrow vExpr
+      | _ => vExpr
     pure (.block
-      [ .«let» (.ident (leanToRustIdent name.name)) none
-          (.borrow vExpr) (mutable := false) ]
+      [ .«let» rustPat none rhs (mutable := false) ]
       (some bExpr))
   | .letBindIn name (_, vExpr) (_, bExpr) =>
     pure (.block

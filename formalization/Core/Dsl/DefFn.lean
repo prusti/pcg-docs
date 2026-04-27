@@ -144,13 +144,15 @@ syntax fnExpr " == " fnExpr : fnExpr
 -- List existential: expr ·any fun pat => expr
 syntax fnExpr "·any" "fun" fnPat "=>" fnExpr : fnExpr
 
--- Let-in expression: let x := e1 ; e2
-syntax "let " ident " := " fnExpr " ; " fnExpr : fnExpr
+-- Let-in expression: let pat := e1 ; e2. The binder accepts
+-- any `fnPat` so that tuple destructuring (`let ⟨a, b⟩ := …`)
+-- works; a bare identifier reduces to the single-binder form.
+syntax "let " fnPat " := " fnExpr " ; " fnExpr : fnExpr
 -- Option bind: let x ← e1 ; e2
 syntax "let " ident " ← " fnExpr " ; " fnExpr : fnExpr
 
 declare_syntax_cat fnStmt
-syntax "let " ident " := " fnExpr : fnStmt
+syntax "let " fnPat " := " fnExpr : fnStmt
 syntax "let " ident " ← " fnExpr : fnStmt
 
 declare_syntax_cat fnPrecond
@@ -459,8 +461,8 @@ partial def parseExpr
         pure ([← parsePat p], ← parseExpr rhs)
       | _ => Lean.Elab.throwUnsupportedSyntax
     pure (.match_ scrutAst parsedArms.toList)
-  | `(fnExpr| let $n:ident := $v:fnExpr ; $b:fnExpr) => do
-    pure (.letIn ⟨toString n.getId⟩
+  | `(fnExpr| let $p:fnPat := $v:fnExpr ; $b:fnExpr) => do
+    pure (.letIn (← parsePat p)
       (← parseExpr v) (← parseExpr b))
   | `(fnExpr| let $n:ident ← $v:fnExpr ; $b:fnExpr) => do
     pure (.letBindIn (toString n.getId)
@@ -488,8 +490,8 @@ def parseStmtsAsExpr
   let mut acc := ret
   for stx in stmts.reverse do
     match stx with
-    | `(fnStmt| let $n:ident := $e:fnExpr) =>
-      acc := .letIn ⟨toString n.getId⟩ (← parseExpr e) acc
+    | `(fnStmt| let $p:fnPat := $e:fnExpr) =>
+      acc := .letIn (← parsePat p) (← parseExpr e) acc
     | `(fnStmt| let $n:ident ← $e:fnExpr) =>
       acc := .letBindIn (toString n.getId)
         (← parseExpr e) acc

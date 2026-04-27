@@ -190,8 +190,10 @@ inductive LeanExpr where
   | forall_ (binder : String) (body : LeanExpr)
   /-- `match scrut with | … => …`. -/
   | match_ (scrut : LeanExpr) (arms : List LeanMatchArm)
-  /-- `let n := v\nbody`. -/
-  | letIn (name : String) (val : LeanExpr)
+  /-- `let pat := v\nbody`. The binder is a `LeanPat` so that
+      both simple identifiers (`let x := …`) and destructuring
+      patterns (`let ⟨a, b⟩ := …`) are representable. -/
+  | letIn (pat : LeanPat) (val : LeanExpr)
           (body : LeanExpr)
   /-- `do let n ← v; body` (Option monad bind). -/
   | letBindIn (name : String) (val : LeanExpr)
@@ -301,8 +303,8 @@ partial def LeanExpr.toString : LeanExpr → String
         s!"  | {patStr} => {rhs.toString}"
     s!"(match {scrut.toString} with\n\
        {"\n".intercalate armStrs})"
-  | .letIn name val body =>
-    s!"let {name} := {val.toString}\n{body.toString}"
+  | .letIn pat val body =>
+    s!"let {pat.toString} := {val.toString}\n{body.toString}"
   | .letBindIn name val body =>
     s!"({val.toAtom}.bind (fun {name} => {body.toString}))"
   | .ifThenElse c t e =>

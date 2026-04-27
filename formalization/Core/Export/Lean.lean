@@ -182,7 +182,7 @@ private def toLeanASTAlg
   | .match_ scrut arms =>
     .match_ scrut <| arms.map fun (pats, rhs) =>
       .mk (pats.map BodyPat.toLeanAST) rhs
-  | .letIn name val body => .letIn name.name val body
+  | .letIn pat val body => .letIn pat.toLeanAST val body
   | .letBindIn name val body => .letBindIn name val body
   | .ifThenElse c t e => .ifThenElse c t e
   | .neq l r => .binop "≠" l r

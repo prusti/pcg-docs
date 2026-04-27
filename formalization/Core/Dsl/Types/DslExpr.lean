@@ -95,8 +95,10 @@ inductive DslExpr where
       right-hand side. -/
   | match_ (scrutinee : DslExpr)
       (arms : List (List BodyPat × DslExpr))
-  /-- `let name := val ; body`. -/
-  | letIn (name : VarIdent) (val : DslExpr) (body : DslExpr)
+  /-- `let pat := val ; body`. The binder is a `BodyPat` so
+      that tuple destructuring (`let ⟨a, b⟩ := …`) is expressible
+      in addition to the simple `let x := …` form. -/
+  | letIn (pat : BodyPat) (val : DslExpr) (body : DslExpr)
   /-- `let name ← val ; body` (monadic bind on Option). -/
   | letBindIn (name : String) (val : DslExpr) (body : DslExpr)
   /-- `if cond then t else e`. -/
@@ -186,7 +188,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .anyList l p b => .anyList (f l) p (f b)
   | .setAll s p b => .setAll (f s) p (f b)
   | .setFlatMap l p b => .setFlatMap (f l) p (f b)
-  | .letIn n v b => .letIn n (f v) (f b)
+  | .letIn p v b => .letIn p (f v) (f b)
   | .letBindIn n v b => .letBindIn n (f v) (f b)
   | .ifThenElse c t e => .ifThenElse (f c) (f t) (f e)
   | .foldlM fn init list => .foldlM (f fn) (f init) (f list)
@@ -631,8 +633,10 @@ partial def toDoc
          , rawMath "\\left\\{\\begin{array}{ll}\n"
          , mathIntercalate (rawMath "\n") rowsMath
          , rawMath "\n\\end{array}\\right." ]
-  | .letIn name val body =>
-    .seq [ keyword "let", .raw name.name, .sym .assign
+  | .letIn pat val body =>
+    let patDoc := BodyPat.toDoc (fun _ => none)
+      ctx.resolveCtor ctx.resolveVariant ctx.variants pat
+    .seq [ keyword "let", patDoc, .sym .assign
          , go val, .sym .semicolon, .sym .space, go body ]
   | .letBindIn name val body =>
     .seq [ keyword "let", .raw name, .sym .leftarrow

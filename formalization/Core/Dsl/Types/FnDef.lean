@@ -101,13 +101,14 @@ private partial def exprLines
   let recur := exprLines fnName ctx isProperty varDisplay
     ctorDisplay resolveCtor resolveVariant
   match e with
-  | .letIn name val rest =>
+  | .letIn pat val rest =>
+    let patMath := goPat pat
     let letLine : Latex :=
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
                mkIndent depth
              , .text (.raw "let~")
-             , .escaped name.name
+             , patMath
              , .raw " := "
              , goExpr val ])) ]
     letLine :: recur rest depth
