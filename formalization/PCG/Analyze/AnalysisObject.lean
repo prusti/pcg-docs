@@ -144,7 +144,7 @@ defFn getAnalysisObject (.plain "getAnalysisObject")
   (body "The function body." : Body)
   (loc "The location." : Location)
   : AnalysisObject :=
-    let bb := body↦basicBlocks ! loc↦block↦index ;
+    let bb := body↦blocks ! loc↦block↦index ;
     if loc↦stmtIdx < bb↦statements·length then
       .stmt ‹bb↦statements ! loc↦stmtIdx›
     else

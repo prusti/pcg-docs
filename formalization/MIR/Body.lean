@@ -90,7 +90,7 @@ defStruct Body (.doc (.plain "body"),
 where
   | decls "The local variable declarations." : List Ty
   | numArgs "The number of arguments" : Nat
-  | basicBlocks "The basic blocks." : List BasicBlock
+  | blocks "The basic blocks." : List BasicBlock
   deriving Repr, BEq, Hashable
 
 namespace Body

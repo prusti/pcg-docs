@@ -108,7 +108,7 @@ private partial def dfsVisit
     (visited, post)
   else
     let visited1 := curr :: visited
-    let block := body.basicBlocks[curr.index]!
+    let block := body.blocks[curr.index]!
     let succs : List BasicBlockIdx :=
       match block.terminator with
       | .goto target => [target]

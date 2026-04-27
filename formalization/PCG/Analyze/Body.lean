@@ -61,7 +61,7 @@ private partial def dfsVisit
     (visited, post)
   else
     let visited1 := curr :: visited
-    let block := body.basicBlocks[curr.index]!
+    let block := body.blocks[curr.index]!
     let succs := termSuccessors block.terminator
     let r := succs.foldl
       (fun acc s => dfsVisit body acc.1 acc.2 s)
@@ -149,7 +149,7 @@ defFn computeEntry (.plain "computeEntry")
           | .none => entry
           end ;
         let succs := termSuccessors
-          ‹(body↦basicBlocks ! bb↦index)↦terminator› ;
+          ‹(body↦blocks ! bb↦index)↦terminator› ;
         let results1 :=
           mapInsert ‹state↦results, bb, result› ;
         let state1 := state[results => results1] ;

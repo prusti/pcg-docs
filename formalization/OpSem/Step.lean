@@ -75,7 +75,7 @@ defFn step (.plain "step")
     match currentFrame ‹m› with
     | .none => StepResult.done‹.error›
     | .some frame =>
-        match frame↦body↦basicBlocks
+        match frame↦body↦blocks
             !! frame↦pc↦block↦index with
         | .none => StepResult.done‹.error›
         | .some block =>

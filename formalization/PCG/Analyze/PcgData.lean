@@ -128,7 +128,7 @@ defFn analyzeBlock (.plain "analyzeBlock")
   (body "The function body." : Body)
   (bb "The basic block to analyze." : BasicBlockIdx)
   : Option (List PcgDomainData) :=
-    let block := body↦basicBlocks ! bb↦index ;
+    let block := body↦blocks ! bb↦index ;
     analyzeStmtsFrom ‹pd, body, bb, 0, block↦statements›
 
 end PcgData
