@@ -7,8 +7,16 @@ declare_syntax_cat structField
 
 /-- A field in a `defStruct` declaration:
     `| name doc : Type`, where `doc` is any `Doc`-typed term
-    (a string literal coerces to `Doc.plain`). -/
-syntax "| " ident term ":" term : structField
+    (a string literal coerces to `Doc.plain`).
+
+    The optional `symbol mathDoc` clause overrides the
+    automatically-looked-up symbolDoc for the field. Without
+    it the field type's own symbolDoc is reused — handy for
+    opaque types like `Place`, but ambiguous when several
+    fields share a type (e.g. two `Capability` fields both
+    rendering as `c`). Use the override to surface the field
+    name (or any other math symbol) instead. -/
+syntax "| " ident term ":" term ("symbol " term)? : structField
 
 /-- Define a structure with cross-language export metadata.
 
@@ -40,16 +48,20 @@ syntax "defStruct " ident ("{" ident+ "}")?
     " where"
     structField* ("deriving " ident,+)? : command
 
-/-- Extract field name, type, and doc from a `structField`
-    syntax node. -/
+/-- Extract field name, type, doc, and optional symbolDoc
+    override from a `structField` syntax node. -/
 private def parseStructField
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM
         (Lean.Ident × Lean.Syntax
-         × Lean.TSyntax `term) := do
+         × Lean.TSyntax `term
+         × Option (Lean.TSyntax `term)) := do
   match stx with
+  | `(structField| | $n:ident $d:term : $t:term
+        symbol $sym:term) =>
+    pure (n, t, d, some sym)
   | `(structField| | $n:ident $d:term : $t:term) =>
-    pure (n, t, d)
+    pure (n, t, d, none)
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 open Lean Elab Command in
@@ -79,7 +91,7 @@ private def elabDefStruct
     -- and editor features like go-to-definition work on
     -- type references inside field declarations.
     let fieldSyntax : Array (TSyntax ``Lean.Parser.Command.structSimpleBinder)
-      ← fieldData.mapM fun (fn, ft, _) => do
+      ← fieldData.mapM fun (fn, ft, _, _) => do
         let ftT : TSyntax `term := ⟨ft⟩
         `(Lean.Parser.Command.structSimpleBinder|
             $fn:ident : $ftT)
@@ -100,7 +112,7 @@ private def elabDefStruct
       String.ofList chars
         |>.splitOn " "
         |>.filter (· != "")
-    let fieldsUseHash := fieldData.any fun (_, ft, _) =>
+    let fieldsUseHash := fieldData.any fun (_, ft, _, _) =>
       let typeStr :=
         if ft.isIdent then toString ft.getId
         else ft.reprint.getD (toString ft)
@@ -150,31 +162,33 @@ private def elabDefStruct
     -- Build StructDef metadata
     let selfN := Name.mkSimple (toString name.getId)
     let fieldDefs ← fieldData.mapM
-      fun (fn, ft, fd) => do
+      fun (fn, ft, fd, fsymOverride) => do
         let ns : TSyntax `term :=
           quote (toString fn.getId)
         let typeStr :=
           if ft.isIdent then toString ft.getId
           else ft.reprint.getD (toString ft)
         let tyTerm ← `(DSLType.parse $(quote typeStr))
-        let symTerm : TSyntax `term ←
-          if ft.isIdent then do
-            let tn := Name.mkSimple (toString ft.getId)
-            let env ← getEnv
-            if tn == selfN then
-              `(some ($symDoc : MathDoc))
-            else if env.find? (tn ++ `enumDef) |>.isSome
-                then
-              let ref := mkIdent
-                (tn ++ `enumDef ++ `symbolDoc)
-              `(some $ref)
-            else if env.find? (tn ++ `structDef)
-                |>.isSome then
-              let ref := mkIdent
-                (tn ++ `structDef ++ `symbolDoc)
-              `(some $ref)
+        let symTerm : TSyntax `term ← match fsymOverride with
+          | some s => `(some ($s : MathDoc))
+          | none =>
+            if ft.isIdent then do
+              let tn := Name.mkSimple (toString ft.getId)
+              let env ← getEnv
+              if tn == selfN then
+                `(some ($symDoc : MathDoc))
+              else if env.find? (tn ++ `enumDef) |>.isSome
+                  then
+                let ref := mkIdent
+                  (tn ++ `enumDef ++ `symbolDoc)
+                `(some $ref)
+              else if env.find? (tn ++ `structDef)
+                  |>.isSome then
+                let ref := mkIdent
+                  (tn ++ `structDef ++ `symbolDoc)
+                `(some $ref)
+              else `(none)
             else `(none)
-          else `(none)
         `({ name := $ns, ty := $tyTerm,
             doc := ($fd : Doc),
             symbolDoc := $symTerm : FieldDef })

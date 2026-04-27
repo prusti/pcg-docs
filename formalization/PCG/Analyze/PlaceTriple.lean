@@ -19,6 +19,7 @@ where
   | place "The place whose capability is tracked." : Place
   | pre "The capability required on the place before the \
       statement." : Capability
+      symbol (.doc (.plain "pre"))
   | post "The capability established on the place after the \
       statement, when one is established."
       : Option Capability

@@ -2,7 +2,7 @@ import PCG.BorrowsGraph
 import PCG.Capability.Order
 import PCG.Edges
 import PCG.Nodes
-import PCG.PlaceTriple
+import PCG.Analyze.PlaceTriple
 import PCG.TransientState
 import PCG.ValidityConditions
 import MIR

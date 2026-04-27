@@ -6,7 +6,6 @@ import PCG.Nodes
 import PCG.Obtain
 import PCG.PcgData
 import PCG.PlaceCapability
-import PCG.PlaceTriple
 import PCG.TransientState
 import PCG.ValidityConditions
 import MIR
