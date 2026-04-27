@@ -53,6 +53,11 @@ interface RenderResult {
   elements: ElementDefinition[];
   hyperedgeGroups: HyperedgeGroup[];
 }
+/** Formats a list of node IDs as a single string, wrapping multiple nodes in braces. */
+function formatNodeSet(nodes: string[]): string {
+  return nodes.length > 1 ? `{${nodes.join(", ")}}` : nodes[0];
+}
+
 const CYTOSCAPE_STYLES = [
   {
     selector: "node",
@@ -327,8 +332,8 @@ const CYTOSCAPE_STYLES = [
           edgesList.style.marginLeft = '20px';
 
           coupledEdges.forEach((edge, idx) => {
-            const sourcesStr = edge.sources.length > 1 ? `{${edge.sources.join(", ")}}` : edge.sources[0];
-            const targetsStr = edge.targets.length > 1 ? `{${edge.targets.join(", ")}}` : edge.targets[0];
+            const sourcesStr = formatNodeSet(edge.sources);
+            const targetsStr = formatNodeSet(edge.targets);
 
             const edgeDiv = document.createElement('div');
 
@@ -346,9 +351,7 @@ const CYTOSCAPE_STYLES = [
             label.appendChild(document.createTextNode(`${sourcesStr} → ${targetsStr}`));
 
             const underlyingEdgesStr = edge.underlyingEdges.map(e => {
-              const uSources = e.sources.length > 1 ? `{${e.sources.join(", ")}}` : e.sources[0];
-              const uTargets = e.targets.length > 1 ? `{${e.targets.join(", ")}}` : e.targets[0];
-              return `${uSources} → ${uTargets}`;
+              return `${formatNodeSet(e.sources)} → ${formatNodeSet(e.targets)}`;
             }).join(', ');
 
             label.appendChild(document.createTextNode(` [${underlyingEdgesStr}]`));
