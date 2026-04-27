@@ -1,6 +1,9 @@
 import Core.Dsl.DefFn
 import MIR.Body
+import PCG.Analyze.AnalysisObject
+import PCG.Analyze.PlaceTriple
 import PCG.EvalStmtPhase
+import PCG.Obtain.PcgData
 import PCG.PcgData
 
 -- ══════════════════════════════════════════════
@@ -9,29 +12,47 @@ import PCG.PcgData
 
 namespace PcgData
 
+defFn obtainTriples (.plain "obtainTriples")
+  (.plain "Apply obtain for each triple's pre-condition \
+   capability in turn, threading the resulting PCG data \
+   through. Returns None as soon as any obtain fails.")
+  (pd "The incoming PCG data." : PcgData Place)
+  (body "The function body." : Body)
+  (triples "The triples whose pre-conditions to obtain."
+      : List PlaceTriple)
+  : Option (PcgData Place) where
+  | pd ; _ ; [] => Some pd
+  | pd ; body ; t :: rest =>
+      let pd' ← obtain ‹pd, body, t↦place, t↦pre,
+        lean_proof("sorry")› ;
+      obtainTriples ‹pd', body, rest›
+
 defFn analyze (.plain "analyze")
   (.seq [
     .plain "Step the PCG state across a single statement \
-     evaluation phase at ", .code "loc",
-    .plain " in ", .code "body",
-    .plain ". Pattern-matches on ", .code "phase",
-    .plain " so each of the four phases (",
-    .code "PreOperands", .plain ", ", .code "PostOperands",
-    .plain ", ", .code "PreMain", .plain ", ",
-    .code "PostMain",
-    .plain ") gets its own update rule. Every arm currently \
-     returns the incoming ", .code "PcgData",
-    .plain " unchanged — the precise per-phase logic is a \
-     follow-up."])
+     evaluation phase. First looks up the analysis object \
+     at ", .code "loc", .plain " in ", .code "body",
+    .plain ". For ", .code "PreOperands", .plain " the \
+     pre-conditions of every ", .code "operandTriples",
+    .plain " entry are obtained on the PCG; for ",
+    .code "PreMain", .plain " the pre-conditions of every ",
+    .code "mainTriples", .plain " entry are obtained. The \
+     two ", .code "Post", .plain " phases leave the PCG \
+     unchanged."])
   (pd "The incoming PCG data." : PcgData Place)
   (body "The function body." : Body)
   (loc "The program point at which the phase is evaluated."
       : Location)
   (phase "The evaluation phase." : EvalStmtPhase)
-  : PcgData Place where
-  | pd ; _ ; _ ; .preOperands => pd
-  | pd ; _ ; _ ; .postOperands => pd
-  | pd ; _ ; _ ; .preMain => pd
-  | pd ; _ ; _ ; .postMain => pd
+  : Option (PcgData Place) :=
+    let ao := getAnalysisObject ‹body, loc› ;
+    let triples :=
+      match phase with
+        | .preOperands => operandTriples ‹ao›
+        | .preMain => mainTriples ‹ao›
+        | .postOperands => ∅
+        | .postMain => ∅
+      end ;
+    obtainTriples ‹pd, body, triples·toList›
 
 end PcgData

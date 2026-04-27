@@ -339,7 +339,16 @@ private def typeToModuleMap
       item.definedTypeName.map (·, mod)
 
 /-- Compute the imports for a module based on its
-    type and function references. -/
+    type and function references. Only resolves a reference
+    when the lookup is unambiguous: a short name like `join`
+    that several modules register the same way is left
+    unimported, on the assumption that either a same-namespace
+    local definition resolves it (recursive or sibling call)
+    or the call site uses the qualified form. Picking the
+    first match would otherwise depend on registry insertion
+    order, which shifts whenever an unrelated source file
+    gains or loses an import — and can pull in modules that
+    create import cycles. -/
 private def computeImports
     (mod : Lean.Name)
     (items : List LeanDefItem)
@@ -353,14 +362,26 @@ private def computeImports
                       "mapUnionSets", "mapInsert", "mapRemove"]
   let needsMap := mapHelpers.any refdTypes.contains
   -- Lookup both by short name and by the last segment of a
-  -- qualified reference, so `Ty.layout` resolves via the `layout`
-  -- entry fnMap registers.
+  -- qualified reference, so `Ty.layout` resolves via the
+  -- `layout` entry fnMap registers.
   let shortName (n : String) : String :=
     (n.splitOn ".").getLast?.getD n
+  -- Resolve `name` against `m`, returning a module name only
+  -- when every match in `m` agrees on the same module — i.e.
+  -- the lookup is order-independent.
+  let uniqueLookup (m : List (String × Lean.Name))
+      (name : String) : Option Lean.Name :=
+    let candidates := m.filter (·.1 == name)
+    let uniqueMods :=
+      candidates.foldl (init := []) fun acc (_, mn) =>
+        if acc.contains mn then acc else acc ++ [mn]
+    match uniqueMods with
+    | [m] => some m
+    | _ => none
   let typeDeps := refdTypes.filterMap fun tn =>
-    typeMap.find? (·.1 == tn) |>.map (·.2)
+    uniqueLookup typeMap tn
   let fnDeps := refdTypes.filterMap fun fn =>
-    fnMap.find? (·.1 == shortName fn) |>.map (·.2)
+    uniqueLookup fnMap (shortName fn)
   let depMods := (typeDeps ++ fnDeps).filter (· != mod)
   let unique := depMods.foldl (init := [])
     fun acc m => if acc.contains m then acc
@@ -383,7 +404,16 @@ private def fnNamespaceMap
         (inferNamespace f allTypes aliasNames).map (f.name, ·)
 
 /-- Compute which namespaces need to be opened in a
-    module so that cross-namespace calls resolve. -/
+    module so that cross-namespace calls resolve.
+
+    Only added for called names that resolve to exactly one
+    namespace in `nsMap`: when the same short name belongs to
+    several namespaces (e.g. multiple `join` definitions
+    across modules) the call is left unqualified-but-ambiguous
+    so that the surrounding `namespace X` block resolves it
+    locally. Picking the first match would otherwise depend on
+    registry insertion order — and that order shifts whenever
+    an unrelated source file gains or loses an import. -/
 private def computeOpens
     (items : List LeanDefItem)
     (nsMap : List (String × String))
@@ -394,7 +424,13 @@ private def computeOpens
     | .property_ p => p.fnDef.body.calledNames
     | _ => []
   let needed := calledFns.filterMap fun fn =>
-    nsMap.find? (·.1 == fn) |>.map (·.2)
+    let candidates := nsMap.filter (·.1 == fn)
+    let uniqueNamespaces :=
+      candidates.foldl (init := []) fun acc (_, ns) =>
+        if acc.contains ns then acc else acc ++ [ns]
+    match uniqueNamespaces with
+    | [ns] => some ns
+    | _ => none
   needed.foldl (init := []) fun acc ns =>
     if acc.contains ns then acc else acc ++ [ns]
 

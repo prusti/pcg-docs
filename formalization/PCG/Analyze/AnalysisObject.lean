@@ -126,3 +126,26 @@ defFn mainTriples (.plain "mainTriples")
       ⦃PlaceTriple⟨dest, Capability.write,
         Some Capability.exclusive⟩⦄
   | .terminator _ => ∅
+
+/-- Local `Inhabited` instances scoped to this module so that
+    the `[i]!` indexing inside `getAnalysisObject` elaborates
+    against the source `defStruct`/`defEnum`s, which only derive
+    `Repr, BEq, Hashable`. The Lean exporter adds `Inhabited`
+    automatically to the corresponding generated declarations,
+    so these instances are not re-emitted there. -/
+private instance : Inhabited Terminator := ⟨.unreachable⟩
+private instance : Inhabited Statement := ⟨.storageLive ⟨0⟩⟩
+private instance : Inhabited BasicBlock := ⟨⟨[], .unreachable⟩⟩
+
+defFn getAnalysisObject (.plain "getAnalysisObject")
+  (.plain "Look up the analysis object at a location in a body: \
+   the statement at the given index when one exists at that \
+   position, otherwise the basic block's terminator.")
+  (body "The function body." : Body)
+  (loc "The location." : Location)
+  : AnalysisObject :=
+    let bb := body↦basicBlocks ! loc↦block↦index ;
+    if loc↦stmtIdx < bb↦statements·length then
+      .stmt ‹bb↦statements ! loc↦stmtIdx›
+    else
+      .terminator ‹bb↦terminator›
