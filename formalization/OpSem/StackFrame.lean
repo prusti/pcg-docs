@@ -107,10 +107,6 @@ end StackFrame
 defProperty validStackFrame (.plain "validStackFrame")
   (frameDoc) =>
     (.seq [frameDoc, .plain " is a valid stack frame: its \
-           program counter points at some statement of some \
-           basic block, with both indices in range"])
+           program counter is a valid location in its body"])
   (frame "The stack frame." : StackFrame)
-  :=
-    frame↦pc↦block↦index < frame↦body↦blocks·length ∧
-    frame↦pc↦stmtIdx <
-      (frame↦body↦blocks ! frame↦pc↦block↦index)↦statements·length
+  := validLocation ‹frame↦body, frame↦pc›

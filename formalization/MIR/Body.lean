@@ -190,6 +190,20 @@ defProperty validPlace (.plain "valid")
     p↦«local»↦index < body↦decls·length ∧
     validProjTy ‹body↦decls ! p↦«local»↦index, p↦projection›
 
+defProperty validLocation (.plain "validLocation")
+  (bodyDoc, locDoc) =>
+    (.seq [locDoc, .plain " is a valid location in body ",
+           bodyDoc, .plain ": its block index is in range \
+            and its statement index is at most the number of \
+            statements in that block (so the terminator \
+            position is included)"])
+  (body "The function body." : Body)
+  (loc "The location." : Location)
+  :=
+    loc↦block↦index < body↦blocks·length ∧
+    loc↦stmtIdx ≤
+      (body↦blocks ! loc↦block↦index)↦statements·length
+
 defProperty validBody (.plain "validBody")
   (bodyDoc) =>
     (.seq [bodyDoc, .plain " is valid"])
