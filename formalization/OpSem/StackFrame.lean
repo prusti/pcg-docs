@@ -1,4 +1,5 @@
 import Core.Dsl.DefFn
+import Core.Dsl.DefProperty
 import Core.Dsl.DefStruct
 import MIR.Body
 import MIR.Place
@@ -104,3 +105,14 @@ defFn storageLive (.plain "storageLive")
     end
 
 end StackFrame
+
+defProperty validStackFrame (.plain "validStackFrame")
+  (frameDoc) =>
+    (.seq [frameDoc, .plain " is a valid stack frame: its \
+           program counter points at some statement of some \
+           basic block, with both indices in range"])
+  (frame "The stack frame." : StackFrame)
+  :=
+    frame↦pc↦block↦index < frame↦body↦blocks·length ∧
+    frame↦pc↦stmtIdx <
+      (frame↦body↦blocks ! frame↦pc↦block↦index)↦statements·length

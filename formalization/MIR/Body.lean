@@ -45,6 +45,9 @@ where
      #targetPlace, .doc (.plain ", "), #nextBlock)
   deriving Repr, BEq, Hashable
 
+instance : Inhabited Terminator where
+  default := .unreachable
+
 namespace Terminator
 
 defFn terminatorPlaces (.plain "terminatorPlaces")
@@ -70,7 +73,7 @@ where
   | statements "The statements in the block."
       : List Statement
   | terminator "The block's terminator." : Terminator
-  deriving Repr, BEq, Hashable
+  deriving Repr, BEq, Hashable, Inhabited
 
 namespace BasicBlock
 

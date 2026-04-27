@@ -109,14 +109,21 @@ syntax fnExpr "·setFlatMap" "fun" fnPat "=>" fnExpr
 -- destructuring in the binder.
 syntax fnExpr "·forAll" "fun" ident "=>" fnExpr
     : fnExpr
--- Set/list membership: expr ∈ expr
-syntax fnExpr " ∈ " fnExpr : fnExpr
--- Logical conjunction: expr ∧ expr
-syntax fnExpr " ∧ " fnExpr : fnExpr
--- Logical disjunction: expr ∨ expr
-syntax fnExpr " ∨ " fnExpr : fnExpr
--- Implication: expr → expr
-syntax fnExpr " → " fnExpr : fnExpr
+-- Set/list membership: expr ∈ expr.
+-- Prec 50 — same level as the comparison ops `<` / `≤` so it
+-- is rejected when those rules look for a tightly-bound RHS,
+-- instead of being absorbed greedily.
+syntax:50 fnExpr:51 " ∈ " fnExpr:51 : fnExpr
+-- Logical conjunction: expr ∧ expr.
+-- Prec 35 (matching Lean's standard) so `a < b ∧ c < d` parses
+-- as `(a < b) ∧ (c < d)` rather than `a < (b ∧ c < d)`.
+syntax:35 fnExpr:36 " ∧ " fnExpr:35 : fnExpr
+-- Logical disjunction: expr ∨ expr. Prec 30, looser than `∧`.
+syntax:30 fnExpr:31 " ∨ " fnExpr:30 : fnExpr
+-- Implication: expr → expr. Prec 25, right-associative —
+-- looser than `∨` so `a ∨ b → c ∨ d` parses as
+-- `(a ∨ b) → (c ∨ d)`.
+syntax:25 fnExpr:26 " → " fnExpr:25 : fnExpr
 -- Universal quantifier: ∀ ident, expr
 syntax "∀∀" ident "," fnExpr : fnExpr
 -- Proof placeholder

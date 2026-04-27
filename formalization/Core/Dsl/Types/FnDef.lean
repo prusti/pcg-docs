@@ -123,6 +123,18 @@ private partial def exprLines
              , .raw " ", .cmd "leftarrow", .raw " "
              , goExpr val ])) ]
     letLine :: recur rest depth
+  | .and l r =>
+    -- Split a top-level conjunction onto separate `\State`
+    -- lines, with a trailing `∧` on every line except the last,
+    -- so multi-conjunct formulas don't have to wrap mid-line.
+    -- Recurses on the rhs so that `a ∧ b ∧ c` (right-associated)
+    -- emits three lines.
+    let lLine : Latex :=
+      .seq [ .raw "    "
+           , Latex.state (.inlineMath (.seq [
+               mkIndent depth, goExpr l
+             , .raw " ", .cmd "land" ])) ]
+    lLine :: recur r depth
   | .ifThenElse cond t e =>
     let ifLine : Latex :=
       .seq [ .raw "    "
