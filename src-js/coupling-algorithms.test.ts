@@ -173,20 +173,22 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
     });
   });
 
+  function computeEffectivelyCoupledSets(graph: HypergraphForCoupling): {
+    reachableGraphs: HypergraphForCoupling[];
+    effectivelyCoupled: Set<string>[];
+  } {
+    const allUnblockings = computeAllUnblockings(graph);
+    const distinctUnblockings = getDistinctUnblockings(allUnblockings);
+    const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
+    const edgeIds = graph.edges.map(e => e.id);
+    const effectivelyCoupled = findEffectivelyCoupledSets(reachableGraphs, edgeIds);
+    return { reachableGraphs, effectivelyCoupled };
+  }
+
   describe("Effectively Coupled Sets", () => {
     test("should find effectively coupled edge sets", () => {
       const graph = new HypergraphForCoupling(testNodes, testEdges);
-
-      const allUnblockings = computeAllUnblockings(graph);
-      const distinctUnblockings = getDistinctUnblockings(allUnblockings);
-
-      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
-
-      const edgeIds = graph.edges.map(e => e.id);
-      const effectivelyCoupled = findEffectivelyCoupledSets(
-        reachableGraphs,
-        edgeIds
-      );
+      const { effectivelyCoupled } = computeEffectivelyCoupledSets(graph);
 
       expect(effectivelyCoupled.length).toBeGreaterThan(0);
 
@@ -198,17 +200,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
     test("effectively coupled sets should appear together in all reachable graphs", () => {
       const graph = new HypergraphForCoupling(testNodes, testEdges);
-
-      const allUnblockings = computeAllUnblockings(graph);
-      const distinctUnblockings = getDistinctUnblockings(allUnblockings);
-
-      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
-
-      const edgeIds = graph.edges.map(e => e.id);
-      const effectivelyCoupled = findEffectivelyCoupledSets(
-        reachableGraphs,
-        edgeIds
-      );
+      const { reachableGraphs, effectivelyCoupled } = computeEffectivelyCoupledSets(graph);
 
       effectivelyCoupled.forEach((edgeSet: Set<string>) => {
         const edgeArray = Array.from(edgeSet);
@@ -220,17 +212,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
   describe("Maximally Coupled Sets", () => {
     test("should find maximally coupled sets", () => {
       const graph = new HypergraphForCoupling(testNodes, testEdges);
-
-      const allUnblockings = computeAllUnblockings(graph);
-      const distinctUnblockings = getDistinctUnblockings(allUnblockings);
-
-      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
-
-      const edgeIds = graph.edges.map(e => e.id);
-      const effectivelyCoupled = findEffectivelyCoupledSets(
-        reachableGraphs,
-        edgeIds
-      );
+      const { effectivelyCoupled } = computeEffectivelyCoupledSets(graph);
       const maximallyCoupled = findMaximallyCoupledSets(effectivelyCoupled);
 
       expect(maximallyCoupled.length).toBeGreaterThan(0);
@@ -241,17 +223,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
 
     test("maximally coupled sets should not be subsets of each other", () => {
       const graph = new HypergraphForCoupling(testNodes, testEdges);
-
-      const allUnblockings = computeAllUnblockings(graph);
-      const distinctUnblockings = getDistinctUnblockings(allUnblockings);
-
-      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
-
-      const edgeIds = graph.edges.map(e => e.id);
-      const effectivelyCoupled = findEffectivelyCoupledSets(
-        reachableGraphs,
-        edgeIds
-      );
+      const { effectivelyCoupled } = computeEffectivelyCoupledSets(graph);
       const maximallyCoupled = findMaximallyCoupledSets(effectivelyCoupled);
 
       for (let i = 0; i < maximallyCoupled.length; i++) {
