@@ -1,5 +1,8 @@
 import Core.Dsl.Descr
 import PCG.Analyze.AnalysisObject
+import PCG.Analyze.AnalysisResults
+import PCG.Analyze.AnalysisState
+import PCG.Analyze.Body
 import PCG.Analyze.PcgData
 import PCG.Analyze.PlaceTriple
 

@@ -93,6 +93,40 @@ open AbstractByte
 "def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
   ∃ h : validPlace body p, isOwned body p h = true
 ")
+  , (`PCG.Analyze.Body, .middle,
+"/-- DFS-postorder walk of the CFG rooted at `curr`. The
+    successor list is inlined to avoid a forward reference
+    to `Terminator.termSuccessors`, which is generated
+    below this `middle` extra. -/
+private partial def dfsVisit
+    (body : Body)
+    (visited : List BasicBlockIdx)
+    (post : List BasicBlockIdx)
+    (curr : BasicBlockIdx)
+    : List BasicBlockIdx × List BasicBlockIdx :=
+  if visited.any (·.index == curr.index) then
+    (visited, post)
+  else
+    let visited1 := curr :: visited
+    let block := body.basicBlocks[curr.index]!
+    let succs : List BasicBlockIdx :=
+      match block.terminator with
+      | .goto target => [target]
+      | .switchInt _ => []
+      | .return_ => []
+      | .unreachable => []
+      | .drop _ target => [target]
+      | .call _ _ _ next => [next]
+    let r := succs.foldl
+      (fun acc s => dfsVisit body acc.1 acc.2 s)
+      (visited1, post)
+    (r.1, r.2 ++ [curr])
+
+/-- Reverse postorder of the CFG starting from block 0. -/
+private def reversePostorder (body : Body)
+    : List BasicBlockIdx :=
+  (dfsVisit body [] [] ⟨0⟩).2.reverse
+")
   ]
 
 -- ══════════════════════════════════════════════
