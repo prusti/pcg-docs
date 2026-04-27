@@ -87,20 +87,18 @@ defFn storageLive (.plain "storageLive")
   : Option (StackFrame × Memory) :=
     let ⟨frame1, mem1⟩ := storageDead ‹frame, mem, l› ;
     let ty := frame1↦body↦decls ! l↦index ;
-    match Ty.layout ‹ty› with
-    | .some (.sized sz) =>
+    let strategy ← Ty.layout ‹ty› ;
+    match strategy with
+    | .sized sz =>
         let addr := Memory.top ‹mem1› ;
-        match Memory.allocate ‹mem1, sz› with
-        | ⟨mem2, aid⟩ =>
-            let ptr :=
-              ThinPointer⟨addr, Some Provenance⟨aid⟩⟩ ;
-            let newLocals :=
-              mapInsert ‹frame1↦locals, l, ptr› ;
-            let newFrame :=
-              StackFrame⟨frame1↦body, frame1↦pc,
-                newLocals⟩ ;
-            Some ⟨newFrame, mem2⟩
-        end
+        let ⟨mem2, aid⟩ := Memory.allocate ‹mem1, sz› ;
+        let ptr :=
+          ThinPointer⟨addr, Some Provenance⟨aid⟩⟩ ;
+        let newLocals :=
+          mapInsert ‹frame1↦locals, l, ptr› ;
+        let newFrame :=
+          StackFrame⟨frame1↦body, frame1↦pc, newLocals⟩ ;
+        Some ⟨newFrame, mem2⟩
     | _ => None
     end
 
