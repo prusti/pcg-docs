@@ -195,12 +195,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: HypergraphForCoupling[] = [];
-      for (const unblocking of distinctUnblockings) {
-        for (const g of unblocking.reachableGraphs) {
-          reachableGraphs.push(g);
-        }
-      }
+      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
 
       const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
@@ -222,12 +217,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: HypergraphForCoupling[] = [];
-      for (const unblocking of distinctUnblockings) {
-        for (const g of unblocking.reachableGraphs) {
-          reachableGraphs.push(g);
-        }
-      }
+      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
 
       const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
@@ -249,12 +239,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: HypergraphForCoupling[] = [];
-      for (const unblocking of distinctUnblockings) {
-        for (const g of unblocking.reachableGraphs) {
-          reachableGraphs.push(g);
-        }
-      }
+      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
 
       const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
@@ -275,12 +260,7 @@ describe("Coupling Algorithms - Test Graph from coupling.md", () => {
       const allUnblockings = computeAllUnblockings(graph);
       const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-      const reachableGraphs: HypergraphForCoupling[] = [];
-      for (const unblocking of distinctUnblockings) {
-        for (const g of unblocking.reachableGraphs) {
-          reachableGraphs.push(g);
-        }
-      }
+      const reachableGraphs = distinctUnblockings.flatMap(u => u.reachableGraphs);
 
       const edgeIds = graph.edges.map(e => e.id);
       const effectivelyCoupled = findEffectivelyCoupledSets(
