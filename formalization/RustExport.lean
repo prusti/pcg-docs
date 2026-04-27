@@ -317,7 +317,10 @@ def buildCrate
      (`PCG.Obtain.Tree, "obtainWriteInFields"),
      (`PCG.Obtain.Owned, "setOwnedLocalAt"),
      (`PCG.Obtain.Owned, "obtainWriteOwned"),
-     (`PCG.Obtain.PcgData, "obtain")]
+     (`PCG.Obtain.PcgData, "obtain"),
+     (`OpSem.Step, "evalStatement"),
+     (`OpSem.Step, "evalTerminator"),
+     (`OpSem.Step, "step")]
   let crateFns := fns.filter fun f =>
     f.leanModule.getRoot.toString == prefix_ &&
       !rustUnsupported.contains
