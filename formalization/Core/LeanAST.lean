@@ -21,6 +21,22 @@ makes illegal Lean syntax much harder to construct.
 
 namespace LeanAST
 
+/-- Lean reserved words that, when used as identifiers,
+    must be wrapped in french quotes (`«…»`) to parse. -/
+private def leanKeywords : List String :=
+  ["local", "private", "protected", "abbrev", "def", "theorem",
+   "structure", "inductive", "instance", "class", "where",
+   "match", "with", "fun", "let", "do", "if", "then", "else",
+   "import", "open", "end", "namespace", "section", "variable",
+   "axiom", "example", "deriving", "by", "show", "have",
+   "this", "from", "return", "macro", "syntax", "elab",
+   "mutual", "partial", "noncomputable", "unsafe", "in"]
+
+/-- Escape a Lean identifier so a reserved keyword used as
+    a name (e.g. `local`) parses as an identifier. -/
+def escapeLeanIdent (s : String) : String :=
+  if leanKeywords.contains s then s!"«{s}»" else s
+
 -- ══════════════════════════════════════════════
 -- Types
 -- ══════════════════════════════════════════════
@@ -243,9 +259,10 @@ partial def LeanExpr.toString : LeanExpr → String
     let argStr := " ".intercalate (args.map LeanExpr.toAtom)
     s!"{recv.toAtom}.{method} {argStr}"
   | .field recv name =>
+    let n := escapeLeanIdent name
     match recv with
-    | .app _ _ => s!"({recv.toString}).{name}"
-    | _ => s!"{recv.toString}.{name}"
+    | .app _ _ => s!"({recv.toString}).{n}"
+    | _ => s!"{recv.toString}.{n}"
   | .index l i =>
     s!"{l.toString}[{i.toString}]?"
   | .indexBang l i =>
@@ -422,7 +439,7 @@ private def renderBinder (b : LeanBinder) : String :=
   s!"({b.name} : {b.type})"
 
 private def renderField (f : LeanField) : String :=
-  s!"  {f.name} : {f.type}"
+  s!"  {escapeLeanIdent f.name} : {f.type}"
 
 private def renderCtor (c : LeanCtor) : String :=
   if c.args.isEmpty then s!"  | {c.name}"

@@ -78,8 +78,8 @@ defFn evalPlace (.plain "evalPlace")
   (place "The place to evaluate." : Place)
   : Option (RuntimePlace × Ty) :=
     let frame ← currentFrame ‹machine› ;
-    let rootPlace ← evalLocal ‹machine, place↦base› ;
-    let rootTy := frame↦body↦decls ! place↦base↦index ;
+    let rootPlace ← evalLocal ‹machine, place↦«local»› ;
+    let rootTy := frame↦body↦decls ! place↦«local»↦index ;
     evalProjs ‹rootPlace, rootTy, place↦projection›
 
 end Machine

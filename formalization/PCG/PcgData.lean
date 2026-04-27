@@ -165,7 +165,7 @@ defFn placeUnpackChain (.plain "placeUnpackChain")
     projection step.")
   (p "The target place." : Place)
   : List (UnpackEdge (PcgNode Place)) :=
-  projUnpackChain ‹p↦base, [], p↦projection›
+  projUnpackChain ‹p↦«local», [], p↦projection›
 
 defFn localsUnpackEdges (.plain "localsUnpackEdges")
   (.seq [.plain "For every allocated local in an owned state, \

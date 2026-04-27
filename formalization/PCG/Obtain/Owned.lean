@@ -32,10 +32,10 @@ defFn obtainWriteOwned (.plain "obtainWriteOwned")
   (os "The owned state." : OwnedState)
   (p "The place to obtain." : Place)
   : Option OwnedState :=
-    let ol ← os↦locals !! p↦base↦index ;
+    let ol ← os↦locals !! p↦«local»↦index ;
     match ol with
     | .allocated it =>
         let newIt ← obtainWriteInTree ‹it, p↦projection› ;
-        Some (setOwnedLocalAt ‹os, p↦base↦index, .allocated ‹newIt››)
+        Some (setOwnedLocalAt ‹os, p↦«local»↦index, .allocated ‹newIt››)
     | .unallocated => None
     end

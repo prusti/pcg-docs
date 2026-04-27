@@ -55,7 +55,7 @@ defStruct Place (.raw "p", .raw "P")
   (.seq [.plain "A place in the MIR: a local with a projection. \
    See ", .code "definitions/places.md", .plain "."])
 where
-  | base "The base local variable." : Local
+  | «local» "The local variable." : Local
   | projection "The list of projection elements."
       : List ProjElem
   deriving Repr, BEq, Hashable

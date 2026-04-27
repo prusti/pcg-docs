@@ -184,8 +184,8 @@ defProperty validPlace (.plain "valid")
   (body "The function body." : Body)
   (p "The place." : Place)
   :=
-    p↦base↦index < body↦decls·length ∧
-    validProjTy ‹body↦decls ! p↦base↦index, p↦projection›
+    p↦«local»↦index < body↦decls·length ∧
+    validProjTy ‹body↦decls ! p↦«local»↦index, p↦projection›
 
 defProperty validBody (.plain "validBody")
   (bodyDoc) =>
@@ -203,7 +203,7 @@ defFn placeTy (.plain "ty")
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
   : PlaceTy :=
-    placeTy' ‹body↦decls ! place↦base↦index, None, place↦projection, lean_proof("h_validPlace.2")›
+    placeTy' ‹body↦decls ! place↦«local»↦index, None, place↦projection, lean_proof("h_validPlace.2")›
 
 defFn isOwned (.plain "isOwned")
   (.seq [.plain "Returns ", .code "true",
@@ -214,4 +214,4 @@ defFn isOwned (.plain "isOwned")
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
   : Bool :=
-    isOwned' ‹body↦decls ! place↦base↦index, place↦projection, lean_proof("h_validPlace.2")›
+    isOwned' ‹body↦decls ! place↦«local»↦index, place↦projection, lean_proof("h_validPlace.2")›

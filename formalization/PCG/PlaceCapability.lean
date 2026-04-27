@@ -125,13 +125,13 @@ defFn isPrefixOf (.plain "isPrefixOf")
       if a == b then isPrefixOf ‹as, bs› else false
 
 defFn isPrefixOfPlace (.plain "isPrefixOfPlace")
-  (.plain "Whether one place is a prefix of another: same base \
+  (.plain "Whether one place is a prefix of another: same \
     local and the first's projection is a prefix of the \
     second's.")
   (p "The candidate prefix." : Place)
   (q "The full place." : Place)
   : Bool :=
-  if p↦base == q↦base then
+  if p↦«local» == q↦«local» then
     isPrefixOf ‹p↦projection, q↦projection›
   else false
 
@@ -202,7 +202,7 @@ defFn projectsSharedRef (.plain "projectsSharedRef")
   requires validPlace(body, p)
   : Bool :=
     projectsSharedRef'
-      ‹body↦decls ! p↦base↦index, p↦projection,
+      ‹body↦decls ! p↦«local»↦index, p↦projection,
         lean_proof("h_validPlace.2")›
 
 -- ══════════════════════════════════════════════
@@ -234,7 +234,7 @@ defFn getCapability (.plain "getCapability")
   (p "The place whose capability is requested." : Place)
   requires validPlace(body, p)
   : Option Capability :=
-    let tree ← getAlloc ‹pd↦ownedState, p↦base› ;
+    let tree ← getAlloc ‹pd↦ownedState, p↦«local»› ;
     let projs := p↦projection ;
     if treeIsInternal ‹projs, tree›
         ∨ placeIsMutablyBorrowed ‹pd↦bg, p›
