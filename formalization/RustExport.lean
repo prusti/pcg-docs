@@ -1,7 +1,9 @@
 import PCG.AnalysisObject
 import PCG.BorrowsGraph
 import PCG.Capability.Order
+import PCG.DomainData
 import PCG.Edges
+import PCG.EvalStmtData
 import PCG.Nodes
 import PCG.Analyze.PlaceTriple
 import PCG.TransientState
@@ -34,6 +36,15 @@ import Core.Dsl.Types.OrderDef
 -- for `Operand`, `Statement`, `Rvalue`, `Mutability`,
 -- `Place`, and `Terminator` that the exporter does not
 -- inject automatically.
+--
+-- `PCG.PcgData` (and the alias `PCG.PcgDomainData` that
+-- references it) are likewise not imported: `PcgData` pulls
+-- in `PCG.Owned.InitTree` / `PCG.Owned.OwnedState`, whose
+-- `defFn` bodies use bare-dotted variants (`.uninit`,
+-- `.unallocated`, `.deep`, …) that the Rust exporter cannot
+-- yet disambiguate against the surrounding type. Lean and
+-- LaTeX remain the authoritative exports for these types
+-- until the exporter handles the construct.
 
 /-- Extra Rust items that cannot be auto-generated from
     `defEnum` / `defStruct` (e.g. trait impls). Keyed by

@@ -4,12 +4,15 @@ import PCG.BorrowChecker
 import PCG.BorrowsGraph
 import PCG.Capability
 import PCG.Capability.Order
+import PCG.DomainData
 import PCG.Edges
+import PCG.EvalStmtData
 import PCG.EvalStmtPhase
 import PCG.Nodes
 import PCG.Obtain
 import PCG.Owned
 import PCG.PcgData
+import PCG.PcgDomainData
 import PCG.PlaceCapability
 import PCG.PlaceExpansion
 import PCG.RequiredGuide

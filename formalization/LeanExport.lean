@@ -2,10 +2,13 @@ import PCG.Analyze
 import PCG.AnalysisObject
 import PCG.BorrowsGraph
 import PCG.Capability.Order
+import PCG.DomainData
 import PCG.Edges
+import PCG.EvalStmtData
 import PCG.Nodes
 import PCG.Obtain
 import PCG.PcgData
+import PCG.PcgDomainData
 import PCG.PlaceCapability
 import PCG.TransientState
 import PCG.ValidityConditions
