@@ -159,15 +159,15 @@ const CYTOSCAPE_STYLES = [
 
 // Hypergraph renderer
 (function () {
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("DOMContentLoaded", () => {
     renderAllHypergraphs();
   });
 
   if (typeof window.addEventListener === "function") {
     window.addEventListener("load", renderAllHypergraphs);
 
-    const observer = new MutationObserver(function (mutations) {
-      mutations.forEach(function (mutation) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
         if (mutation.type === "childList") {
           setTimeout(renderAllHypergraphs, 100);
         }
@@ -181,7 +181,7 @@ const CYTOSCAPE_STYLES = [
   function renderAllHypergraphs(): void {
     const containers = document.querySelectorAll(".hypergraph-container");
 
-    containers.forEach(function (container) {
+    containers.forEach((container) => {
       if (container.hasAttribute("data-rendered")) {
         return;
       }
@@ -261,7 +261,7 @@ const CYTOSCAPE_STYLES = [
     container.appendChild(graphDiv);
 
     function processNodes(nodes: GraphNode[]): NodeDefinition[] {
-      return nodes.map(function (node) {
+      return nodes.map((node) => {
         let nodeType = "default";
         let label = node.id;
 
@@ -278,8 +278,8 @@ const CYTOSCAPE_STYLES = [
         return {
           data: {
             id: node.id,
-            label: label,
-            nodeType: nodeType,
+            label,
+            nodeType,
             place: node.place,
             lifetime: node.lifetime,
           },
@@ -307,7 +307,7 @@ const CYTOSCAPE_STYLES = [
           nodes,
           edges
         );
-        const coupledEdgeObjects = coupledEdges.map(function (coupled, idx) {
+        const coupledEdgeObjects = coupledEdges.map((coupled, idx) => {
           return {
             id: `coupled-${idx}`,
             sources: coupled.sources,
@@ -385,7 +385,7 @@ const CYTOSCAPE_STYLES = [
       const edgeElements: EdgeDefinition[] = [];
       const hyperedgeGroups: HyperedgeGroup[] = [];
 
-      edges.forEach(function (edge, idx) {
+      edges.forEach((edge, idx) => {
         const edgeId = edge.id || "edge-" + idx;
 
         if (edge.sources && edge.targets) {
@@ -500,7 +500,7 @@ const CYTOSCAPE_STYLES = [
     let bubblePaths: any[] = [];
 
     function renderBubblesets(): void {
-      bubblePaths.forEach(function (path) {
+      bubblePaths.forEach((path) => {
         bb.removePath(path);
       });
       bubblePaths = [];
@@ -520,7 +520,7 @@ const CYTOSCAPE_STYLES = [
         });
       }
 
-      hyperedgeGroups.forEach(function (group, idx) {
+      hyperedgeGroups.forEach((group, idx) => {
         // Check if this is a coupled edge and if it's visible
         const isCoupledEdge = group.id.startsWith('coupled-');
         if (isCoupledEdge) {
@@ -531,7 +531,7 @@ const CYTOSCAPE_STYLES = [
         }
 
         const nodeIds = [...new Set([...group.sources, ...group.targets])];
-        const nodes = cy.nodes().filter(function (node) {
+        const nodes = cy.nodes().filter((node) => {
           return nodeIds.includes(node.id());
         });
 
@@ -572,7 +572,7 @@ const CYTOSCAPE_STYLES = [
         `coupling-select-${container.id}`
       ) as HTMLSelectElement;
       if (select) {
-        select.addEventListener("change", function () {
+        select.addEventListener("change", () => {
           const selectedAlgorithm = select.value as CouplingAlgorithmId;
 
           cy.elements().remove();
