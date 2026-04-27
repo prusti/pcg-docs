@@ -122,9 +122,14 @@ def «section» (title : Latex) : Latex :=
 def «subsection» (title : Latex) : Latex :=
   .seq [floatBarrier, .newline, .cmd "subsection" [title]]
 
-/-- `\subsubsection{title}`. -/
+/-- `\subsubsection{title}`, preceded by a `\FloatBarrier` so
+    that any pending floats from the previous subsubsection are
+    flushed before the new subsubsection begins. Without this,
+    `algorithm` floats inside one subsection can drift past
+    intervening subsubsection headers, producing apparently
+    empty subsubsections followed by a clump of algorithms. -/
 def «subsubsection» (title : Latex) : Latex :=
-  .cmd "subsubsection" [title]
+  .seq [floatBarrier, .newline, .cmd "subsubsection" [title]]
 
 /-- `\item body`. -/
 def item (body : Latex) : Latex := .cmd "item" [body]
