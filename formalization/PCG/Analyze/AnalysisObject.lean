@@ -22,9 +22,9 @@ defFn operandTriple (.plain "operandTriple")
       ⦃PlaceTriple⟨p, Capability.exclusive, Some Capability.write⟩⦄
   | .const _ => ∅
 
-defFn borrowTriples (.plain "borrowTriples")
+defFn borrowTriple (.plain "borrowTriple")
   (.seq [
-    .plain "The set of place triples implied by a borrow of \
+    .plain "The place triple implied by a borrow of \
      a place at the given mutability: shared yields a ",
     .math (.bold (.raw "R")),
     .plain " triple with no post-condition, mutable yields \
@@ -32,11 +32,11 @@ defFn borrowTriples (.plain "borrowTriples")
      post ", .math (.sym .emptySet), .plain "."])
   (m "The borrow's mutability." : Mutability)
   (p "The borrowed place." : Place)
-  : Set PlaceTriple where
+  : PlaceTriple where
   | .shared ; p =>
-      ⦃PlaceTriple⟨p, Capability.read, None⟩⦄
+      PlaceTriple⟨p, Capability.read, None⟩
   | .mutable ; p =>
-      ⦃PlaceTriple⟨p, Capability.exclusive, Some Capability.none⟩⦄
+      PlaceTriple⟨p, Capability.exclusive, Some Capability.none⟩
 
 defFn rvalueTriples (.plain "rvalueTriples")
   (.plain "The set of place triples implied by an rvalue: a \
@@ -45,7 +45,7 @@ defFn rvalueTriples (.plain "rvalueTriples")
   (rv "The rvalue." : Rvalue)
   : Set PlaceTriple where
   | .use o => operandTriple ‹o›
-  | .ref _ m p => borrowTriples ‹m, p›
+  | .ref _ m p => ⦃borrowTriple ‹m, p›⦄
 
 defFn statementTriples (.plain "statementTriples")
   (.plain "The set of place triples implied by a statement: \
