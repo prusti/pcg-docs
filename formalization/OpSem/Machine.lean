@@ -51,10 +51,10 @@ defFn typedLoad (.plain "typedLoad")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (ty "The type to load." : Ty)
-  : Option Value begin
-  let sz ← Ty.bytes ‹ty›
-  let rawBytes := Memory.load ‹m, ptr, sz›
-  return decode ‹ty, rawBytes›
+  : Option Value :=
+    let sz ← Ty.bytes ‹ty› ;
+    let rawBytes := Memory.load ‹m, ptr, sz› ;
+    decode ‹ty, rawBytes›
 
 defFn typedStore (.plain "typedStore")
   (.plain "Store a value into memory at the given pointer. \

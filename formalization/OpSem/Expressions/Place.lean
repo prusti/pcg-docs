@@ -10,10 +10,10 @@ defFn evalLocal (.plain "evalLocal")
     is dead."])
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
-  : Option RuntimePlace begin
-  let frame ← currentFrame ‹machine›
-  let ptr ← mapGet ‹frame↦locals, lcl›
-  return Some (RuntimePlace⟨ptr⟩)
+  : Option RuntimePlace :=
+    let frame ← currentFrame ‹machine› ;
+    let ptr ← mapGet ‹frame↦locals, lcl› ;
+    Some RuntimePlace⟨ptr⟩
 
 defFn fieldOffset (.plain "fieldOffset")
   (.seq [.plain "Compute the byte offset of a field at \
@@ -76,10 +76,10 @@ defFn evalPlace (.plain "evalPlace")
     .plain "."])
   (machine "The machine state." : Machine)
   (place "The place to evaluate." : Place)
-  : Option (RuntimePlace × Ty) begin
-  let frame ← currentFrame ‹machine›
-  let rootPlace ← evalLocal ‹machine, place↦base›
-  let rootTy := frame↦body↦decls ! place↦base↦index
-  return evalProjs ‹rootPlace, rootTy, place↦projection›
+  : Option (RuntimePlace × Ty) :=
+    let frame ← currentFrame ‹machine› ;
+    let rootPlace ← evalLocal ‹machine, place↦base› ;
+    let rootTy := frame↦body↦decls ! place↦base↦index ;
+    evalProjs ‹rootPlace, rootTy, place↦projection›
 
 end Machine

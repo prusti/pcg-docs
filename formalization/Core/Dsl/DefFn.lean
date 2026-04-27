@@ -195,14 +195,6 @@ syntax "defFn " ident "(" term ")" "(" term ")"
     ("requires " fnPrecond,+)?
     ":" term " :=" fnExpr : command
 
-/-- Imperative do-block function. See the pattern-matching
-    form for the optional `displayed` clause. -/
-syntax "defFn " ident "(" term ")" "(" term ")"
-    fnParam* ("displayed " "(" displayPart,+ ")")?
-    ("requires " fnPrecond,+)?
-    ":" term " begin" fnStmt*
-    "return " fnExpr : command
-
 -- ══════════════════════════════════════════════
 -- Parsing helpers
 -- ══════════════════════════════════════════════
@@ -801,64 +793,6 @@ elab_rules : command
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds (display := displayTerm)
     flushIdentRefs
-
--- ══════════════════════════════════════════════
--- Do-block form
--- ══════════════════════════════════════════════
-
-open Lean Elab Command Term in
-elab_rules : command
-  | `(defFn $name:ident ($symDoc:term) ($doc:term)
-       $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
-       $[requires $reqs:fnPrecond,*]?
-       : $retTy:term begin
-       $stmts:fnStmt* return $ret:fnExpr) => do
-    identRefBuffer.set #[]
-    let paramData ← ps.mapM parseFnParam
-    for (_, _, ty) in paramData do recordTypeIdents ty
-    recordTypeIdents retTy
-    let displayTerm ← match dps with
-      | some d => Option.some <$> parseFnDisplay paramData d.getElems
-      | none => pure none
-    let preconds ← match reqs with
-      | some pcs =>
-        pcs.getElems.toList.mapM
-          (parsePrecond ·.raw)
-      | none => pure []
-    let parsedRet ← parseExpr ret
-    let rhsAst ← parseStmtsAsExpr stmts parsedRet
-    let fnNameStr := toString name.getId
-    let precondNames := preconds.map (·.1)
-    let rhsStr := rhsAst.toLeanWith
-      fnNameStr precondNames
-    let paramBinds := " ".intercalate
-      (paramData.toList.map fun (pn, _, pt) =>
-        let tyStr :=
-          if pt.isIdent then toString pt.getId
-          else pt.reprint.getD (toString pt)
-        s!"({pn.getId} : {normaliseLeanType tyStr})")
-    let precBinds := precondParamBinds preconds
-    let retRaw :=
-      if retTy.raw.isIdent
-      then toString retTy.raw.getId
-      else retTy.raw.reprint.getD (toString retTy)
-    let retRepr := normaliseLeanType retRaw
-    let defStr :=
-      s!"def {name.getId} {paramBinds} \
-         {precBinds} : {retRepr} :=\n  {rhsStr}"
-    let env ← getEnv
-    match Parser.runParserCategory env `command
-      defStr with
-    | .ok stx => elabCommand stx
-    | .error e =>
-      throwError s!"defFn: parse error: {e}\n\
-        ---\n{defStr}\n---"
-    let bodyTerm ←
-      `(FnBody.expr $(quote rhsAst))
-    buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
-      bodyTerm preconds (display := displayTerm)
-    flushIdentRefs
-
 
 -- ══════════════════════════════════════════════
 -- Mutual form

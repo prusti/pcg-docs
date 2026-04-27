@@ -33,11 +33,11 @@ defFn allocate (.plain "allocate")
    updated memory and the new allocation's identifier.")
   (m "The memory." : Memory)
   (size "The size in bytes." : Nat)
-  : Memory × AllocId begin
-  let addr := top ‹m›
-  let id := AllocId⟨m↦allocs·length⟩
-  let alloc := Allocation⟨id, replicate ‹size, uninit›, addr, true⟩
-  return ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
+  : Memory × AllocId :=
+    let addr := top ‹m› ;
+    let id := AllocId⟨m↦allocs·length⟩ ;
+    let alloc := Allocation⟨id, replicate ‹size, uninit›, addr, true⟩ ;
+    ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
 
 defProperty validAllocId (.plain "validAllocId")
   (mDoc, idDoc) =>
@@ -53,11 +53,11 @@ defFn deallocate (.plain "deallocate")
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
   requires validAllocId(m, id)
-  : Memory begin
-  let alloc := m↦allocs ! id↦index
-  let dead := Allocation⟨alloc↦id, alloc↦data, alloc↦address, false⟩
-  let newAllocs := listSet ‹m↦allocs, id↦index, dead›
-  return Memory⟨newAllocs⟩
+  : Memory :=
+    let alloc := m↦allocs ! id↦index ;
+    let dead := Allocation⟨alloc↦id, alloc↦data, alloc↦address, false⟩ ;
+    let newAllocs := listSet ‹m↦allocs, id↦index, dead› ;
+    Memory⟨newAllocs⟩
 
 open Allocation in
 
@@ -99,14 +99,14 @@ defFn checkPtr (.plain "check_ptr")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (len "The access length in bytes." : Nat)
-  : Option (AllocId × Nat) begin
-  let prov ← ptr↦provenance
-  let alloc := m↦allocs ! prov↦id↦index
-  let offset := ptr↦addr - alloc↦address
-  return match canAccess ‹alloc, ptr, len› with
-  | true => Some ⟨prov↦id, offset⟩
-  | false => None
-  end
+  : Option (AllocId × Nat) :=
+    let prov ← ptr↦provenance ;
+    let alloc := m↦allocs ! prov↦id↦index ;
+    let offset := ptr↦addr - alloc↦address ;
+    match canAccess ‹alloc, ptr, len› with
+    | true => Some ⟨prov↦id, offset⟩
+    | false => None
+    end
 
 open Allocation in
 defFn store (.plain "store")
