@@ -132,19 +132,13 @@ defFn createFrame (.plain "createFrame")
   : Option Machine :=
     let initFrame := StackFrame⟨body,
       Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
-    let live ← StackFrame.storageLive
+    let ⟨frame1, mem1⟩ ← StackFrame.storageLive
       ‹initFrame, m↦mem, Local⟨0⟩› ;
-    match live with
-    | ⟨frame1, mem1⟩ =>
-        let stored ←
-          liveAndStoreArgs ‹args, 1, frame1, mem1› ;
-        match stored with
-        | ⟨frame2, mem2⟩ =>
-            Some Machine⟨m↦program,
-              Thread⟨frame2 :: m↦thread↦stackFrames⟩,
-              mem2⟩
-        end
-    end
+    let ⟨frame2, mem2⟩ ←
+      liveAndStoreArgs ‹args, 1, frame1, mem1› ;
+    Some Machine⟨m↦program,
+      Thread⟨frame2 :: m↦thread↦stackFrames⟩,
+      mem2⟩
 
 defFn initialMachine (.plain "initialMachine")
   (.seq [.plain "Build the initial machine state for ",
