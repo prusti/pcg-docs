@@ -282,6 +282,24 @@ partial def toDoc
   -- a non-breaking space after the word.
   let keyword (s : String) : MathDoc :=
     .seq [MathDoc.text s, .sym .space]
+  -- Whether an expression needs parentheses when placed in a
+  -- juxtaposition position (e.g. as the argument of `Some`, a
+  -- unary defEnum constructor, or a fn-display template).
+  -- Atomic-looking forms render without parens; everything else
+  -- (infix operators, calls, control flow, lambdas, …) gets
+  -- wrapped so that `Some (sz + off)` does not collapse to the
+  -- ambiguous `Some sz + off`.
+  let needsParen : DslExpr → Bool
+    | .var _ | .natLit _ | .true_ | .false_ | .none_ => false
+    | .emptyList | .emptySet => false
+    | .setSingleton _ => false
+    | .field .. | .dot .. => false
+    | .index .. | .indexBang .. => false
+    | .structUpdate .. => false
+    | .mkStruct "" _ => false
+    | .cons .. => false
+    | .sorryProof | .leanProof _ => false
+    | _ => true
   -- Resolve a variable reference to a variant's display when it
   -- names a qualified constructor — e.g. `Capability.none`
   -- should render as `∅` rather than the literal text
@@ -330,14 +348,9 @@ partial def toDoc
     -- Render `Some x` like a unary defEnum constructor:
     -- juxtaposition with a space, parens only around
     -- compound arguments (calls, named-struct literals,
-    -- nested `Some`s) so the bare-identifier case stays
-    -- paren-free.
-    let needsParen : DslExpr → Bool
-      | .call .. => true
-      | .mkStruct name _ => name != ""
-      | .cons .. => false
-      | .some_ _ => true
-      | _ => false
+    -- infix operators, …) so bare identifiers stay
+    -- paren-free while `Some (sz + off)` remains
+    -- unambiguous.
     let argDoc := go e
     let arg := if needsParen e then MathDoc.paren argDoc
                else argDoc
@@ -357,14 +370,9 @@ partial def toDoc
       -- positional slot. This produces the pretty form (e.g.
       -- `{R} p {None}` for a `PlaceTriple`) instead of the
       -- Lean-source `PlaceTriple(p, R, None)`. Compound arguments
-      -- (calls / nested constructors / cons chains) are wrapped
-      -- in parentheses so juxtapositions remain unambiguous.
-      let needsParen : DslExpr → Bool
-        | .call .. => true
-        | .mkStruct n _ => n != ""
-        | .cons .. => false
-        | .some_ _ => true
-        | _ => false
+      -- (calls / nested constructors / infix operators / …) are
+      -- wrapped in parentheses so juxtapositions remain
+      -- unambiguous; the predicate is the shared `needsParen`.
       let templated : Option MathDoc :=
         ctx.resolveStructDisplay name |>.bind fun (parts, fields) =>
           if fields.length == args.length then
@@ -467,15 +475,9 @@ partial def toDoc
     -- both the qualified form (`AbstractInitTree.leaf`) and
     -- the anonymous-constructor sugar (`.leaf`) — the leading
     -- `.` is stripped before lookup. Compound arguments
-    -- (themselves calls / constructors / cons chains) are
-    -- wrapped in parentheses so that nested juxtapositions
-    -- remain unambiguous.
-    let needsParen : DslExpr → Bool
-      | .call .. => true
-      | .mkStruct name _ => name != ""
-      | .cons .. => false
-      | .some_ _ => true
-      | _ => false
+    -- (themselves calls / constructors / infix operators / …)
+    -- are wrapped in parentheses via the shared `needsParen`
+    -- so that nested juxtapositions remain unambiguous.
     let renderArg (e : DslExpr) : MathDoc :=
       let d := go e
       if needsParen e then MathDoc.paren d else d
