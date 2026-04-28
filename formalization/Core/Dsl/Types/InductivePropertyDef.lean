@@ -98,16 +98,6 @@ private def ruleLatex
     else
       LatexMath.intercalate (.raw " \\\\ ") premiseLines
   let conclusion : LatexMath := exprLatex ctx fnName r.conclusion
-  let bindersComment : LatexMath :=
-    if r.binders.isEmpty then .raw ""
-    else
-      let names := ", ".intercalate
-        (r.binders.map (·.name))
-      -- Render inside `\text{}`, so the bound-variable list
-      -- needs to be a plain-text fragment.
-      .seq [.raw "\\quad\\text{(for fresh ",
-            .raw (names.replace "_" "\\_"),
-            .raw ")}"]
   let inference : LatexMath :=
     -- The `Right=` label of `\inferrule*` is rendered in text
     -- mode, so use a raw plain string for the rule name.
@@ -118,8 +108,7 @@ private def ruleLatex
       premises,
       .raw "}{",
       conclusion,
-      .raw "}",
-      bindersComment ]
+      .raw "}" ]
   Latex.displayMath inference
 
 /-- Render the inductive property as a LaTeX `definition`

@@ -283,10 +283,7 @@ mutual
       let rowStrs := rows.map fun cells =>
         let cellStrs :=
           cells.map LatexMath.render
-        -- Append `{}` after the row separator so that a cell
-        -- on the next row starting with `[` is not parsed as
-        -- the optional `[length]` argument of `\\`.
-        s!"  {" &".intercalate cellStrs} \\\\\{}"
+        s!"  {" &".intercalate cellStrs} \\\\"
       let optStr := match align with
         | some a => s!"[{a}]"
         | none => ""
@@ -305,8 +302,13 @@ namespace MathSym
 def toLatex : MathSym → LatexMath
   | .langle => .cmd "langle"
   | .rangle => .cmd "rangle"
-  | .lbracket => .raw "["
-  | .rbracket => .raw "]"
+  -- Wrap brackets in `{}` groups so a row in an array whose
+  -- first cell is a list literal (`[…]`) is not misparsed as
+  -- the optional `[length]` argument of the preceding row's
+  -- `\\` terminator. `{[}` and `{]}` render identically to
+  -- bare `[`/`]` in math mode but are robust in all contexts.
+  | .lbracket => .raw "{["
+  | .rbracket => .raw "]}"
   | .lparen => .raw "("
   | .rparen => .raw ")"
   | .lbrace => .raw "\\{"

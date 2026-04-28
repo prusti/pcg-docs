@@ -187,7 +187,7 @@ private partial def exprLines
         .seq [ mkIndent (depth + 1)
              , .raw "\\text{\\textbf{case}}~", pat
              , .raw " & ", .cmd "Rightarrow", .raw " "
-             , rhs, .raw " \\\\{}" ]
+             , rhs, .raw " \\\\" ]
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [
                .raw "\\begin{array}{@{}ll@{}}\n"
@@ -326,7 +326,7 @@ def formalDefLatex
     let rows : List LatexMath := batch.map fun (pat, rhs) =>
       .seq [ .raw "\\text{\\textbf{case}}~", pat
            , .raw " & ", .cmd "Rightarrow", .raw " "
-           , rhs, .raw " \\\\{}" ]
+           , rhs, .raw " \\\\" ]
     .seq [ .raw "    "
          , Latex.state (.inlineMath (.seq [
              .raw "\\begin{array}{@{}ll@{}}\n"
