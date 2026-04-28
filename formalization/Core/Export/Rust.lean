@@ -1069,11 +1069,15 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
     pure (.«if» cExpr tBlock (some eBlock))
   | .neq (_, l) (_, r) => pure (.binOp .ne l r)
   | .eq (_, l) (_, r) => pure (.binOp .eq l r)
-  | .memberOf (_, _) (_, r) =>
-    -- Rust has no direct `∈`; approximate with the receiver
-    -- (placeholder — memberOf is only used at the Prop level,
-    -- which the Rust backend does not emit).
-    pure r
+  | .memberOf (_, l) (_, r) =>
+    -- Rust has no direct `∈` operator; lower it to a
+    -- `contains_key` method call. The DSL's only Prop-level
+    -- `∈` use today is map-key membership (`key ∈ map`),
+    -- which `HashMap::contains_key(&self, &K)` handles
+    -- natively. If a future caller needs set / list `∈`,
+    -- this branch should branch on the receiver's type
+    -- (`HashSet::contains` / slice `contains`) instead.
+    pure (.methodCall r ⟨"contains_key"⟩ [.borrow l])
   | .anyList (_, list) param (_, body) =>
     -- `list.iter().any(|param| body)` in Rust.
     pure (.methodCall

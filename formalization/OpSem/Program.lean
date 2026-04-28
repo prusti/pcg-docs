@@ -28,4 +28,4 @@ defProperty validProgram (.plain "validProgram")
            programDoc])
   (program "The program." : Program)
   :=
-    mapGet ‹program↦functions, program↦start› ≠ None
+    program↦start ∈ program↦functions
