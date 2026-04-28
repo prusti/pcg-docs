@@ -199,7 +199,7 @@ const CYTOSCAPE_STYLES = [
         console.error("Failed to render hypergraph:", e);
         container.innerHTML =
           '<div class="hypergraph-error">Failed to render graph: ' +
-          (e as Error).message +
+          (e instanceof Error ? e.message : String(e)) +
           "</div>";
       }
     });
@@ -371,7 +371,7 @@ const CYTOSCAPE_STYLES = [
           `coupling-info-${container.id}`
         );
         if (infoSpan) {
-          infoSpan.textContent = `Error: ${(e as Error).message}`;
+          infoSpan.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
           infoSpan.style.color = "red";
         }
         return edges;

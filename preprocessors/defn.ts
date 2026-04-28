@@ -200,11 +200,11 @@ function resolveManualRefs(
 ): string {
   return text.replace(
     /\\ref\{([^}]+)\}/g,
-    (_match, id: string) => {
+    (match, id: string) => {
       const defnSite = defnMap.get(id);
       if (!defnSite) {
         process.stderr.write(`Warning: \\ref id "${id}" has no matching \\defn\n`);
-        return _match;
+        return match;
       }
       const htmlPath = relativeHtmlPath(fromChapter, defnSite.chapterPath);
       return `\\href{${htmlPath}#defn-${id}}`;
