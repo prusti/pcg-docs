@@ -60,6 +60,21 @@ defFn currentFrame (.plain "currentFrame")
   : StackFrame :=
     m↦thread↦stack·head!
 
+defFn stackTail (.plain "stackTail")
+  (.seq [.plain "The tail of the call stack — every frame \
+    except the currently executing one (which ",
+    .code "currentFrame",
+    .plain " returns). The ", .code "RunnableMachine",
+    .plain " precondition guarantees the stack is non-empty, \
+    so this is the actual list tail."])
+  (m "The machine state." : Machine)
+  requires RunnableMachine(m)
+  : List StackFrame :=
+    match m↦thread↦stack with
+    | _ :: rest => rest
+    | [] => []
+    end
+
 defFn evalConstant (.plain "evalConstant")
   (.plain "Convert a compile-time constant to a runtime value.")
   (cv "The constant value." : ConstValue)

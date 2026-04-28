@@ -329,6 +329,7 @@ def buildCrate
      (`PCG.Obtain.Owned, "setOwnedLocalAt"),
      (`PCG.Obtain.Owned, "obtainWriteOwned"),
      (`PCG.Obtain.PcgData, "obtain"),
+     (`OpSem.Machine, "stackTail"),
      (`OpSem.Step, "evalStatement"),
      (`OpSem.Step, "evalTerminator"),
      (`OpSem.Step, "jumpToBlock"),

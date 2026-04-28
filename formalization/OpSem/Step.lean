@@ -132,34 +132,32 @@ defFn evalTerminator (.plain "evalTerminator")
           match typedLoad ‹m↦mem, retPtr, retTy› with
           | .none => StepResult.done‹.error›
           | .some retVal =>
-              match m↦thread↦stack with
-              | [] => StepResult.done‹.error›
-              | _ :: rest =>
-                  match rest with
-                  | [] => StepResult.done‹.success›
-                  | callerFrame :: _ =>
-                      match getStmtOrTerminator
-                          ‹callerFrame↦body, callerFrame↦pc,
+              let rest := stackTail
+                ‹m, lean_proof("h_RunnableMachine")› ;
+              match rest with
+              | [] => StepResult.done‹.success›
+              | callerFrame :: _ =>
+                  match getStmtOrTerminator
+                      ‹callerFrame↦body, callerFrame↦pc,
+                        lean_proof("sorry")› with
+                  | .terminator (.call _ _ targetPlace
+                      nextBlock) =>
+                      let mPopped :=
+                        m[thread => Thread⟨rest⟩] ;
+                      match evalPlace
+                          ‹mPopped, targetPlace,
                             lean_proof("sorry")› with
-                      | .terminator (.call _ _ targetPlace
-                          nextBlock) =>
-                          let mPopped :=
-                            m[thread => Thread⟨rest⟩] ;
-                          match evalPlace
-                              ‹mPopped, targetPlace,
-                                lean_proof("sorry")› with
-                          | .none => StepResult.done‹.error›
-                          | .some ⟨rp, _⟩ =>
-                              let mem' := placeStore
-                                ‹mPopped↦mem, rp, retVal› ;
-                              let mWithMem :=
-                                mPopped[mem => mem'] ;
-                              StepResult.ok‹jumpToBlock
-                                ‹mWithMem, nextBlock,
-                                  lean_proof("sorry")››
-                          end
-                      | _ => StepResult.done‹.error›
+                      | .none => StepResult.done‹.error›
+                      | .some ⟨rp, _⟩ =>
+                          let mem' := placeStore
+                            ‹mPopped↦mem, rp, retVal› ;
+                          let mWithMem :=
+                            mPopped[mem => mem'] ;
+                          StepResult.ok‹jumpToBlock
+                            ‹mWithMem, nextBlock,
+                              lean_proof("sorry")››
                       end
+                  | _ => StepResult.done‹.error›
                   end
               end
           end
