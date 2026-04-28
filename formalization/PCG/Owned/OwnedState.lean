@@ -1,4 +1,5 @@
 import Core.Dsl.DefFn
+import Core.Dsl.DefProperty
 import Core.Dsl.DefStruct
 import MIR.Body
 import PCG.Owned.InitTree
@@ -19,6 +20,18 @@ where
       : List OwnedLocal
   deriving Repr
 
+defProperty SameLength (.plain "SameLength")
+  short (xsDoc, ysDoc) =>
+    (.seq [xsDoc, .plain " has the same length as ", ysDoc])
+  long (xsDoc, ysDoc) =>
+    (.seq [xsDoc, .plain " and ", ysDoc,
+           .plain " are owned-local lists of equal length"])
+  (xs "The first list of owned locals." : List OwnedLocal)
+  (ys "The second list of owned locals." : List OwnedLocal)
+  where
+  | [] ; [] => true
+  | _ :: xs ; _ :: ys => SameLength ‹xs, ys›
+
 -- `open InitTree` so that the unqualified `join` below resolves
 -- to `InitTree.join` in source. In the Lean export, `InitTree`
 -- is an alias and so receives no namespace; `InitTree.join` is
@@ -37,9 +50,9 @@ defFn ownedLocalsJoin (.plain "ownedLocalsJoin")
     incoming branch must be deallocated after the join."])
   (xs "Owned locals from the first state." : List OwnedLocal)
   (ys "Owned locals from the second state." : List OwnedLocal)
+  requires SameLength(xs, ys)
   : List OwnedLocal where
-  | [] ; _ => []
-  | _ ; [] => []
+  | [] ; [] => []
   | .allocated x :: xs ; .allocated y :: ys =>
       .allocated ‹join ‹x, y›› :: ownedLocalsJoin ‹xs, ys›
   | _ :: xs ; _ :: ys =>
@@ -53,7 +66,8 @@ defFn join (.plain "join")
   (os1 "The first owned state." : OwnedState)
   (os2 "The second owned state." : OwnedState)
   : OwnedState :=
-    OwnedState⟨ownedLocalsJoin ‹os1↦locals, os2↦locals›⟩
+    OwnedState⟨ownedLocalsJoin
+      ‹os1↦locals, os2↦locals, lean_proof("sorry")›⟩
 
 end OwnedState
 
