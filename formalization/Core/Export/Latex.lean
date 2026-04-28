@@ -283,7 +283,10 @@ mutual
       let rowStrs := rows.map fun cells =>
         let cellStrs :=
           cells.map LatexMath.render
-        s!"  {" &".intercalate cellStrs} \\\\"
+        -- Append `{}` after the row separator so that a cell
+        -- on the next row starting with `[` is not parsed as
+        -- the optional `[length]` argument of `\\`.
+        s!"  {" &".intercalate cellStrs} \\\\\{}"
       let optStr := match align with
         | some a => s!"[{a}]"
         | none => ""

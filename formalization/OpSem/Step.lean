@@ -3,6 +3,7 @@ import Core.Dsl.DefFn
 import Core.Dsl.DefInductiveProperty
 import Core.Dsl.DefProperty
 import MIR.StmtOrTerminator
+import OpSem.Expressions.Place
 import OpSem.Machine
 import OpSem.Statements
 
@@ -64,17 +65,105 @@ defFn evalStatement (.plain "evalStatement")
   | _ ; .storageLive _ => None
   | _ ; .storageDead _ => None
 
+defFn jumpToBlock (.plain "jumpToBlock")
+  (.seq [.plain "Set the current frame's program counter to \
+    statement 0 of ", .code "target",
+    .plain ", leaving the rest of the call stack and memory \
+    unchanged. Mirrors MiniRust's ",
+    .code "jump_to_block", .plain "."])
+  (m "The machine state." : Machine)
+  (target "The basic block to jump to." : BasicBlockIdx)
+  requires RunnableMachine(m)
+  : Machine :=
+    let frame := currentFrame
+      ‹m, lean_proof("h_RunnableMachine")› ;
+    let rest :=
+      match m↦thread↦stack with
+      | _ :: r => r
+      | [] => []
+      end ;
+    let newPc := Location⟨target, 0⟩ ;
+    let newFrame := frame[pc => newPc] ;
+    m[thread => Thread⟨newFrame :: rest⟩]
+
 defFn evalTerminator (.plain "evalTerminator")
   (.seq [.plain "Evaluate a basic block terminator. The \
     terminator is responsible for advancing the program \
     counter — including switching to a new basic block when \
-    appropriate. Currently a placeholder that always halts \
-    with ", .code "error", .plain "; real evaluation has \
-    not yet been implemented."])
+    appropriate."
+    , .plain " ", .code "goto", .plain " jumps to its target \
+    block via ", .code "jumpToBlock", .plain "; ",
+    .code "drop", .plain " jumps to its successor without \
+    modelling drop semantics; ", .code "unreachable",
+    .plain " halts with ", .code "error", .plain "; ",
+    .code "switchInt", .plain " and ", .code "call",
+    .plain " currently halt with ", .code "error",
+    .plain " — switch case maps and function-pointer \
+    resolution are not yet modelled."
+    , .plain " ", .code "return", .plain " loads the return \
+    value out of the callee's return slot (local 0), pops \
+    the callee frame, and — when the call stack still \
+    contains a caller — looks at the caller's pending call \
+    terminator to recover the destination place and \
+    successor block, stores the return value into the \
+    destination, and jumps the caller to that block. When \
+    the popped frame was the bottom of the stack, the \
+    program halts with ", .code "success", .plain "."])
   (m "The machine state." : Machine)
   (t "The terminator to evaluate." : Terminator)
-  : StepResult :=
-    StepResult.done‹.error›
+  requires RunnableMachine(m)
+  : StepResult where
+  | m ; .goto target =>
+      StepResult.ok‹jumpToBlock
+        ‹m, target, lean_proof("h_RunnableMachine")››
+  | _ ; .unreachable => StepResult.done‹.error›
+  | m ; .drop _ target =>
+      StepResult.ok‹jumpToBlock
+        ‹m, target, lean_proof("h_RunnableMachine")››
+  | _ ; .switchInt _ => StepResult.done‹.error›
+  | _ ; .call _ _ _ _ => StepResult.done‹.error›
+  | m ; .return_ =>
+      let frame := currentFrame
+        ‹m, lean_proof("h_RunnableMachine")› ;
+      let retTy := frame↦body↦decls ! 0 ;
+      match mapGet ‹frame↦locals, Local⟨0⟩› with
+      | .none => StepResult.done‹.error›
+      | .some retPtr =>
+          match typedLoad ‹m↦mem, retPtr, retTy› with
+          | .none => StepResult.done‹.error›
+          | .some retVal =>
+              match m↦thread↦stack with
+              | [] => StepResult.done‹.error›
+              | _ :: rest =>
+                  match rest with
+                  | [] => StepResult.done‹.success›
+                  | callerFrame :: _ =>
+                      match getStmtOrTerminator
+                          ‹callerFrame↦body, callerFrame↦pc,
+                            lean_proof("sorry")› with
+                      | .terminator (.call _ _ targetPlace
+                          nextBlock) =>
+                          let mPopped :=
+                            m[thread => Thread⟨rest⟩] ;
+                          match evalPlace
+                              ‹mPopped, targetPlace,
+                                lean_proof("sorry")› with
+                          | .none => StepResult.done‹.error›
+                          | .some ⟨rp, _⟩ =>
+                              let mem' := placeStore
+                                ‹mPopped↦mem, rp, retVal› ;
+                              let mWithMem :=
+                                mPopped[mem => mem'] ;
+                              StepResult.ok‹jumpToBlock
+                                ‹mWithMem, nextBlock,
+                                  lean_proof("sorry")››
+                          end
+                      | _ => StepResult.done‹.error›
+                      end
+                  end
+              end
+          end
+      end
 
 defFn step (.plain "step")
   (.seq [.plain "Execute a single step of the operational \
@@ -103,7 +192,8 @@ defFn step (.plain "step")
       ‹m, lean_proof("h_RunnableMachine")› ;
     match getStmtOrTerminator
         ‹frame↦body, frame↦pc, lean_proof("sorry")› with
-    | .terminator t => evalTerminator ‹m, t›
+    | .terminator t =>
+        evalTerminator ‹m, t, lean_proof("h_RunnableMachine")›
     | .stmt s =>
         match evalStatement
             ‹m, s, lean_proof("h_RunnableMachine")› with

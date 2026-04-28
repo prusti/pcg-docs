@@ -640,10 +640,13 @@ partial def toDoc
         -- Two-column `{ll}` array: pattern in the first
         -- column, `⇒ rhs` in the second, so every row
         -- aligns on the fat arrow. `&` is the LaTeX array
-        -- column separator; trailing ` \\` ends the row.
+        -- column separator; trailing ` \\{}` ends the row
+        -- (the `{}` prevents a next-row cell starting with
+        -- `[` from being parsed as the optional `[length]`
+        -- argument of `\\`).
         .seq [ rawMath "  ", patMath
              , rawMath " &", .sym .fatArrow, go rhs
-             , rawMath " \\\\" ]
+             , rawMath " \\\\{}" ]
     -- `\left\{\begin{array}{ll}…\end{array}\right.` is a
     -- LaTeX-specific aligned-cases environment; kept raw.
     .seq [ keyword "match", go scrut, .sym .space

@@ -331,6 +331,7 @@ def buildCrate
      (`PCG.Obtain.PcgData, "obtain"),
      (`OpSem.Step, "evalStatement"),
      (`OpSem.Step, "evalTerminator"),
+     (`OpSem.Step, "jumpToBlock"),
      (`OpSem.Step, "step"),
      (`OpSem.Step, "pcgAnalysisSucceeds"),
      (`OpSem.Step, "isInitialState"),
