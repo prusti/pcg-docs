@@ -268,13 +268,18 @@ partial def toDoc
     --      resolution for unqualified ambiguous calls.
     --  (4) Otherwise fall back to a constructor reference.
     let shortName := (fn.splitOn ".").getLast?.getD fn
-    let mkLink (target : String) : MathDoc :=
-      .doc (.link (.plain (Doc.fnNameDisplay fn))
+    let mkLinkAs (target : String) (display : String) : MathDoc :=
+      .doc (.link (.plain (Doc.fnNameDisplay display))
         s!"#fn:{target}")
+    let mkLink (target : String) : MathDoc :=
+      mkLinkAs target fn
     if fn != shortName && ctx.knownFnAnchors fn then
       mkLink fn
     else if ctx.knownFns shortName && !ctx.ambiguousFns shortName then
-      mkLink shortName
+      -- Short name unambiguously resolves to a registered fn:
+      -- drop any qualifier the call site used (e.g. `Body.initialState`
+      -- → `initialState`) so the display matches the link target.
+      mkLinkAs shortName shortName
     else if ctx.knownFns shortName then
       match ctx.currentFnModule with
       | some mod =>

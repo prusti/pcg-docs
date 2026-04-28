@@ -55,7 +55,7 @@ defFn analyzeProgram (.plain "analyzeProgram")
     .plain " on the start function's body, starting from a \
     fresh PCG with an empty borrows graph and the entry-point \
     owned state derived from the body via ",
-    .code "Body.initialState",
+    .code "initialState",
     .plain ". Returns ", .code "None",
     .plain " when the start function is unregistered or when ",
     .code "analyzeBody", .plain " fails on any block."])
