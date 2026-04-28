@@ -1,3 +1,4 @@
+import Core.Dsl.DefProperty
 import Core.Dsl.DefStruct
 import MIR.Body
 
@@ -17,3 +18,12 @@ where
       : Map String Body
   | start "The name of the entry function." : String
   deriving Repr
+
+defProperty validProgram (.plain "validProgram")
+  (programDoc) =>
+    (.seq [programDoc, .plain " is a valid program: its \
+           start function name is registered in its function \
+           map"])
+  (program "The program." : Program)
+  :=
+    mapGet ‹program↦functions, program↦start› ≠ None

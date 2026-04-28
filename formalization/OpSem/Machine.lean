@@ -29,10 +29,12 @@ namespace Machine
 defProperty RunnableMachine (.plain "RunnableMachine")
   (mDoc) =>
     (.seq [mDoc, .plain " has at least one stack frame to \
-       execute, and every stack frame is valid"])
+       execute, the program is valid, and every stack frame \
+       is valid"])
   (m "The machine state." : Machine)
   :=
     m↦thread↦stackFrames ≠ [] ∧
+    validProgram ‹m↦program› ∧
     m↦thread↦stackFrames·forAll fun frame =>
       validStackFrame ‹frame›
 

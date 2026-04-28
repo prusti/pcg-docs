@@ -145,10 +145,13 @@ syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
 
 -- If-then-else expression: if cond then t else e
 syntax "if " fnExpr " then " fnExpr " else " fnExpr : fnExpr
--- Inequality: expr ≠ expr
-syntax fnExpr " ≠ " fnExpr : fnExpr
--- Equality: expr == expr
-syntax fnExpr " == " fnExpr : fnExpr
+-- Inequality: expr ≠ expr.
+-- Prec 50 to match the comparison ops `<` / `≤` / `∈`, so it
+-- is rejected when looser binops (`∧`, `∨`, `→`) try to absorb
+-- it as a tightly-bound argument.
+syntax:50 fnExpr:51 " ≠ " fnExpr:51 : fnExpr
+-- Equality: expr == expr. Prec 50, same rationale as `≠`.
+syntax:50 fnExpr:51 " == " fnExpr:51 : fnExpr
 -- List existential: expr ·any fun pat => expr
 syntax fnExpr "·any" "fun" fnPat "=>" fnExpr : fnExpr
 
