@@ -91,7 +91,7 @@ defFn step (.plain "step")
         match evalStatement ‹m, s› with
         | .none => StepResult.done‹.error›
         | .some m' =>
-            match m'↦thread↦stackFrames with
+            match m'↦thread↦stack with
             | [] => StepResult.done‹.error›
             | frame' :: rest =>
                 let newPc :=

@@ -36,9 +36,9 @@ defProperty RunnableMachine (.plain "RunnableMachine")
            call stack of ", mDoc, .plain " is valid"])
   (m "The machine state." : Machine)
   :=
-    m↦thread↦stackFrames ≠ [] ∧
+    m↦thread↦stack ≠ [] ∧
     validProgram ‹m↦program› ∧
-    m↦thread↦stackFrames·forAll fun frame =>
+    m↦thread↦stack·forAll fun frame =>
       validStackFrame ‹frame›
 
 -- Source-only `Inhabited StackFrame` so `head!` inside
@@ -58,7 +58,7 @@ defFn currentFrame (.plain "currentFrame")
   (m "The machine state." : Machine)
   requires RunnableMachine(m)
   : StackFrame :=
-    m↦thread↦stackFrames·head!
+    m↦thread↦stack·head!
 
 defFn evalConstant (.plain "evalConstant")
   (.plain "Convert a compile-time constant to a runtime value.")
@@ -142,7 +142,7 @@ defFn createFrame (.plain "createFrame")
     let ⟨frame2, mem2⟩ :=
       liveAndStoreArgs ‹args, 1, frame1, mem1› ;
     Machine⟨m↦program,
-      Thread⟨frame2 :: m↦thread↦stackFrames⟩,
+      Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩
 
 defFn initialMachine (.plain "initialMachine")

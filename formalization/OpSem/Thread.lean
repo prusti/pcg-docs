@@ -13,7 +13,7 @@ defStruct Thread (.raw "\\theta", .text "Thread")
      list of stack frames whose head is the currently \
      executing activation."])
 where
-  | stackFrames "The call stack, with the currently executing \
+  | stack "The call stack, with the currently executing \
       frame at the head."
       : List StackFrame
   deriving Repr
