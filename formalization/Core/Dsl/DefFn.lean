@@ -321,11 +321,20 @@ partial def parseExpr
     recordIdentRef n n.getId
     let as_ ← args.getElems.mapM parseExpr
     pure (.mkStruct (toString n.getId) as_.toList)
-  | `(fnExpr| $e:fnExpr ↦ $f:ident) =>
-    pure (.field (← parseExpr e) (toString f.getId))
-  | `(fnExpr| $r:fnExpr [ $f:ident => $v:fnExpr ]) =>
-    pure (.structUpdate (← parseExpr r)
-      (toString f.getId) (← parseExpr v))
+  | `(fnExpr| $e:fnExpr ↦ $f:ident) => do
+    let recv ← parseExpr e
+    if let some qualified ←
+        resolveStructField (toString f.getId) then
+      recordIdentRef f qualified
+    pure (.field recv (toString f.getId))
+  | `(fnExpr| $r:fnExpr [ $f:ident => $v:fnExpr ]) => do
+    let recv ← parseExpr r
+    let val ← parseExpr v
+    if let some qualified ←
+        resolveStructField (toString f.getId) then
+      recordIdentRef f qualified
+    pure (.structUpdate recv
+      (toString f.getId) val)
   | `(fnExpr| $e:fnExpr !! $i:fnExpr) =>
     pure (.index (← parseExpr e) (← parseExpr i))
   | `(fnExpr| $e:fnExpr ! $i:fnExpr) =>

@@ -1,4 +1,5 @@
 import Lean
+import Core.Registry
 
 /-!
 # DSL LSP support helpers
@@ -62,6 +63,34 @@ initialize identRefBuffer :
 def recordIdentRef (stx : Lean.Syntax)
     (name : Lean.Name) : IO Unit :=
   identRefBuffer.modify (·.push (stx, name))
+
+/-- Look up a `defStruct` field name in the global struct
+    registry and, when exactly one registered struct exposes a
+    field of that name, return the qualified Lean constant
+    name (e.g. `"functions" → some `Program.functions`).
+
+    Used by the `↦` parser rule to record gotoDef targets for
+    field accesses like `program↦functions`: the synthesised
+    Lean rendering `program.functions` carries no user-source
+    position, so we attach a `TermInfo` leaf at the user's
+    `functions` token pointing at `Program.functions` instead.
+
+    Returns `none` if no struct or more than one struct claims
+    the name — ambiguous lookups would resolve to the wrong
+    declaration, so we conservatively skip them. -/
+def resolveStructField (fieldName : String) :
+    IO (Option Lean.Name) := do
+  let structs ← getRegisteredStructs
+  let owners := structs.filterMap fun s =>
+    if s.structDef.fields.any (·.name == fieldName) then
+      some s.structDef.name
+    else none
+  match owners with
+  | [structName] =>
+    pure (some <|
+      (Lean.Name.mkSimple structName).append
+        (Lean.Name.mkSimple fieldName))
+  | _ => pure none
 
 /-- Walk a type-position `Syntax` tree and record every
     identifier inside it via `recordIdentRef`, so the LSP can

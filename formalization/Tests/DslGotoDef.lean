@@ -2,7 +2,12 @@ import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 import Core.Dsl.DefInductiveProperty
 import Core.Dsl.DefAlias
+import Core.Dsl.DefStruct
+import Core.Dsl.IdentRefs
+import OpSem.Program
 import Lean
+
+open Core.Dsl.IdentRefs
 
 /-!
 # Build-time checks: gotoDef points at the DSL source
@@ -86,5 +91,22 @@ run_cmd do
   unless line > 1 do
     throwError s!"TestInductiveProp: range collapsed to line {line} \
       (expected the line of `defInductiveProperty TestInductiveProp ...`)"
+
+-- Field-projection gotoDef relies on `resolveStructField`:
+-- given a field name like `"functions"`, it consults the
+-- `defStruct` registry and returns the qualified Lean name
+-- `Program.functions` so the parser can attach a `TermInfo`
+-- leaf at the user's `program↦functions` token.
+run_cmd do
+  let resolved ← resolveStructField "functions"
+  match resolved with
+  | none =>
+    throwError "resolveStructField returned none for \
+      `functions`; expected `Program.functions`"
+  | some n =>
+    let expected : Lean.Name := `Program ++ `functions
+    unless n == expected do
+      throwError s!"resolveStructField resolved to {n}, \
+        expected {expected}"
 
 end Tests.DslGotoDef
