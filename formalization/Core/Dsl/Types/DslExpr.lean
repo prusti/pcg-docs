@@ -617,12 +617,14 @@ partial def toDoc
   | .sorryProof => .seq []
   | .leanProof _ => .seq []
   | .match_ scrut arms =>
-    let noCtor : String → Option MathDoc :=
-      fun _ => Option.none
+    -- Pass `ctx.ctorDisplay` so nullary variants in inner
+    -- `match` arms render with their display template
+    -- (e.g. `PreOperands`), matching how the same variant
+    -- renders in value position via `varToVariantDoc`.
     let rowsMath : List MathDoc :=
       arms.map fun (pats, rhs) =>
         let patMath := mathIntercalate (.sym .comma)
-          (pats.map (BodyPat.toDoc noCtor
+          (pats.map (BodyPat.toDoc ctx.ctorDisplay
             ctx.resolveCtor ctx.resolveVariant
             ctx.variants))
         -- Two-column `{ll}` array: pattern in the first
