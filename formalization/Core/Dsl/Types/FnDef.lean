@@ -279,29 +279,16 @@ def formalDefLatex
   -- inline rhs that can be aligned in a `{ll}` array, or a
   -- complex arm whose rhs spans multiple `\State` lines.
   let armEntry (arm : BodyArm) : Sum (LatexMath × LatexMath) (Latex × List Latex) :=
-    let ctorName := arm.pat.head?.bind fun p =>
-      match p with | .ctor n _ => some n | _ => none
+    -- A bound pattern variable is rendered under its actual
+    -- name in expression bodies, even when the matching
+    -- variant's display template attaches a symbol to that
+    -- arg slot. Substituting the variant's symbol made the
+    -- body of e.g. `validProjTy`'s `.ref _ _ pointee` arm
+    -- render `pointee` as `τ` (Ty's symbolDoc), which both
+    -- shadows the function's own `τ` parameter and loses the
+    -- bound variable's identity in the math output.
     let varDisplay : String → Option MathDoc :=
-      fun varName =>
-        match ctorName with
-        | none => none
-        | some cn =>
-          -- Match by qualified name when available; fall
-          -- back to short-name lookup so that either form
-          -- works.
-          let shortName :=
-            (cn.splitOn ".").getLast?.getD cn
-          let variant := ctx.variants.find?
-            (·.name.name == shortName)
-          match variant with
-          | none => none
-          | some v => v.display.findSome? fun dp =>
-            match dp with
-            | .arg n sym =>
-              if n == varName then
-                some sym
-              else none
-            | _ => none
+      fun _ => none
     -- Zip each sub-pattern with the corresponding function
     -- parameter's type so short-form ctor references can be
     -- resolved under the parameter's type namespace.

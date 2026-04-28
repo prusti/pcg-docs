@@ -87,7 +87,8 @@ defFn storageLive (.plain "storageLive")
   : Option (StackFrame × Memory) :=
     let ⟨frame1, mem1⟩ := storageDead ‹frame, mem, l› ;
     let ty := frame1↦body↦decls ! l↦index ;
-    let strategy ← Ty.layout ‹ty› ;
+    let strategy :=
+      Ty.layout ‹ty, lean_proof("sorry")› ;
     match strategy with
     | .sized sz =>
         let addr := Memory.top ‹mem1› ;

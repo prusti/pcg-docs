@@ -1026,8 +1026,15 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
   | .or (_, l) (_, r) => pure (.binOp .or l r)
   | .implies _ _ => pure (.raw "/* implication omitted */")
   | .forall_ _ _ => pure (.raw "/* forall omitted */ true")
-  | .sorryProof => pure (.raw "/* sorry */")
-  | .leanProof _ => pure (.raw "/* proof omitted */")
+  -- A `sorry` / `lean_proof` term in value position
+  -- (a match-arm RHS, a `let`-binder body, etc.) becomes
+  -- `unreachable!()` in Rust: the precondition that justifies
+  -- the Lean `sorry` should also rule the case out at runtime.
+  -- When `sorry` / `lean_proof` appears in argument position
+  -- the call lowering filters it out before it reaches this
+  -- branch (see `.sorryProof | .leanProof _ => false` above).
+  | .sorryProof => pure (.raw "unreachable!()")
+  | .leanProof _ => pure (.raw "unreachable!()")
   | .match_ (_, scrutExpr) arms => do
     let rustArms := arms.map fun (pats, (origRhs, rustRhs)) =>
       let pat := if pats.length == 1
