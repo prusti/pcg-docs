@@ -1,4 +1,7 @@
 import Core.Dsl.DefFn
+import Core.Dsl.IdentRefs
+
+open Core.Dsl.IdentRefs
 
 open Lean in
 
@@ -144,7 +147,9 @@ elab_rules : command
        long ( $docBinders:ident,* ) => ($docExpr:term)
        $ps:fnParam*
        where $arms:fnArm*) => do
+    identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := shortBinders.getElems
     let docBinders := docBinders.getElems
     let parsed ← arms.mapM fun arm => match arm with
@@ -188,6 +193,7 @@ elab_rules : command
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildPropertyDef name symDoc paramData
       bodyTerm shortBinders shortExpr docBinders docExpr
+    flushIdentRefs
 
 -- ══════════════════════════════════════════════
 -- Expression form (direct and do-block)
@@ -220,7 +226,9 @@ elab_rules : command
        long ( $docBinders:ident,* ) => ($docExpr:term)
        $ps:fnParam*
        $body:propertyBody) => do
+    identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := shortBinders.getElems
     let docBinders := docBinders.getElems
     let rhsAst ← match body with
@@ -231,3 +239,4 @@ elab_rules : command
       | _ => throwError "invalid propertyBody"
     elabExprProperty name symDoc paramData
       rhsAst shortBinders shortExpr docBinders docExpr
+    flushIdentRefs

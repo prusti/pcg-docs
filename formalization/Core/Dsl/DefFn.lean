@@ -1,9 +1,12 @@
 import Core.Registry
 import Core.Export.Lean
 import Core.Dsl.DefEnum
+import Core.Dsl.IdentRefs
 import Core.Dsl.Lint
 import Runtime
 import Lean
+
+open Core.Dsl.IdentRefs
 
 open Lean in
 
@@ -219,75 +222,6 @@ syntax "defFn " ident "(" term ")" "(" term ")"
 -- ══════════════════════════════════════════════
 -- Parsing helpers
 -- ══════════════════════════════════════════════
-
--- Buffer of `(identifierSyntax, name)` pairs collected while
--- parsing a `defFn` body. After the generated Lean `def` has
--- been elaborated, each pair whose name resolves to a constant
--- in the environment is replayed as a `TermInfo` leaf, so the
--- LSP can offer go-to-definition and hover for DSL-level
--- identifiers (e.g. `initStateCapability` in `treeCapability`'s
--- body). We use a module-level `IO.Ref` rather than threading
--- state through `parseExpr`/`parsePat` because `parseExpr` is
--- partial and mutually called from many places.
-private initialize identRefBuffer :
-    IO.Ref (Array (Lean.Syntax × Lean.Name)) ← IO.mkRef #[]
-
-/-- Record an identifier reference for later `TermInfo`
-    emission. Called from the parser whenever an `ident` token
-    syntactically denotes a potential global reference
-    (function call head, free variable, struct/enum
-    constructor, higher-order function argument, ...). -/
-private def recordIdentRef (stx : Lean.Syntax)
-    (name : Lean.Name) : IO Unit :=
-  identRefBuffer.modify (·.push (stx, name))
-
-/-- Walk a type-position `Syntax` tree and record every
-    identifier inside it via `recordIdentRef`, so the LSP can
-    jump from a type name in a `defFn` parameter or return
-    type (e.g. `Body` in `(body : Body)`) to the corresponding
-    struct/enum/alias definition. -/
-private partial def recordTypeIdents
-    (stx : Lean.Syntax) : IO Unit := do
-  if stx.isIdent then
-    recordIdentRef stx stx.getId
-  else
-    for arg in stx.getArgs do
-      recordTypeIdents arg
-
-/-- Take the currently-buffered identifier references and
-    empty the buffer, so subsequent `defFn` invocations start
-    from a clean slate. -/
-private def takeIdentRefs :
-    IO (Array (Lean.Syntax × Lean.Name)) := do
-  let refs ← identRefBuffer.get
-  identRefBuffer.set #[]
-  return refs
-
-open Lean Elab Command in
-/-- Push a `TermInfo` leaf for each recorded identifier whose
-    name resolves to an existing constant, so the LSP can jump
-    from a DSL-level identifier to the backing Lean
-    definition. Resolution respects the current namespace and
-    any `open` declarations in scope, so e.g.
-    `writeBytesAt` inside `namespace Memory` correctly
-    resolves to `Memory.writeBytesAt`. Identifiers that don't
-    resolve (locally bound variables, forward references
-    inside a mutual group that hasn't been elaborated yet,
-    ...) are silently skipped. -/
-private def flushIdentRefs : CommandElabM Unit := do
-  let refs ← takeIdentRefs
-  let env ← getEnv
-  let ns ← getCurrNamespace
-  let opens ← getOpenDecls
-  let opts ← getOptions
-  for (stx, name) in refs do
-    let candidates :=
-      Lean.ResolveName.resolveGlobalName env opts ns opens name
-    let resolved := candidates.filterMap fun (n, parts) =>
-      if parts.isEmpty && env.contains n then some n else none
-    match resolved with
-    | [n] => addConstInfo stx n
-    | _ => pure ()
 
 mutual
 partial def parsePatAtom

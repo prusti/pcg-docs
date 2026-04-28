@@ -1,8 +1,11 @@
 import Core.Registry
 import Core.Dsl.DefFn
+import Core.Dsl.IdentRefs
 import Core.Dsl.Types.InductivePropertyDef
 import Core.Export.Lean
 import Lean
+
+open Core.Dsl.IdentRefs
 
 open Lean in
 
@@ -136,12 +139,14 @@ elab_rules : command
         $ps:fnParam*
         where
         $rs:inductivePropRule*) => do
+    identRefBuffer.set #[]
     let parsedRules ← rs.mapM
       (parseInductivePropRule ∘ TSyntax.raw)
     let typeParamNames : List String := match tps with
       | some ids => ids.toList.map (toString ·.getId)
       | none => []
     let paramData ← ps.mapM parseFnParam
+    for (_, _, ty) in paramData do recordTypeIdents ty
     -- Build the `inductive` declaration as a string and reparse,
     -- since each rule's premises and conclusion are arbitrary
     -- Lean terms whose source we pass through verbatim.
@@ -233,3 +238,4 @@ elab_rules : command
     let modName : TSyntax `term := quote mod
     elabCommand (← `(command|
       initialize registerInductivePropertyDef $ipDefId $modName))
+    flushIdentRefs
