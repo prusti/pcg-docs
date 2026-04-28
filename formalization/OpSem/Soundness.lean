@@ -41,6 +41,31 @@ where
             Machine.step ‹m', h› = StepResult.ok ‹m›)
       ⊢ Reachable ‹init, m›
 
+namespace Program
+
+defFn analyzeProgram (.plain "analyzeProgram")
+  (.seq [.plain "Run ", .code "analyzeBody",
+    .plain " on the start function's body, starting from a \
+    fresh PCG with an empty borrows graph and the entry-point \
+    owned state derived from the body via ",
+    .code "Body.initialState",
+    .plain ". Returns ", .code "None",
+    .plain " when the start function is unregistered or when ",
+    .code "analyzeBody", .plain " fails on any block."])
+  (program "The program to analyse." : Program)
+  : Option AnalysisResults :=
+    match mapGet ‹program↦functions, program↦start› with
+    | .some body =>
+        let init :=
+          PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
+            Body.initialState ‹body›,
+            BasicBlockIdx⟨0⟩, None⟩ ;
+        analyzeBody ‹init, body›
+    | .none => None
+    end
+
+end Program
+
 defProperty pcgAnalysisSucceeds
     (.plain "pcgAnalysisSucceeds")
   short (programDoc) =>
@@ -48,18 +73,13 @@ defProperty pcgAnalysisSucceeds
            programDoc])
   long (programDoc) =>
     (.seq [.plain "the PCG analysis succeeds for program ",
-           programDoc, .plain ": running ",
-           .code "analyzeBody",
-           .plain " on the start function's body returns ",
-           .code "Some"])
+           programDoc, .plain ": ",
+           .code "analyzeProgram",
+           .plain " returns ", .code "Some"])
   (program "The program to analyse." : Program)
   :=
-    match mapGet ‹program↦functions, program↦start› with
-    | .some body =>
-        let init :=
-          PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
-            OwnedState⟨[]⟩, BasicBlockIdx⟨0⟩, None⟩ ;
-        analyzeBody ‹init, body›·isSome
+    match Program.analyzeProgram ‹program› with
+    | .some _ => true
     | .none => false
     end
 
