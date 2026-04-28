@@ -334,6 +334,36 @@ private def precondBinders
     { name := s!"h_{pc.name}"
       type := .const s!"{pc.name} {argStr}" }
 
+/-- Build the conjunction of postcondition applications used
+    inside the subtype return wrapper. The literal argument
+    name `result` refers to the function's return value. -/
+private def postcondPredicate
+    (postconds : List Postcondition) : String :=
+  " ∧ ".intercalate
+    (postconds.map fun pc =>
+      if pc.args.isEmpty then pc.name
+      else s!"{pc.name} {" ".intercalate pc.args}")
+
+/-- Wrap a `LeanTy` return type in the postcondition subtype
+    `\{ result : RetTy // P₁ ∧ P₂ ∧ … }` when postconds are
+    present; otherwise return the original type. -/
+private def wrapRetType
+    (retTy : LeanTy)
+    (postconds : List Postcondition) : LeanTy :=
+  if postconds.isEmpty then retTy
+  else .const
+    s!"\{ result : {retTy.toString} // \
+       {postcondPredicate postconds} }"
+
+/-- Wrap a `LeanExpr` body with the subtype anonymous
+    constructor `⟨body, by sorry⟩` when postconds are
+    present; otherwise return the body unchanged. -/
+private def wrapBodyExpr
+    (body : LeanExpr)
+    (postconds : List Postcondition) : LeanExpr :=
+  if postconds.isEmpty then body
+  else .anonCtor [body, .raw "by sorry"]
+
 /-- Convert FnDef params to AST binders. -/
 private def paramBinders
     (params : List FieldDef) : List LeanBinder :=
@@ -351,17 +381,20 @@ def toLeanAST
     (isProperty : Bool := false)
     : LeanDecl :=
   let precondNames := f.preconditions.map (·.name)
-  let retType : LeanTy :=
+  let baseRetType : LeanTy :=
     if isProperty then .const "Prop"
     else f.returnType.toLeanAST
+  let retType := wrapRetType baseRetType f.postconditions
   let params := paramBinders f.params
   let precBinds := precondBinders f.preconditions
+  let wrap : LeanExpr → LeanExpr := fun e =>
+    wrapBodyExpr e f.postconditions
   let body : LeanFnBody :=
     match f.body with
     | .matchArms arms =>
       let armASTs : List LeanMatchArm := arms.map fun arm =>
         .mk (arm.pat.map BodyPat.toLeanAST)
-            (arm.rhs.toLeanASTWith f.name precondNames)
+            (wrap (arm.rhs.toLeanASTWith f.name precondNames))
       let lastIsCatchAll := match arms.getLast? with
         | some arm => arm.pat.all fun p =>
             match p with | .wild | .var _ => true | _ => false
@@ -373,7 +406,7 @@ def toLeanAST
         else armASTs
       .matchArms armASTs
     | .expr body =>
-      .expr (body.toLeanASTWith f.name precondNames)
+      .expr (wrap (body.toLeanASTWith f.name precondNames))
   .def_ {
     name := f.name
     params
@@ -558,10 +591,11 @@ def referencedTypes (f : FnDef) : List String :=
   f.params.flatMap fun p => p.ty.namedTypes
 
 /-- All names this function depends on (types,
-    preconditions, called functions). -/
+    preconditions, postconditions, called functions). -/
 def referencedNames (f : FnDef) : List String :=
   f.referencedTypes ++
   f.preconditions.map (·.name) ++
+  f.postconditions.map (·.name) ++
   f.body.calledNames
 
 /-- Whether this function uses `Set` anywhere. -/

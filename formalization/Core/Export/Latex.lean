@@ -142,6 +142,10 @@ def state (body : Latex) : Latex :=
 def require_ (body : Latex) : Latex :=
   .seq [.raw "\\Require ", body]
 
+/-- `\Ensure body` (algorithmic, space-separated). -/
+def ensure_ (body : Latex) : Latex :=
+  .seq [.raw "\\Ensure ", body]
+
 /-- `\caption{body}`. -/
 def caption (body : Latex) : Latex :=
   .cmd "caption" [body]

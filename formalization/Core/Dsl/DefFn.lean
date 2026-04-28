@@ -210,6 +210,7 @@ syntax ident "(" ident,+ ")" : fnPrecond
 syntax "defFn " ident "(" term ")" "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")?
     ("requires " fnPrecond,+)?
+    ("ensures " fnPrecond,+)?
     ":" term " where" fnArm* : command
 
 /-- Direct expression function (no pattern match). See the
@@ -217,6 +218,7 @@ syntax "defFn " ident "(" term ")" "(" term ")"
 syntax "defFn " ident "(" term ")" "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")?
     ("requires " fnPrecond,+)?
+    ("ensures " fnPrecond,+)?
     ":" term " :=" fnExpr : command
 
 -- ══════════════════════════════════════════════
@@ -545,6 +547,7 @@ def buildFnDef
     (retTy : TSyntax `term)
     (body : TSyntax `term)
     (preconds : List (String × List String) := [])
+    (postconds : List (String × List String) := [])
     (mutualGroup : Option String := none)
     (display : Option (TSyntax `term) := none)
     : CommandElabM Unit := do
@@ -573,6 +576,10 @@ def buildFnDef
     `({ name := $(quote pn),
         args := $(quote args) : Precondition })
   let precondList ← `([$[$precondDefs.toArray],*])
+  let postcondDefs ← postconds.mapM fun (pn, args) => do
+    `({ name := $(quote pn),
+        args := $(quote args) : Postcondition })
+  let postcondList ← `([$[$postcondDefs.toArray],*])
   let mutualGroupTerm : TSyntax `term := quote mutualGroup
   let displayTerm : TSyntax `term ← match display with
     | some dpList => `((some $dpList : Option (List DisplayPart)))
@@ -586,6 +593,7 @@ def buildFnDef
         params := $paramList,
         returnType := $retTn,
         preconditions := $precondList,
+        postconditions := $postcondList,
         body := $body,
         mutualGroup := $mutualGroupTerm,
         display := $displayTerm }))
@@ -605,6 +613,35 @@ private def precondParamBinds
       let argStr := " ".intercalate args
       s!"(h_{pn} : {pn} {argStr})")
 
+/-- Build the conjunction of postcondition applications
+    used as the predicate inside the subtype return type. -/
+private def postcondPredicate
+    (postconds : List (String × List String))
+    : String :=
+  " ∧ ".intercalate
+    (postconds.map fun (pn, args) =>
+      if args.isEmpty then pn
+      else s!"{pn} {" ".intercalate args}")
+
+/-- Wrap a return type in the postcondition subtype
+    `\{ result : RetTy // P₁ ∧ P₂ ∧ … }` when postconds
+    are present; otherwise return the raw return type. -/
+private def wrapRetType
+    (retTy : String)
+    (postconds : List (String × List String))
+    : String :=
+  if postconds.isEmpty then retTy
+  else s!"\{ result : {retTy} // {postcondPredicate postconds} }"
+
+/-- Wrap a body expression with the subtype anonymous
+    constructor `⟨body, by sorry⟩` when postconds are
+    present; otherwise return the body unchanged. -/
+private def wrapBody
+    (body : String) (postconds : List (String × List String))
+    : String :=
+  if postconds.isEmpty then body
+  else s!"⟨{body}, by sorry⟩"
+
 -- ══════════════════════════════════════════════
 -- Pattern-matching form
 -- ══════════════════════════════════════════════
@@ -614,6 +651,7 @@ elab_rules : command
   | `(defFn $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
        $[requires $reqs:fnPrecond,*]?
+       $[ensures $ens:fnPrecond,*]?
        : $retTy:term where
        $arms:fnArm*) => do
     identRefBuffer.set #[]
@@ -624,6 +662,11 @@ elab_rules : command
       | some d => Option.some <$> parseFnDisplay paramData d.getElems
       | none => pure none
     let preconds ← match reqs with
+      | some pcs =>
+        pcs.getElems.toList.mapM
+          (parsePrecond ·.raw)
+      | none => pure []
+    let postconds ← match ens with
       | some pcs =>
         pcs.getElems.toList.mapM
           (parsePrecond ·.raw)
@@ -655,14 +698,14 @@ elab_rules : command
       fun (patAst, rhsAst) =>
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
-        let rhsStr := rhsAst.toLeanWith
-          fnNameStr precondNames
+        let rhsStr := wrapBody
+          (rhsAst.toLeanWith fnNameStr precondNames) postconds
         s!"  | {patStr} => {rhsStr}"
     let defKw := "def"
     let paramNames := paramData.toList.map
       fun (pn, _, _) => toString pn.getId
     let defStr ←
-      if preconds.isEmpty then
+      if preconds.isEmpty && postconds.isEmpty then
         let tyStr ← buildFnType paramData retTy
         pure s!"{defKw} {name.getId} : {tyStr}\n\
           {"\n".intercalate armStrs}"
@@ -678,7 +721,8 @@ elab_rules : command
           if retTy.raw.isIdent
           then toString retTy.raw.getId
           else retTy.raw.reprint.getD (toString retTy)
-        let retRepr := normaliseLeanType retRaw
+        let retRepr := wrapRetType
+          (normaliseLeanType retRaw) postconds
         let matchArgs := ", ".intercalate paramNames
         pure s!"{defKw} {name.getId} \
           {paramBinds} {precBinds} : {retRepr} :=\n\
@@ -701,7 +745,7 @@ elab_rules : command
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
-      bodyTerm preconds (display := displayTerm)
+      bodyTerm preconds postconds (display := displayTerm)
     flushIdentRefs
 
 -- ══════════════════════════════════════════════
@@ -713,6 +757,7 @@ elab_rules : command
   | `(defFn $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
        $[requires $reqs:fnPrecond,*]?
+       $[ensures $ens:fnPrecond,*]?
        : $retTy:term := $rhs:fnExpr) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
@@ -726,11 +771,16 @@ elab_rules : command
         pcs.getElems.toList.mapM
           (parsePrecond ·.raw)
       | none => pure []
+    let postconds ← match ens with
+      | some pcs =>
+        pcs.getElems.toList.mapM
+          (parsePrecond ·.raw)
+      | none => pure []
     let rhsAst ← parseExpr rhs
     let fnNameStr := toString name.getId
     let precondNames := preconds.map (·.1)
-    let rhsStr := rhsAst.toLeanWith
-      fnNameStr precondNames
+    let rhsStr := wrapBody
+      (rhsAst.toLeanWith fnNameStr precondNames) postconds
     let paramBinds := " ".intercalate
       (paramData.toList.map fun (pn, _, pt) =>
         let tyStr :=
@@ -742,7 +792,8 @@ elab_rules : command
       if retTy.raw.isIdent
       then toString retTy.raw.getId
       else retTy.raw.reprint.getD (toString retTy)
-    let retRepr := normaliseLeanType retRaw
+    let retRepr := wrapRetType
+      (normaliseLeanType retRaw) postconds
     let defStr :=
       s!"def {name.getId} {paramBinds} \
          {precBinds} : {retRepr} :=\n  {rhsStr}"
@@ -757,7 +808,7 @@ elab_rules : command
     let bodyTerm ←
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
-      bodyTerm preconds (display := displayTerm)
+      bodyTerm preconds postconds (display := displayTerm)
     flushIdentRefs
 
 -- ══════════════════════════════════════════════
@@ -771,6 +822,7 @@ declare_syntax_cat mutualFnEntry
 syntax "defFn " ident "(" term ")" "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")?
     ("requires " fnPrecond,+)?
+    ("ensures " fnPrecond,+)?
     ":" term " where" fnArm*
     : mutualFnEntry
 
@@ -792,6 +844,7 @@ private structure MutualEntryResult where
     × Lean.Syntax)
   retTy : Lean.TSyntax `term
   preconds : List (String × List String)
+  postconds : List (String × List String)
   parsed : Array (Array BodyPat × DslExpr)
   display : Option (Lean.TSyntax `term)
 
@@ -804,6 +857,7 @@ private def parseMutualEntry
         defFn $name:ident ($symDoc:term) ($doc:term)
           $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
           $[requires $reqs:fnPrecond,*]?
+          $[ensures $ens:fnPrecond,*]?
           : $retTy:term where
           $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
@@ -813,6 +867,10 @@ private def parseMutualEntry
       | some d => Option.some <$> parseFnDisplay paramData d.getElems
       | none => pure none
     let preconds ← match reqs with
+      | some pcs =>
+        pcs.getElems.toList.mapM (parsePrecond ·.raw)
+      | none => pure []
+    let postconds ← match ens with
       | some pcs =>
         pcs.getElems.toList.mapM (parsePrecond ·.raw)
       | none => pure []
@@ -842,11 +900,11 @@ private def parseMutualEntry
       fun (patAst, rhsAst) =>
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
-        let rhsStr := rhsAst.toLeanWith
-          fnNameStr precondNames
+        let rhsStr := wrapBody
+          (rhsAst.toLeanWith fnNameStr precondNames) postconds
         s!"  | {patStr} => {rhsStr}"
     let defStr ←
-      if preconds.isEmpty then
+      if preconds.isEmpty && postconds.isEmpty then
         let tyStr ← buildFnType paramData retTy
         pure s!"def {name.getId} : {tyStr}\n\
           {"\n".intercalate armStrs}"
@@ -862,7 +920,8 @@ private def parseMutualEntry
           if retTy.raw.isIdent
           then toString retTy.raw.getId
           else retTy.raw.reprint.getD (toString retTy)
-        let retRepr := normaliseLeanType retRaw
+        let retRepr := wrapRetType
+          (normaliseLeanType retRaw) postconds
         let paramNames := paramData.toList.map
           fun (pn, _, _) => toString pn.getId
         let matchArgs := ", ".intercalate paramNames
@@ -871,7 +930,8 @@ private def parseMutualEntry
           match {matchArgs} with\n\
           {"\n".intercalate armStrs}"
     pure { defStr, name, symDoc, doc, paramData, retTy,
-           preconds, parsed, display := displayTerm }
+           preconds, postconds, parsed,
+           display := displayTerm }
   | _ => throwError "invalid mutualFnEntry"
 
 open Lean Elab Command Term in
@@ -908,6 +968,7 @@ elab_rules : command
       let armList ← `([$[$armDefs],*])
       let bodyTerm ← `(FnBody.matchArms $armList)
       buildFnDef ⟨r.name, r.symDoc, r.doc⟩ r.paramData
-        r.retTy bodyTerm r.preconds (mutualGroup := some groupTag)
+        r.retTy bodyTerm r.preconds r.postconds
+        (mutualGroup := some groupTag)
         (display := r.display)
     flushIdentRefs

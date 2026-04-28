@@ -28,6 +28,19 @@ structure Precondition where
   args : List String
   deriving Repr
 
+/-- A postcondition applied to specific arguments. The
+    literal argument name `result` refers to the function's
+    return value when the Lean output wraps the return in a
+    subtype. -/
+structure Postcondition where
+  /-- The property name. -/
+  name : String
+  /-- The argument names to apply the property to. May
+      include the literal name `result` to refer to the
+      function's return value. -/
+  args : List String
+  deriving Repr
+
 /-- An exportable function definition. -/
 structure FnDef where
   name : String
@@ -38,6 +51,12 @@ structure FnDef where
   /-- Preconditions that must hold before calling
       this function. -/
   preconditions : List Precondition := []
+  /-- Postconditions guaranteed by the function's result. The
+      Lean export wraps the return type in a subtype
+      `{ result : RetType // P₁ args₁ ∧ P₂ args₂ ∧ … }`,
+      pairing the actual result with a proof of the
+      postcondition (a `sorry` placeholder). -/
+  postconditions : List Postcondition := []
   body : FnBody
   /-- When set, this function is part of a mutual-recursion
       group identified by the given tag. The Lean backend
@@ -357,6 +376,35 @@ def formalDefLatex
     | .expr body => exprLines f.name ctx isProperty noDisp
         ctx.ctorDisplay ctx.resolveCtor ctx.resolveVariant
         body 0
+  -- Render an applied property reference (used by both
+  -- `\Require` and `\Ensure` lines): a hyperlinked property
+  -- name optionally followed by `(args)`.
+  let appliedPropMath
+      (propName : String) (args : List String) : LatexMath :=
+    let argsMath := LatexMath.intercalate
+      (.raw ", ") (args.map LatexMath.escaped)
+    -- Link the property name to its definition
+    -- (registered under the shared `fn:` label via
+    -- `knownFns`).
+    let nameMath : LatexMath :=
+      let resolveAmbiguous : Option String :=
+        ctx.currentFnModule.bind fun mod =>
+          let candidate := s!"{mod}.{propName}"
+          if ctx.knownFnAnchors candidate then some candidate
+          else none
+      let mkHyperref (tgt : String) : LatexMath :=
+        .raw s!"\\text\{\\hyperref[fn:{tgt}]\
+                \{\\dashuline\{{propName}}}}"
+      if ctx.knownFns propName && !ctx.ambiguousFns propName then
+        mkHyperref propName
+      else match resolveAmbiguous with
+        | some tgt => mkHyperref tgt
+        | none =>
+          if ctx.knownFns propName then
+            .raw s!"\\text\{\\dashuline\{{propName}}}"
+          else .escaped propName
+    if args.isEmpty then nameMath
+    else .seq [nameMath, .raw "(", argsMath, .raw ")"]
   let precondLines : List Latex :=
     f.preconditions.map fun pc =>
       let argDocs : List Doc :=
@@ -366,35 +414,15 @@ def formalDefLatex
         .seq [ .raw "    "
              , Latex.require_ doc.toLatex ]
       | none =>
-        let argsMath := LatexMath.intercalate
-          (.raw ", ")
-          (pc.args.map LatexMath.escaped)
-        -- Link the property name to its definition
-        -- (registered under the shared `fn:` label via
-        -- `knownFns`).
-        let nameMath : LatexMath :=
-          let resolveAmbiguous : Option String :=
-            ctx.currentFnModule.bind fun mod =>
-              let candidate := s!"{mod}.{pc.name}"
-              if ctx.knownFnAnchors candidate then some candidate
-              else none
-          let mkHyperref (tgt : String) : LatexMath :=
-            .raw s!"\\text\{\\hyperref[fn:{tgt}]\
-                    \{\\dashuline\{{pc.name}}}}"
-          if ctx.knownFns pc.name && !ctx.ambiguousFns pc.name then
-            mkHyperref pc.name
-          else match resolveAmbiguous with
-            | some tgt => mkHyperref tgt
-            | none =>
-              if ctx.knownFns pc.name then
-                .raw s!"\\text\{\\dashuline\{{pc.name}}}"
-              else .escaped pc.name
-        let body : LatexMath :=
-          if pc.args.isEmpty then nameMath
-          else .seq [nameMath, .raw "(", argsMath, .raw ")"]
         .seq [ .raw "    "
-             , Latex.require_ (.inlineMath body) ]
-  let allLines := precondLines ++ bodyLines
+             , Latex.require_ (.inlineMath
+                 (appliedPropMath pc.name pc.args)) ]
+  let postcondLines : List Latex :=
+    f.postconditions.map fun pc =>
+      .seq [ .raw "    "
+           , Latex.ensure_ (.inlineMath
+               (appliedPropMath pc.name pc.args)) ]
+  let allLines := precondLines ++ postcondLines ++ bodyLines
   let descBlock : List Latex :=
     if f.doc.toPlainText.isEmpty then []
     else [.textit f.doc.toLatex, .newline]

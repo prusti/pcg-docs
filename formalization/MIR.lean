@@ -1,6 +1,7 @@
 import MIR.Region
 import MIR.Ty
 import MIR.IsSized
+import MIR.EnsuresExample
 import MIR.ConstValue
 import MIR.Place
 import MIR.Statements
