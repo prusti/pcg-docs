@@ -299,12 +299,7 @@ function computeCouplingUnblockingFrontierExpiries(nodes: Node[], edges: Edge[])
     const allUnblockings = computeAllUnblockings(graph);
     const distinctUnblockings = getDistinctUnblockings(allUnblockings);
 
-    const reachableGraphs = new Set<HypergraphForCoupling>();
-    for (const unblocking of distinctUnblockings) {
-        for (const g of unblocking.reachableGraphs) {
-            reachableGraphs.add(g);
-        }
-    }
+    const reachableGraphs = new Set(distinctUnblockings.flatMap(u => u.reachableGraphs));
 
     const edgeIds = graph.edges.map(e => e.id);
     const effectivelyCoupled = findEffectivelyCoupledSets(
@@ -569,12 +564,7 @@ function computeCouplingMergedUnblockingFrontierExpiries(nodes: Node[], edges: E
 
         if (coupledWithNode.length === 0) continue;
 
-        const allUnderlyingEdges = new Set<InternalEdge>();
-        coupledWithNode.forEach(coupled => {
-            coupled.underlyingEdges.forEach(edge => allUnderlyingEdges.add(edge));
-        });
-
-        const underlyingEdgesArray = [...allUnderlyingEdges];
+        const underlyingEdgesArray = [...new Set(coupledWithNode.flatMap(c => c.underlyingEdges))];
         const edgeIdsSignature = underlyingEdgesArray
             .map(e => e.id)
             .sort()
