@@ -10,12 +10,17 @@ runPreprocessor((_context, book) => {
 function processChapter(chapter: Chapter): void {
     if (!chapter.content) return;
 
+    const content = chapter.content;
     const hypergraphPattern = /```hypergraph(?:-yaml)?\n([\s\S]*?)```/g;
-    let match;
-    let newContent = chapter.content;
+    let result = '';
+    let lastIndex = 0;
     let counter = 0;
+    let match;
 
-    while ((match = hypergraphPattern.exec(chapter.content)) !== null) {
+    while ((match = hypergraphPattern.exec(content)) !== null) {
+        result += content.slice(lastIndex, match.index);
+        lastIndex = match.index + match[0].length;
+
         const rawData = match[1];
         const isYaml = match[0].includes('hypergraph-yaml');
         const graphId = `hypergraph-${(chapter.name || 'unknown').replace(/[^a-zA-Z0-9]/g, '-')}-${counter++}`;
@@ -29,22 +34,20 @@ function processChapter(chapter: Chapter): void {
             const jsonData = JSON.stringify(graphData, null, 2);
             const couplingData = JSON.stringify(couplingAlgorithms);
 
-            const replacement = `<div class="hypergraph-container" id="${graphId}" data-height="${height}" data-coupling-algorithms='${couplingData}'>
+            result += `<div class="hypergraph-container" id="${graphId}" data-height="${height}" data-coupling-algorithms='${couplingData}'>
     <script type="application/json" class="hypergraph-data">${jsonData}</script>
 </div>`;
-
-            newContent = newContent.replace(match[0], replacement);
         } catch (e) {
             const err = e as Error;
             const errorType = isYaml ? 'YAML' : 'JSON';
-            const replacement = `<div class="hypergraph-error">
+            result += `<div class="hypergraph-error">
     <p>Error: Invalid ${errorType} in hypergraph definition: ${err.message}</p>
     <pre><code>${rawData}</code></pre>
 </div>`;
-            newContent = newContent.replace(match[0], replacement);
         }
     }
 
-    chapter.content = newContent;
+    result += content.slice(lastIndex);
+    chapter.content = result;
 }
 
