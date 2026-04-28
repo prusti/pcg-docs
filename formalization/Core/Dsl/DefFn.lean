@@ -1,6 +1,7 @@
 import Core.Registry
 import Core.Export.Lean
 import Core.Dsl.DefEnum
+import Core.Dsl.Lint
 import Runtime
 import Lean
 
@@ -468,7 +469,10 @@ partial def parseExpr
       | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
         pure ([← parsePat p], ← parseExpr rhs)
       | _ => Lean.Elab.throwUnsupportedSyntax
-    pure (.match_ scrutAst parsedArms.toList)
+    let armsList := parsedArms.toList
+    if DslLint.matchIsIrrefutable armsList then
+      Lean.throwErrorAt scrut DslLint.irrefutableMatchMessage
+    pure (.match_ scrutAst armsList)
   | `(fnExpr| let $p:fnPat := $v:fnExpr ; $b:fnExpr) => do
     pure (.letIn (← parsePat p)
       (← parseExpr v) (← parseExpr b))

@@ -3,6 +3,7 @@ import Core.Dsl.DslType
 import Core.Doc
 import Core.Export.Latex
 import Core.Dsl.LatexParse
+import Core.Dsl.Lint
 
 open LSpec DSLType
 
@@ -93,10 +94,60 @@ def latexParseTests : TestSeq :=
         "$t_{D}$") $
     .done
 
+/-- Build a single-arm `match` whose only arm uses `pat`. The
+    scrutinee and rhs are arbitrary leaves so the match-shape
+    check is what drives the lint outcome. -/
+private def matchWithPat (pat : BodyPat) : DslExpr :=
+  .match_ (.var "x") [([pat], .var "y")]
+
+def lintTests : TestSeq :=
+  group "DslLint" $
+    test "wildcard pattern is irrefutable"
+      (BodyPat.isIrrefutable .wild == true) $
+    test "variable pattern is irrefutable"
+      (BodyPat.isIrrefutable (.var "x") == true) $
+    test "true/false patterns are refutable (Bool ctors)"
+      (BodyPat.isIrrefutable (.var "true") == false &&
+         BodyPat.isIrrefutable (.var "false") == false) $
+    test "tuple of variables is irrefutable"
+      (BodyPat.isIrrefutable
+        (.ctor "⟨⟩" [.var "a", .var "b"]) == true) $
+    test "named ctor pattern is refutable"
+      (BodyPat.isIrrefutable (.ctor "Some" [.var "x"])
+        == false) $
+    test "list cons pattern is refutable"
+      (BodyPat.isIrrefutable (.cons (.var "h") .nil)
+        == false) $
+    test "tuple containing a refutable pattern is refutable"
+      (BodyPat.isIrrefutable
+        (.ctor "⟨⟩" [.var "a", .ctor "Some" [.wild]])
+        == false) $
+    test "match on irrefutable tuple pattern flagged"
+      (let diags := DslLint.lintExpr
+        (matchWithPat (.ctor "⟨⟩" [.var "a", .var "b"]))
+       diags.length == 1 &&
+         (diags.head?.map (·.rule)).getD "" ==
+           "irrefutableMatch") $
+    test "match on refutable ctor pattern not flagged"
+      (DslLint.lintExpr
+        (matchWithPat (.ctor "Some" [.var "x"]))
+        |>.isEmpty) $
+    test "match on true/false arms not flagged"
+      (let m := DslExpr.match_ (.var "b")
+        [([.var "true"], .true_), ([.var "false"], .false_)]
+       (DslLint.lintExpr m).isEmpty) $
+    test "multi-arm match with one refutable arm not flagged"
+      (let m := DslExpr.match_ (.var "x")
+        [([.ctor "Some" [.var "y"]], .var "y"),
+         ([.wild], .none_)]
+       (DslLint.lintExpr m).isEmpty) $
+    .done
+
 def main (args : List String) : IO UInt32 :=
   lspecIO
     (.ofList [
       ("DSLType", [dslTypeParseTests]),
       ("Doc", [docLinkTests]),
-      ("LatexParse", [latexParseTests])])
+      ("LatexParse", [latexParseTests]),
+      ("DslLint", [lintTests])])
     args

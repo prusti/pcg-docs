@@ -8,9 +8,14 @@ def excludedLinters : List Name := [
 ]
 
 /-- Whether a declaration is an auto-derived Repr
-    instance (produces false-positive unusedArguments). -/
+    instance (produces false-positive unusedArguments).
+    Checks every component of the name so that namespaced
+    derives (e.g. `DslLint.instReprDiagnostic.repr`) are also
+    recognised. -/
 def isDerivedRepr (n : Name) : Bool :=
-  n.toString.startsWith "instRepr"
+  n.components.any fun c => match c with
+    | .str _ s => s.startsWith "instRepr"
+    | _ => false
 
 /-- Whether a single name-component is compiler-generated. -/
 private def isAuxComponent (s : String) : Bool :=

@@ -156,3 +156,33 @@ grammar, add it to `Runtime/` (for runtime-style helpers) or
 to `extraLeanItems` / `extraItems` (for module-specific
 typeclass instances or one-off Rust snippets) in
 `LeanExport.lean` / `RustExport.lean`.
+
+## DSL linter (`Core/Dsl/Lint.lean`)
+
+`Core/Dsl/Lint.lean` defines a small linter that runs at
+elaboration time over every DSL `match` expression. The first
+rule is **`irrefutableMatch`**: a `match` whose every arm has
+only irrefutable patterns is just a destructuring binder dressed
+up as a match — usually because the scrutinee is a `defStruct`
+value and the user reached for `match … with | ⟨a, b⟩ => …
+end` instead of the equivalent `let ⟨a, b⟩ := … ; …` form.
+
+`BodyPat.isIrrefutable` decides irrefutability:
+
+- `_` and bare variables match every value.
+- `⟨a, b, …⟩` (anonymous-tuple) matches every value iff each
+  sub-pattern is itself irrefutable.
+- Every other shape (named constructors, list cons / nil,
+  numeric literals) can fail and is treated as refutable.
+
+The check is wired into `parseExpr`'s `match` case in
+`Core/Dsl/DefFn.lean`, so it fires for any DSL surface that goes
+through `parseExpr` — `defFn` bodies (all forms), `defProperty`
+bodies, `defInductiveProperty` premises and conclusions, and any
+future command that reuses the same parser. When the rule fires,
+elaboration aborts with `irrefutableMatch` so the user sees the
+problem during `lake build`.
+
+`DslLint.lintExpr` and `DslLint.lintFnDef` are also exposed as
+pure functions for unit tests (see `Tests.lean`) and for any
+out-of-band lint runner that wants to walk a `FnDef` post-hoc.
