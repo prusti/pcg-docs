@@ -14,6 +14,11 @@ import PCG.TransientState
 import PCG.ValidityConditions
 import MIR
 import OpSem
+-- `OpSem.Soundness` is opt-in (not in `OpSem.lean`'s umbrella)
+-- so the Rust exporter's import chain stays untouched. The
+-- Lean exporter wants the soundness statement included in the
+-- generated project, so we pull it in explicitly.
+import OpSem.Soundness
 import Core.Export.Lean
 import Core.LeanAST
 
@@ -138,6 +143,25 @@ private partial def dfsVisit
 private def reversePostorder (body : Body)
     : List BasicBlockIdx :=
   (dfsVisit body [] [] ⟨0⟩).2.reverse
+")
+  , (`PCG.Analyze.Body, .after,
+"/-- File-level alias so that `OpSem.Soundness` can refer to
+    `analyzeBody` the same way the in-tree DSL source does.
+    `inferNamespace` puts the generated definition under
+    `namespace PcgData` (its first parameter has type
+    `PcgData Place`); this alias bridges the two namespaces. -/
+def analyzeBody := @PcgData.analyzeBody
+")
+  , (`OpSem.Soundness, .before,
+"-- `pcgAnalysisSucceeds`'s body constructs a `PcgData Place`
+-- via record literal and calls `analyzeBody`, but `mkStruct`
+-- constructor names aren't tracked by `calledNames` so
+-- `computeImports` can't infer these PCG dependencies from
+-- the body alone.
+import PCG.Analyze.Body
+import PCG.BorrowsGraph
+import PCG.Owned.OwnedState
+import PCG.PcgData
 ")
   ]
 

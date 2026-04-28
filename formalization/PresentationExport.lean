@@ -1,5 +1,10 @@
 import Presentation
 import OpSem
+-- `OpSem.Soundness` is opt-in (not in `OpSem.lean`'s umbrella)
+-- so the Rust exporter's import chain stays untouched. The
+-- presentation export wants the soundness statement rendered,
+-- so we pull it in explicitly.
+import OpSem.Soundness
 
 /-- Parse a `--key=value` flag from the argument list. -/
 private def parseFlag (args : List String)
