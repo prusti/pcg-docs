@@ -1,5 +1,6 @@
 import Core.Dsl.DefFn
 import Core.Dsl.DefStruct
+import MIR.Body
 import PCG.Owned.InitTree
 import PCG.Owned.OwnedLocal
 
@@ -55,3 +56,25 @@ defFn join (.plain "join")
     OwnedState⟨ownedLocalsJoin ‹os1↦locals, os2↦locals›⟩
 
 end OwnedState
+
+namespace Body
+
+defFn initialState (.plain "initialState")
+  (.seq [.plain "The initial owned state at the entry of a MIR \
+    body. Local 0 (the return place) starts allocated and \
+    uninitialised (",
+    .math (.bold (.raw "U")),
+    .plain "); each argument local (locals 1 through ",
+    .code "numArgs",
+    .plain ") starts allocated and fully initialised (",
+    .math (.bold (.raw "D")),
+    .plain "); every other local starts unallocated."])
+  (body "The MIR function body." : Body)
+  : OwnedState :=
+    OwnedState⟨body↦decls·zipIdx·map fun ⟨_, i⟩ =>
+      if i == 0 then OwnedLocal.allocated ‹.leaf ‹.uninit››
+      else if i ≤ body↦numArgs then
+        OwnedLocal.allocated ‹.leaf ‹.deep››
+      else OwnedLocal.unallocated⟩
+
+end Body
