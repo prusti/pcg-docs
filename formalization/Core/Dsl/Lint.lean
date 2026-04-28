@@ -67,6 +67,15 @@ def irrefutableMatchMessage : String :=
   "match expression has only irrefutable patterns; \
    use a destructuring `let pat := … ; …` instead"
 
+/-- Diagnostic message used when a `defFn` / `defProperty`
+    `where`-clause has only irrefutable arm patterns: no case
+    analysis is happening, so the body should be a direct
+    expression instead of a multi-arm match. -/
+def irrefutableWhereMessage : String :=
+  "all `where` arms have only irrefutable patterns; \
+   use the direct expression form (`:= …`) instead, \
+   since no case analysis is being performed"
+
 /-- True iff every arm of the match has only irrefutable patterns —
     that is, the scrutinee is bound rather than analysed. An empty
     arm list is treated as refutable since the parser already

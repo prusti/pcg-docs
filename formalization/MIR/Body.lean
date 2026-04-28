@@ -80,9 +80,9 @@ namespace BasicBlock
 defFn basicBlockPlaces (.plain "basicBlockPlaces")
   (.plain "All places referenced in a basic block.")
   (bb "The basic block." : BasicBlock)
-  : Set Place where
-  | ⟨stmts, t⟩ =>
-      (stmts·setFlatMap fun s => s·statementPlaces) ∪ t·terminatorPlaces
+  : Set Place :=
+    (bb↦statements·setFlatMap fun s => s·statementPlaces) ∪
+      bb↦terminator·terminatorPlaces
 
 end BasicBlock
 
@@ -101,9 +101,8 @@ namespace Body
 defFn bodyPlaces (.plain "bodyPlaces")
   (.plain "All places referenced in a function body.")
   (body "The function body." : Body)
-  : Set Place where
-  | ⟨_, _, bbs⟩ =>
-      bbs·setFlatMap fun bb => bb·basicBlockPlaces
+  : Set Place :=
+    body↦blocks·setFlatMap fun bb => bb·basicBlockPlaces
 
 end Body
 
@@ -234,9 +233,8 @@ defProperty validBody (.plain "validBody")
     (.seq [.plain "every place referenced in ", bodyDoc,
            .plain " is a valid place in ", bodyDoc])
   (body "The function body." : Body)
-  where
-    | body =>
-        body·bodyPlaces·forAll fun p => validPlace ‹body, p›
+  :=
+    body·bodyPlaces·forAll fun p => validPlace ‹body, p›
 
 defFn placeTy (.plain "ty")
   (.seq [.plain "Compute the type of a place: look up the \

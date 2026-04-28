@@ -16,13 +16,12 @@ defFn getAlloc (.plain "getAlloc")
     .plain " when it is out of bounds or still unallocated."])
   (os "The owned state." : OwnedState)
   (l "The local whose allocation is requested." : Local)
-  : Option InitTree where
-  | os ; l =>
-      let ol ← os↦locals !! l↦index ;
-      match ol with
-      | .allocated t => Some t
-      | _ => None
-      end
+  : Option InitTree :=
+    let ol ← os↦locals !! l↦index ;
+    match ol with
+    | .allocated t => Some t
+    | _ => None
+    end
 
 -- ══════════════════════════════════════════════
 -- Borrow-state helpers

@@ -701,6 +701,10 @@ elab_rules : command
       | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
         pure (#[← parsePat p], ← parseExpr rhs)
       | _ => throwError "invalid fnArm"
+    let armsList : List (List BodyPat × DslExpr) :=
+      parsed.toList.map fun (a, r) => (a.toList, r)
+    if DslLint.matchIsIrrefutable armsList then
+      Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     -- Generate Lean def via string parsing
     let fnNameStr := toString name.getId
     let precondNames := preconds.map (·.1)
@@ -883,6 +887,10 @@ private def parseMutualEntry
       | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
         pure (#[← parsePat p], ← parseExpr rhs)
       | _ => throwError "invalid fnArm"
+    let armsList : List (List BodyPat × DslExpr) :=
+      parsed.toList.map fun (a, r) => (a.toList, r)
+    if DslLint.matchIsIrrefutable armsList then
+      Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     let fnNameStr := toString name.getId
     let precondNames := preconds.map (·.1)
     let armStrs := parsed.toList.map
