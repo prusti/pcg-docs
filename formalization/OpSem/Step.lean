@@ -50,8 +50,11 @@ defFn evalStatement (.plain "evalStatement")
     .code "evalRvalue", .plain ", and writes the value to \
     memory via ", .code "placeStore", .plain ". The ",
     .code "storageLive", .plain " and ", .code "storageDead",
-    .plain " cases are not yet modelled (return ",
-    .code "None", .plain ")."])
+    .plain " cases delegate to ",
+    .code "StackFrame.storageLive", .plain " and ",
+    .code "StackFrame.storageDead",
+    .plain " on the current frame and reinstall the updated \
+    frame and memory on the machine."])
   (m "The machine state." : Machine)
   (s "The statement to evaluate." : Statement)
   requires RunnableMachine(m)
@@ -62,8 +65,22 @@ defFn evalStatement (.plain "evalStatement")
       let val ← evalRvalue
         ‹m, source, lean_proof("h_RunnableMachine")› ;
       Some m[mem => placeStore ‹m↦mem, place, val›]
-  | _ ; .storageLive _ => None
-  | _ ; .storageDead _ => None
+  | m ; .storageLive lcl =>
+      let frame := currentFrame
+        ‹m, lean_proof("h_RunnableMachine")› ;
+      let ⟨frame', mem'⟩ := StackFrame.storageLive
+        ‹frame, m↦mem, lcl› ;
+      let rest := stackTail
+        ‹m, lean_proof("h_RunnableMachine")› ;
+      Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
+  | m ; .storageDead lcl =>
+      let frame := currentFrame
+        ‹m, lean_proof("h_RunnableMachine")› ;
+      let ⟨frame', mem'⟩ := StackFrame.storageDead
+        ‹frame, m↦mem, lcl› ;
+      let rest := stackTail
+        ‹m, lean_proof("h_RunnableMachine")› ;
+      Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
 
 defFn jumpToBlock (.plain "jumpToBlock")
   (.seq [.plain "Set the current frame's program counter to \
@@ -77,11 +94,8 @@ defFn jumpToBlock (.plain "jumpToBlock")
   : Machine :=
     let frame := currentFrame
       ‹m, lean_proof("h_RunnableMachine")› ;
-    let rest :=
-      match m↦thread↦stack with
-      | _ :: r => r
-      | [] => []
-      end ;
+    let rest := stackTail
+      ‹m, lean_proof("h_RunnableMachine")› ;
     let newPc := Location⟨target, 0⟩ ;
     let newFrame := frame[pc => newPc] ;
     m[thread => Thread⟨newFrame :: rest⟩]
