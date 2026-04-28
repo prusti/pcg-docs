@@ -101,6 +101,28 @@ private def stripOptionQualifier (n : String) : String :=
   else if n.startsWith "Option." then (n.drop 7).toString
   else n
 
+/-- Whether a pattern needs to be parenthesised when placed in
+    a juxtaposition position (e.g. as the argument of `Some` or
+    of a unary defEnum constructor's display template). Atomic
+    shapes — wildcards, variables, numeric literals, anonymous
+    tuples, list literals, nullary constructors — render without
+    surrounding delimiters and don't need parens; everything
+    else (a constructor applied to arguments, a non-list-literal
+    cons chain) does. -/
+private partial def needsParen : BodyPat → Bool
+  | .wild | .var _ | .natLit _ | .nil => false
+  | .ctor "⟨⟩" _ => false
+  | .ctor _ as => !as.isEmpty
+  | .cons h t =>
+    -- A cons chain that bottoms out in `.nil` renders as a
+    -- bracketed list literal `[a, b, c]` (atomic). Otherwise
+    -- the chain renders with infix `::` and needs parens.
+    let rec endsInNil : BodyPat → Bool
+      | .nil => true
+      | .cons _ t => endsInNil t
+      | _ => false
+    !(endsInNil (.cons h t))
+
 partial def toDoc
     (ctorDisplay : String → Option MathDoc)
     (resolveCtor : String → Option String := fun _ => none)
@@ -131,20 +153,15 @@ partial def toDoc
       | "none" | "None" => some ("None", false)
       | "some" | "Some" => some ("Some", true)
       | _ => none
+    let renderInJuxtaposition (p : BodyPat) : MathDoc :=
+      let inner := toDoc ctorDisplay resolveCtor resolveVariant
+        variants p
+      if needsParen p then MathDoc.paren inner else inner
     match optionCtor, args with
     | some ("None", _), [] => MathDoc.text "None"
     | some ("Some", _), [arg] =>
-      let needsParen : BodyPat → Bool
-        | .ctor "⟨⟩" _ => false
-        | .ctor _ as => !as.isEmpty
-        | _ => false
-      let argDoc :=
-        toDoc ctorDisplay resolveCtor resolveVariant
-          variants arg
-      let argRendered :=
-        if needsParen arg then MathDoc.paren argDoc
-        else argDoc
-      .seq [MathDoc.text "Some", .sym .space, argRendered]
+      .seq [MathDoc.text "Some", .sym .space,
+            renderInJuxtaposition arg]
     | _, _ =>
       if args.isEmpty then
         -- Nullary patterns use the caller-supplied
@@ -173,9 +190,7 @@ partial def toDoc
             | .lit d => d
             | .arg name _ =>
               match argMap.find? (·.1 == name) with
-              | some (_, p) =>
-                toDoc ctorDisplay resolveCtor resolveVariant
-                  variants p
+              | some (_, p) => renderInJuxtaposition p
               | none => MathDoc.text name
           .seq parts
         | none =>
