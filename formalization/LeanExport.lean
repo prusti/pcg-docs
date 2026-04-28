@@ -94,18 +94,6 @@ def listDrop := @List.drop
 
 open AbstractByte
 ")
-  , (`OpSem.Machine, .after,
-"namespace Machine
-/-- Source-side alias so that file-level references like
-    `Machine.initialMachine` (used by the inductive-property
-    `Reachable` and the `Soundness` statement) resolve in the
-    generated module too. The exporter's `inferNamespace`
-    pass puts `initialMachine` under `Program` because its
-    first parameter has type `Program`; this alias bridges
-    the two namespaces. -/
-def initialMachine := @Program.initialMachine
-end Machine
-")
   , (`PCG.Owned.InitTree, .middle,
 "def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
   ∃ h : validPlace body p, isOwned body p h = true

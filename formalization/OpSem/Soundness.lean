@@ -4,6 +4,13 @@ import OpSem.Step
 import PCG.Analyze.Body
 import PCG.PcgData
 
+-- Bring the source-side namespace into scope so that
+-- references to `RunnableMachine`, `step`, and
+-- `initialMachine` can be written without the `Machine.`
+-- qualifier. The DSL AST records the unqualified text, so
+-- the LaTeX rendering displays the bare name.
+open Machine
+
 /-! # Soundness statement
 
 This module is intentionally **not** part of the `OpSem` umbrella
@@ -36,9 +43,9 @@ where
   | refl {init : Machine}
       ⊢ Reachable ‹init, init›
   | stepOk {init, m, m' : Machine}
-        {h : Machine.RunnableMachine m'}
+        {h : RunnableMachine m'}
       from (Reachable ‹init, m'›,
-            Machine.step ‹m', h› = StepResult.ok ‹m›)
+            step ‹m', h› = StepResult.ok ‹m›)
       ⊢ Reachable ‹init, m›
 
 namespace Program
@@ -100,11 +107,11 @@ defProperty Soundness (.plain "Soundness")
          -- `initialMachine`, so injecting `sorry` here
          -- gives the same `Machine` term as any concrete
          -- proof would.
-         ‹Machine.initialMachine
+         ‹initialMachine
             ‹program, lean_proof("sorry")›, m›
          →
-       Machine.RunnableMachine ‹m› →
+       RunnableMachine ‹m› →
        -- Same proof-irrelevance argument as above for the
        -- `RunnableMachine` precondition of `step`.
-       Machine.step ‹m, lean_proof("sorry")›
+       step ‹m, lean_proof("sorry")›
          ≠ StepResult.done‹.error›
