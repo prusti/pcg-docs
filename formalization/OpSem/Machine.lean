@@ -102,7 +102,8 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
     .code "StackFrame.storageLive",
     .plain " and write the value into that allocation with ",
     .code "typedStore", .plain ". Returns ", .code "None",
-    .plain " if any allocation fails."])
+    .plain " if a local has no entry in the post-allocation \
+    locals map (which `validBody` rules out)."])
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
@@ -110,7 +111,7 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   : Option (StackFrame × Memory) where
   | [] ; _ ; frame ; mem => Some ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
-      let ⟨frame1, mem1⟩ ←
+      let ⟨frame1, mem1⟩ :=
         StackFrame.storageLive ‹frame, mem, Local⟨k⟩› ;
       let ptr ← mapGet ‹frame1↦locals, Local⟨k⟩› ;
       liveAndStoreArgs ‹rest, k + 1, frame1,
@@ -135,7 +136,7 @@ defFn createFrame (.plain "createFrame")
   : Option Machine :=
     let initFrame := StackFrame⟨body,
       Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
-    let ⟨frame1, mem1⟩ ← StackFrame.storageLive
+    let ⟨frame1, mem1⟩ := StackFrame.storageLive
       ‹initFrame, m↦mem, Local⟨0⟩› ;
     let ⟨frame2, mem2⟩ ←
       liveAndStoreArgs ‹args, 1, frame1, mem1› ;

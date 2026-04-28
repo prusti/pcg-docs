@@ -1,25 +1,7 @@
 import Core.Dsl.DefFn
-import Core.Dsl.DefProperty
+import MIR.IsSized
 import MIR.Ty
 import OpSem.Pointer
-
-defProperty IsSized (.plain "IsSized")
-  short (τDoc) =>
-    (.seq [τDoc, .plain " is a sized type"])
-  long (τDoc) =>
-    (.seq [τDoc, .plain " is a primitive (",
-           .code "bool", .plain ", ", .code "int",
-           .plain "), a pointer (", .code "ref",
-           .plain ", ", .code "box", .plain "), or an \
-           array of a sized element"])
-  (τ "The MIR type." : Ty)
-  where
-  | .bool => true
-  | .int _ => true
-  | .ref _ _ _ => true
-  | .box _ => true
-  | .array elem _ => IsSized ‹elem›
-  | _ => false
 
 namespace Ty
 

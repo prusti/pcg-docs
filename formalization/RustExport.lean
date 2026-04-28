@@ -284,6 +284,7 @@ pub fn map_at<K: Eq + std::hash::Hash, V: Clone>(
 ")
   , ("OpSem", "layout", .raw
 "use formal_mir::ty::*;
+use formal_mir::issized::is_sized;
 ")
   , ("OpSem", "statements", .raw
 "use formal_mir::ty::Ty;

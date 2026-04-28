@@ -76,32 +76,26 @@ defFn storageLive (.plain "storageLive")
     same local via ", .code "storageDead",
     .plain ", then looks up the local's type on the current \
     body's declarations, computes its size via ",
-    .code "Ty.layout", .plain ", and allocates that many \
-    bytes. Returns ", .code "None",
-    .plain " when the local's layout cannot be determined \
-    (type parameters, aliases, constructor types, or unsized \
-    layouts)."])
+    .code "Ty.sizeOf", .plain ", and allocates that many \
+    bytes. ", .code "validBody",
+    .plain " guarantees every declared local type is sized, \
+    so this is total."])
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage should be brought live." : Local)
-  : Option (StackFrame × Memory) :=
+  : StackFrame × Memory :=
     let ⟨frame1, mem1⟩ := storageDead ‹frame, mem, l› ;
     let ty := frame1↦body↦decls ! l↦index ;
-    let strategy :=
-      Ty.layout ‹ty, lean_proof("sorry")› ;
-    match strategy with
-    | .sized sz =>
-        let addr := Memory.top ‹mem1› ;
-        let ⟨mem2, aid⟩ := Memory.allocate ‹mem1, sz› ;
-        let ptr :=
-          ThinPointer⟨addr, Some Provenance⟨aid⟩⟩ ;
-        let newLocals :=
-          mapInsert ‹frame1↦locals, l, ptr› ;
-        let newFrame :=
-          StackFrame⟨frame1↦body, frame1↦pc, newLocals⟩ ;
-        Some ⟨newFrame, mem2⟩
-    | _ => None
-    end
+    let sz := Ty.sizeOf ‹ty, lean_proof("sorry")› ;
+    let addr := Memory.top ‹mem1› ;
+    let ⟨mem2, aid⟩ := Memory.allocate ‹mem1, sz› ;
+    let ptr :=
+      ThinPointer⟨addr, Some Provenance⟨aid⟩⟩ ;
+    let newLocals :=
+      mapInsert ‹frame1↦locals, l, ptr› ;
+    let newFrame :=
+      StackFrame⟨frame1↦body, frame1↦pc, newLocals⟩ ;
+    ⟨newFrame, mem2⟩
 
 end StackFrame
 

@@ -1,3 +1,4 @@
+import MIR.IsSized
 import MIR.Place
 import MIR.ConstValue
 import MIR.Statements
@@ -231,10 +232,13 @@ defProperty validBody (.plain "validBody")
     (.seq [bodyDoc, .plain " is a valid body"])
   long (bodyDoc) =>
     (.seq [.plain "every place referenced in ", bodyDoc,
-           .plain " is a valid place in ", bodyDoc])
+           .plain " is a valid place in ", bodyDoc,
+           .plain ", and every local declaration of ",
+           bodyDoc, .plain " is a sized type"])
   (body "The function body." : Body)
   :=
-    body·bodyPlaces·forAll fun p => validPlace ‹body, p›
+    (body·bodyPlaces·forAll fun p => validPlace ‹body, p›) ∧
+    (body↦decls·forAll fun t => IsSized ‹t›)
 
 defFn placeTy (.plain "ty")
   (.seq [.plain "Compute the type of a place: look up the \
