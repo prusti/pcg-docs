@@ -101,19 +101,21 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
     value, allocate the local's backing storage via ",
     .code "StackFrame.storageLive",
     .plain " and write the value into that allocation with ",
-    .code "typedStore", .plain ". Returns ", .code "None",
-    .plain " if a local has no entry in the post-allocation \
-    locals map (which `validBody` rules out)."])
+    .code "typedStore",
+    .plain ". The locals-map lookup is total because ",
+    .code "StackFrame.storageLive",
+    .plain " always inserts an entry for the local it was \
+    just called with."])
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
   (mem "The memory state." : Memory)
-  : Option (StackFrame × Memory) where
-  | [] ; _ ; frame ; mem => Some ⟨frame, mem⟩
+  : StackFrame × Memory where
+  | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
       let ⟨frame1, mem1⟩ :=
         StackFrame.storageLive ‹frame, mem, Local⟨k⟩› ;
-      let ptr ← mapGet ‹frame1↦locals, Local⟨k⟩› ;
+      let ptr := mapAt ‹frame1↦locals, Local⟨k⟩› ;
       liveAndStoreArgs ‹rest, k + 1, frame1,
         typedStore ‹mem1, ptr, v››
 
@@ -125,22 +127,21 @@ defFn createFrame (.plain "createFrame")
     .plain ", then writes the caller-provided argument \
     values into those allocations with ", .code "typedStore",
     .plain ". The program counter starts at statement 0 of \
-    basic block 0. Returns ", .code "None",
-    .plain " if any allocation fails. ABI, calling \
-    convention, and stack-pop-action handling from MiniRust's ",
+    basic block 0. ABI, calling convention, and \
+    stack-pop-action handling from MiniRust's ",
     .code "create_frame", .plain " are intentionally not \
     modelled here."])
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
-  : Option Machine :=
+  : Machine :=
     let initFrame := StackFrame⟨body,
       Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
     let ⟨frame1, mem1⟩ := StackFrame.storageLive
       ‹initFrame, m↦mem, Local⟨0⟩› ;
-    let ⟨frame2, mem2⟩ ←
+    let ⟨frame2, mem2⟩ :=
       liveAndStoreArgs ‹args, 1, frame1, mem1› ;
-    Some Machine⟨m↦program,
+    Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stackFrames⟩,
       mem2⟩
 
@@ -159,12 +160,10 @@ defFn initialMachine (.plain "initialMachine")
     .code "Machine::new",
     .plain ", with globals, function pointers, vtables, lock \
     state, additional threads, and I/O streams stripped — this \
-    model is single-threaded and ignores those concerns. \
-    Returns ", .code "None",
-    .plain " when frame construction fails."])
+    model is single-threaded and ignores those concerns."])
   (program "The program to initialise." : Program)
   requires validProgram(program)
-  : Option Machine :=
+  : Machine :=
     let body := Program.startProgram ‹program, lean_proof("h_validProgram")› ;
     let blank :=
       Machine⟨program, Thread⟨[]⟩, Memory⟨[]⟩⟩ ;
