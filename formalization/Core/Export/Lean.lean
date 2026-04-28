@@ -188,6 +188,7 @@ private def toLeanASTAlg
   | .ifThenElse c t e => .ifThenElse c t e
   | .neq l r => .binop "≠" l r
   | .eq l r => .binop "==" l r
+  | .propEq l r => .binop "=" l r
   | .memberOf l r => .binop "∈" l r
   | .anyList list param body =>
     -- `list.any (fun param => body)` in Lean.
@@ -405,7 +406,8 @@ namespace InductivePropertyDef
 
 /-- All named types referenced by the parameters of an
     inductive property. The rule premises and conclusion are
-    opaque Lean source strings and are not analysed here. -/
+    handled by `referencedNames` below (which depends on
+    `DslExpr.calledNames`, defined later in this file). -/
 def referencedTypes (p : InductivePropertyDef) : List String :=
   p.params.flatMap fun f => f.ty.namedTypes
 
@@ -527,6 +529,7 @@ private def calledNamesAlg :
   | .ifThenElse (_, c) (_, t) (_, e) => c ++ t ++ e
   | .neq (_, l) (_, r) => l ++ r
   | .eq (_, l) (_, r) => l ++ r
+  | .propEq (_, l) (_, r) => l ++ r
   | .memberOf (_, l) (_, r) => l ++ r
   | .anyList (_, l) _ (_, b) => l ++ b
   | .structUpdate (_, recv) _ (_, value) => recv ++ value
@@ -567,3 +570,19 @@ def usesSet (f : FnDef) : Bool :=
   f.params.any fun p => p.ty.usesSet
 
 end FnDef
+
+namespace InductivePropertyDef
+
+/-- All names — types and called functions / variants — that
+    this inductive property depends on, including those that
+    appear in rule premises and conclusions. Used by the
+    Lean-export topo sort so a property whose rules mention
+    later-declared identifiers is still emitted after its
+    dependencies. -/
+def referencedNames (p : InductivePropertyDef) : List String :=
+  p.referencedTypes ++
+    p.rules.flatMap fun r =>
+      r.conclusion.calledNames ++
+      r.premises.flatMap (·.calledNames)
+
+end InductivePropertyDef

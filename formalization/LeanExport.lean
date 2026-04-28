@@ -89,6 +89,18 @@ def listDrop := @List.drop
 
 open AbstractByte
 ")
+  , (`OpSem.Machine, .after,
+"namespace Machine
+/-- Source-side alias so that file-level references like
+    `Machine.initialMachine` (used by the inductive-property
+    `Reachable` and the `Soundness` statement) resolve in the
+    generated module too. The exporter's `inferNamespace`
+    pass puts `initialMachine` under `Program` because its
+    first parameter has type `Program`; this alias bridges
+    the two namespaces. -/
+def initialMachine := @Program.initialMachine
+end Machine
+")
   , (`PCG.Owned.InitTree, .middle,
 "def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
   ∃ h : validPlace body p, isOwned body p h = true
@@ -198,7 +210,7 @@ private def LeanDefItem.referencedNames
   | .alias_ a => a.referencedTypes
   | .fn_ f => f.referencedNames
   | .property_ p => p.fnDef.referencedNames
-  | .inductiveProperty_ p => p.referencedTypes
+  | .inductiveProperty_ p => p.referencedNames
 
 /-- Whether this item uses `Set` anywhere. -/
 private def LeanDefItem.usesSet : LeanDefItem → Bool
@@ -210,14 +222,18 @@ private def LeanDefItem.usesSet : LeanDefItem → Bool
   | .inductiveProperty_ p => p.usesSet
 
 /-- Whether this item is a type definition (struct/enum/alias)
-    as opposed to a function/property. -/
+    as opposed to a function/property. Inductive properties
+    are *not* counted here: their rules can mention functions
+    that are defined later in the module, so they need to live
+    in the post-`open` code section where the topo sort places
+    them after their dependencies. -/
 private def LeanDefItem.isTypeDef : LeanDefItem → Bool
   | .struct_ _ => true
   | .enum_ _ => true
   | .alias_ _ => true
   | .fn_ _ => false
   | .property_ _ => false
-  | .inductiveProperty_ _ => true
+  | .inductiveProperty_ _ => false
 
 /-- Get the FnDef for function/property items. -/
 private def LeanDefItem.fnDef? : LeanDefItem → Option FnDef

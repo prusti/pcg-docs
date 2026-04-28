@@ -97,7 +97,7 @@ private def directChildren : DslExpr → List DslExpr
   | .index l r | .indexBang l r | .lt l r | .le l r
   | .add l r | .sub l r | .mul l r | .div l r
   | .setUnion l r | .and l r | .or l r | .implies l r
-  | .neq l r | .eq l r | .memberOf l r => [l, r]
+  | .neq l r | .eq l r | .propEq l r | .memberOf l r => [l, r]
   | .anyList l _ b | .setAll l _ b | .setFlatMap l _ b
   | .letIn _ l b | .letBindIn _ l b => [l, b]
   | .ifThenElse c t e => [c, t, e]

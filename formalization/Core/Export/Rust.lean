@@ -1076,6 +1076,11 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
     pure (.«if» cExpr tBlock (some eBlock))
   | .neq (_, l) (_, r) => pure (.binOp .ne l r)
   | .eq (_, l) (_, r) => pure (.binOp .eq l r)
+  | .propEq (_, _) (_, r) =>
+    -- Propositional equality only appears in Prop-level
+    -- positions (property bodies / inductive premises), which
+    -- the Rust backend does not emit; placeholder fallback.
+    pure r
   | .memberOf (_, l) (_, r) =>
     -- Rust has no direct `∈` operator; lower it to a
     -- `contains_key` method call. The DSL's only Prop-level

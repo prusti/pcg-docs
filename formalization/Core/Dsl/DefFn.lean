@@ -150,8 +150,15 @@ syntax "if " fnExpr " then " fnExpr " else " fnExpr : fnExpr
 -- is rejected when looser binops (`∧`, `∨`, `→`) try to absorb
 -- it as a tightly-bound argument.
 syntax:50 fnExpr:51 " ≠ " fnExpr:51 : fnExpr
--- Equality: expr == expr. Prec 50, same rationale as `≠`.
+-- Decidable / `BEq` equality: expr == expr (renders to Bool).
+-- Prec 50, same rationale as `≠`.
 syntax:50 fnExpr:51 " == " fnExpr:51 : fnExpr
+-- Propositional equality: expr = expr (renders to Lean's `=`,
+-- i.e. `Eq`). Distinct from `==` so that `Prop`-level
+-- positions (property bodies, inductive-property premises)
+-- can express equality without coercing through `Bool`.
+-- Prec 50, same rationale as `≠` / `==`.
+syntax:50 fnExpr:51 " = " fnExpr:51 : fnExpr
 -- List existential: expr ·any fun pat => expr
 syntax fnExpr "·any" "fun" fnPat "=>" fnExpr : fnExpr
 
@@ -489,6 +496,8 @@ partial def parseExpr
     pure (.neq (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr == $r:fnExpr) =>
     pure (.eq (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr = $r:fnExpr) =>
+    pure (.propEq (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $e:fnExpr ·any fun $p:fnPat =>
         $b:fnExpr) => do
     let paramStr := BodyPat.toLean (← parsePat p)

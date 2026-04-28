@@ -108,8 +108,12 @@ inductive DslExpr where
   | ifThenElse (cond : DslExpr) (t : DslExpr) (e : DslExpr)
   /-- Inequality: `lhs ≠ rhs`. -/
   | neq (lhs : DslExpr) (rhs : DslExpr)
-  /-- Equality: `lhs == rhs`. -/
+  /-- Decidable / `BEq` equality: `lhs == rhs`. -/
   | eq (lhs : DslExpr) (rhs : DslExpr)
+  /-- Propositional equality: `lhs = rhs`. Used in property
+      bodies and inductive-property premises where a `Prop`
+      is required (rather than a `Bool`). -/
+  | propEq (lhs : DslExpr) (rhs : DslExpr)
   /-- List existential: `list.any fun param => body`. -/
   | anyList (list : DslExpr) (param : String)
       (body : DslExpr)
@@ -186,6 +190,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .implies l r => .implies (f l) (f r)
   | .neq l r => .neq (f l) (f r)
   | .eq l r => .eq (f l) (f r)
+  | .propEq l r => .propEq (f l) (f r)
   | .memberOf l r => .memberOf (f l) (f r)
   -- Ternary (with String parameter)
   | .anyList l p b => .anyList (f l) p (f b)
@@ -661,6 +666,7 @@ partial def toDoc
          , keyword "else", go e ]
   | .neq l r => .seq [go l, .sym .neq, go r]
   | .eq l r => .seq [go l, .sym .eq, go r]
+  | .propEq l r => .seq [go l, .sym .eq, go r]
   | .memberOf l r => .seq [go l, .sym .setContains, go r]
   | .anyList list param body =>
     -- `∃ param ∈ list, body` — an existential over a list.

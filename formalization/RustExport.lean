@@ -331,13 +331,18 @@ def buildCrate
      (`PCG.Obtain.PcgData, "obtain"),
      (`OpSem.Step, "evalStatement"),
      (`OpSem.Step, "evalTerminator"),
-     (`OpSem.Step, "step")]
+     (`OpSem.Step, "step"),
+     (`OpSem.Step, "pcgAnalysisSucceeds"),
+     (`OpSem.Step, "isInitialState"),
+     (`OpSem.Step, "Soundness")]
   let crateFns := fns.filter fun f =>
     f.leanModule.getRoot.toString == prefix_ &&
       !rustUnsupported.contains
         (f.leanModule, f.fnDef.name)
-  let crateProps := properties.filter
-    (·.leanModule.getRoot.toString == prefix_)
+  let crateProps := properties.filter fun p =>
+    p.leanModule.getRoot.toString == prefix_ &&
+      !rustUnsupported.contains
+        (p.leanModule, p.propertyDef.fnDef.name)
   let extras := extraItems.filterMap fun (p, m, item) =>
     if p == prefix_ then some (m, item) else none
   let crateCtx := { ctx with currentPrefix := prefix_ }
