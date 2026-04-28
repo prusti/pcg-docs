@@ -3,13 +3,13 @@ import MIR.Body
 import PCG.PcgDomainData
 
 defAlias AnalysisResults
-    (.doc (.plain "ar"),
-     .doc (.plain "AnalysisResults"))
+    (.text "ar",
+     .text "AnalysisResults")
   "Per-body Analysis Results"
   (.seq [
     .plain "Analysis results ",
-    Doc.defMath (.doc (.plain "ar"))
-      (.doc (.plain "AnalysisResults")),
+    Doc.defMath (.text "ar")
+      (.text "AnalysisResults"),
     .plain " bundle the per-block ", .code "PcgDomainData",
     .plain " lists produced by a single sweep of ",
     .code "PcgData.analyzeBody",

@@ -1,12 +1,12 @@
 import Core.Dsl.DefStruct
 import OpSem.StackFrame
 
-defStruct Thread (.raw "\\theta", .doc (.plain "Thread"))
+defStruct Thread (.raw "\\theta", .text "Thread")
   "Threads"
   (.seq [
     .plain "A thread ",
     Doc.defMath (.raw "\\theta")
-      (.doc (.plain "Thread")),
+      (.text "Thread"),
     .plain " is the execution context of one strand of \
      control flow. Unlike MiniRust we only model a single \
      thread, so the full thread state is the call stack: a \

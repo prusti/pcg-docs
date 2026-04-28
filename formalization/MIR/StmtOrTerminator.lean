@@ -3,12 +3,12 @@ import Core.Dsl.DefFn
 import MIR.Body
 
 defEnum StmtOrTerminator
-    (.raw "sot", .doc (.plain "StmtOrTerminator"))
+    (.raw "sot", .text "StmtOrTerminator")
   "Statements or Terminators"
   (.seq [
     .plain "A statement-or-terminator ",
     Doc.defMath (.raw "sot")
-      (.doc (.plain "StmtOrTerminator")),
+      (.text "StmtOrTerminator"),
     .plain " is the single MIR program element observed at \
      one ", .code "Location", .plain ": the statement at \
      ", .code "stmtIdx", .plain " when that index is in the \

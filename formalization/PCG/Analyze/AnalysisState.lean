@@ -5,13 +5,13 @@ import PCG.PcgData
 import PCG.PcgDomainData
 
 defStruct AnalysisState
-    (.doc (.plain "as"),
-     .doc (.plain "AnalysisState"))
+    (.text "as",
+     .text "AnalysisState")
   "Per-body Analysis State"
   (.seq [
     .plain "An analysis state ",
-    Doc.defMath (.doc (.plain "as"))
-      (.doc (.plain "AnalysisState")),
+    Doc.defMath (.text "as")
+      (.text "AnalysisState"),
     .plain " bundles the in-progress per-block analysis \
      results with the entry-state map populated by \
      forward propagation. When a block ", .code "bb",

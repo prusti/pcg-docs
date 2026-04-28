@@ -3,12 +3,12 @@ import PCG.Nodes.PcgLifetimeProjection
 import PCG.Nodes.PcgPlace
 
 defEnum PcgNode {P}
-    (.doc (.plain "n"), .doc (.plain "PcgNode"))
+    (.text "n", .text "PcgNode")
   "PCG Nodes"
   (.seq [
     .plain "A PCG node ",
-    Doc.defMath (.doc (.plain "n"))
-      (.doc (.plain "PcgNode")) ["P"],
+    Doc.defMath (.text "n")
+      (.text "PcgNode") ["P"],
     .plain " is either a PCG place or a PCG lifetime \
      projection."])
 where

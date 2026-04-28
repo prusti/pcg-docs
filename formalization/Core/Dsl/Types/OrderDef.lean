@@ -49,7 +49,7 @@ private def lookupSymbolMathDoc
     (e : EnumDef) (name : String) : MathDoc :=
   match e.variants.find? (·.name.name == name) with
   | some v => v.displayMathDoc
-  | none => .doc (.plain name)
+  | none => .text name
 
 /-- Compute the level (longest path to bottom) of
     each element. -/

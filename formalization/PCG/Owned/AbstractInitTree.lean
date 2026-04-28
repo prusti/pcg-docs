@@ -2,16 +2,16 @@ import Core.Dsl.DefEnum
 import PCG.PlaceExpansion
 
 defEnum AbstractInitTree {D}
-    (.doc (.plain "t"),
-     .doc (.plain "AbstractInitTree"))
+    (.text "t",
+     .text "AbstractInitTree")
   "Abstract Initialisation Trees"
   (.seq [
     .plain "An abstract initialisation tree ",
-    Doc.defMath (.doc (.plain "t"))
-      (.doc (.plain "AbstractInitTree")) ["D"],
+    Doc.defMath (.text "t")
+      (.text "AbstractInitTree") ["D"],
     .plain " is either a leaf carrying a value drawn from the \
      parameter set ",
-    .math (.doc (.plain "D")),
+    .math (.text "D"),
     .plain ", or an internal (unpacked) node whose place \
      expansion stores each child's sub-tree as the per-child \
      payload. The leaf-data type is a parameter so that the \

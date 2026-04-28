@@ -2,12 +2,12 @@ import Core.Dsl.DefEnum
 import PCG.Owned.InitTree
 
 defEnum OwnedLocal
-    (.doc (.plain "ol"), .doc (.plain "OwnedLocal"))
+    (.text "ol", .text "OwnedLocal")
   "Owned Locals"
   (.seq [
     .plain "An owned local ",
-    Doc.defMath (.doc (.plain "ol"))
-      (.doc (.plain "OwnedLocal")),
+    Doc.defMath (.text "ol")
+      (.text "OwnedLocal"),
     .plain " is either unallocated, or allocated and carrying \
      an initialisation tree describing the initialisation \
      state of its sub-places."])

@@ -3,11 +3,11 @@ import Core.Dsl.DefFn
 import MIR.StmtOrTerminator
 import OpSem.Machine
 
-defEnum ExecutionResult (.raw "er", .doc (.plain "ExecutionResult"))
+defEnum ExecutionResult (.raw "er", .text "ExecutionResult")
   "Execution Results"
   (.seq [.plain "An execution result ",
     Doc.defMath (.raw "er")
-      (.doc (.plain "ExecutionResult")),
+      (.text "ExecutionResult"),
     .plain " summarises the terminal status of a program: \
       either it ran to completion (",
     .code "success", .plain ") or it stopped abnormally (",
@@ -19,7 +19,7 @@ where
     "The program halted abnormally."
   deriving Repr, BEq, Hashable
 
-defEnum StepResult (.raw "sr", .doc (.plain "StepResult"))
+defEnum StepResult (.raw "sr", .text "StepResult")
   "Step Results"
   (.seq [.plain "The outcome of a single execution step. ",
     .code "done", .plain " indicates that the program has \

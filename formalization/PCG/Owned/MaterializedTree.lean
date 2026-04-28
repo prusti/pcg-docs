@@ -3,13 +3,13 @@ import PCG.Owned.AbstractInitTree
 import PCG.Owned.MaterializedTreeLeaf
 
 defAlias MaterializedTree
-    (.doc (.plain "mt"),
-     .doc (.plain "MaterializedTree"))
+    (.text "mt",
+     .text "MaterializedTree")
   "Materialised Trees"
   (.seq [
     .plain "A materialised tree ",
-    Doc.defMath (.doc (.plain "mt"))
-      (.doc (.plain "MaterializedTree")),
+    Doc.defMath (.text "mt")
+      (.text "MaterializedTree"),
     .plain " is an abstract initialisation tree whose leaves \
      are materialised-tree leaves: either uninitialised, \
      shallowly initialised, or fully initialised together \

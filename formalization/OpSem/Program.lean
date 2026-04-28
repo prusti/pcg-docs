@@ -2,13 +2,13 @@ import Core.Dsl.DefProperty
 import Core.Dsl.DefStruct
 import MIR.Body
 
-defStruct Program (.doc (.plain "prog"),
-    .doc (.plain "Program"))
+defStruct Program (.text "prog",
+    .text "Program")
   "Programs"
   (.seq [
     .plain "A program ",
-    Doc.defMath (.doc (.plain "prog"))
-      (.doc (.plain "Program")),
+    Doc.defMath (.text "prog")
+      (.text "Program"),
     .plain " bundles every function known to the PCG together \
      with the name of the entry point. Each function is keyed \
      by its name so calls can be resolved by looking the \

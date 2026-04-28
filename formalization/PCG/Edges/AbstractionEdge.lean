@@ -4,12 +4,12 @@ import PCG.Nodes.PcgNode
 import PCG.Nodes.PcgPlace
 
 defEnum AbstractionEdge {P}
-    (.doc (.plain "a"), .doc (.plain "AbstractionEdge"))
+    (.text "a", .text "AbstractionEdge")
   "Abstraction Edges"
   (.seq [
     .plain "An abstraction edge ",
-    Doc.defMath (.doc (.plain "a"))
-      (.doc (.plain "AbstractionEdge")),
+    Doc.defMath (.text "a")
+      (.text "AbstractionEdge"),
     .plain " represents the flow of borrows introduced due \
      to a function call or a loop. A function call \
      abstraction edge connects a source lifetime projection \
@@ -20,9 +20,9 @@ where
   | fnCall (source : LifetimeProjection (PcgPlace P) Nat)
       (target : LifetimeProjection (PcgPlace P) Nat)
     "A function call abstraction edge."
-    (#source, .doc (.plain " → "), #target)
+    (#source, .text " → ", #target)
   | loop (source : LifetimeProjection (PcgPlace P) Nat)
       (target : PcgNode P)
     "A loop abstraction edge."
-    (#source, .doc (.plain " → "), #target)
+    (#source, .text " → ", #target)
   deriving BEq, Repr, Hashable

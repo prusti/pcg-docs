@@ -3,15 +3,15 @@ import PCG.Nodes.LifetimeProjection
 import PCG.Nodes.PcgLifetimeProjectionBase
 
 defAlias PcgLifetimeProjection {P}
-    (.doc (.plain "plp"),
-     .doc (.plain "PcgLifetimeProjection"))
+    (.text "plp",
+     .text "PcgLifetimeProjection")
   "PCG Lifetime Projections"
   (.seq [
     .plain "A PCG lifetime projection ",
-    Doc.defMath (.doc (.plain "plp"))
-      (.doc (.plain "PcgLifetimeProjection")) ["P"],
+    Doc.defMath (.text "plp")
+      (.text "PcgLifetimeProjection") ["P"],
     .plain " is a lifetime projection whose base is a PCG \
      lifetime projection base over the parameter set ",
-    .math (.doc (.plain "P")),
+    .math (.text "P"),
     .plain " and whose index is a natural number."])
   := LifetimeProjection (PcgLifetimeProjectionBase P) Nat

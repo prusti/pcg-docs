@@ -35,8 +35,8 @@ syntax "| " ident term ":" term ("symbol " term)? : structField
 
     Example:
     ```
-    defStruct RegionVid (.doc (.plain "vid"),
-        .doc (.plain "RegionVid"))
+    defStruct RegionVid (.text "vid",
+        .text "RegionVid")
       "Region Variables"
       (.plain "A region variable identifier.")
     where

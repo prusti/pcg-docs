@@ -3,15 +3,15 @@ import PCG.Nodes.SnapshotLocation
 
 defEnum MaybeLabelled {P}
     (.widetilde (.raw "p"),
-     .doc (.plain "MaybeLabelled"))
+     .text "MaybeLabelled")
   "Maybe-Labelled Places"
   (.seq [
     .plain "A maybe-labelled place ",
     Doc.defMath (.widetilde (.raw "p"))
-      (.doc (.plain "MaybeLabelled")) ["P"],
+      (.text "MaybeLabelled") ["P"],
     .plain " is either a current (unlabelled) place drawn \
      from the parameter set ",
-    .math (.doc (.plain "P")),
+    .math (.text "P"),
     .plain ", or a place labelled with the snapshot \
      location at which it was taken."])
 where
@@ -20,6 +20,6 @@ where
     (#p (.raw "p"))
   | labelled (p : P) (sl : SnapshotLocation)
     "A labelled place."
-    (#p (.raw "p"), .doc (.plain " "),
-     .doc (.code "at"), .doc (.plain " "), #sl)
+    (#p (.raw "p"), .text " ",
+     .doc (.code "at"), .text " ", #sl)
   deriving DecidableEq, BEq, Repr, Hashable

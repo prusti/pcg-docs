@@ -10,8 +10,8 @@ import Lean
     Example:
     ```
     defAlias LocalLifetimeProjection {P}
-        (.doc (.plain "llp"),
-         .doc (.plain "LocalLifetimeProjection"))
+        (.text "llp",
+         .text "LocalLifetimeProjection")
       "Local Lifetime Projections"
       (.plain "A local lifetime projection is a lifetime \
        projection whose base is a maybe-labelled place and \

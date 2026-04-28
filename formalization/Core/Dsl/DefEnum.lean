@@ -51,7 +51,7 @@ syntax "| " ident enumVariantArg* term:max
       (.plain "A region (lifetime) in the MIR.")
     where
       | vid (v : RegionVid) "A region variable identifier."
-          (.doc (.plain "vid"), .sym .lparen, #v, .sym .rparen)
+          (.text "vid", .sym .lparen, #v, .sym .rparen)
       | static "The 'static lifetime."
           (.doc (.code "'static"))
     ```
@@ -63,7 +63,7 @@ syntax "| " ident enumVariantArg* term:max
       (.plain "A MIR type.")
     where
       | param (index : Nat) "..."
-          (.doc (.plain "param "), #index (.raw "i"))
+          (.text "param ", #index (.raw "i"))
       deriving Repr
     ``` -/
 syntax "defEnum " ident ("{" ident+ "}")?

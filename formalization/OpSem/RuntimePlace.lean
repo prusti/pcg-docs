@@ -1,7 +1,7 @@
 import OpSem.Pointer
 
 defStruct RuntimePlace (.raw "rp",
-    .doc (.plain "RuntimePlace"))
+    .text "RuntimePlace")
   "Runtime Places"
   (.plain "A runtime place: a thin pointer into memory.")
 where

@@ -8,8 +8,8 @@ where
   | tuple (exprs : List ValueExpr) (ty : Ty)
     "A tuple expression: a list of sub-expressions together \
      with the tuple type."
-    (.doc (.plain "tuple "), #exprs (.raw "\\bar{e}"),
-     .doc (.plain " : "), #ty)
+    (.text "tuple ", #exprs (.raw "\\bar{e}"),
+     .text " : ", #ty)
   deriving Repr, BEq, Hashable
 
 namespace Machine

@@ -2,7 +2,7 @@ import MIR.Region
 import Core.Dsl.DefFn
 
 defStruct TyCtorName (.raw "T",
-    .doc (.plain "TyCtorName"))
+    .text "TyCtorName")
   "Type Constructor Names"
   (.plain "A type constructor name, representing an ADT or \
    primitive type.")
@@ -10,7 +10,7 @@ where
   | name "The constructor name." : String
 
 defStruct AliasTyName (.raw "A",
-    .doc (.plain "AliasTyName"))
+    .text "AliasTyName")
   "Alias Type Names"
   (.plain "An associated type name.")
 where
@@ -22,7 +22,7 @@ defEnum Size (.raw "sz", .raw "Size")
 where
   | bits (n : Nat)
     "A fixed bit width."
-    (.doc (.plain "bits "), #n (.raw "n"))
+    (.text "bits ", #n (.raw "n"))
   | ptrSize
     "Pointer-sized."
 
@@ -50,7 +50,7 @@ where
     "Shared"
   | mutable
     "Mutable"
-    (.doc (.plain "mut"))
+    (.text "mut")
 
 defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
@@ -61,15 +61,15 @@ where
     "The boolean type."
   | int (it : IntType)
     "An integer type."
-    (.doc (.plain "intTy "), #it (.raw "it"))
+    (.text "intTy ", #it (.raw "it"))
   | param (index : Nat)
     "A type parameter."
-    (.doc (.plain "param "),
+    (.text "param ",
      #index (.raw "i"))
   | alias (base : Ty) (name : AliasTyName)
       (args : List Ty)
     "An alias type."
-    (#base, .doc (.plain "::"), #name,
+    (#base, .text "::", #name,
      .sym .langle,
      #args (.raw "τ̄"),
      .sym .rangle)
@@ -81,14 +81,14 @@ where
   | ref (region : Region) (mutability : Mutability)
       (pointee : Ty)
     "A reference type."
-    (.doc (.plain "&"), #region, .doc (.plain " "),
-     #mutability, .doc (.plain " "), #pointee)
+    (.text "&", #region, .text " ",
+     #mutability, .text " ", #pointee)
   | box (inner : Ty)
     "A box type."
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
-    (.doc (.plain "["), #elem, .doc (.plain "; "),
-     #len (.raw "n"), .doc (.plain "]"))
+    (.text "[", #elem, .text "; ",
+     #len (.raw "n"), .text "]")
   deriving Repr, BEq, Hashable
 
 instance : Inhabited Ty where
@@ -101,19 +101,19 @@ defEnum IntValue (.raw "iv", .cal (.raw "IV"))
 where
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
-    (.doc (.plain "u8 "), #val (.raw "n"))
+    (.text "u8 ", #val (.raw "n"))
   | u16 (val : UInt16)
     "A 16-bit unsigned integer."
-    (.doc (.plain "u16 "), #val (.raw "n"))
+    (.text "u16 ", #val (.raw "n"))
   | u32 (val : UInt32)
     "A 32-bit unsigned integer."
-    (.doc (.plain "u32 "), #val (.raw "n"))
+    (.text "u32 ", #val (.raw "n"))
   | u64 (val : UInt64)
     "A 64-bit unsigned integer."
-    (.doc (.plain "u64 "), #val (.raw "n"))
+    (.text "u64 ", #val (.raw "n"))
   | usize (val : USize)
     "A pointer-sized unsigned integer."
-    (.doc (.plain "usize "), #val (.raw "n"))
+    (.text "usize ", #val (.raw "n"))
   deriving Repr, BEq, Hashable
 
 

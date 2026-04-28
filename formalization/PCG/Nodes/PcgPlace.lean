@@ -3,15 +3,15 @@ import MIR.Place
 import PCG.Nodes.MaybeLabelled
 
 defEnum PcgPlace {P}
-    (.hat (.raw "p"), .doc (.plain "PcgPlace"))
+    (.hat (.raw "p"), .text "PcgPlace")
   "PCG Places"
   (.seq [
     .plain "A PCG place ",
     Doc.defMath (.hat (.raw "p"))
-      (.doc (.plain "PcgPlace")) ["P"],
+      (.text "PcgPlace") ["P"],
     .plain " is either a maybe-labelled place over the place \
      set ",
-    .math (.doc (.plain "P")),
+    .math (.text "P"),
     .plain ", or a remote place naming a MIR local from the \
      caller."])
 where

@@ -2,13 +2,13 @@ import Core.Dsl.DefStruct
 import PCG.EvalStmtData
 
 defStruct DomainData {T}
-    (.doc (.plain "dd"),
-     .doc (.plain "DomainData"))
+    (.text "dd",
+     .text "DomainData")
   "Domain Data"
   (.seq [
     .plain "A domain-data record ",
-    Doc.defMath (.doc (.plain "dd"))
-      (.doc (.plain "DomainData")) ["T"],
+    Doc.defMath (.text "dd")
+      (.text "DomainData") ["T"],
     .plain " bundles the per-program-point dataflow state of \
      a single basic block: the value on entry, plus an ",
     .code "EvalStmtData",

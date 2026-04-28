@@ -2,16 +2,16 @@ import Core.Dsl.DefStruct
 import PCG.Nodes.LifetimeProjectionLabel
 
 defStruct LifetimeProjection {B I}
-    (.doc (.plain "lp"), .doc (.plain "LifetimeProjection"))
+    (.text "lp", .text "LifetimeProjection")
   "Lifetime Projections"
   (.seq [
     .plain "A lifetime projection ",
-    Doc.defMath (.doc (.plain "lp"))
-      (.doc (.plain "LifetimeProjection")) ["B", "I"],
+    Doc.defMath (.text "lp")
+      (.text "LifetimeProjection") ["B", "I"],
     .plain " consists of a base drawn from a parameter set ",
-    .math (.doc (.plain "B")),
+    .math (.text "B"),
     .plain ", an index drawn from a parameter set ",
-    .math (.doc (.plain "I")),
+    .math (.text "I"),
     .plain ", and an optional label identifying the \
      snapshot location (or ",
     .math (.doc (.code "FUTURE")),

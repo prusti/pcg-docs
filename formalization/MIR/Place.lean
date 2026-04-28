@@ -18,7 +18,7 @@ where
   | index "The field index." : Nat
 
 defStruct VariantIdx (.raw "V",
-    .doc (.plain "VariantIdx"))
+    .text "VariantIdx")
   "Variant Indices"
   (.plain "A variant index within an enum.")
   constructor "VariantIdx"
@@ -35,9 +35,9 @@ where
     (.doc (.code "*"))
   | field (idx : FieldIdx) (ty : Ty)
     "Access a field by index."
-    (.doc (.plain "."),
+    (.text ".",
      #idx,
-     .doc (.plain " : "),
+     .text " : ",
      #ty)
   | index (idx : Local)
     "Index into an array or slice."
@@ -46,7 +46,7 @@ where
      .sym .rbracket)
   | downcast (variant : VariantIdx)
     "Downcast an enum to a specific variant."
-    (.doc (.plain "@"),
+    (.text "@",
      #variant)
   deriving Repr, BEq, Hashable
 

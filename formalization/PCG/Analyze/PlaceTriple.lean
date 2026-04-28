@@ -3,12 +3,12 @@ import MIR.Place
 import PCG.Capability
 
 defStruct PlaceTriple
-    (.doc (.plain "pt"), .doc (.plain "PlaceTriple"))
+    (.text "pt", .text "PlaceTriple")
   "Place Triples"
   (.seq [
     .plain "A place triple ",
-    Doc.defMath (.doc (.plain "pt"))
-      (.doc (.plain "PlaceTriple")),
+    Doc.defMath (.text "pt")
+      (.text "PlaceTriple"),
     .plain " bundles a place with the capability required for \
      the place before a statement executes and the optional \
      capability established for the place after the statement \
@@ -23,7 +23,7 @@ where
   | place "The place whose capability is tracked." : Place
   | pre "The capability required on the place before the \
       statement." : Capability
-      symbol (.doc (.plain "pre"))
+      symbol (.text "pre")
   | post "The capability established on the place after the \
       statement, when one is established."
       : Option Capability

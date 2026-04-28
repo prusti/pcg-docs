@@ -3,13 +3,13 @@ import Core.Dsl.DefStruct
 import PCG.Owned.InitTree
 import PCG.Owned.OwnedLocal
 
-defStruct OwnedState (.doc (.plain "os"),
-    .doc (.plain "OwnedState"))
+defStruct OwnedState (.text "os",
+    .text "OwnedState")
   "Owned States"
   (.seq [
     .plain "An owned state ",
-    Doc.defMath (.doc (.plain "os"))
-      (.doc (.plain "OwnedState")),
+    Doc.defMath (.text "os")
+      (.text "OwnedState"),
     .plain " is the collection of owned locals for a \
      function, one per MIR local, each describing the \
      allocation and initialisation state of that local."])

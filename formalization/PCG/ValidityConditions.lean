@@ -13,13 +13,13 @@ allowed target blocks. A block `b` outside the domain of the
 map (equivalently, with an empty allowed-target set) imposes
 no constraint at `b`. -/
 
-defStruct BranchChoice (.doc (.plain "d"),
-    .doc (.plain "BranchChoice"))
+defStruct BranchChoice (.text "d",
+    .text "BranchChoice")
   "Branch Choices"
   (.seq [
     .plain "A branch choice ",
-    Doc.defMath (.doc (.plain "d"))
-      (.doc (.plain "BranchChoice")),
+    Doc.defMath (.text "d")
+      (.text "BranchChoice"),
     .plain " is an ordered pair of basic blocks representing \
      a single control-flow transition from a source block to \
      a target block."])
@@ -28,13 +28,13 @@ where
   | target "Target block." : BasicBlockIdx
   deriving Repr
 
-defStruct ExecutionPath (.doc (.plain "p"),
-    .doc (.plain "ExecutionPath"))
+defStruct ExecutionPath (.text "p",
+    .text "ExecutionPath")
   "Execution Paths"
   (.seq [
     .plain "An execution path ",
-    Doc.defMath (.doc (.plain "p"))
-      (.doc (.plain "ExecutionPath")),
+    Doc.defMath (.text "p")
+      (.text "ExecutionPath"),
     .plain " is an ordered list of basic blocks leading to \
      (and ending at) a particular block."])
 where
@@ -65,13 +65,13 @@ defFn choices (.plain "choices")
 
 end ExecutionPath
 
-defStruct ValidityConditions (.doc (.plain "pc"),
-    .doc (.plain "ValidityConditions"))
+defStruct ValidityConditions (.text "pc",
+    .text "ValidityConditions")
   "Validity Conditions"
   (.seq [
     .plain "Validity conditions ",
-    Doc.defMath (.doc (.plain "pc"))
-      (.doc (.plain "ValidityConditions")),
+    Doc.defMath (.text "pc")
+      (.text "ValidityConditions"),
     .plain " select the execution paths under which a borrow \
      PCG edge is valid: a partial map from each relevant \
      source block to the set of allowed target blocks at \

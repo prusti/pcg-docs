@@ -6,12 +6,12 @@ import PCG.Nodes.LifetimeProjectionLabel
 import PCG.Nodes.MaybeLabelled
 
 defStruct BorrowEdge {P}
-    (.doc (.plain "be"), .doc (.plain "BorrowEdge"))
+    (.text "be", .text "BorrowEdge")
   "Borrow Edges"
   (.seq [
     .plain "A borrow edge ",
-    Doc.defMath (.doc (.plain "be"))
-      (.doc (.plain "BorrowEdge")) ["P"],
+    Doc.defMath (.text "be")
+      (.text "BorrowEdge") ["P"],
     .plain " records a borrow introduced by an ",
     .code "&",
     .plain "-expression: it connects the ",

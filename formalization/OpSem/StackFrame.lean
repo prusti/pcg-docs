@@ -8,12 +8,12 @@ import OpSem.Memory
 import OpSem.Pointer
 
 defStruct StackFrame (.raw "\\phi",
-    .doc (.plain "StackFrame"))
+    .text "StackFrame")
   "Stack Frames"
   (.seq [
     .plain "A stack frame ",
     Doc.defMath (.raw "\\phi")
-      (.doc (.plain "StackFrame")),
+      (.text "StackFrame"),
     .plain " records the per-call state of a single function \
      activation: the MIR body being executed, the current \
      program counter, and the map from each local of that body \

@@ -10,13 +10,13 @@ defEnum Value (.raw "v", .cal (.raw "V"))
 where
   | bool (val : Bool)
     "A boolean."
-    (.doc (.plain "bool "), #val (.raw "b"))
+    (.text "bool ", #val (.raw "b"))
   | int (val : IntValue)
     "An integer."
   | tuple (elems : List Value)
     "A tuple."
-    (.doc (.plain "tuple "), #elems (.raw "\\bar{v}"))
+    (.text "tuple ", #elems (.raw "\\bar{v}"))
   | array (elems : List Value)
     "An array."
-    (.doc (.plain "array "), #elems (.raw "\\bar{v}"))
+    (.text "array ", #elems (.raw "\\bar{v}"))
   deriving Repr, BEq, Hashable

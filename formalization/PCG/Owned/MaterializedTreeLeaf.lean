@@ -2,15 +2,15 @@ import Core.Dsl.DefEnum
 import PCG.Owned.AbstractInitTree
 
 defEnum MaterializedTreeLeaf
-    (.doc (.plain "mtl"),
-     .doc (.plain "MaterializedTreeLeaf"))
+    (.text "mtl",
+     .text "MaterializedTreeLeaf")
   "Materialised Tree Leaves"
   (.seq [
     .plain "A materialised tree leaf ",
-    Doc.defMath (.doc (.plain "mtl"))
-      (.doc (.plain "MaterializedTreeLeaf")),
+    Doc.defMath (.text "mtl")
+      (.text "MaterializedTreeLeaf"),
     .plain " occupies one leaf slot in a ",
-    .math (.doc (.plain "MaterializedTree")),
+    .math (.text "MaterializedTree"),
     .plain ". It is either an uninitialised or shallowly \
      initialised leaf (which cannot carry a materialised \
      extension), or a fully initialised leaf whose \

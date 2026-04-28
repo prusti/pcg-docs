@@ -2,7 +2,7 @@ import Core.Dsl.DefEnum
 import PCG.Nodes.SnapshotLocation
 
 defEnum LifetimeProjectionLabel
-    (.cal (.raw "L"), .doc (.plain "LifetimeProjectionLabel"))
+    (.cal (.raw "L"), .text "LifetimeProjectionLabel")
   "Lifetime Projection Labels"
   (.seq [
     .plain "A lifetime projection label ",

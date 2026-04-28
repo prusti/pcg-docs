@@ -5,13 +5,13 @@ import PCG.Edges.PcgEdge
 import PCG.ValidityConditions
 
 defStruct BorrowsGraph {P}
-    (.doc (.plain "bg"),
-     .doc (.plain "BorrowsGraph"))
+    (.text "bg",
+     .text "BorrowsGraph")
   "Borrows Graphs"
   (.seq [
     .plain "A borrows graph ",
-    Doc.defMath (.doc (.plain "bg"))
-      (.doc (.plain "BorrowsGraph")) ["P"],
+    Doc.defMath (.text "bg")
+      (.text "BorrowsGraph") ["P"],
     .plain " is the portion of the PCG that tracks borrow \
      edges: it maps each PCG edge to the validity conditions \
      under which the edge holds."]) subscript

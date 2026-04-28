@@ -1,10 +1,10 @@
 import OpSem.Pointer
 import Core.Dsl.DefProperty
 
-defStruct Memory (.cal (.raw "M"), .doc (.plain "Mem"))
+defStruct Memory (.cal (.raw "M"), .text "Mem")
   "Memory"
   (.seq [.plain "A memory ",
-    Doc.defMath (.cal (.raw "M")) (.doc (.plain "Mem")),
+    Doc.defMath (.cal (.raw "M")) (.text "Mem"),
     .plain " is a list of allocations."])
 where
   | allocs "The allocations." : List Allocation

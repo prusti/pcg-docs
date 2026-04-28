@@ -1,15 +1,15 @@
 import Core.Dsl.DefEnum
 import Core.Dsl.DefStruct
 
-defStruct RegionVid (.doc (.plain "vid"),
-    .doc (.plain "RegionVid"))
+defStruct RegionVid (.text "vid",
+    .text "RegionVid")
   "Region Variables"
   (.plain "A region variable identifier.")
 where
   | id "The region variable id." : Nat
 
-defStruct EarlyBoundRegion (.doc (.plain "eb"),
-    .doc (.plain "EarlyBoundRegion"))
+defStruct EarlyBoundRegion (.text "eb",
+    .text "EarlyBoundRegion")
   "Early-Bound Regions"
   (.plain "An early-bound region, identified by its index \
    in the function's generic parameter list.")

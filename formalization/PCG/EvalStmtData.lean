@@ -1,21 +1,21 @@
 import Core.Dsl.DefStruct
 
 defStruct EvalStmtData {T}
-    (.doc (.plain "esd"),
-     .doc (.plain "EvalStmtData"))
+    (.text "esd",
+     .text "EvalStmtData")
   "Evaluation Statement Data"
   (.seq [
     .plain "An evaluation-statement data record ",
-    Doc.defMath (.doc (.plain "esd"))
-      (.doc (.plain "EvalStmtData")) ["T"],
+    Doc.defMath (.text "esd")
+      (.text "EvalStmtData") ["T"],
     .plain " bundles four values of type ",
-    .math (.doc (.plain "T")),
+    .math (.text "T"),
     .plain ", one for each ",
     .code "EvalStmtPhase",
     .plain ": before and after the operands are evaluated, \
      and before and after the main effect of the statement. \
      The element type ",
-    .math (.doc (.plain "T")),
+    .math (.text "T"),
     .plain " is a parameter of the definition so the same \
      record can be reused for different per-phase payloads."])
 where

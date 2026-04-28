@@ -4,14 +4,14 @@ import MIR.Statements
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 
-defStruct BasicBlockIdx (.doc (.plain "bb"),
-    .doc (.plain "BasicBlockIdx"))
+defStruct BasicBlockIdx (.text "bb",
+    .text "BasicBlockIdx")
   "Basic Block Indices"
   (.plain "An index into the list of basic blocks.")
 where
   | index "The basic block index." : Nat
 
-defStruct Location (.raw "\\ell", .doc (.plain "Location"))
+defStruct Location (.raw "\\ell", .text "Location")
   "Locations"
   (.plain "A location in the MIR, identifying a statement \
    within a basic block.")
@@ -20,7 +20,7 @@ where
   | stmtIdx "The statement index within the block." : Nat
 
 defEnum Terminator (.raw "t",
-    .doc (.plain "Term"))
+    .text "Term")
   "Terminators"
   (.plain "A basic block terminator.")
 where
@@ -30,7 +30,7 @@ where
     "Switch on an integer value."
   | return_
     "Return from the function."
-    (.doc (.plain "return"))
+    (.text "return")
   | unreachable
     "Marks unreachable code."
   | drop (place : Place) (target : BasicBlockIdx)
@@ -41,8 +41,8 @@ where
     "Call a function."
     (#callee, .sym .lparen,
      #args (.raw "\\bar{o}"),
-     .sym .rparen, .doc (.plain " → "),
-     #targetPlace, .doc (.plain ", "), #nextBlock)
+     .sym .rparen, .text " → ",
+     #targetPlace, .text ", ", #nextBlock)
   deriving Repr, BEq, Hashable
 
 instance : Inhabited Terminator where
@@ -65,7 +65,7 @@ defFn terminatorPlaces (.plain "terminatorPlaces")
 end Terminator
 
 defStruct BasicBlock (.raw "B",
-    .doc (.plain "BasicBlock"))
+    .text "BasicBlock")
   "Basic Blocks"
   (.plain "A basic block: a sequence of statements followed \
    by a terminator.")
@@ -86,8 +86,8 @@ defFn basicBlockPlaces (.plain "basicBlockPlaces")
 
 end BasicBlock
 
-defStruct Body (.doc (.plain "body"),
-    .doc (.plain "Body"))
+defStruct Body (.text "body",
+    .text "Body")
   "Bodies"
   (.plain "A MIR function body.")
 where
@@ -107,8 +107,8 @@ defFn bodyPlaces (.plain "bodyPlaces")
 
 end Body
 
-defStruct PlaceTy (.doc (.plain "pty"),
-    .doc (.plain "PlaceTy"))
+defStruct PlaceTy (.text "pty",
+    .text "PlaceTy")
   "Place Types"
   (.plain "The type of a place: a type paired with an optional \
    variant index (set after a downcast).")

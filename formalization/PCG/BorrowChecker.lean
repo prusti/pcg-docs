@@ -2,13 +2,13 @@ import MIR.Body
 import PCG.Nodes.PcgNode
 
 defStruct BorrowChecker {P}
-    (.doc (.plain "bc"),
-     .doc (.plain "BorrowChecker"))
+    (.text "bc",
+     .text "BorrowChecker")
   "BorrowCheckers"
   (.seq [
     .plain "A borrow-checker ",
-    Doc.defMath (.doc (.plain "bc"))
-      (.doc (.plain "BorrowChecker")) ["P"],
+    Doc.defMath (.text "bc")
+      (.text "BorrowChecker") ["P"],
     .plain " is an oracle that exposes the subset of \
      Polonius-style facts needed by the PCG: for each PCG \
      node and MIR location, whether the node is live at \

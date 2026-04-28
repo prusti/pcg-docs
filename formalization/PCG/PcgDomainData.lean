@@ -4,13 +4,13 @@ import PCG.DomainData
 import PCG.PcgData
 
 defAlias PcgDomainData
-    (.doc (.plain "pdd"),
-     .doc (.plain "PcgDomainData"))
+    (.text "pdd",
+     .text "PcgDomainData")
   "PCG Domain Data"
   (.seq [
     .plain "PCG domain data ",
-    Doc.defMath (.doc (.plain "pdd"))
-      (.doc (.plain "PcgDomainData")),
+    Doc.defMath (.text "pdd")
+      (.text "PcgDomainData"),
     .plain " is the dataflow record carried by the PCG \
      analysis at each basic block: a ",
     .code "DomainData",

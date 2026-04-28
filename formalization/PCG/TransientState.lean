@@ -2,12 +2,12 @@ import Core.Dsl.DefEnum
 import MIR.Place
 
 defEnum TransientState {P}
-    (.doc (.plain "ts"), .doc (.plain "TransientState"))
+    (.text "ts", .text "TransientState")
   "Transient States"
   (.seq [
     .plain "A transient state ",
-    Doc.defMath (.doc (.plain "ts"))
-      (.doc (.plain "TransientState")) ["P"],
+    Doc.defMath (.text "ts")
+      (.text "TransientState") ["P"],
     .plain " describes a per-program-point read- or \
      write-borrow side condition tracked by the PCG: either a \
      set of places that are read at this point, or a single \

@@ -1,12 +1,12 @@
 import Core.Dsl.DefStruct
 
 defStruct UnpackEdge {N}
-    (.doc (.plain "ue"), .doc (.plain "UnpackEdge"))
+    (.text "ue", .text "UnpackEdge")
   "Unpack Edges"
   (.seq [
     .plain "An unpack edge ",
-    Doc.defMath (.doc (.plain "ue"))
-      (.doc (.plain "UnpackEdge")) ["N"],
+    Doc.defMath (.text "ue")
+      (.text "UnpackEdge") ["N"],
     .plain " connects an owned base place to its expansion: a \
      list of owned places corresponding to the components of \
      the base. Each place in the expansion is itself owned. \
@@ -14,7 +14,7 @@ defStruct UnpackEdge {N}
      edge with base p and expansion [p.f, p.g] represents the \
      hyperedge from the base to its two component places. The \
      place set ",
-    .math (.doc (.plain "N")),
+    .math (.text "N"),
     .plain " is a parameter of the definition so the same \
      constructor can be reused with different underlying place \
      representations. Unpack edges are also used for \

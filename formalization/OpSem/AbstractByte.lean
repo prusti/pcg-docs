@@ -4,7 +4,7 @@ import Core.Dsl.DefEnum
    https://github.com/minirust/minirust/blob/master/spec/mem/interface.md#abstract-bytes -/
 
 defEnum AbstractByte (.raw "b",
-    .doc (.plain "Byte"))
+    .text "Byte")
   "Abstract Bytes"
   (.plain "An abstract byte in the memory model.")
 where
@@ -12,4 +12,4 @@ where
     "An uninitialized byte."
   | init (value : UInt8)
     "An initialized byte with a concrete value."
-    (.doc (.plain "init "), #value (.raw "v"))
+    (.text "init ", #value (.raw "v"))

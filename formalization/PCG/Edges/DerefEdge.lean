@@ -3,12 +3,12 @@ import PCG.Nodes.LocalLifetimeProjection
 import PCG.Nodes.MaybeLabelled
 
 defStruct DerefEdge {P}
-    (.doc (.plain "de"), .doc (.plain "DerefEdge"))
+    (.text "de", .text "DerefEdge")
   "Deref Edges"
   (.seq [
     .plain "A deref edge ",
-    Doc.defMath (.doc (.plain "de"))
-      (.doc (.plain "DerefEdge")) ["P"],
+    Doc.defMath (.text "de")
+      (.text "DerefEdge") ["P"],
     .plain " connects a reference-typed blocked place to the \
      place obtained by dereferencing it, together with the \
      lifetime projection of the blocked place that is blocked \

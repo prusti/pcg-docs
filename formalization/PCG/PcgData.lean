@@ -10,12 +10,12 @@ import PCG.Owned.OwnedState
 import PCG.TransientState
 
 defStruct PcgData {P}
-    (.doc (.plain "pd"), .doc (.plain "PcgData"))
+    (.text "pd", .text "PcgData")
   "PCG Data"
   (.seq [
     .plain "The PCG data ",
-    Doc.defMath (.doc (.plain "pd"))
-      (.doc (.plain "PcgData")) ["P"],
+    Doc.defMath (.text "pd")
+      (.text "PcgData") ["P"],
     .plain " bundles the per-program-point state tracked by \
      the PCG: the borrows graph, the owned state, the current \
      basic block, and an optional ", .code "TransientState",

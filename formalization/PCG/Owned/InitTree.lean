@@ -8,13 +8,13 @@ import PCG.Owned.AbstractInitTree
 import PCG.Owned.InitialisationState
 
 defAlias InitTree
-    (.doc (.plain "it"),
-     .doc (.plain "InitTree"))
+    (.text "it",
+     .text "InitTree")
   "Initialisation Trees"
   (.seq [
     .plain "An initialisation tree ",
-    Doc.defMath (.doc (.plain "it"))
-      (.doc (.plain "InitTree")),
+    Doc.defMath (.text "it")
+      (.text "InitTree"),
     .plain " describes the initialisation state of an owned \
      place: an abstract initialisation tree whose leaves each \
      carry an initialisation state. By invariant, an internal \
@@ -30,7 +30,7 @@ defAlias InitTree
   := AbstractInitTree InitialisationState
 
 defInductiveProperty HasNonDeepLeaf
-    (.doc (.plain "h"), .doc (.plain "HasNonDeepLeaf"))
+    (.text "h", .text "HasNonDeepLeaf")
   "Has Non-Deep Leaf"
   (.plain "An initialisation tree contains at least one \
     descendant leaf whose capability is not fully \
