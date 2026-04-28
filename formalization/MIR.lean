@@ -4,3 +4,4 @@ import MIR.ConstValue
 import MIR.Place
 import MIR.Statements
 import MIR.Body
+import MIR.StmtOrTerminator

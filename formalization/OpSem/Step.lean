@@ -1,5 +1,6 @@
 import Core.Dsl.DefEnum
 import Core.Dsl.DefFn
+import MIR.StmtOrTerminator
 import OpSem.Machine
 
 defEnum ExecutionResult (.raw "er", .doc (.plain "ExecutionResult"))
@@ -60,18 +61,22 @@ defFn evalTerminator (.plain "evalTerminator")
 
 defFn step (.plain "step")
   (.seq [.plain "Execute a single step of the operational \
-    semantics. Looks up the current basic block from the \
-    executing stack frame's program counter; if the program \
-    counter has advanced past the last statement, evaluates \
-    the block's terminator (which itself produces the next ",
-    .code "StepResult", .plain "); otherwise evaluates the \
-    statement at ", .code "pc.stmtIdx",
-    .plain " and advances the statement index by one. The ",
+    semantics. Looks up the program element at the current \
+    frame's program counter via ",
+    .code "getStmtOrTerminator", .plain ": a statement is \
+    handed to ", .code "evalStatement",
+    .plain " (and the resulting frame's ", .code "pc.stmtIdx",
+    .plain " is advanced by one), a terminator is handed to ",
+    .code "evalTerminator", .plain " which produces the next ",
+    .code "StepResult", .plain " directly. The ",
     .code "RunnableMachine",
-    .plain " precondition guarantees that the call stack has \
-    at least one frame, so the current frame is fetched \
-    directly via ", .code "currentFrame", .plain ". Mirrors \
-    MiniRust's ", .code "Machine::step",
+    .plain " precondition guarantees a non-empty call stack \
+    (so ", .code "currentFrame", .plain " returns directly) \
+    and that every stack frame is valid (so the program \
+    counter is a ", .code "validLocation",
+    .plain " and ", .code "getStmtOrTerminator",
+    .plain " applies). Mirrors MiniRust's ",
+    .code "Machine::step",
     .plain ", minus thread scheduling, deadlock detection, \
     and data-race tracking — this model has only one thread."])
   (m "The machine state." : Machine)
@@ -79,31 +84,24 @@ defFn step (.plain "step")
   : StepResult :=
     let frame := currentFrame
       ‹m, lean_proof("h_RunnableMachine")› ;
-    match frame↦body↦blocks
-        !! frame↦pc↦block↦index with
-    | .none => StepResult.done‹.error›
-    | .some block =>
-        if frame↦pc↦stmtIdx == block↦statements·length
-        then evalTerminator ‹m, block↦terminator›
-        else
-          match block↦statements !! frame↦pc↦stmtIdx with
-          | .none => StepResult.done‹.error›
-          | .some stmt =>
-              match evalStatement ‹m, stmt› with
-              | .none => StepResult.done‹.error›
-              | .some m' =>
-                  match m'↦thread↦stackFrames with
-                  | [] => StepResult.done‹.error›
-                  | frame' :: rest =>
-                      let newPc :=
-                        Location⟨frame'↦pc↦block,
-                          frame'↦pc↦stmtIdx + 1⟩ ;
-                      StepResult.ok‹m'[thread =>
-                        Thread⟨frame'[pc => newPc]
-                          :: rest⟩]›
-                  end
-              end
-          end
+    match getStmtOrTerminator
+        ‹frame↦body, frame↦pc, lean_proof("sorry")› with
+    | .terminator t => evalTerminator ‹m, t›
+    | .stmt s =>
+        match evalStatement ‹m, s› with
+        | .none => StepResult.done‹.error›
+        | .some m' =>
+            match m'↦thread↦stackFrames with
+            | [] => StepResult.done‹.error›
+            | frame' :: rest =>
+                let newPc :=
+                  Location⟨frame'↦pc↦block,
+                    frame'↦pc↦stmtIdx + 1⟩ ;
+                StepResult.ok‹m'[thread =>
+                  Thread⟨frame'[pc => newPc]
+                    :: rest⟩]›
+            end
+        end
     end
 
 end Machine
