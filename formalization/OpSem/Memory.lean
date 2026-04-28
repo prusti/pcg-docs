@@ -40,9 +40,13 @@ defFn allocate (.plain "allocate")
     ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
 
 defProperty validAllocId (.plain "validAllocId")
-  (mDoc, idDoc) =>
+  short (mDoc, idDoc) =>
     (.seq [idDoc, .plain " is a valid allocation id in ",
            mDoc])
+  long (mDoc, idDoc) =>
+    (.seq [.plain "the index of ", idDoc,
+           .plain " is less than the number of allocations \
+           in ", mDoc])
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
   := id↦index < m↦allocs·length
@@ -62,8 +66,14 @@ defFn deallocate (.plain "deallocate")
 open Allocation in
 
 defProperty validMemory (.plain "validMemory")
-  (mDoc) =>
+  short (mDoc) =>
     (.seq [mDoc, .plain " is a valid memory"])
+  long (mDoc) =>
+    (.seq [.plain "the allocations of ", mDoc,
+           .plain " are non-overlapping and sorted by \
+           address: for every pair of indices i < j, the \
+           end address of allocation i is strictly less \
+           than the start address of allocation j"])
   (m "The memory." : Memory)
   := ∀∀ i, ∀∀ j, i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address
 

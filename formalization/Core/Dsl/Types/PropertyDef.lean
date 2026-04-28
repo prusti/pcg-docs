@@ -11,9 +11,16 @@ import Core.Dsl.Types.FnDef
 structure PropertyDef where
   /-- The underlying function definition (returns Bool). -/
   fnDef : FnDef
-  /-- Human-readable `Doc` rendering, parameterised by one
-      `Doc` per input parameter. -/
+  /-- Long-form human-readable `Doc` rendering for the
+      property's definition box, parameterised by one `Doc`
+      per input parameter. -/
   doc : List Doc → Doc
+  /-- Short-form `Doc` rendering for `Require` preconditions,
+      also parameterised by one `Doc` per input parameter.
+      Rendered as a hyperlink to this property's definition
+      so a reader can jump from the precondition to the long
+      description. -/
+  shortDoc : List Doc → Doc
 
 namespace PropertyDef
 
@@ -34,9 +41,11 @@ def formalDefLatex
     (ctx : RenderCtx := {})
     (labelKey : Option String := none)
     : Latex :=
+  let anchor : Latex :=
+    .raw s!"\\hypertarget\{property:{p.fnDef.name}}\{}"
   let defBlock : Latex :=
     .envOpts "definition" (.text p.fnDef.name)
-      (.seq [p.defaultDoc.toLatex, .newline])
+      (.seq [anchor, p.defaultDoc.toLatex, .newline])
   let algoBlock := p.fnDef.formalDefLatex ctx
     (isProperty := true) (labelKey := labelKey)
   .seq [defBlock, .newline, .newline, algoBlock]

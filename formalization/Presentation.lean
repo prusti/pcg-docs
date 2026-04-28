@@ -320,7 +320,9 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
     precondShortUsage := fun nm args =>
       (reg.properties.find?
           (·.propertyDef.fnDef.name == nm)).map
-        fun rp => rp.propertyDef.doc args
+        fun rp =>
+          Doc.link (rp.propertyDef.shortDoc args)
+            s!"#property:{nm}"
     resolveFnDisplay := fun n =>
       (reg.fns.find? (·.fnDef.name == n)).bind fun f =>
         f.fnDef.display.map fun parts =>

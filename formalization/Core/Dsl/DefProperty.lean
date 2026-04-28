@@ -4,14 +4,19 @@ open Lean in
 
 /-- Human-readable `Doc` description of a property,
     parameterised by one `Doc` binder per input parameter.
-    Placed right after the symbol doc in a `defProperty`
-    declaration. The body must be wrapped in parentheses so
-    the grammar is unambiguous. -/
+    Two of these appear in every `defProperty` after the
+    symbol doc: a `short` form (used in `Require`
+    preconditions, rendered as a hyperlink to the long form)
+    and a `long` form (used in the property's definition
+    box). The body must be wrapped in parentheses so the
+    grammar is unambiguous. -/
 syntax docDescr :=
   "(" ident,* ")" "=>" "(" term ")"
 
 /-- Pattern-matching property. -/
-syntax "defProperty " ident "(" term ")" docDescr
+syntax "defProperty " ident "(" term ")"
+    "short " docDescr
+    "long " docDescr
     fnParam* "where" fnArm*
     : command
 
@@ -22,7 +27,9 @@ syntax ":=" fnExpr : propertyBody
 syntax "begin" fnStmt* "return " fnExpr : propertyBody
 
 /-- Expression-form property (direct or do-block). -/
-syntax "defProperty " ident "(" term ")" docDescr
+syntax "defProperty " ident "(" term ")"
+    "short " docDescr
+    "long " docDescr
     fnParam* propertyBody
     : command
 
@@ -81,6 +88,8 @@ private def buildPropertyDef
     (paramData : Array (Ident × TSyntax `term
       × Syntax))
     (body : TSyntax `term)
+    (shortBinders : Array Ident)
+    (shortExpr : TSyntax `term)
     (docBinders : Array Ident)
     (docExpr : TSyntax `term)
     : CommandElabM Unit := do
@@ -103,6 +112,10 @@ private def buildPropertyDef
       match ds with
       | [$[$docBinders:ident],*] => ($docExpr : Doc)
       | _ => Doc.plain "")
+  let shortFn ← `(fun (ds : List Doc) =>
+      match ds with
+      | [$[$shortBinders:ident],*] => ($shortExpr : Doc)
+      | _ => Doc.plain "")
   elabCommand (← `(command|
     def $propDefId : PropertyDef :=
       { fnDef :=
@@ -112,7 +125,8 @@ private def buildPropertyDef
             params := $paramList,
             returnType := $retTn,
             body := $body },
-        doc := $docFn }))
+        doc := $docFn,
+        shortDoc := $shortFn }))
   let mod ← getMainModule
   let modName : TSyntax `term := quote mod
   elabCommand (← `(command|
@@ -126,10 +140,12 @@ open Lean Elab Command Term in
 open LeanAST in
 elab_rules : command
   | `(defProperty $name:ident ($symDoc:term)
-       ( $docBinders:ident,* ) => ($docExpr:term)
+       short ( $shortBinders:ident,* ) => ($shortExpr:term)
+       long ( $docBinders:ident,* ) => ($docExpr:term)
        $ps:fnParam*
        where $arms:fnArm*) => do
     let paramData ← ps.mapM parseFnParam
+    let shortBinders := shortBinders.getElems
     let docBinders := docBinders.getElems
     let parsed ← arms.mapM fun arm => match arm with
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
@@ -167,7 +183,7 @@ elab_rules : command
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildPropertyDef name symDoc paramData
-      bodyTerm docBinders docExpr
+      bodyTerm shortBinders shortExpr docBinders docExpr
 
 -- ══════════════════════════════════════════════
 -- Expression form (direct and do-block)
@@ -180,6 +196,8 @@ private def elabExprProperty
     (symDoc : TSyntax `term)
     (paramData : Array (Ident × TSyntax `term × Syntax))
     (rhsAst : DslExpr)
+    (shortBinders : Array Ident)
+    (shortExpr : TSyntax `term)
     (docBinders : Array Ident)
     (docExpr : TSyntax `term)
     : CommandElabM Unit := do
@@ -189,15 +207,17 @@ private def elabExprProperty
   let bodyTerm ←
     `(FnBody.expr $(quote rhsAst))
   buildPropertyDef name symDoc paramData
-    bodyTerm docBinders docExpr
+    bodyTerm shortBinders shortExpr docBinders docExpr
 
 open Lean Elab Command Term in
 elab_rules : command
   | `(defProperty $name:ident ($symDoc:term)
-       ( $docBinders:ident,* ) => ($docExpr:term)
+       short ( $shortBinders:ident,* ) => ($shortExpr:term)
+       long ( $docBinders:ident,* ) => ($docExpr:term)
        $ps:fnParam*
        $body:propertyBody) => do
     let paramData ← ps.mapM parseFnParam
+    let shortBinders := shortBinders.getElems
     let docBinders := docBinders.getElems
     let rhsAst ← match body with
       | `(propertyBody| := $rhs:fnExpr) => parseExpr rhs
@@ -206,4 +226,4 @@ elab_rules : command
         parseStmtsAsExpr stmts (← parseExpr ret)
       | _ => throwError "invalid propertyBody"
     elabExprProperty name symDoc paramData
-      rhsAst docBinders docExpr
+      rhsAst shortBinders shortExpr docBinders docExpr

@@ -125,9 +125,13 @@ def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
   ∃ h : validPlace body p, isOwned body p h = true
 
 defProperty AllPlacesOwned (.plain "AllPlacesOwned")
-  (bodyDoc, baseDoc, itDoc) =>
-    (.seq [.plain "every place reachable from ", baseDoc,
-           .plain " in ", itDoc,
+  short (bodyDoc, baseDoc, itDoc) =>
+    (.seq [.plain "every place in ", itDoc,
+           .plain " (rooted at ", baseDoc,
+           .plain ") is owned in ", bodyDoc])
+  long (bodyDoc, baseDoc, itDoc) =>
+    (.seq [.plain "every place reachable by walking ",
+           itDoc, .plain " from base local ", baseDoc,
            .plain " is an owned place in body ", bodyDoc])
   (body "The MIR function body." : Body)
   (base "The base local the tree is rooted at." : Local)
@@ -137,9 +141,15 @@ defProperty AllPlacesOwned (.plain "AllPlacesOwned")
       placeIsOwnedIn ‹body, p›
 
 defProperty ValidInitTree (.plain "ValidInitTree")
-  (bodyDoc, baseDoc, itDoc) =>
-    (.seq [itDoc, .plain " is a valid initialisation tree \
-           rooted at ", baseDoc, .plain " in body ", bodyDoc])
+  short (bodyDoc, baseDoc, itDoc) =>
+    (.seq [itDoc,
+           .plain " is a valid initialisation tree rooted \
+           at ", baseDoc, .plain " in body ", bodyDoc])
+  long (bodyDoc, baseDoc, itDoc) =>
+    (.seq [itDoc, .plain " has at least one non-deep \
+           leaf, and every place reachable by walking ",
+           itDoc, .plain " from base local ", baseDoc,
+           .plain " is an owned place in body ", bodyDoc])
   (body "The MIR function body." : Body)
   (base "The base local the tree is rooted at." : Local)
   (it "The initialisation tree." : InitTree)
