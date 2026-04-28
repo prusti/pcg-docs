@@ -287,7 +287,11 @@ pub fn map_at<K: Eq + std::hash::Hash, V: Clone>(
 use formal_mir::issized::is_sized;
 ")
   , ("OpSem", "statements", .raw
-"use formal_mir::ty::Ty;
+"use formal_mir::constvalue::ConstValue;
+use formal_mir::place::Place;
+use formal_mir::region::Region;
+use formal_mir::statements::*;
+use formal_mir::ty::{Mutability, Ty};
 ")
   ]
 

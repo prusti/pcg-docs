@@ -2,6 +2,7 @@ import Core.Dsl.DefEnum
 import Core.Dsl.DefFn
 import MIR.StmtOrTerminator
 import OpSem.Machine
+import OpSem.Statements
 
 defEnum ExecutionResult (.raw "er", .text "ExecutionResult")
   "Execution Results"
@@ -38,14 +39,28 @@ namespace Machine
 
 defFn evalStatement (.plain "evalStatement")
   (.seq [.plain "Evaluate a single MIR statement against the \
-    machine, returning the resulting machine state. Currently \
-    a placeholder that always fails (",
-    .code "None",
-    .plain "); real evaluation has not yet been implemented."])
+    machine, returning the resulting machine state. Mirrors \
+    MiniRust's ", .code "Machine::eval_statement",
+    .plain ". The ", .code "assign",
+    .plain " case resolves the destination place via ",
+    .code "evalPlace", .plain ", evaluates the rvalue via ",
+    .code "evalRvalue", .plain ", and writes the value to \
+    memory via ", .code "placeStore", .plain ". The ",
+    .code "storageLive", .plain " and ", .code "storageDead",
+    .plain " cases are not yet modelled (return ",
+    .code "None", .plain ")."])
   (m "The machine state." : Machine)
   (s "The statement to evaluate." : Statement)
-  : Option Machine :=
-    None
+  requires RunnableMachine(m)
+  : Option Machine where
+  | m ; .assign destination source =>
+      let ⟨place, _⟩ ← evalPlace
+        ‹m, destination, lean_proof("h_RunnableMachine")› ;
+      let val ← evalRvalue
+        ‹m, source, lean_proof("h_RunnableMachine")› ;
+      Some m[mem => placeStore ‹m↦mem, place, val›]
+  | _ ; .storageLive _ => None
+  | _ ; .storageDead _ => None
 
 defFn evalTerminator (.plain "evalTerminator")
   (.seq [.plain "Evaluate a basic block terminator. The \
@@ -88,7 +103,8 @@ defFn step (.plain "step")
         ‹frame↦body, frame↦pc, lean_proof("sorry")› with
     | .terminator t => evalTerminator ‹m, t›
     | .stmt s =>
-        match evalStatement ‹m, s› with
+        match evalStatement
+            ‹m, s, lean_proof("h_RunnableMachine")› with
         | .none => StepResult.done‹.error›
         | .some m' =>
             match m'↦thread↦stack with

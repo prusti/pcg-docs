@@ -1,3 +1,4 @@
+import OpSem.Expressions.Place
 import OpSem.Machine
 import OpSem.RuntimePlace
 import Core.Dsl.Descr
@@ -35,5 +36,43 @@ defFn placeLoad (.plain "placeLoad")
   (ty "The type to load." : Ty)
   : Option Value :=
     typedLoad ‹m, place↦ptr, ty›
+
+defFn evalOperand (.plain "evalOperand")
+  (.seq [.plain "Evaluate a MIR operand to a runtime value. ",
+    .code "copy", .plain " and ", .code "move",
+    .plain " resolve the operand's place and load the value \
+    from memory at the resulting runtime place; ",
+    .code "const", .plain " converts the constant directly \
+    via ", .code "evalConstant", .plain ". Move semantics \
+    (storage invalidation of the source) are not yet \
+    modelled — both ", .code "copy", .plain " and ",
+    .code "move", .plain " currently just load."])
+  (m "The machine state." : Machine)
+  (o "The operand." : Operand)
+  requires RunnableMachine(m)
+  : Option Value where
+  | m ; .copy p =>
+      let ⟨rp, ty⟩ ←
+        evalPlace ‹m, p, lean_proof("h_RunnableMachine")› ;
+      placeLoad ‹m↦mem, rp, ty›
+  | m ; .move p =>
+      let ⟨rp, ty⟩ ←
+        evalPlace ‹m, p, lean_proof("h_RunnableMachine")› ;
+      placeLoad ‹m↦mem, rp, ty›
+  | _ ; .const cv => Some (evalConstant ‹cv›)
+
+defFn evalRvalue (.plain "evalRvalue")
+  (.seq [.plain "Evaluate an rvalue to a runtime value. ",
+    .code "use", .plain " forwards to ", .code "evalOperand",
+    .plain ". The reference-introducing case ",
+    .code "ref", .plain " is not yet modelled (returns ",
+    .code "None", .plain ")."])
+  (m "The machine state." : Machine)
+  (rv "The rvalue." : Rvalue)
+  requires RunnableMachine(m)
+  : Option Value where
+  | m ; .use o =>
+      evalOperand ‹m, o, lean_proof("h_RunnableMachine")›
+  | _ ; .ref _ _ _ => None
 
 end Machine
