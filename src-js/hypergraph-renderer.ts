@@ -33,7 +33,7 @@ interface GraphEdge {
   source?: string;
   target?: string;
   label?: string;
-  style?: string;
+  style?: 'coupled';
   underlyingEdges?: GraphEdge[];
 }
 
@@ -46,7 +46,6 @@ interface HyperedgeGroup {
   id: string;
   sources: string[];
   targets: string[];
-  edges: any[];
 }
 
 interface RenderResult {
@@ -312,7 +311,7 @@ const CYTOSCAPE_STYLES = [
             id: `coupled-${idx}`,
             sources: coupled.sources,
             targets: coupled.targets,
-            style: "coupled",
+            style: "coupled" as const,
             underlyingEdges: coupled.underlyingEdges,
           };
         });
@@ -398,7 +397,6 @@ const CYTOSCAPE_STYLES = [
               id: edgeId,
               sources: edge.sources,
               targets: edge.targets,
-              edges: [],
             };
             hyperedgeGroups.push(group);
           } else {

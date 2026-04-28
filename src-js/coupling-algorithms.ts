@@ -23,7 +23,7 @@ export interface Edge {
 }
 
 interface CoupledEdgeResult {
-    type: string;
+    type: 'coupled' | 'merged-coupled' | 'identity';
     underlyingEdges: InternalEdge[];
     frontier?: string[];
     sources: string[];
