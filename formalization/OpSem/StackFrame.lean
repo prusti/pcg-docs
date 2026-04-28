@@ -103,8 +103,11 @@ defProperty validStackFrame (.plain "validStackFrame")
   short (frameDoc) =>
     (.seq [frameDoc, .plain " is a valid stack frame"])
   long (frameDoc) =>
-    (.seq [.plain "the program counter of ", frameDoc,
-           .plain " is a valid location in the body of ",
-           frameDoc])
+    (.seq [.plain "the body of ", frameDoc,
+           .plain " is a valid body, and the program \
+           counter of ", frameDoc,
+           .plain " is a valid location in that body"])
   (frame "The stack frame." : StackFrame)
-  := validLocation ‹frame↦body, frame↦pc›
+  :=
+    validBody ‹frame↦body› ∧
+    validLocation ‹frame↦body, frame↦pc›
