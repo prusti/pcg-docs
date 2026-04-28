@@ -182,6 +182,7 @@ elab_rules : command
     | .error e =>
       throwError s!"defInductiveProperty: parse error: {e}\n\
         ---\n{inductiveStr}\n---"
+    setUserDeclRanges name (← getRef)
     -- Build the InductivePropertyDef registry term.
     let paramDefs ← paramData.mapM fun (pn, pd, pt) => do
       let an : TSyntax `term := quote (toString pn.getId)

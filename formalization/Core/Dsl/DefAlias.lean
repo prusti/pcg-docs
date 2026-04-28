@@ -1,5 +1,8 @@
 import Core.Registry
+import Core.Dsl.IdentRefs
 import Lean
+
+open Core.Dsl.IdentRefs
 
 /-- Define a type alias with cross-language export metadata.
 
@@ -47,6 +50,7 @@ elab_rules : command
     | .error e =>
       throwError s!"defAlias: parse error: {e}\n\
         ---\n{abbrevStr}\n---"
+    setUserDeclRanges name (← getRef)
     let ns : TSyntax `term :=
       quote (toString name.getId)
     let typeParamsTerm : TSyntax `term :=

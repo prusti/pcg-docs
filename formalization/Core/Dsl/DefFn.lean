@@ -691,6 +691,7 @@ elab_rules : command
     | .error e =>
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
+    setUserDeclRanges name (← getRef)
     -- Build FnBody metadata
     let armDefs ← parsed.mapM
       fun (patAst, rhsAst) => do
@@ -752,6 +753,7 @@ elab_rules : command
     | .error e =>
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
+    setUserDeclRanges name (← getRef)
     let bodyTerm ←
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
@@ -896,7 +898,8 @@ elab_rules : command
     let groupTag ← match results[0]? with
       | some r => pure s!"{r.name.getId}"
       | none => throwError "defFnMutual: expected at least one entry"
-    for r in results do
+    for (entry, r) in entries.zip results do
+      setUserDeclRanges r.name entry.raw
       let armDefs ← r.parsed.mapM
         fun (patAst, rhsAst) => do
           let pq : TSyntax `term := quote patAst.toList

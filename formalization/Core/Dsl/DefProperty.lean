@@ -184,6 +184,7 @@ elab_rules : command
         let wildPats := params.map fun _ => LeanPat.wild
         armASTs ++ [.mk wildPats (.ident "False")]
     elabPropertyDecl name params (.matchArms allArms)
+    setUserDeclRanges name (← getRef)
     let armDefs ← parsed.mapM
       fun (patAst, rhsAst) => do
         let pq : TSyntax `term := quote patAst.toList
@@ -239,4 +240,5 @@ elab_rules : command
       | _ => throwError "invalid propertyBody"
     elabExprProperty name symDoc paramData
       rhsAst shortBinders shortExpr docBinders docExpr
+    setUserDeclRanges name (← getRef)
     flushIdentRefs

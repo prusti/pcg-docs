@@ -4,6 +4,7 @@ import Core.Doc
 import Core.Export.Latex
 import Core.Dsl.LatexParse
 import Core.Dsl.Lint
+import Tests.DslGotoDef
 
 open LSpec DSLType
 

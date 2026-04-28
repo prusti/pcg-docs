@@ -52,6 +52,7 @@ lean_exe lean_export where
 lean_exe export_all where
   root := `ExportAll
 
+@[default_target]
 lean_lib Tests where
   srcDir := "."
 
