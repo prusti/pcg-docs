@@ -234,8 +234,11 @@ def formalDefLatex
   let displayName := Doc.fnNameDisplay f.name
   let caption : Latex :=
     if isProperty then
-      .seq [.raw "Property ", .text displayName,
-            .raw "(", paramSig, .raw ")"]
+      if f.params.isEmpty then
+        .seq [.raw "Property ", .text displayName]
+      else
+        .seq [.raw "Property ", .text displayName,
+              .raw "(", paramSig, .raw ")"]
     else
       let retTy := f.returnType.toLatex ctx.knownTypes
       .seq [.text displayName, .raw "(",
@@ -386,11 +389,11 @@ def formalDefLatex
               if ctx.knownFns pc.name then
                 .raw s!"\\text\{\\dashuline\{{pc.name}}}"
               else .escaped pc.name
+        let body : LatexMath :=
+          if pc.args.isEmpty then nameMath
+          else .seq [nameMath, .raw "(", argsMath, .raw ")"]
         .seq [ .raw "    "
-             , Latex.require_ (.inlineMath
-                 (.seq [nameMath
-                       , .raw "(", argsMath
-                       , .raw ")"])) ]
+             , Latex.require_ (.inlineMath body) ]
   let allLines := precondLines ++ bodyLines
   let descBlock : List Latex :=
     if f.doc.toPlainText.isEmpty then []
