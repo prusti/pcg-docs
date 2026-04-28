@@ -1,3 +1,4 @@
+import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 import Core.Dsl.DefStruct
 import MIR.Body
@@ -29,3 +30,17 @@ defProperty validProgram (.plain "validProgram")
   (program "The program." : Program)
   :=
     program↦start ∈ program↦functions
+
+namespace Program
+
+defFn startProgram (.plain "startProgram")
+  (.seq [.plain "Look up the body of the program's start \
+    function. Safe because the ", .code "validProgram",
+    .plain " precondition guarantees the start name is \
+    registered in the function map."])
+  (program "The program." : Program)
+  requires validProgram(program)
+  : Body :=
+    mapAt ‹program↦functions, program↦start›
+
+end Program

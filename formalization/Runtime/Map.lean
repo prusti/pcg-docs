@@ -11,6 +11,15 @@ def mapGet {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     (m : Map κ ν) (k : κ) : Option ν :=
   m.get? k
 
+/-- Look up a key in a `Map`, panicking when absent. The
+    caller is responsible for upholding a precondition that
+    guarantees `k` is present (typically a `defProperty`
+    discharged via the `requires` clause). -/
+def mapAt {κ : Type} [BEq κ] [Hashable κ]
+    {ν : Type} [Inhabited ν]
+    (m : Map κ ν) (k : κ) : ν :=
+  m.get! k
+
 /-- Insert or overwrite a key/value pair in a `Map`. -/
 def mapInsert {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     (m : Map κ ν) (k : κ) (v : ν) : Map κ ν :=

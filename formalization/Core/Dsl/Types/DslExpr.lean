@@ -437,6 +437,11 @@ partial def toDoc
              (.seq [go b, .sym .mapsto, go c]) ]
   | .call (.var "mapGet") [a, b] =>
     .seq [go a, MathDoc.bracket (go b)]
+  | .call (.var "mapAt") [a, b] =>
+    -- `mapAt m k` is the panic-on-missing variant of `mapGet`;
+    -- render the same as `mapGet` (`m[k]`) since the math
+    -- presentation doesn't distinguish.
+    .seq [go a, MathDoc.bracket (go b)]
   | .call (.var "mapInsert") [a, b, c] =>
     -- `mapInsert m k v` renders as `m[k ↦ v]`.
     .seq [ go a, MathDoc.bracket

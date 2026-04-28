@@ -94,7 +94,7 @@ where
   | decls "The local variable declarations." : List Ty
   | numArgs "The number of arguments" : Nat
   | blocks "The basic blocks." : List BasicBlock
-  deriving Repr, BEq, Hashable
+  deriving Repr, BEq, Hashable, Inhabited
 
 namespace Body
 

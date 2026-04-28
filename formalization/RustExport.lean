@@ -275,6 +275,12 @@ pub fn map_remove<K: Eq + std::hash::Hash + Clone, V: Clone>(
 ")
   , ("OpSem", "program", .raw
 "use formal_mir::body::Body;
+
+pub fn map_at<K: Eq + std::hash::Hash, V: Clone>(
+    m: &std::collections::HashMap<K, V>, k: &K,
+) -> V {
+    m[k].clone()
+}
 ")
   , ("OpSem", "layout", .raw
 "use formal_mir::ty::*;

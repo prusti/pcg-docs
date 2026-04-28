@@ -392,8 +392,9 @@ private def computeImports
   let refdTypes := items.flatMap
     LeanDefItem.referencedNames
   let needsSet := items.any LeanDefItem.usesSet
-  let mapHelpers := ["mapGet", "mapEmpty", "mapSingleton",
-                      "mapUnionSets", "mapInsert", "mapRemove"]
+  let mapHelpers := ["mapGet", "mapAt", "mapEmpty",
+                      "mapSingleton", "mapUnionSets",
+                      "mapInsert", "mapRemove"]
   let needsMap := mapHelpers.any refdTypes.contains
   -- Lookup both by short name and by the last segment of a
   -- qualified reference, so `Ty.layout` resolves via the

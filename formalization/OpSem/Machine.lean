@@ -146,20 +146,25 @@ defFn createFrame (.plain "createFrame")
 defFn initialMachine (.plain "initialMachine")
   (.seq [.plain "Build the initial machine state for ",
     .code "program",
-    .plain ": look up the start function body, allocate an \
-    empty memory and thread, and push an initial stack frame \
-    for the start body via ", .code "createFrame",
-    .plain " with no caller-supplied argument values. Mirrors \
-    MiniRust's ", .code "Machine::new",
+    .plain ": look up the start function body via ",
+    .code "startProgram",
+    .plain ", allocate an empty memory and thread, and push \
+    an initial stack frame for the start body via ",
+    .code "createFrame",
+    .plain " with no caller-supplied argument values. The ",
+    .code "validProgram",
+    .plain " precondition guarantees the start function is \
+    registered in the program. Mirrors MiniRust's ",
+    .code "Machine::new",
     .plain ", with globals, function pointers, vtables, lock \
     state, additional threads, and I/O streams stripped — this \
     model is single-threaded and ignores those concerns. \
     Returns ", .code "None",
-    .plain " when the program's start function isn't in its \
-    function map or when frame construction fails."])
+    .plain " when frame construction fails."])
   (program "The program to initialise." : Program)
+  requires validProgram(program)
   : Option Machine :=
-    let body ← mapGet ‹program↦functions, program↦start› ;
+    let body := Program.startProgram ‹program, lean_proof("h_validProgram")› ;
     let blank :=
       Machine⟨program, Thread⟨[]⟩, Memory⟨[]⟩⟩ ;
     createFrame ‹blank, body, []›
