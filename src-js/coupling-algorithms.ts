@@ -218,13 +218,10 @@ class HypergraphForCoupling {
         const productiveFrontiers = allFrontiers.filter(f => this.isProductiveExpiry(f));
 
         return productiveFrontiers.filter(f1 => {
+            const f1Set = new Set(f1);
             return !productiveFrontiers.some(f2 => {
                 if (f1 === f2) return false;
-
-                const f1Set = new Set(f1);
-
                 if (f2.length >= f1.length) return false;
-
                 return f2.every(node => f1Set.has(node));
             });
         });
@@ -454,12 +451,11 @@ function isEffectivelyCoupled(
  */
 function findMaximallyCoupledSets(effectivelyCoupled: Set<string>[]): Set<string>[] {
     return effectivelyCoupled.filter(set1 => {
+        const set1Arr = [...set1];
         return !effectivelyCoupled.some(set2 => {
             if (set1 === set2) return false;
-
             if (set1.size >= set2.size) return false;
-
-            return [...set1].every(id => set2.has(id));
+            return set1Arr.every(id => set2.has(id));
         });
     });
 }
