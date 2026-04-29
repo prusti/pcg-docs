@@ -55,22 +55,22 @@ defInductiveProperty Reachable
   "Reachable Machines"
   (.seq [.plain "The set of machine states reachable from a \
     starting state by zero or more successful ", .code "step",
-    .plain " transitions. ", .code "Reachable init m",
-    .plain " holds when ", .code "m", .plain " is derivable \
-    from ", .code "init", .plain " by repeated invocations of ",
+    .plain " transitions. ", .code "Reachable m m'",
+    .plain " holds when ", .code "m'", .plain " is derivable \
+    from ", .code "m", .plain " by repeated invocations of ",
     .code "step", .plain " whose results are ", .code ".ok",
     .plain "."])
-  (init "The starting machine state." : Machine)
-  (m "A reachable machine state." : Machine)
-  displayed (#init, .raw " \\rightsquigarrow^{*} ", #m)
+  (m "The starting machine state." : Machine)
+  (m' "A machine state reachable from m." : Machine)
+  displayed (#m, .raw " \\rightsquigarrow^{*} ", #m')
 where
-  | refl {init : Machine}
-      ⊢ Reachable ‹init, init›
-  | stepOk {init, m, m' : Machine}
-        {h : Runnable m'}
-      from (Reachable ‹init, m'›,
-            step ‹m', h› = StepResult.ok ‹m›)
-      ⊢ Reachable ‹init, m›
+  | refl {m : Machine}
+      ⊢ Reachable ‹m, m›
+  | stepOk {m, m', m'' : Machine}
+        {h : Runnable m''}
+      from (Reachable ‹m, m''›,
+            step ‹m'', h› = StepResult.ok ‹m'›)
+      ⊢ Reachable ‹m, m'›
 
 namespace Program
 
