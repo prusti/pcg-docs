@@ -1,5 +1,6 @@
 import OpSem.Pointer
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
 
 defStruct Memory (.cal (.raw "M"), .text "Mem")
   "Memory"
@@ -9,13 +10,23 @@ defStruct Memory (.cal (.raw "M"), .text "Mem")
 where
   | allocs "The allocations." : List Allocation
 
-namespace Memory
+/-! Five short-name aliases for `List` operations sit at
+    top level in the generated module so DSL-rendered code
+    emits the unqualified names directly; we declare them
+    here as `defRaw` blocks so the source-side build
+    elaborates the same definitions (no mid-file `open`
+    needed to find them). The trailing `open AbstractByte`
+    keeps the variant names of `AbstractByte` unqualified
+    in the rest of the generated file. -/
 
-def last := @List.getLast?
-def replicate := @List.replicate
-def listSet := @List.set
-def listTake := @List.take
-def listDrop := @List.drop
+defRaw before => def last := @List.getLast?
+defRaw before => def replicate := @List.replicate
+defRaw before => def listSet := @List.set
+defRaw before => def listTake := @List.take
+defRaw before => def listDrop := @List.drop
+defRaw before => open AbstractByte
+
+namespace Memory
 
 open Allocation in
 defFn top (.plain "top")

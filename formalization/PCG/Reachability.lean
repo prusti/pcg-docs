@@ -1,5 +1,6 @@
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
 import PCG.PcgData
 
 /-! # PCG reachability
@@ -132,22 +133,22 @@ defFn candidateNodes (.plain "candidateNodes")
 -- Graph search with cycle detection
 -- ══════════════════════════════════════════════
 
-/-- Walk the PCG with cycle detection: pop the head of
-    `frontier`, return `true` on a target hit, skip when the
-    head is no longer in `unvisited` (already expanded), and
-    otherwise expand by erasing the head from `unvisited` and
-    prepending its neighbours to the frontier.
-
-    Termination is the lexicographic measure
-    `(unvisited.length, frontier.length)`: every skip
-    iteration shrinks `frontier`, every expand iteration
-    shrinks `unvisited` (because the `if h : ... then` branch
-    establishes that the head is in `unvisited`, so
-    `List.erase` removes it). Lean's structural-recursion
-    check is not enough here, but the lex measure is, and we
-    discharge the obligations with `Prod.Lex.right` /
-    `Prod.Lex.left` and `List.length_erase_of_mem` /
-    `List.any_eq_true`. -/
+-- The graph walk uses `termination_by` and a custom
+-- `decreasing_by` proof, neither of which the DSL surface
+-- can express today. `defRaw` exposes the inner declaration
+-- to Lean directly (so the IDE keeps highlighting / hover /
+-- gotoDef on it) and registers its verbatim source for the
+-- export pipeline.
+defRaw beforeProperties =>
+/-- Walk the PCG with cycle detection. The lexicographic
+    measure `(unvisited.length, frontier.length)` strictly
+    decreases on every recursive call: the skip iteration
+    shrinks `frontier`, the expand iteration shrinks
+    `unvisited` (the `if h : unvisited.any (· == x)`
+    hypothesis guarantees the head is in `unvisited`, so
+    `List.filter (· != x)` removes it). The `defProperty`
+    `reachableFrom` below wraps this with the appropriate
+    initial state. -/
 def reachableSearch
     (pd : PcgData Place)
     (target : PcgNode Place)
@@ -169,21 +170,13 @@ decreasing_by
   all_goals
     simp_wf
     first
-    | (-- Expand recursive call: `h : (unvisited.any
-       -- (· == x)) = true`. After `Prod.Lex.left` the goal
-       -- is `(unvisited.filter (· != x)).length <
-       -- unvisited.length`. Rewrite via
-       -- `length_filter_lt_length_iff_exists` and discharge
-       -- with the witness `y` produced by `h`.
-       apply Prod.Lex.left
+    | (apply Prod.Lex.left
        rw [List.length_filter_lt_length_iff_exists]
        have ⟨y, hy_mem, hy_eq⟩ :=
          List.any_eq_true.mp h
        refine ⟨y, hy_mem, ?_⟩
        simp [bne, hy_eq])
-    | (-- Skip recursive call: `Prod.Lex.right` reduces to a
-       -- frontier-component inequality discharged by `omega`.
-       apply Prod.Lex.right; omega)
+    | (apply Prod.Lex.right; omega)
 
 -- ══════════════════════════════════════════════
 -- User-facing properties

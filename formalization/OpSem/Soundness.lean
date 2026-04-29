@@ -1,5 +1,6 @@
 import Core.Dsl.DefInductiveProperty
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
 import OpSem.Step
 import PCG.Analyze.Body
 import PCG.Capability
@@ -14,24 +15,32 @@ import PCG.Reachability
 -- the LaTeX rendering displays the bare name.
 open Machine
 
--- Source-only `Inhabited PcgDomainData` so the infallible
--- list-indexing inside `entryStateAt` (`pdds[…]!`, expanded
--- by the DSL macro) elaborates against the source `defStruct`
--- chain — `DomainData`/`PcgData` are generic, so the export
--- doesn't auto-derive `Inhabited` for them. The
--- `requires contains(ar, l)` precondition guarantees the
--- index is always in bounds, so the default value is never
--- actually evaluated; we still provide a concrete inhabitant
--- so eager elaboration can't trip on `sorry`. The Lean exporter
--- mirrors this with an `extraLeanItems` entry so the generated
--- project type-checks too.
+-- The infallible list-indexing inside `entryStateAt`
+-- (`pdds[…]!`) requires `Inhabited PcgDomainData`. The DSL
+-- has no `instance` syntax, so we declare the helper and the
+-- two `Inhabited` instances as `defRaw` blocks: the inner
+-- declarations are real Lean (the IDE keeps full
+-- highlighting / hover / gotoDef on them) and the export
+-- pipeline picks the verbatim source up via the registry.
+-- The `requires contains(ar, l)` precondition on
+-- `entryStateAt` guarantees the indexed element is always in
+-- bounds, so the default is never actually reached.
+defRaw middle =>
+/-- A concrete `PcgData Place` inhabitant used as the default
+    for `Inhabited (PcgData Place)`. It's never reached at
+    runtime — the `requires contains(ar, l)` precondition on
+    `entryStateAt` rules out the out-of-bounds branch — but
+    the default still has to be definable for `pdds[…]!` to
+    elaborate. -/
 private def defaultPcgData : PcgData Place :=
   ⟨⟨mapEmpty⟩, ⟨[]⟩, ⟨0⟩, none⟩
 
-private instance : Inhabited (PcgData Place) :=
+defRaw middle =>
+instance : Inhabited (PcgData Place) :=
   ⟨defaultPcgData⟩
 
-private instance : Inhabited PcgDomainData :=
+defRaw middle =>
+instance : Inhabited PcgDomainData :=
   ⟨⟨defaultPcgData,
     ⟨defaultPcgData, defaultPcgData,
      defaultPcgData, defaultPcgData⟩⟩⟩

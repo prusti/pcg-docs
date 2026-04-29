@@ -1,6 +1,7 @@
 import OpSem.AbstractByte
 import OpSem.Value
 import Core.Dsl.DefFn
+import Core.Dsl.DefRaw
 
 open AbstractByte in
 defFn decodeBool (.plain "decode_bool")
@@ -39,16 +40,23 @@ defFn decodeLeUnsigned (.plain "decode_le_unsigned")
   | [] => 0
   | b :: rest => b · toNat + (256 * decodeLeUnsigned ‹rest›)
 
+-- The DSL doesn't model raw `def f : T₁ → T₂ → R | pat₁ => …`
+-- with structurally-recursive Nat patterns at top level, so
+-- `encodeLeUnsigned` / `intValueOfNat` are spelled as
+-- `defRaw` blocks: a single source for both the source-side
+-- elaboration and the export.
+defRaw before =>
 /-- Encode a natural number as `numBytes` little-endian
-    abstract bytes (least-significant byte first). Higher
-    bits are truncated if `n` does not fit. -/
+    abstract bytes (least-significant byte first). -/
 def encodeLeUnsigned (n : Nat) : Nat → List AbstractByte
   | 0 => []
   | k + 1 =>
-    .init (UInt8.ofNat (n % 256)) :: encodeLeUnsigned (n / 256) k
+    .init (UInt8.ofNat (n % 256)) ::
+      encodeLeUnsigned (n / 256) k
 
-/-- Build an `IntValue` from a decoded natural number based
-    on the target size (in bytes). -/
+defRaw before =>
+/-- Build an `IntValue` from a decoded natural number
+    based on the target size (in bytes). -/
 def intValueOfNat : Nat → Nat → Option IntValue
   | 1, n => some (.u8 (UInt8.ofNat n))
   | 2, n => some (.u16 (UInt16.ofNat n))

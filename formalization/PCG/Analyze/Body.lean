@@ -1,4 +1,5 @@
 import Core.Dsl.DefFn
+import Core.Dsl.DefRaw
 import MIR.Body
 import PCG.Analyze.AnalysisResults
 import PCG.Analyze.AnalysisState
@@ -40,17 +41,23 @@ defFn bbContains (.plain "bbContains")
       else bbContains ‹rest, b›
 
 -- ══════════════════════════════════════════════
--- DFS helpers (plain Lean: visited grows monotonically,
--- which Lean's structural recursion can't see; uses
--- `partial` so the source build accepts the definition).
--- These are plumbed into the generated Lean project via
--- `extraLeanItems` in `LeanExport.lean`.
+-- DFS helpers — `dfsVisit`'s `visited` list grows
+-- monotonically, so structural recursion alone can't see
+-- termination; the `partial` modifier sidesteps the check.
+-- The DSL has no `partial def` surface syntax, so the
+-- helper is spelled as a `defRaw` block: the same source
+-- string is elaborated here and emitted into the generated
+-- Lean project. The successor list is inlined (rather than
+-- routed through `termSuccessors`) because the export
+-- splices this block into the `middle` slot, ahead of the
+-- DSL-generated function definitions.
 -- ══════════════════════════════════════════════
 
+defRaw middle =>
 /-- DFS-postorder walk of the CFG rooted at `curr`. The
-    `visited` list grows as nodes are entered; `post`
-    collects nodes in postorder (each appended after its
-    successors are explored). -/
+    successor list is inlined to avoid a forward reference
+    to `Terminator.termSuccessors`, which is generated
+    below this `middle` extra. -/
 private partial def dfsVisit
     (body : Body)
     (visited : List BasicBlockIdx)
@@ -62,12 +69,20 @@ private partial def dfsVisit
   else
     let visited1 := curr :: visited
     let block := body.blocks[curr.index]!
-    let succs := termSuccessors block.terminator
+    let succs : List BasicBlockIdx :=
+      match block.terminator with
+      | .goto target => [target]
+      | .switchInt _ => []
+      | .return_ => []
+      | .unreachable => []
+      | .drop _ target => [target]
+      | .call _ _ _ next => [next]
     let r := succs.foldl
       (fun acc s => dfsVisit body acc.1 acc.2 s)
       (visited1, post)
     (r.1, r.2 ++ [curr])
 
+defRaw middle =>
 /-- Reverse postorder of the CFG starting from block 0. -/
 private def reversePostorder (body : Body)
     : List BasicBlockIdx :=

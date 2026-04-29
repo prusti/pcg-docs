@@ -20,189 +20,29 @@ import OpSem
 -- Lean exporter wants the soundness statement included in the
 -- generated project, so we pull it in explicitly.
 import OpSem.Soundness
+import Core.Dsl.DefRaw
 import Core.Export.Lean
 import Core.LeanAST
 
-open LeanAST
+open LeanAST Core.Dsl
 
-/-- Position of extra Lean code relative to auto-generated
-    definitions. `middle` inserts between type definitions
-    (structs/enums) and function definitions;
-    `beforeProperties` inserts between functions and
-    property definitions for modules where every property
-    follows every function (the renderer asserts that
-    invariant before splitting); `after` inserts after
-    everything. -/
-private inductive ExtraPos where
-  | before | middle | beforeProperties | after
-  deriving BEq
-
-/-- Extra raw Lean code for specific generated modules.
-    Each entry is `(moduleName, position, rawLeanCode)`.
-
-    Entries here should be added only in exceptional cases:
-    anything that can be expressed as a `defFn` (or
-    `defStruct`/`defEnum`/`defProperty`) belongs in the DSL
-    source so that it participates in Rust/LaTeX export as
-    well. Reserve this list for constructs the DSL cannot
-    represent — typeclass instances, Lean-only helpers that
-    use features outside the DSL grammar, etc. -/
-private def extraLeanItems :
-    List (Lean.Name × ExtraPos × String) :=
-  [ (`OpSem.Decode, .before,
-"/-- Encode a natural number as `numBytes` little-endian
-    abstract bytes (least-significant byte first). -/
-def encodeLeUnsigned (n : Nat) : Nat → List AbstractByte
-  | 0 => []
-  | k + 1 =>
-    .init (UInt8.ofNat (n % 256)) ::
-      encodeLeUnsigned (n / 256) k
-
-/-- Build an `IntValue` from a decoded natural number
-    based on the target size (in bytes). -/
-def intValueOfNat : Nat → Nat → Option IntValue
-  | 1, n => some (.u8 (UInt8.ofNat n))
-  | 2, n => some (.u16 (UInt16.ofNat n))
-  | 4, n => some (.u32 (UInt32.ofNat n))
-  | 8, n => some (.u64 (UInt64.ofNat n))
-  | _, _ => none
-")
-  , (`OpSem.Address, .after,
-"instance : LT Address where
-  lt a b := a.addr < b.addr
-
-instance : LE Address where
-  le a b := a.addr ≤ b.addr
-
-instance (a b : Address) : Decidable (a < b) :=
-  inferInstanceAs (Decidable (a.addr < b.addr))
-
-instance (a b : Address) : Decidable (a ≤ b) :=
-  inferInstanceAs (Decidable (a.addr ≤ b.addr))
-
-instance : DecidableEq Address :=
-  fun a b => if h : a.addr = b.addr
-    then isTrue (by cases a; cases b; simp_all)
-    else isFalse (by intro heq; cases heq; exact h rfl)
-
-instance : HSub Address Address Nat where
-  hSub a b := a.addr - b.addr
-
-instance : HAdd Address Nat Address where
-  hAdd a n := ⟨a.addr + n⟩
-")
-  , (`OpSem.Memory, .before,
-"def last := @List.getLast?
-def replicate := @List.replicate
-def listSet := @List.set
-def listTake := @List.take
-def listDrop := @List.drop
-
-open AbstractByte
-")
-  , (`PCG.Owned.InitTree, .middle,
-"def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
-  ∃ h : validPlace body p, isOwned body p h = true
-")
-  , (`PCG.Analyze.Body, .middle,
-"/-- DFS-postorder walk of the CFG rooted at `curr`. The
-    successor list is inlined to avoid a forward reference
-    to `Terminator.termSuccessors`, which is generated
-    below this `middle` extra. -/
-private partial def dfsVisit
-    (body : Body)
-    (visited : List BasicBlockIdx)
-    (post : List BasicBlockIdx)
-    (curr : BasicBlockIdx)
-    : List BasicBlockIdx × List BasicBlockIdx :=
-  if visited.any (·.index == curr.index) then
-    (visited, post)
-  else
-    let visited1 := curr :: visited
-    let block := body.blocks[curr.index]!
-    let succs : List BasicBlockIdx :=
-      match block.terminator with
-      | .goto target => [target]
-      | .switchInt _ => []
-      | .return_ => []
-      | .unreachable => []
-      | .drop _ target => [target]
-      | .call _ _ _ next => [next]
-    let r := succs.foldl
-      (fun acc s => dfsVisit body acc.1 acc.2 s)
-      (visited1, post)
-    (r.1, r.2 ++ [curr])
-
-/-- Reverse postorder of the CFG starting from block 0. -/
-private def reversePostorder (body : Body)
-    : List BasicBlockIdx :=
-  (dfsVisit body [] [] ⟨0⟩).2.reverse
-")
-  , (`OpSem.Soundness, .before,
+-- Until the constructor-aware import inference replaces it,
+-- `OpSem.Soundness` still needs a hand-written `import PCG.…`
+-- shim because `analyzeProgram`'s body constructs a `PcgData
+-- Place` via record literal and `LeanDefItem.referencedNames`
+-- doesn't follow `mkStruct` constructor heads. The two
+-- imports stay as a small inline list rather than living on
+-- the `defRaw` registry, since `defRaw`'s elaborator can't
+-- run `import` commands mid-file.
+private def extraImportShims :
+    List (Lean.Name × String) :=
+  [ (`OpSem.Soundness,
 "-- `analyzeProgram`'s body constructs a `PcgData Place` via
 -- record literal, but `mkStruct` constructor names aren't
 -- tracked by `calledNames` so `computeImports` can't infer
 -- these PCG dependencies from the body alone.
 import PCG.BorrowsGraph
 import PCG.PcgData
-")
-  , (`OpSem.Soundness, .middle,
-"-- `entryStateAt`'s body uses infallible list indexing
--- (`pdds[…]!`), which requires `Inhabited PcgDomainData`.
--- `DomainData` and `PcgData` are generic, so the export
--- doesn't auto-derive `Inhabited` for them; we provide a
--- concrete inhabitant here. The `requires contains(ar, l)`
--- precondition guarantees the index is always in bounds, so
--- this default is never actually reached at runtime.
-private def defaultPcgData : PcgData Place :=
-  ⟨⟨mapEmpty⟩, ⟨[]⟩, ⟨0⟩, none⟩
-
-instance : Inhabited (PcgData Place) :=
-  ⟨defaultPcgData⟩
-
-instance : Inhabited PcgDomainData :=
-  ⟨⟨defaultPcgData,
-    ⟨defaultPcgData, defaultPcgData,
-     defaultPcgData, defaultPcgData⟩⟩⟩
-")
-  , (`PCG.Reachability, .beforeProperties,
-"/-- Walk the PCG with cycle detection. The lexicographic
-    measure `(unvisited.length, frontier.length)` strictly
-    decreases on every recursive call: the skip iteration
-    shrinks `frontier`, the expand iteration shrinks
-    `unvisited` (the `if h : unvisited.any (· == x)`
-    hypothesis guarantees the head is in `unvisited`, so
-    `List.filter (· != x)` removes it). The `defProperty`
-    `reachableFrom` below wraps this with the appropriate
-    initial state. -/
-def reachableSearch
-    (pd : PcgData Place)
-    (target : PcgNode Place)
-    (frontier : List (PcgNode Place))
-    (unvisited : List (PcgNode Place))
-    : Bool :=
-  match frontier with
-  | [] => false
-  | x :: rest =>
-      if x == target then true
-      else if h : unvisited.any (· == x) then
-        reachableSearch pd target
-          (nodeNeighbors pd x ++ rest)
-          (unvisited.filter fun y => y != x)
-      else
-        reachableSearch pd target rest unvisited
-termination_by (unvisited.length, frontier.length)
-decreasing_by
-  all_goals
-    simp_wf
-    first
-    | (apply Prod.Lex.left
-       rw [List.length_filter_lt_length_iff_exists]
-       have ⟨y, hy_mem, hy_eq⟩ :=
-         List.any_eq_true.mp h
-       refine ⟨y, hy_mem, ?_⟩
-       simp [bne, hy_eq])
-    | (apply Prod.Lex.right; omega)
 ")
   ]
 
@@ -773,11 +613,24 @@ def main (args : List String) : IO Unit := do
       writeFile s!"{outDir}/Runtime/{entry.fileName}"
         contents
   -- Write module files
+  let rawBlocks ← getRegisteredRawBlocks
   for (mod, items) in modules do
     let imports := computeImports mod items typeMap fnMap
+    -- Source-side `defRaw` calls register one entry per
+    -- block in `rawBlocks`; an additional `extraImportShims`
+    -- entry covers the `import` lines we cannot route through
+    -- `defRaw` (the elaborator can't run mid-file imports).
+    let importShim :=
+      extraImportShims.filterMap fun (m, code) =>
+        if m == mod then some code else none
     let extrasFor (pos : ExtraPos) :=
-      extraLeanItems.filterMap fun (m, p, code) =>
-        if m == mod && p == pos then some code else none
+      let registered :=
+        rawBlocks.filterMap fun b =>
+          if b.leanModule == mod && b.pos == pos
+          then some b.code else none
+      match pos with
+      | .before => importShim ++ registered
+      | _ => registered
     let opens := computeOpens items nsMap
     let path := s!"{outDir}/{moduleToPath mod}"
     let contents := renderModule items imports allTypes

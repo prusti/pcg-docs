@@ -1,6 +1,7 @@
 import Core.Dsl.DefAlias
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
 import MIR.Body
 import MIR.Ty
 import PCG.Owned.AbstractInitTree
@@ -113,8 +114,13 @@ defFn places (.plain "places")
   : Set Place :=
     itPlaces ‹it, base, []›
 
-/-- Ownership of a place in a body, bundled with the
-    `validPlace` precondition so it is precondition-free. -/
+-- The DSL has no surface syntax for an unconditional bundled
+-- `Prop` helper that hides a `validPlace` precondition, so
+-- it sits in a `defRaw` block: the inner declaration is real
+-- Lean (the IDE keeps full highlighting / hover / gotoDef on
+-- it) and the export pipeline picks the verbatim source up
+-- via `getRegisteredRawBlocks`.
+defRaw middle =>
 def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
   ∃ h : validPlace body p, isOwned body p h = true
 
