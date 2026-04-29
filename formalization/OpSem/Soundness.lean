@@ -40,6 +40,7 @@ defInductiveProperty Reachable
     .plain "."])
   (init "The starting machine state." : Machine)
   (m "A reachable machine state." : Machine)
+  displayed (#init, .raw " \\rightarrow^{*} ", #m)
 where
   | refl {init : Machine}
       ⊢ Reachable ‹init, init›

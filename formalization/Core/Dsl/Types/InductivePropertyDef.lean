@@ -118,44 +118,65 @@ private def ruleLatex
 /-- Render the inductive property as a LaTeX `definition`
     environment (prose) followed by one `\inferrule` per rule.
 
-    The header is written in natural relational form with a
-    trailing `where` clause binding each parameter to its type
-    via `∈`:
-    * 1 param  : `Name(p) where p ∈ T`
-    * 2 params : `p₁ Name p₂ where p₁ ∈ T₁, p₂ ∈ T₂` (infix)
-    * otherwise: `Name(p₁, …, pₙ) where p₁ ∈ T₁, …, pₙ ∈ Tₙ` -/
+    The header is written in natural relational form, mirroring
+    how the property is referenced in math:
+    * 1 param  : `Name(p)`
+    * 2 params : `p₁ Name p₂` (infix)
+    * otherwise: `Name(p₁, …, pₙ)`
+    A trailing `where` block then binds each parameter to its
+    type via `∈`, one row per parameter (mirroring `defStruct`),
+    so the param docs and types are easy to scan when there are
+    several. -/
 def formalDefLatex
     (p : InductivePropertyDef) (ctx : RenderCtx) : Latex :=
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{p.name}}\{}"
   let nameLatex : LatexMath := .text (.text p.name)
   let paramName (f : FieldDef) : LatexMath := .escaped f.name
-  let body : LatexMath := match p.params with
-    | [] => nameLatex
-    | [a] =>
-      .seq [nameLatex, .raw "(", paramName a, .raw ")"]
-    | [a, b] =>
-      .seq [paramName a, .raw "~", nameLatex, .raw "~",
-            paramName b]
-    | xs =>
-      let args := LatexMath.intercalate (.raw ", ")
-        (xs.map paramName)
-      .seq [nameLatex, .raw "(", args, .raw ")"]
-  let whereClause : LatexMath :=
-    if p.params.isEmpty then .raw ""
+  -- When a `displayed` template is supplied, use it for the
+  -- header (with arg references rendered as their parameter
+  -- name, since the `where`-block below introduces those names
+  -- explicitly). Otherwise fall back to the relational form.
+  let header : LatexMath := match p.display with
+    | some parts =>
+      .seq (parts.map fun
+        | .lit d => d.toLatexMath
+        | .arg name _ => .escaped name)
+    | none => match p.params with
+      | [] => nameLatex
+      | [a] =>
+        .seq [nameLatex, .raw "(", paramName a, .raw ")"]
+      | [a, b] =>
+        .seq [paramName a, .raw "~", nameLatex, .raw "~",
+              paramName b]
+      | xs =>
+        let args := LatexMath.intercalate (.raw ", ")
+          (xs.map paramName)
+        .seq [nameLatex, .raw "(", args, .raw ")"]
+  let whereBlock : Latex :=
+    if p.params.isEmpty then .seq []
     else
-      let bindings : LatexMath :=
-        LatexMath.intercalate (.raw ", ")
-          (p.params.map fun f =>
-            .seq [paramName f, .raw " \\in ",
-                  f.ty.toLatexMath (fun _ => false)])
-      .seq [.raw "\\quad\\text{where}\\quad ", bindings]
-  let header : LatexMath := .seq [body, whereClause]
+      let paramRows := p.params.map fun f =>
+        [ paramName f
+        , .seq [.raw " \\in ",
+                f.ty.toLatexMath (fun _ => false)]
+        , -- Wrap the description in a `\parbox` so long
+          -- param descriptions wrap onto multiple lines
+          -- instead of overflowing the array row, mirroring
+          -- the `defStruct` field-row layout.
+          .seq [.raw "~", .text (Latex.parbox
+            "\\dimexpr\\linewidth-9cm\\relax"
+            (.seq [.raw "(", f.doc.toLatex, .raw ")"]))]
+        ]
+      .seq [.raw "where", .newline,
+            .displayMath (.array none "rll" paramRows),
+            .newline]
   let prose : Latex := .seq [p.doc.toLatex, .newline]
   let defBlock : Latex :=
     .envOpts "definition" (.text p.docParam) (.seq [
       typeTarget, .newline,
-      .displayMath header, .newline ])
+      .displayMath header, .newline,
+      whereBlock ])
   let rulesBlock : Latex :=
     .seq (p.rules.map (ruleLatex ctx p.name)
       |>.intersperse .newline)
