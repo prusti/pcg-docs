@@ -106,19 +106,20 @@ class HypergraphForCoupling {
         );
     }
 
+    /** Returns true iff any source or target of `e` is in `nodeSet`. */
+    private edgeTouchesSet(e: InternalEdge, nodeSet: Set<string>): boolean {
+        return e.sources.some(s => nodeSet.has(s)) || e.targets.some(t => nodeSet.has(t));
+    }
+
     /**
      * Remove a set of nodes and all edges containing them
      */
     removeNodes(nodeSet: string[]): void {
         const nodesToRemove = new Set(nodeSet);
-        for (const n of nodesToRemove) {
+        for (const n of nodeSet) {
             this.nodes.delete(n);
         }
-        this.edges = this.edges.filter(e => {
-            const hasRemovedSource = e.sources.some(s => nodesToRemove.has(s));
-            const hasRemovedTarget = e.targets.some(t => nodesToRemove.has(t));
-            return !hasRemovedSource && !hasRemovedTarget;
-        });
+        this.edges = this.edges.filter(e => !this.edgeTouchesSet(e, nodesToRemove));
     }
 
     /**
@@ -232,11 +233,7 @@ class HypergraphForCoupling {
      */
     getExpiryEdges(frontier: string[]): InternalEdge[] {
         const frontierSet = new Set(frontier);
-        return this.edges.filter(e => {
-            const hasRemovedSource = e.sources.some(s => frontierSet.has(s));
-            const hasRemovedTarget = e.targets.some(t => frontierSet.has(t));
-            return hasRemovedSource || hasRemovedTarget;
-        });
+        return this.edges.filter(e => this.edgeTouchesSet(e, frontierSet));
     }
 
     isEmpty(): boolean {
