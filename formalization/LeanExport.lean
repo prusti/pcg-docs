@@ -141,6 +141,25 @@ private def reversePostorder (body : Body)
 import PCG.BorrowsGraph
 import PCG.PcgData
 ")
+  , (`OpSem.Soundness, .middle,
+"-- `entryStateAt`'s body uses infallible list indexing
+-- (`pdds[…]!`), which requires `Inhabited PcgDomainData`.
+-- `DomainData` and `PcgData` are generic, so the export
+-- doesn't auto-derive `Inhabited` for them; we provide a
+-- concrete inhabitant here. The `requires contains(ar, l)`
+-- precondition guarantees the index is always in bounds, so
+-- this default is never actually reached at runtime.
+private def defaultPcgData : PcgData Place :=
+  ⟨⟨mapEmpty⟩, ⟨[]⟩, ⟨0⟩, none⟩
+
+instance : Inhabited (PcgData Place) :=
+  ⟨defaultPcgData⟩
+
+instance : Inhabited PcgDomainData :=
+  ⟨⟨defaultPcgData,
+    ⟨defaultPcgData, defaultPcgData,
+     defaultPcgData, defaultPcgData⟩⟩⟩
+")
   ]
 
 -- ══════════════════════════════════════════════

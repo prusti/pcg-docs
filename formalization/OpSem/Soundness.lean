@@ -13,6 +13,28 @@ import PCG.PlaceCapability
 -- the LaTeX rendering displays the bare name.
 open Machine
 
+-- Source-only `Inhabited PcgDomainData` so the infallible
+-- list-indexing inside `entryStateAt` (`pdds[…]!`, expanded
+-- by the DSL macro) elaborates against the source `defStruct`
+-- chain — `DomainData`/`PcgData` are generic, so the export
+-- doesn't auto-derive `Inhabited` for them. The
+-- `requires contains(ar, l)` precondition guarantees the
+-- index is always in bounds, so the default value is never
+-- actually evaluated; we still provide a concrete inhabitant
+-- so eager elaboration can't trip on `sorry`. The Lean exporter
+-- mirrors this with an `extraLeanItems` entry so the generated
+-- project type-checks too.
+private def defaultPcgData : PcgData Place :=
+  ⟨⟨mapEmpty⟩, ⟨[]⟩, ⟨0⟩, none⟩
+
+private instance : Inhabited (PcgData Place) :=
+  ⟨defaultPcgData⟩
+
+private instance : Inhabited PcgDomainData :=
+  ⟨⟨defaultPcgData,
+    ⟨defaultPcgData, defaultPcgData,
+     defaultPcgData, defaultPcgData⟩⟩⟩
+
 /-! # Soundness statement
 
 This module is intentionally **not** part of the `OpSem` umbrella
@@ -113,15 +135,15 @@ defFn entryStateAt (.plain "entryStateAt")
     location ", .code "l", .plain " in analysis results ",
     .code "ar", .plain ": indexes the per-block list at the \
     location's statement index and returns the recorded \
-    entry state. ", .code "None", .plain " when the block \
-    has no recorded data or the statement index is out of \
-    range."])
+    entry state. The ", .code "contains",
+    .plain " precondition guarantees both lookups succeed."])
   (ar "The analysis results." : AnalysisResults)
   (l "The location to look up." : Location)
-  : Option (PcgData Place) :=
-    let pdds ← mapGet ‹ar, l↦block› ;
-    let pdd ← pdds !! l↦stmtIdx ;
-    Some pdd↦entryState
+  requires contains(ar, l)
+  : PcgData Place :=
+    let pdds := mapAt ‹ar, l↦block› ;
+    let pdd := pdds ! l↦stmtIdx ;
+    pdd↦entryState
 
 namespace Machine
 
@@ -165,21 +187,19 @@ defProperty Framing (.plain "Framing")
              ‹m, lean_proof("sorry")› ;
            validPlace ‹frame↦body, p› →
            validPlace ‹frame↦body, p'› →
-           match entryStateAt
-                  ‹ar, frame↦pc› with
-           | .some pcg =>
-               (getCapability ‹pcg, frame↦body, p,
-                               lean_proof("sorry")›
-                  = Some .exclusive) →
-               (getCapability ‹pcg, frame↦body, p',
-                               lean_proof("sorry")›
-                  = Some .exclusive) →
-               Machine.placeAllocation
-                   ‹m, p, lean_proof("sorry")›
-                 ≠ Machine.placeAllocation
-                     ‹m, p', lean_proof("sorry")›
-           | .none => True
-           end
+           contains ‹ar, frame↦pc› →
+           let pcg := entryStateAt
+             ‹ar, frame↦pc, lean_proof("sorry")› ;
+           (getCapability ‹pcg, frame↦body, p,
+                           lean_proof("sorry")›
+              = Some .exclusive) →
+           (getCapability ‹pcg, frame↦body, p',
+                           lean_proof("sorry")›
+              = Some .exclusive) →
+           Machine.placeAllocation
+               ‹m, p, lean_proof("sorry")›
+             ≠ Machine.placeAllocation
+                 ‹m, p', lean_proof("sorry")›
 
 defProperty Soundness (.plain "Soundness")
   short () =>
