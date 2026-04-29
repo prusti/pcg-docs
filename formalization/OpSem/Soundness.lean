@@ -179,31 +179,30 @@ defProperty Framing (.plain "Framing")
             places that the entry-state PCG at the machine's \
             program counter assigns the exclusive capability \
             are backed by distinct allocations.")
-  := ∀∀ pr ∈ Program, ∀∀ ar ∈ AnalysisResults,
+  := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
+        p p' ∈ Place .
        describes ‹ar, pr› →
-       ∀∀ m ∈ Machine,
-         Reachable
-           ‹initialMachine
-              ‹pr, lean_proof("sorry")›, m› →
-         Runnable ‹m› →
-         ∀∀ p ∈ Place, ∀∀ p' ∈ Place,
-           let frame := currentFrame
-             ‹m, lean_proof("sorry")› ;
-           validPlace ‹frame↦body, p› →
-           validPlace ‹frame↦body, p'› →
-           contains ‹ar, frame↦pc› →
-           let pcg := entryStateAt
-             ‹ar, frame↦pc, lean_proof("sorry")› ;
-           (getCapability ‹pcg, frame↦body, p,
-                           lean_proof("sorry")›
-              = Some .exclusive) →
-           (getCapability ‹pcg, frame↦body, p',
-                           lean_proof("sorry")›
-              = Some .exclusive) →
-           Machine.placeAllocation
-               ‹m, p, lean_proof("sorry")›
-             ≠ Machine.placeAllocation
-                 ‹m, p', lean_proof("sorry")›
+       Reachable
+         ‹initialMachine
+            ‹pr, lean_proof("sorry")›, m› →
+       Runnable ‹m› →
+       let frame := currentFrame
+         ‹m, lean_proof("sorry")› ;
+       validPlace ‹frame↦body, p› →
+       validPlace ‹frame↦body, p'› →
+       contains ‹ar, frame↦pc› →
+       let pcg := entryStateAt
+         ‹ar, frame↦pc, lean_proof("sorry")› ;
+       (getCapability ‹pcg, frame↦body, p,
+                       lean_proof("sorry")›
+          = Some .exclusive) →
+       (getCapability ‹pcg, frame↦body, p',
+                       lean_proof("sorry")›
+          = Some .exclusive) →
+       Machine.placeAllocation
+           ‹m, p, lean_proof("sorry")›
+         ≠ Machine.placeAllocation
+             ‹m, p', lean_proof("sorry")›
 
 defProperty Soundness (.plain "Soundness")
   short () =>
@@ -213,7 +212,7 @@ defProperty Soundness (.plain "Soundness")
             program, every machine state reachable from \
             its \\texttt{initialMachine} is non-stuck — \
             \\texttt{step} never produces an error result.")
-  := ∀∀ pr ∈ Program, ∀∀ m ∈ Machine,
+  := ∀∀ pr ∈ Program, m ∈ Machine .
        validProgram ‹pr› ∧
        pcgAnalysisSucceeds ‹pr› ∧
        Reachable

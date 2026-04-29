@@ -1025,7 +1025,7 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
   | .and (_, l) (_, r) => pure (.binOp .and l r)
   | .or (_, l) (_, r) => pure (.binOp .or l r)
   | .implies _ _ => pure (.raw "/* implication omitted */")
-  | .forall_ _ _ _ => pure (.raw "/* forall omitted */ true")
+  | .forall_ _ _ => pure (.raw "/* forall omitted */ true")
   -- A `sorry` / `lean_proof` term in value position
   -- (a match-arm RHS, a `let`-binder body, etc.) becomes
   -- `unreachable!()` in Rust: the precondition that justifies

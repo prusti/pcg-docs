@@ -81,13 +81,18 @@ inductive DslExpr where
   | or (lhs : DslExpr) (rhs : DslExpr)
   /-- Implication: `lhs → rhs`. -/
   | implies (lhs : DslExpr) (rhs : DslExpr)
-  /-- Universal quantifier: `∀ x, body`, or
-      `∀ x ∈ T, body` when `typeName` is `some T`. The
-      type, when present, renders as `∀ x ∈ T, body` in
-      LaTeX and as `∀ (x : T), body` in Lean. The `typeName`
-      is the bare name of an existing type (e.g. `Program`,
-      `Machine`); it is not parsed further. -/
-  | forall_ (param : String) (typeName : Option String)
+  /-- Universal quantifier with one or more binder groups:
+      `∀ b₁, b₂, …, bₙ, body`. Each group is a non-empty
+      list of variables sharing an optional type annotation:
+      `(["pr"], some "Program")` renders as `pr ∈ Program`,
+      `(["p", "p'"], some "Place")` renders as `p p' ∈ Place`,
+      and `(["x"], none)` renders as a bare `x`. The LaTeX
+      backend produces `∀ pr ∈ Program, ar ∈ AnalysisResults,
+      p p' ∈ Place, body`; the Lean backend produces
+      `∀ (pr : Program) (ar : AnalysisResults) (p p' : Place),
+      body`. Type names are bare references to existing types
+      (e.g. `Program`, `Machine`); they are not parsed further. -/
+  | forall_ (binders : List (List String × Option String))
       (body : DslExpr)
   /-- Proof placeholder: `sorry`. Used when calling
       a function with preconditions from another
@@ -175,7 +180,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .dot e m => .dot (f e) m
   | .field e n => .field (f e) n
   | .setSingleton e => .setSingleton (f e)
-  | .forall_ p ty b => .forall_ p ty (f b)
+  | .forall_ bs b => .forall_ bs (f b)
   -- Binary
   | .lambda p b => .lambda p (f b)
   | .cons h t => .cons (f h) (f t)
@@ -663,16 +668,27 @@ partial def toDoc
   | .and l r => .seq [go l, .sym .land, go r]
   | .or l r => .seq [go l, .sym .lor, go r]
   | .implies l r => .seq [go l, .sym .implies, go r]
-  | .forall_ p ty b =>
-    match ty with
-    | none =>
-      .seq [.sym .forall_, .raw p, .sym .comma, go b]
-    | some t =>
-      -- The type name renders as upright `\text{T}` (matching
-      -- how named types appear in `Reachable`-style captions),
-      -- while the bound variable stays italic via `.raw`.
-      .seq [.sym .forall_, .raw p, .sym .setContains,
-            .text t, .sym .comma, go b]
+  | .forall_ binders b =>
+    -- One leading `\forall`, then each group rendered as
+    -- `x` / `x ∈ T` / `x y z ∈ T`, separated by `,`. The
+    -- binder list is separated from the body by `.`, matching
+    -- the DSL surface syntax (`∀∀ … . body`). Type names
+    -- render as upright `\text{T}` (matching how named types
+    -- appear in `Reachable`-style captions); bound variables
+    -- stay italic via `.raw`.
+    let renderGroup : List String × Option String → MathDoc :=
+      fun (vars, ty) =>
+        let varDocs : List MathDoc :=
+          vars.map (fun v => .raw v)
+            |>.intersperse (.sym .space)
+        match ty with
+        | none => .seq varDocs
+        | some t =>
+          .seq (varDocs ++ [.sym .setContains, .text t])
+    let groupDocs := binders.map renderGroup
+    .seq [.sym .forall_,
+          mathIntercalate (.sym .comma) groupDocs,
+          rawMath "~.~", go b]
   | .sorryProof => .seq []
   | .leanProof _ => .seq []
   | .match_ scrut arms =>

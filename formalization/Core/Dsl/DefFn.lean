@@ -128,12 +128,21 @@ syntax:30 fnExpr:31 " ∨ " fnExpr:30 : fnExpr
 -- looser than `∨` so `a ∨ b → c ∨ d` parses as
 -- `(a ∨ b) → (c ∨ d)`.
 syntax:25 fnExpr:26 " → " fnExpr:25 : fnExpr
--- Universal quantifier: ∀ ident, expr
-syntax "∀∀" ident "," fnExpr : fnExpr
--- Universal quantifier with explicit type domain:
--- `∀∀ p ∈ Type, body` — renders as `∀ p ∈ Type, body` in
--- LaTeX and `∀ (p : Type), body` in Lean.
-syntax "∀∀" ident " ∈ " ident "," fnExpr : fnExpr
+-- Universal-quantifier binder group:
+--   * `x` — a single untyped variable.
+--   * `x y z ∈ T` — one or more variables sharing a type.
+declare_syntax_cat fnForallGroup
+syntax (name := fnForallGroupUntyped) ident : fnForallGroup
+syntax (name := fnForallGroupTyped) ident+ " ∈ " ident
+  : fnForallGroup
+
+-- Universal quantifier with one or more comma-separated
+-- binder groups followed by `.` and the body:
+--   `∀∀ pr ∈ Program, ar ∈ AnalysisResults, p p' ∈ Place . body`
+-- LaTeX renders as `∀ pr ∈ Program, ar ∈ AnalysisResults,
+-- p p' ∈ Place, body`; Lean renders as
+-- `∀ (pr : Program) (ar : AnalysisResults) (p p' : Place), body`.
+syntax "∀∀" sepBy1(fnForallGroup, ", ") " . " fnExpr : fnExpr
 -- Proof placeholder
 syntax "sorry" : fnExpr
 -- Raw Lean proof term (invisible in Rust/LaTeX)
@@ -411,13 +420,24 @@ partial def parseExpr
     pure (.or (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr → $r:fnExpr) =>
     pure (.implies (← parseExpr l) (← parseExpr r))
-  | `(fnExpr| ∀∀ $p:ident , $b:fnExpr) =>
-    pure (.forall_ (toString p.getId) none
-      (← parseExpr b))
-  | `(fnExpr| ∀∀ $p:ident ∈ $t:ident , $b:fnExpr) => do
-    recordIdentRef t t.getId
-    pure (.forall_ (toString p.getId)
-      (some (toString t.getId)) (← parseExpr b))
+  | `(fnExpr| ∀∀ $groups:fnForallGroup,* . $b:fnExpr) => do
+    -- Each binder group is either a single untyped ident or
+    -- one-or-more idents sharing a type via `∈ T`. The typed
+    -- form additionally records `T` in the ident-ref tracker so
+    -- the IDE-style cross-reference index stays accurate.
+    let parsed ← groups.getElems.toList.mapM
+      fun (g : Lean.TSyntax `fnForallGroup) =>
+        match g with
+        | `(fnForallGroup| $x:ident) =>
+          pure (([toString x.getId] : List String),
+                (none : Option String))
+        | `(fnForallGroup| $xs:ident* ∈ $t:ident) => do
+          recordIdentRef t t.getId
+          let names := xs.toList.map
+            fun (x : Lean.TSyntax `ident) => toString x.getId
+          pure (names, some (toString t.getId))
+        | _ => throwError s!"unexpected forall group"
+    pure (.forall_ parsed (← parseExpr b))
   | `(fnExpr| sorry) => pure .sorryProof
   | `(fnExpr| lean_proof($s:str)) =>
     pure (.leanProof s.getString)

@@ -186,9 +186,13 @@ inductive LeanExpr where
   /-- Bounded `∀ x ∈ s, body`. -/
   | forallIn (binder : String) (set : LeanExpr)
              (body : LeanExpr)
-  /-- `∀ x, body` (when `type` is `none`) or
-      `∀ (x : T), body` (when `type` is `some T`). -/
-  | forall_ (binder : String) (type : Option String)
+  /-- `∀ b₁ b₂ … bₙ, body` where each binder group is a list
+      of variable names sharing an optional type annotation.
+      An untyped group `(["x"], none)` renders as `x`; a typed
+      group `(["x"], some T)` renders as `(x : T)`; a shared-
+      type group `(["x", "y"], some T)` renders as
+      `(x y : T)`. -/
+  | forall_ (binders : List (List String × Option String))
             (body : LeanExpr)
   /-- `match scrut with | … => …`. -/
   | match_ (scrut : LeanExpr) (arms : List LeanMatchArm)
@@ -298,10 +302,16 @@ partial def LeanExpr.toString : LeanExpr → String
         s!"{l.toString} {opStr op} {r.toString}")
   | .forallIn binder set body =>
     s!"∀ {binder} ∈ {set.toString}, {body.toString}"
-  | .forall_ binder none body =>
-    s!"∀ {binder}, {body.toString}"
-  | .forall_ binder (some ty) body =>
-    s!"∀ ({binder} : {ty}), {body.toString}"
+  | .forall_ binders body =>
+    let groupStr (vars : List String) (ty : Option String)
+        : String :=
+      let varsStr := " ".intercalate vars
+      match ty with
+      | none => varsStr
+      | some t => s!"({varsStr} : {t})"
+    let bindersStr :=
+      " ".intercalate (binders.map fun ⟨vs, ty⟩ => groupStr vs ty)
+    s!"∀ {bindersStr}, {body.toString}"
   | .match_ scrut arms =>
     let armStrs := arms.map fun
       | .mk pats rhs =>

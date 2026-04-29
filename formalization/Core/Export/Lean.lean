@@ -176,7 +176,7 @@ private def toLeanASTAlg
   | .and l r => .binop "∧" l r
   | .or l r => .binop "∨" l r
   | .implies l r => .binop "→" l r
-  | .forall_ p ty b => .forall_ p ty b
+  | .forall_ binders b => .forall_ binders b
   | .sorryProof => .raw "sorry"
   | .leanProof t => .raw t
   | .match_ scrut arms =>
@@ -587,7 +587,7 @@ private def calledNamesAlg :
   | .and (_, l) (_, r) => l ++ r
   | .or (_, l) (_, r) => l ++ r
   | .implies (_, l) (_, r) => l ++ r
-  | .forall_ _ _ (_, b) => b
+  | .forall_ _ (_, b) => b
   | .match_ (_, scrut) arms =>
     scrut ++ arms.flatMap (fun (_, (_, rhs)) => rhs)
   | .letIn _ (_, v) (_, b) => v ++ b

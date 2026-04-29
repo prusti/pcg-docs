@@ -75,7 +75,7 @@ defProperty validMemory (.plain "validMemory")
            end address of allocation i is strictly less \
            than the start address of allocation j"])
   (m "The memory." : Memory)
-  := ∀∀ i, ∀∀ j, i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address
+  := ∀∀ i, j . i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address
 
 def sub := @Nat.sub
 
