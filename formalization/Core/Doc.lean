@@ -131,6 +131,16 @@ mutual
     /-- Concatenation of mathematical documents. -/
     | seq (ds : List MathDoc)
     | space
+    /-- Soft line break (presentation-only). The LaTeX
+        backend lifts a `seq` containing breaks into a
+        single-column array environment so each break
+        renders as an actual line. Plain-text / Typst /
+        HTML backends render this as a space. -/
+    | break_
+    /-- Indent the wrapped content by `n` half-em units.
+        LaTeX renders as `\hskip{n*0.5em}`; other backends
+        pass `body` through. -/
+    | indent (n : Nat) (body : MathDoc)
     deriving Repr
 
   /-- A backend-agnostic document fragment.
@@ -267,6 +277,10 @@ partial def containsAutoSize : MathDoc → Bool
   | .widetilde d | .hat d => d.containsAutoSize
   | .sub b s => b.containsAutoSize || s.containsAutoSize
   | .sym _ => false
+  -- A `seq` containing `.break_` lifts to `\begin{array}`,
+  -- so its surrounding parens must grow.
+  | .break_ => true
+  | .indent _ body => body.containsAutoSize
 
 /-- Wrap a math doc in parentheses. Switches to LaTeX
     `\left(`/`\right)` when the content contains a
@@ -416,6 +430,8 @@ mutual
     | .sub base s =>
       s!"{mathToPlainText base}_{mathToPlainText s}"
     | .seq ds => String.join (ds.map mathToPlainText)
+    | .break_ => " "
+    | .indent _ body => mathToPlainText body
 end
 
 mutual
@@ -455,6 +471,8 @@ mutual
     | .sub base s =>
       s!"{mathToTypst base}_({mathToTypst s})"
     | .seq ds => String.join (ds.map mathToPlainText)
+    | .break_ => " "
+    | .indent _ body => mathToTypst body
 end
 
 mutual
@@ -536,6 +554,8 @@ mutual
     | .sub base s =>
       s!"{mathToHTML base}<sub>{mathToHTML s}</sub>"
     | .seq ds => String.join (ds.map mathToHTML)
+    | .break_ => "<br>\n"
+    | .indent _ body => mathToHTML body
 end
 
 end Doc

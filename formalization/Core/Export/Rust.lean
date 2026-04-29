@@ -1112,6 +1112,9 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
     pure (.structInit path
       [(⟨toSnakeCase fieldName⟩, rustVal)]
       (some (.clone rustRecv)))
+  -- Formatting hints are presentation-only; the Rust export
+  -- transparently passes the recursively-lowered body through.
+  | .formatHint _ (_, body) => pure body
 
 /-- Convert a `DslExpr` to a typed `RustExpr` in the
     `FreshM` monad (for generating fresh variable names). -/

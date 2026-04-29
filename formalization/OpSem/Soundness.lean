@@ -183,22 +183,22 @@ defProperty Framing (.plain "Framing")
             do not overlap.")
   := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
         p p' ∈ Place .
-       describes ‹ar, pr› →
-       Reachable
+       ‹break› describes ‹ar, pr› →
+       ‹break› Reachable
          ‹initialMachine
             ‹pr, lean_proof("sorry")›, m› →
-       Runnable ‹m› →
-       let frame := currentFrame
+       ‹break› Runnable ‹m› →
+       ‹break› let frame := currentFrame
          ‹m, lean_proof("sorry")› ;
-       validPlace ‹frame↦body, p› →
-       validPlace ‹frame↦body, p'› →
-       contains ‹ar, frame↦pc› →
-       let pcg := entryStateAt
+       ‹break› validPlace ‹frame↦body, p› →
+       ‹break› validPlace ‹frame↦body, p'› →
+       ‹break› contains ‹ar, frame↦pc› →
+       ‹break› let pcg := entryStateAt
          ‹ar, frame↦pc, lean_proof("sorry")› ;
-       (getCapability ‹pcg, frame↦body, p,
+       ‹break› (getCapability ‹pcg, frame↦body, p,
                        lean_proof("sorry")›
           = Some .exclusive) →
-       (getCapability ‹pcg, frame↦body, p',
+       ‹break› (getCapability ‹pcg, frame↦body, p',
                        lean_proof("sorry")›
           = Some .exclusive) →
        -- ∃ a a' : Allocation,
@@ -209,7 +209,7 @@ defProperty Framing (.plain "Framing")
        -- expressed as a nested match: when either lookup fails
        -- the conclusion is `false`, otherwise the witnesses
        -- `a`, `a'` are the result-bound match patterns.
-       match Machine.placeAllocation
+       ‹break› match Machine.placeAllocation
                ‹m, p, lean_proof("sorry")› with
        | .some a =>
            match Machine.placeAllocation
@@ -237,26 +237,26 @@ defProperty NoAlias (.plain "NoAlias")
             without needing a negation operator in the DSL.")
   := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
         p p' ∈ Place, a1 a2 ∈ Allocation .
-       describes ‹ar, pr› →
-       Reachable
+       ‹break› describes ‹ar, pr› →
+       ‹break› Reachable
          ‹initialMachine
             ‹pr, lean_proof("sorry")›, m› →
-       Runnable ‹m› →
-       let frame := currentFrame
+       ‹break› Runnable ‹m› →
+       ‹break› let frame := currentFrame
          ‹m, lean_proof("sorry")› ;
-       validPlace ‹frame↦body, p› →
-       validPlace ‹frame↦body, p'› →
-       contains ‹ar, frame↦pc› →
-       let pcg := entryStateAt
+       ‹break› validPlace ‹frame↦body, p› →
+       ‹break› validPlace ‹frame↦body, p'› →
+       ‹break› contains ‹ar, frame↦pc› →
+       ‹break› let pcg := entryStateAt
          ‹ar, frame↦pc, lean_proof("sorry")› ;
-       (Machine.placeAllocation
+       ‹break› (Machine.placeAllocation
             ‹m, p, lean_proof("sorry")›
           = Some a1) →
-       (Machine.placeAllocation
+       ‹break› (Machine.placeAllocation
             ‹m, p', lean_proof("sorry")›
           = Some a2) →
-       connected ‹pcg, placeNode ‹p›, placeNode ‹p'›› ∨
-       Allocation.nonOverlapping ‹a1, a2›
+       ‹break› connected ‹pcg, placeNode ‹p›, placeNode ‹p'›› ∨
+       ‹break› Allocation.nonOverlapping ‹a1, a2›
 
 defProperty Soundness (.plain "Soundness")
   short () =>
@@ -267,17 +267,17 @@ defProperty Soundness (.plain "Soundness")
             its \\texttt{initialMachine} is non-stuck — \
             \\texttt{step} never produces an error result.")
   := ∀∀ pr ∈ Program, m ∈ Machine .
-       validProgram ‹pr› ∧
-       pcgAnalysisSucceeds ‹pr› ∧
-       Reachable
+       ‹break› validProgram ‹pr› ∧
+       ‹break› pcgAnalysisSucceeds ‹pr› ∧
+       ‹break› Reachable
          -- The `validProgram` conjunct on the LHS is
          -- proof-irrelevant for `initialMachine`, so
          -- injecting `sorry` here gives the same `Machine`
          -- term as any concrete proof would.
          ‹initialMachine
             ‹pr, lean_proof("sorry")›, m› ∧
-       Runnable ‹m›
+       ‹break› Runnable ‹m›
        -- Same proof-irrelevance argument as above for the
        -- `Runnable` precondition of `step`.
-       → step ‹m, lean_proof("sorry")›
+       → ‹break› step ‹m, lean_proof("sorry")›
            ≠ StepResult.done‹.error›

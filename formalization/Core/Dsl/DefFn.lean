@@ -147,6 +147,15 @@ syntax "∀∀" sepBy1(fnForallGroup, ", ") " . " fnExpr : fnExpr
 syntax "sorry" : fnExpr
 -- Raw Lean proof term (invisible in Rust/LaTeX)
 syntax "lean_proof(" str ")" : fnExpr
+-- Presentation-only formatting hint: a soft line break
+-- inserted before the next expression in the LaTeX
+-- rendering. The Lean and Rust exports pass the wrapped
+-- expression through unchanged. Authored as a prefix marker:
+--     a → ‹break› b → ‹break› c
+-- The wrapped sub-expression is parsed at prec 51 so binary
+-- operators (`→` at 25, `∧` at 35, …) stop at the marker and
+-- the chain right-associates as `a → ((‹break› b) → (‹break› c))`.
+syntax "‹break›" fnExpr:51 : fnExpr
 
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
@@ -441,6 +450,8 @@ partial def parseExpr
   | `(fnExpr| sorry) => pure .sorryProof
   | `(fnExpr| lean_proof($s:str)) =>
     pure (.leanProof s.getString)
+  | `(fnExpr| ‹break› $e:fnExpr) =>
+    pure (.formatHint .break_ (← parseExpr e))
   | `(fnExpr| match $scrut:fnExpr with
         $arms:fnArm* end) => do
     let scrutAst ← parseExpr scrut

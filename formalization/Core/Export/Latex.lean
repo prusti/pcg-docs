@@ -394,6 +394,11 @@ mutual
     | .sub base s =>
       .inlineMath (.sub base.toLatexMath s.toLatexMath)
     | .seq ds => .seq (ds.map MathDoc.toLatex)
+    -- A standalone break in text-mode context is a newline; in
+    -- practice breaks are always emitted inside a `seq` whose
+    -- math-mode lifting handles the row split.
+    | .break_ => .newline
+    | .indent _ body => MathDoc.toLatex body
 
   /-- Convert `Doc` to math-mode `LatexMath` AST. -/
   partial def Doc.toLatexMath : Doc → LatexMath
@@ -417,7 +422,11 @@ mutual
       .text (.cmd "dashuline" [body.toLatex])
     | .math m => MathDoc.toLatexMath m
 
-  /-- Convert `MathDoc` to math-mode `LatexMath` AST. -/
+  /-- Convert `MathDoc` to math-mode `LatexMath` AST.
+      A `seq` whose direct children include any `break_`
+      lifts to a single-column `\begin{array}{@{}l@{}}` so
+      the breaks render as actual line breaks; otherwise
+      `seq` lowers to `LatexMath.seq` as before. -/
   partial def MathDoc.toLatexMath : MathDoc → LatexMath
     | .raw s => .escaped s
     | .space => .raw "~"
@@ -431,7 +440,49 @@ mutual
     | .hat d => .hat d.toLatexMath
     | .sub base s =>
       .sub base.toLatexMath s.toLatexMath
-    | .seq ds => .seq (ds.map MathDoc.toLatexMath)
+    | .seq ds =>
+      -- Flatten nested seqs so a `break_` introduced inside a
+      -- formatHint wrapper bubbles up to the enclosing seq;
+      -- otherwise each formatHint nest would emit its own
+      -- single-row array instead of all rows sharing one
+      -- outer array.
+      let rec flatten : List MathDoc → List MathDoc
+        | [] => []
+        | .seq inner :: rest => flatten inner ++ flatten rest
+        | x :: rest => x :: flatten rest
+      let flat := flatten ds
+      let hasBreak := flat.any fun
+        | .break_ => true | _ => false
+      if hasBreak then
+        -- Split flattened children at each `break_` into row
+        -- chunks, dropping any leading empty chunk so a `seq`
+        -- whose first element is a `break_` doesn't render an
+        -- empty first row.
+        let rec splitRows (acc : List MathDoc)
+            (rows : List (List MathDoc)) :
+            List MathDoc → List (List MathDoc)
+          | [] => rows ++ [acc.reverse]
+          | .break_ :: rest =>
+            splitRows [] (rows ++ [acc.reverse]) rest
+          | x :: rest =>
+            splitRows (x :: acc) rows rest
+        let chunks := (splitRows [] [] flat).filter
+          (fun c => !c.isEmpty)
+        let rows : List (List LatexMath) :=
+          chunks.map fun c =>
+            [LatexMath.seq (c.map MathDoc.toLatexMath)]
+        .array none "@{}l@{}" rows
+      else .seq (flat.map MathDoc.toLatexMath)
+    -- A standalone `break_` outside a `seq` has no row context
+    -- to live in; pass through as a literal `\\` row break and
+    -- rely on the surrounding context (typically an array
+    -- emitted by the seq case above) to make sense of it.
+    | .break_ => .raw "\\\\"
+    | .indent n body =>
+      -- `n` half-em units of horizontal space.
+      let prefix_ := String.intercalate " "
+        (List.replicate n "\\hskip 0.5em")
+      .seq [.raw (prefix_ ++ " "), body.toLatexMath]
 end
 
 namespace Doc

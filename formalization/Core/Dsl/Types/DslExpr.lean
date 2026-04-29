@@ -1,5 +1,6 @@
 import Core.Export.Latex
 import Core.Dsl.DeriveQuote
+import Core.Dsl.Types.FormatHint
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.BodyPat
@@ -136,6 +137,11 @@ inductive DslExpr where
       context (function parameters) at codegen time. -/
   | structUpdate (recv : DslExpr) (fieldName : String)
       (newValue : DslExpr)
+  /-- Presentation-only formatting hint. The LaTeX renderer
+      consumes the hint (e.g. inserts a soft line break);
+      Lean and Rust translations pass `body` through
+      unchanged. -/
+  | formatHint (hint : FormatHint) (body : DslExpr)
   deriving Repr, Inhabited, Lean.Quote
 
 -- Generate `DslExprF`, `project`, `embed`, `map`, `mapM`, `cata`, `cataM`,
@@ -211,6 +217,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .letBindIn p v b => .letBindIn p (f v) (f b)
   | .ifThenElse c t e => .ifThenElse (f c) (f t) (f e)
   | .foldlM fn init list => .foldlM (f fn) (f init) (f list)
+  | .formatHint h b => .formatHint h (f b)
   -- List children
   | .mkStruct n args => .mkStruct n (args.map f)
   | .call fn args => .call (f fn) (args.map f)
@@ -744,5 +751,18 @@ partial def toDoc
     .seq [ go recv, MathDoc.bracket
              (.seq [MathDoc.text fieldName, .sym .mapsto,
                     go newValue]) ]
+  | .formatHint hint body =>
+    -- Emit a math-mode break / indent before the wrapped
+    -- body. The Latex-side `seq`-with-breaks lowering lifts
+    -- the surrounding sequence into a single-column array
+    -- so the break renders as a real line. When the
+    -- enclosing renderer disallows breaks (e.g. `inferrule`
+    -- conclusions), the wrapper falls back to rendering the
+    -- body unchanged.
+    if !ctx.allowBreak then go body
+    else match hint with
+      | .break_ => .seq [.break_, go body]
+      | .indent n => .indent n (go body)
+      | .breakIndent n => .seq [.break_, .indent n (go body)]
 
 end DslExpr

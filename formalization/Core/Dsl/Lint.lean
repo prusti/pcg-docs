@@ -107,6 +107,7 @@ private def directChildren : DslExpr → List DslExpr
   | .ineqChain _ es => es
   | .match_ s arms => s :: arms.map (·.2)
   | .structUpdate r _ v => [r, v]
+  | .formatHint _ b => [b]
 
 /-- Lint diagnostics for `e` and every sub-expression. -/
 partial def lintExpr (e : DslExpr) : List Diagnostic :=

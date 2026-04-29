@@ -95,13 +95,17 @@ private def exprLatex
 private def ruleLatex
     (ctx : RenderCtx) (fnName : String) (r : InductiveRule)
     : Latex :=
+  -- `\inferrule*` premises and conclusion sit inside `}{…}`
+  -- braces; multi-line content there breaks the macro. Disable
+  -- formatting-hint breaks for both via `allowBreak := false`.
+  let inlineCtx := { ctx with allowBreak := false }
   let premiseLines : List LatexMath :=
-    r.premises.map (exprLatex ctx fnName)
+    r.premises.map (exprLatex inlineCtx fnName)
   let premises : LatexMath :=
     if r.premises.isEmpty then .raw ""
     else
       LatexMath.intercalate (.raw " \\\\ ") premiseLines
-  let conclusion : LatexMath := exprLatex ctx fnName r.conclusion
+  let conclusion : LatexMath := exprLatex inlineCtx fnName r.conclusion
   let inference : LatexMath :=
     -- The `Right=` label of `\inferrule*` is rendered in text
     -- mode, so use a raw plain string for the rule name.

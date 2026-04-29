@@ -195,6 +195,9 @@ private def toLeanASTAlg
     .dot list "any" [.lambda param body]
   | .structUpdate recv fieldName value =>
     .recordUpdate recv fieldName value
+  -- Formatting hints are presentation-only; the Lean export
+  -- transparently passes the recursively-lowered body through.
+  | .formatHint _ body => body
 
 /-- Lower a `DslExpr` to a `LeanExpr`.
     `selfName` is the current function name (for
@@ -599,6 +602,7 @@ private def calledNamesAlg :
   | .memberOf (_, l) (_, r) => l ++ r
   | .anyList (_, l) _ (_, b) => l ++ b
   | .structUpdate (_, recv) _ (_, value) => recv ++ value
+  | .formatHint _ (_, body) => body
 
 /-- Collect all function/method names called. -/
 def calledNames (e : DslExpr) : List String :=

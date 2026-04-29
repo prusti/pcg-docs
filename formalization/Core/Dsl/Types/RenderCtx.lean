@@ -67,3 +67,10 @@ structure RenderCtx where
       to make the in-process Lean call type-check). Defaults
       to `0` for unknown names. -/
   fnPrecondCount : String → Nat := fun _ => 0
+  /-- Whether the current rendering context permits soft line
+      breaks emitted via `‹break›` formatting hints. False
+      inside `\inferrule*` conclusions and other constructs
+      that can't span multiple lines; the `formatHint`
+      renderer falls back to rendering the wrapped body
+      without the surrounding break. -/
+  allowBreak : Bool := true
