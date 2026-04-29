@@ -181,10 +181,13 @@ elab_rules : command
     if DslLint.matchIsIrrefutable armsList then
       Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     let params := paramToLeanBinders paramData
+    -- Rewrite each arm's RHS so a top-level
+    -- `A₁ ∧ … ∧ Aₙ → G` becomes a named-binder Pi chain;
+    -- mirrors `elabExprProperty`. No-op for atomic Prop arms.
     let armASTs : List LeanMatchArm :=
       parsed.toList.map fun (patAst, rhsAst) =>
         .mk (patAst.toList.map BodyPat.toLeanAST)
-            rhsAst.toLeanAST
+            rhsAst.bindAntecedentNames.toLeanAST
     let lastIsCatchAll := match parsed.back? with
       | some (pats, _) => pats.all fun p =>
           match p with
@@ -214,7 +217,15 @@ elab_rules : command
 -- ══════════════════════════════════════════════
 
 open Lean Elab Command Term in
-/-- Shared elaboration for expression-bodied properties. -/
+/-- Shared elaboration for expression-bodied properties.
+
+    For the in-tree Lean elaboration, the antecedent of a
+    `∀ vars, A₁ ∧ … ∧ Aₙ → G` body is rewritten into a chain
+    of named `(hᵢ : Aᵢ)` Pi binders (see
+    `DslExpr.bindAntecedentNames`) so each conjunct's proof is
+    in scope for any `lean_proof("hᵢ")` reference. The DSL
+    registry entry retains the original AST so the LaTeX
+    rendering still shows the conjunction. -/
 private def elabExprProperty
     (name : Ident)
     (symDoc : TSyntax `term)
@@ -227,7 +238,8 @@ private def elabExprProperty
     (display : Option (TSyntax `term) := none)
     : CommandElabM Unit := do
   let params := paramToLeanBinders paramData
-  let body := LeanAST.LeanFnBody.expr rhsAst.toLeanAST
+  let body :=
+    LeanAST.LeanFnBody.expr rhsAst.bindAntecedentNames.toLeanAST
   elabPropertyDecl name params body
   let bodyTerm ←
     `(FnBody.expr $(quote rhsAst))

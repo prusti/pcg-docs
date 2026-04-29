@@ -324,14 +324,17 @@ defProperty Soundness (.plain "Soundness")
        ‹break› validProgram ‹pr› ∧
        ‹break› pcgAnalysisSucceeds ‹pr› ∧
        ‹break› Reachable
-         -- The `validProgram` conjunct on the LHS is
-         -- proof-irrelevant for `initialMachine`, so
-         -- injecting `sorry` here gives the same `Machine`
-         -- term as any concrete proof would.
+         -- The DSL lowers a top-level `A₁ ∧ … ∧ Aₙ → G`
+         -- antecedent to a chain of named `(hᵢ : Aᵢ)` Pi
+         -- binders (see `DslExpr.bindAntecedentNames`), so
+         -- each conjunct's proof is in scope downstream by
+         -- the auto-derived name `h_<head>`. The first
+         -- conjunct here, `validProgram pr`, gives the
+         -- binder `h_validProgram`.
          ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m› ∧
+            ‹pr, lean_proof("h_validProgram")›, m› ∧
        ‹break› Runnable ‹m›
-       -- Same proof-irrelevance argument as above for the
-       -- `Runnable` precondition of `step`.
-       → ‹break› step ‹m, lean_proof("sorry")›
+       -- And the fourth conjunct gives `h_Runnable`, in
+       -- scope for `step`'s precondition on the goal side.
+       → ‹break› step ‹m, lean_proof("h_Runnable")›
            ≠ StepResult.done‹.error›

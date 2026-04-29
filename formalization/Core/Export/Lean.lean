@@ -459,11 +459,93 @@ def toLean
 
 end FnDef
 
+namespace DslExpr
+
+/-- Flatten a right-associated `And` chain into the list of
+    its conjuncts. `A ∧ B ∧ C` becomes `[A, B, C]`; a non-`And`
+    expression becomes a singleton list. -/
+private partial def flattenAnd : DslExpr → List DslExpr
+  | .and l r => l :: flattenAnd r
+  | e => [e]
+
+/-- Extract a name suggestion from the head of `e` — the
+    callee of a function-call expression or the identifier
+    itself. Peels off `formatHint` wrappers (the `‹break›`
+    hint, etc.) so a hinted antecedent still surfaces its
+    underlying head. Returns `none` for shapes
+    (like `=`/`≠`/literals) where no obvious "head" exists. -/
+private partial def headIdent? : DslExpr → Option String
+  | .call (.var n) _ => some n
+  | .var n => some n
+  | .formatHint _ body => headIdent? body
+  | _ => none
+
+/-- Pick a fresh `h_<head>` binder name for the i-th conjunct,
+    falling back to `h_pre<i>` if the head can't be extracted
+    and to `h_<head><i>` to disambiguate from earlier names. -/
+private def conjunctBinderName
+    (used : List String) (e : DslExpr) (i : Nat) : String :=
+  let base := match headIdent? e with
+    | some n => s!"h_{n}"
+    | none => s!"h_pre{i}"
+  if used.contains base then s!"{base}{i}" else base
+
+/-- Rewrite `∀ vars, A₁ ∧ A₂ ∧ … ∧ Aₙ → G` into the
+    named-binder Pi chain
+    `∀ vars (h₁ : A₁) (h₂ : A₂) … (hₙ : Aₙ), G`. Each `hᵢ` is
+    auto-named from `Aᵢ`'s head identifier (see
+    `conjunctBinderName`); the conjunct's rendered Lean source
+    becomes the binder's `typeName`, so a later occurrence of
+    `lean_proof("h₁")` in the goal or in a later antecedent
+    resolves to a real hypothesis instead of `sorry`.
+
+    Walks through leading `forall_` binders so the rewrite
+    reaches the eventual implication. No-op when the body
+    isn't of `∀ …, A ∧ … → G` shape — the transformation is
+    targeted at `defProperty` bodies that opt into the four-
+    conjunct style; other shapes pass through unchanged. -/
+partial def bindAntecedentNames : DslExpr → DslExpr
+  | .forall_ binders body =>
+    .forall_ binders (bindAntecedentNames body)
+  | .implies (.and l r) goal =>
+    let antecedents := flattenAnd (.and l r)
+    let assignNames :
+        List String × List String → DslExpr × Nat →
+        List String × List String :=
+      fun (used, acc) (e, i) =>
+        let name := conjunctBinderName used e i
+        (name :: used, name :: acc)
+    let (_, namesRev) :=
+      antecedents.zipIdx.foldl assignNames ([], [])
+    let names := namesRev.reverse
+    -- Each conjunct becomes its own one-element binder group
+    -- so the resulting Pi chain is rendered as a sequence of
+    -- `(hᵢ : Aᵢ)` Lean binders.
+    (names.zip antecedents).foldr
+      (fun (name, conjunct) acc =>
+        .forall_ [([name], some conjunct.toLean)] acc)
+      goal
+  | e => e
+
+end DslExpr
+
 namespace PropertyDef
 
-/-- Lower a property to a `LeanDecl`. -/
+/-- Lower a property to a `LeanDecl`. The body is rewritten
+    so that a top-level `A₁ ∧ … ∧ Aₙ → G` antecedent becomes
+    a chain of named `(hᵢ : Aᵢ)` Pi binders — each
+    precondition's proof is then in scope for any
+    `lean_proof("hᵢ")` reference inside `G` or in a later
+    antecedent. The DSL `FnBody` registry entry is left
+    untouched, so the LaTeX renderer continues to display
+    the original conjunction-style implication. -/
 def toLeanAST (p : PropertyDef) : LeanDecl :=
-  p.fnDef.toLeanAST (isProperty := true)
+  let curriedBody : FnBody := match p.fnDef.body with
+    | .expr e => .expr e.bindAntecedentNames
+    | .matchArms arms => .matchArms (arms.map fun arm =>
+        BodyArm.mk arm.pat arm.rhs.bindAntecedentNames)
+  let curried := { p.fnDef with body := curriedBody }
+  curried.toLeanAST (isProperty := true)
 
 /-- Render a property definition to Lean syntax. -/
 def toLean (p : PropertyDef) : String :=
