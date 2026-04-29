@@ -20,26 +20,65 @@ inductive FnBody where
   | expr (body : DslExpr)
   deriving Repr
 
-/-- A precondition applied to specific arguments. -/
-structure Precondition where
-  /-- The property name. -/
-  name : String
-  /-- The argument names to apply the property to. -/
-  args : List String
-  deriving Repr
+/-- A precondition for a `defFn`. Either a named property
+    applied to identifier arguments (the legacy `requires
+    Name(a, b)` form), or an arbitrary `DslExpr` (the
+    `requires <expr>` form, e.g. `requires xs·length = ys·length`).
 
-/-- A postcondition applied to specific arguments. The
-    literal argument name `result` refers to the function's
-    return value when the Lean output wraps the return in a
-    subtype. -/
-structure Postcondition where
-  /-- The property name. -/
-  name : String
-  /-- The argument names to apply the property to. May
-      include the literal name `result` to refer to the
-      function's return value. -/
-  args : List String
-  deriving Repr
+    The named form preserves enough information for the Lean
+    backend to insert `simp_all [name]` proof obligations at
+    recursive call sites; the expression form falls back to
+    `simp_all` (no specific lemma) for proof discharge. -/
+inductive Precondition where
+  /-- Property-call form: `name(arg₁, …, argₙ)` where each
+      argument is a parameter name in scope. -/
+  | named (name : String) (args : List String)
+  /-- General-expression form: any DSL boolean / Prop
+      expression in scope. -/
+  | expr_ (e : DslExpr)
+  deriving Repr, Inhabited, Lean.Quote
+
+/-- A postcondition for a `defFn`. Same shape as `Precondition`:
+    either a property call or an arbitrary `DslExpr`. The
+    literal argument name `result` (in the named form) refers
+    to the function's return value when the Lean output wraps
+    the return in a subtype. -/
+inductive Postcondition where
+  | named (name : String) (args : List String)
+  | expr_ (e : DslExpr)
+  deriving Repr, Inhabited, Lean.Quote
+
+namespace Precondition
+
+/-- Property name when the precondition is a named-call form;
+    `none` for general expressions. Used for dependency
+    tracking and `simp_all` lemma selection at recursive call
+    sites. -/
+def calledName? : Precondition → Option String
+  | .named n _ => some n
+  | .expr_ _ => none
+
+end Precondition
+
+namespace Postcondition
+
+def calledName? : Postcondition → Option String
+  | .named n _ => some n
+  | .expr_ _ => none
+
+end Postcondition
+
+namespace Precondition
+
+/-- Reinterpret a parsed precondition as a postcondition.
+    Both inductive types have the same shape; this is just
+    the identity on the constructors so the same parser can
+    populate either field of a `FnDef`. -/
+def toPostcondition : Precondition → Postcondition
+  | .named n args => .named n args
+  | .expr_ e => .expr_ e
+
+end Precondition
 
 /-- An exportable function definition. -/
 structure FnDef where
@@ -413,23 +452,33 @@ def formalDefLatex
           else .escaped propName
     if args.isEmpty then nameMath
     else .seq [nameMath, .raw "(", argsMath, .raw ")"]
+  let exprMath (e : DslExpr) : LatexMath :=
+    (DslExpr.toDoc f.name ctx noDisp isProperty e).toLatexMath
   let precondLines : List Latex :=
-    f.preconditions.map fun pc =>
-      let argDocs : List Doc :=
-        pc.args.map (fun a => Doc.plain a)
-      match ctx.precondShortUsage pc.name argDocs with
-      | some doc =>
+    f.preconditions.map fun pc => match pc with
+      | .named name args =>
+        let argDocs : List Doc :=
+          args.map (fun a => Doc.plain a)
+        match ctx.precondShortUsage name argDocs with
+        | some doc =>
+          .seq [ .raw "    "
+               , Latex.require_ doc.toLatex ]
+        | none =>
+          .seq [ .raw "    "
+               , Latex.require_ (.inlineMath
+                   (appliedPropMath name args)) ]
+      | .expr_ e =>
         .seq [ .raw "    "
-             , Latex.require_ doc.toLatex ]
-      | none =>
-        .seq [ .raw "    "
-             , Latex.require_ (.inlineMath
-                 (appliedPropMath pc.name pc.args)) ]
+             , Latex.require_ (.inlineMath (exprMath e)) ]
   let postcondLines : List Latex :=
-    f.postconditions.map fun pc =>
-      .seq [ .raw "    "
-           , Latex.ensure_ (.inlineMath
-               (appliedPropMath pc.name pc.args)) ]
+    f.postconditions.map fun pc => match pc with
+      | .named name args =>
+        .seq [ .raw "    "
+             , Latex.ensure_ (.inlineMath
+                 (appliedPropMath name args)) ]
+      | .expr_ e =>
+        .seq [ .raw "    "
+             , Latex.ensure_ (.inlineMath (exprMath e)) ]
   let allLines := precondLines ++ postcondLines ++ bodyLines
   let descBlock : List Latex :=
     if f.doc.toPlainText.isEmpty then []

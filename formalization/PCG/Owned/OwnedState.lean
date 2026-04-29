@@ -1,5 +1,4 @@
 import Core.Dsl.DefFn
-import Core.Dsl.DefProperty
 import Core.Dsl.DefStruct
 import MIR.Body
 import PCG.Owned.InitTree
@@ -20,18 +19,6 @@ where
       : List OwnedLocal
   deriving Repr
 
-defProperty SameLength (.plain "SameLength")
-  short (xsDoc, ysDoc) =>
-    (.seq [xsDoc, .plain " has the same length as ", ysDoc])
-  long (xsDoc, ysDoc) =>
-    (.seq [xsDoc, .plain " and ", ysDoc,
-           .plain " are owned-local lists of equal length"])
-  (xs "The first list of owned locals." : List OwnedLocal)
-  (ys "The second list of owned locals." : List OwnedLocal)
-  where
-  | [] ; [] => true
-  | _ :: xs ; _ :: ys => SameLength ‹xs, ys›
-
 -- `open InitTree` so that the unqualified `meet` below resolves
 -- to `InitTree.meet` in source. In the Lean export, `InitTree`
 -- is an alias and so receives no namespace; `InitTree.meet` is
@@ -50,7 +37,7 @@ defFn ownedLocalsMeet (.plain "ownedLocalsMeet")
     incoming branch must be deallocated after the meet."])
   (xs "Owned locals from the first state." : List OwnedLocal)
   (ys "Owned locals from the second state." : List OwnedLocal)
-  requires SameLength(xs, ys)
+  requires xs·length = ys·length
   : List OwnedLocal where
   | [] ; [] => []
   | .allocated x :: xs ; .allocated y :: ys =>

@@ -122,13 +122,13 @@ end BodyPat
 namespace DslExpr
 
 /-- Algebra for `toLeanASTWith`: recursive children have already been
-    lowered to `LeanExpr`. `selfName` and `precondNames` drive insertion of
+    lowered to `LeanExpr`. `selfName` and `proofArgs` drive insertion of
     precondition proof arguments at recursive calls; `calleeProofNames`
     lists callees requiring `sorry` arguments. `proofArgs` is the precomputed
     list of precondition proof terms (rendered as `raw` to bypass the
     atomic-arg re-parenthesisation logic in `LeanExpr.toAtom`). -/
 private def toLeanASTAlg
-    (selfName : String) (precondNames : List String)
+    (selfName : String)
     (calleeProofNames : List String) (proofArgs : List LeanExpr) :
     DslExprF LeanExpr → LeanExpr
   | .var n => .ident n
@@ -151,7 +151,7 @@ private def toLeanASTAlg
   | .call fn args =>
     let fnName := match fn with
       | .ident n => n | _ => fn.toString
-    if fnName == selfName && !precondNames.isEmpty then
+    if fnName == selfName && !proofArgs.isEmpty then
       .app fnName (args ++ proofArgs)
     else if calleeProofNames.contains fnName then
       .app fnName (args ++ [.raw "sorry"])
@@ -199,29 +199,32 @@ private def toLeanASTAlg
 /-- Lower a `DslExpr` to a `LeanExpr`.
     `selfName` is the current function name (for
     inserting proof arguments at recursive calls).
-    `precondNames` lists the precondition function
-    names. `calleeProofNames` lists callee functions
-    that also require sorry proof arguments. -/
+    `precondProofs` lists the proof-term strings (one per
+    precondition, in order) to splice as additional
+    arguments at recursive call sites. Typically each entry
+    is a `(by simp_all [name])` for a named precondition or
+    `(by simp_all)` for a general expression precondition.
+    `calleeProofNames` lists callee functions that also
+    require `sorry` arguments. -/
 def toLeanASTWith
     (selfName : String)
-    (precondNames : List String)
+    (precondProofs : List String)
     (calleeProofNames : List String := [])
     (e : DslExpr) : LeanExpr :=
   let proofArgs : List LeanExpr :=
-    precondNames.map fun pn =>
-      .raw s!"(by simp_all [{pn}])"
+    precondProofs.map (LeanExpr.raw)
   DslExpr.cata
-    (toLeanASTAlg selfName precondNames calleeProofNames proofArgs) e
+    (toLeanASTAlg selfName calleeProofNames proofArgs) e
 
 partial def toLeanAST (e : DslExpr) : LeanExpr :=
   e.toLeanASTWith "" []
 
 partial def toLeanWith
     (selfName : String)
-    (precondNames : List String)
+    (precondProofs : List String)
     (calleeProofNames : List String := [])
     (e : DslExpr) : String :=
-  toString (e.toLeanASTWith selfName precondNames
+  toString (e.toLeanASTWith selfName precondProofs
     calleeProofNames)
 
 partial def toLean (e : DslExpr) : String :=
@@ -325,24 +328,54 @@ end EnumDef
 -- FnDef / PropertyDef → LeanDecl
 -- ══════════════════════════════════════════════
 
-/-- Build precondition binders for a generated def. Each
-    `prop(a, b)` becomes `(h_prop : prop a b)`. -/
+/-- Build precondition binders for a generated def. A named
+    `prop(a, b)` becomes `(h_prop : prop a b)`; an
+    expression-form precondition becomes `(h_pre<i> : <expr>)`
+    where `i` is the precondition's positional index. -/
 private def precondBinders
     (preconds : List Precondition) : List LeanBinder :=
-  preconds.map fun pc =>
-    let argStr := " ".intercalate pc.args
-    { name := s!"h_{pc.name}"
-      type := .const s!"{pc.name} {argStr}" }
+  preconds.zipIdx.map fun (pc, i) => match pc with
+    | .named n args =>
+      let argStr := " ".intercalate args
+      { name := s!"h_{n}"
+        type := .const s!"{n} {argStr}" }
+    | .expr_ e =>
+      { name := s!"h_pre{i}"
+        type := .const e.toLean }
+
+/-- Render a precondition as a Lean source-level expression
+    suitable for splicing into a recursive-call proof obligation
+    or any other context where we need its propositional form
+    (`prop a b` or the rendered DslExpr). -/
+private def precondLean : Precondition → String
+  | .named n args =>
+    if args.isEmpty then n
+    else s!"{n} {" ".intercalate args}"
+  | .expr_ e => e.toLean
+
+/-- The Lean proof-tactic string spliced as the proof argument
+    of a self-recursive call. Named preconditions unfold their
+    property with `simp_all [name]`; general expressions fall
+    back to plain `simp_all`. -/
+private def precondProof : Precondition → String
+  | .named n _ => s!"(by simp_all [{n}])"
+  | .expr_ _ => "(by simp_all)"
+
+/-- Render a postcondition as a Lean source-level expression
+    used inside the subtype return wrapper. -/
+private def postcondLean : Postcondition → String
+  | .named n args =>
+    if args.isEmpty then n
+    else s!"{n} {" ".intercalate args}"
+  | .expr_ e => e.toLean
 
 /-- Build the conjunction of postcondition applications used
     inside the subtype return wrapper. The literal argument
-    name `result` refers to the function's return value. -/
+    name `result` (in the named form) refers to the function's
+    return value. -/
 private def postcondPredicate
     (postconds : List Postcondition) : String :=
-  " ∧ ".intercalate
-    (postconds.map fun pc =>
-      if pc.args.isEmpty then pc.name
-      else s!"{pc.name} {" ".intercalate pc.args}")
+  " ∧ ".intercalate (postconds.map postcondLean)
 
 /-- Wrap a `LeanTy` return type in the postcondition subtype
     `\{ result : RetTy // P₁ ∧ P₂ ∧ … }` when postconds are
@@ -380,7 +413,7 @@ def toLeanAST
     (f : FnDef)
     (isProperty : Bool := false)
     : LeanDecl :=
-  let precondNames := f.preconditions.map (·.name)
+  let precondProofs := f.preconditions.map precondProof
   let baseRetType : LeanTy :=
     if isProperty then .const "Prop"
     else f.returnType.toLeanAST
@@ -394,7 +427,7 @@ def toLeanAST
     | .matchArms arms =>
       let armASTs : List LeanMatchArm := arms.map fun arm =>
         .mk (arm.pat.map BodyPat.toLeanAST)
-            (wrap (arm.rhs.toLeanASTWith f.name precondNames))
+            (wrap (arm.rhs.toLeanASTWith f.name precondProofs))
       let lastIsCatchAll := match arms.getLast? with
         | some arm => arm.pat.all fun p =>
             match p with | .wild | .var _ => true | _ => false
@@ -406,7 +439,7 @@ def toLeanAST
         else armASTs
       .matchArms armASTs
     | .expr body =>
-      .expr (wrap (body.toLeanASTWith f.name precondNames))
+      .expr (wrap (body.toLeanASTWith f.name precondProofs))
   .def_ {
     name := f.name
     params
@@ -594,9 +627,16 @@ def referencedTypes (f : FnDef) : List String :=
     preconditions, postconditions, called functions). -/
 def referencedNames (f : FnDef) : List String :=
   f.referencedTypes ++
-  f.preconditions.map (·.name) ++
-  f.postconditions.map (·.name) ++
+  f.preconditions.flatMap precondCalledNames ++
+  f.postconditions.flatMap postcondCalledNames ++
   f.body.calledNames
+where
+  precondCalledNames : Precondition → List String
+    | .named n _ => [n]
+    | .expr_ e => e.calledNames
+  postcondCalledNames : Postcondition → List String
+    | .named n _ => [n]
+    | .expr_ e => e.calledNames
 
 /-- Whether this function uses `Set` anywhere. -/
 def usesSet (f : FnDef) : Bool :=

@@ -1209,11 +1209,13 @@ def toRustItem (f : FnDef)
       paramStructName (qualify b)
   let paramNames := f.params.map
     fun p => leanToRustIdent p.name
-  let assertStmts := f.preconditions.map fun pc =>
-    let args := pc.args.map fun a =>
-      RustExpr.ident (leanToRustIdent a)
-    RustStmt.assert_
-      (.call (.identStr (toSnakeCase pc.name)) args)
+  let assertStmts := f.preconditions.map fun pc => match pc with
+    | .named n args =>
+      let argExprs := args.map fun a =>
+        RustExpr.ident (leanToRustIdent a)
+      RustStmt.assert_
+        (.call (.identStr (toSnakeCase n)) argExprs)
+    | .expr_ e => RustStmt.assert_ (re e)
   let body : RustExpr := match f.body with
     | .matchArms arms =>
       if arms.isEmpty then .todo

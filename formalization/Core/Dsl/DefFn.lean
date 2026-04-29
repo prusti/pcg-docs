@@ -182,7 +182,15 @@ syntax "let " fnPat " := " fnExpr : fnStmt
 syntax "let " fnPat " ← " fnExpr : fnStmt
 
 declare_syntax_cat fnPrecond
+-- Property-call form: `Name(arg₁, …, argₙ)` where each arg is
+-- a parameter name in scope. Tried first because the more
+-- specific syntax is unambiguous.
 syntax ident "(" ident,+ ")" : fnPrecond
+-- General-expression form: any DSL expression that evaluates
+-- to `Prop` or `Bool`. Allows preconditions like
+-- `requires xs·length = ys·length` that are not a single
+-- property call.
+syntax fnExpr : fnPrecond
 
 /-- Pattern-matching function.
 
@@ -488,13 +496,13 @@ def parseFnParam
 
 def parsePrecond
     (stx : Lean.Syntax)
-    : Lean.Elab.Command.CommandElabM
-        (String × List String) := do
+    : Lean.Elab.Command.CommandElabM Precondition := do
   match stx with
   | `(fnPrecond| $n:ident ($args:ident,*)) =>
-    pure (toString n.getId,
-      args.getElems.toList.map
-        (toString ·.getId))
+    pure (.named (toString n.getId)
+      (args.getElems.toList.map (toString ·.getId)))
+  | `(fnPrecond| $e:fnExpr) =>
+    pure (.expr_ (← parseExpr e))
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 -- ══════════════════════════════════════════════
@@ -564,8 +572,8 @@ def buildFnDef
       × Syntax))
     (retTy : TSyntax `term)
     (body : TSyntax `term)
-    (preconds : List (String × List String) := [])
-    (postconds : List (String × List String) := [])
+    (preconds : List Precondition := [])
+    (postconds : List Postcondition := [])
     (mutualGroup : Option String := none)
     (display : Option (TSyntax `term) := none)
     : CommandElabM Unit := do
@@ -590,14 +598,8 @@ def buildFnDef
     else retTy.raw.reprint.getD (toString retTy)
   let retTn ← `(DSLType.parse $(quote retStr))
   let paramList ← `([$[$paramDefs],*])
-  let precondDefs ← preconds.mapM fun (pn, args) => do
-    `({ name := $(quote pn),
-        args := $(quote args) : Precondition })
-  let precondList ← `([$[$precondDefs.toArray],*])
-  let postcondDefs ← postconds.mapM fun (pn, args) => do
-    `({ name := $(quote pn),
-        args := $(quote args) : Postcondition })
-  let postcondList ← `([$[$postcondDefs.toArray],*])
+  let precondList : TSyntax `term := quote preconds
+  let postcondList : TSyntax `term := quote postconds
   let mutualGroupTerm : TSyntax `term := quote mutualGroup
   let displayTerm : TSyntax `term ← match display with
     | some dpList => `((some $dpList : Option (List DisplayPart)))
@@ -630,32 +632,42 @@ def buildFnDef
     initialize registerFnDef $fnDefId $modName))
 
 /-- Build precondition proof parameter strings for
-    the generated Lean def. Each precondition
-    `prop(a, b)` becomes `(h_prop : prop a b)`. -/
+    the generated Lean def. A named `prop(a, b)` becomes
+    `(h_prop : prop a b)`; an expression-form precondition
+    becomes `(h_pre<i> : <expr>)`, where `<i>` is its
+    positional index among the function's preconditions. -/
 private def precondParamBinds
-    (preconds : List (String × List String))
+    (preconds : List Precondition)
     : String :=
   " ".intercalate
-    (preconds.map fun (pn, args) =>
-      let argStr := " ".intercalate args
-      s!"(h_{pn} : {pn} {argStr})")
+    (preconds.zipIdx.map fun (pc, i) => match pc with
+      | .named n args =>
+        let argStr := " ".intercalate args
+        s!"(h_{n} : {n} {argStr})"
+      | .expr_ e =>
+        s!"(h_pre{i} : {e.toLean})")
+
+/-- Render a postcondition as a Lean source-level expression,
+    used inside the subtype return wrapper. -/
+private def postcondLean : Postcondition → String
+  | .named n args =>
+    if args.isEmpty then n
+    else s!"{n} {" ".intercalate args}"
+  | .expr_ e => e.toLean
 
 /-- Build the conjunction of postcondition applications
     used as the predicate inside the subtype return type. -/
 private def postcondPredicate
-    (postconds : List (String × List String))
+    (postconds : List Postcondition)
     : String :=
-  " ∧ ".intercalate
-    (postconds.map fun (pn, args) =>
-      if args.isEmpty then pn
-      else s!"{pn} {" ".intercalate args}")
+  " ∧ ".intercalate (postconds.map postcondLean)
 
 /-- Wrap a return type in the postcondition subtype
     `\{ result : RetTy // P₁ ∧ P₂ ∧ … }` when postconds
     are present; otherwise return the raw return type. -/
 private def wrapRetType
     (retTy : String)
-    (postconds : List (String × List String))
+    (postconds : List Postcondition)
     : String :=
   if postconds.isEmpty then retTy
   else s!"\{ result : {retTy} // {postcondPredicate postconds} }"
@@ -664,10 +676,18 @@ private def wrapRetType
     constructor `⟨body, by sorry⟩` when postconds are
     present; otherwise return the body unchanged. -/
 private def wrapBody
-    (body : String) (postconds : List (String × List String))
+    (body : String) (postconds : List Postcondition)
     : String :=
   if postconds.isEmpty then body
   else s!"⟨{body}, by sorry⟩"
+
+/-- Lean proof tactic for a self-recursive call's
+    precondition obligation. Named preconditions unfold via
+    `simp_all [name]`; general expressions fall back to
+    plain `simp_all`. -/
+private def precondProof : Precondition → String
+  | .named n _ => s!"(by simp_all [{n}])"
+  | .expr_ _ => "(by simp_all)"
 
 -- ══════════════════════════════════════════════
 -- Pattern-matching form
@@ -693,10 +713,12 @@ elab_rules : command
         pcs.getElems.toList.mapM
           (parsePrecond ·.raw)
       | none => pure []
-    let postconds ← match ens with
+    let postconds : List Postcondition ←
+      match ens with
       | some pcs =>
-        pcs.getElems.toList.mapM
-          (parsePrecond ·.raw)
+        (·.map Precondition.toPostcondition) <$>
+          pcs.getElems.toList.mapM
+            (parsePrecond ·.raw)
       | none => pure []
     let parsed ← arms.mapM fun arm => match arm with
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
@@ -720,13 +742,13 @@ elab_rules : command
       Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     -- Generate Lean def via string parsing
     let fnNameStr := toString name.getId
-    let precondNames := preconds.map (·.1)
+    let precondProofs := preconds.map precondProof
     let armStrs := parsed.toList.map
       fun (patAst, rhsAst) =>
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         let rhsStr := wrapBody
-          (rhsAst.toLeanWith fnNameStr precondNames) postconds
+          (rhsAst.toLeanWith fnNameStr precondProofs) postconds
         s!"  | {patStr} => {rhsStr}"
     let defKw := "def"
     let paramNames := paramData.toList.map
@@ -798,16 +820,18 @@ elab_rules : command
         pcs.getElems.toList.mapM
           (parsePrecond ·.raw)
       | none => pure []
-    let postconds ← match ens with
+    let postconds : List Postcondition ←
+      match ens with
       | some pcs =>
-        pcs.getElems.toList.mapM
-          (parsePrecond ·.raw)
+        (·.map Precondition.toPostcondition) <$>
+          pcs.getElems.toList.mapM
+            (parsePrecond ·.raw)
       | none => pure []
     let rhsAst ← parseExpr rhs
     let fnNameStr := toString name.getId
-    let precondNames := preconds.map (·.1)
+    let precondProofs := preconds.map precondProof
     let rhsStr := wrapBody
-      (rhsAst.toLeanWith fnNameStr precondNames) postconds
+      (rhsAst.toLeanWith fnNameStr precondProofs) postconds
     let paramBinds := " ".intercalate
       (paramData.toList.map fun (pn, _, pt) =>
         let tyStr :=
@@ -870,8 +894,8 @@ private structure MutualEntryResult where
   paramData : Array (Lean.Ident × Lean.TSyntax `term
     × Lean.Syntax)
   retTy : Lean.TSyntax `term
-  preconds : List (String × List String)
-  postconds : List (String × List String)
+  preconds : List Precondition
+  postconds : List Postcondition
   parsed : Array (Array BodyPat × DslExpr)
   display : Option (Lean.TSyntax `term)
 
@@ -897,9 +921,11 @@ private def parseMutualEntry
       | some pcs =>
         pcs.getElems.toList.mapM (parsePrecond ·.raw)
       | none => pure []
-    let postconds ← match ens with
+    let postconds : List Postcondition ←
+      match ens with
       | some pcs =>
-        pcs.getElems.toList.mapM (parsePrecond ·.raw)
+        (·.map Precondition.toPostcondition) <$>
+          pcs.getElems.toList.mapM (parsePrecond ·.raw)
       | none => pure []
     let parsed ← arms.mapM fun arm => match arm with
       | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
@@ -922,13 +948,13 @@ private def parseMutualEntry
     if DslLint.matchIsIrrefutable armsList then
       Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     let fnNameStr := toString name.getId
-    let precondNames := preconds.map (·.1)
+    let precondProofs := preconds.map precondProof
     let armStrs := parsed.toList.map
       fun (patAst, rhsAst) =>
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         let rhsStr := wrapBody
-          (rhsAst.toLeanWith fnNameStr precondNames) postconds
+          (rhsAst.toLeanWith fnNameStr precondProofs) postconds
         s!"  | {patStr} => {rhsStr}"
     let defStr ←
       if preconds.isEmpty && postconds.isEmpty then
