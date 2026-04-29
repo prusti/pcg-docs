@@ -26,7 +26,7 @@ where
 
 namespace Machine
 
-defProperty RunnableMachine (.plain "RunnableMachine")
+defProperty Runnable (.plain "Runnable")
   short (mDoc) =>
     (.seq [mDoc, .plain " is a runnable machine"])
   long (mDoc) =>
@@ -53,10 +53,10 @@ private instance : Inhabited StackFrame :=
 defFn currentFrame (.plain "currentFrame")
   (.plain "The currently executing stack frame, i.e. the head \
     of the thread's call stack. Safe because the \
-    `RunnableMachine` precondition guarantees the stack is \
+    `Runnable` precondition guarantees the stack is \
     non-empty.")
   (m "The machine state." : Machine)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : StackFrame :=
     m↦thread↦stack·head!
 
@@ -65,10 +65,10 @@ defFn stackTail (.plain "stackTail")
     except the currently executing one (which ",
     .code "currentFrame",
     .plain " returns). Safe because the ",
-    .code "RunnableMachine",
+    .code "Runnable",
     .plain " precondition guarantees the stack is non-empty."])
   (m "The machine state." : Machine)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : List StackFrame :=
     m↦thread↦stack·tail!
 

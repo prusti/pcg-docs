@@ -49,15 +49,15 @@ defFn evalOperand (.plain "evalOperand")
     .code "move", .plain " currently just load."])
   (m "The machine state." : Machine)
   (o "The operand." : Operand)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : Option Value where
   | m ; .copy p =>
       let ⟨rp, ty⟩ ←
-        evalPlace ‹m, p, lean_proof("h_RunnableMachine")› ;
+        evalPlace ‹m, p, lean_proof("h_Runnable")› ;
       placeLoad ‹m↦mem, rp, ty›
   | m ; .move p =>
       let ⟨rp, ty⟩ ←
-        evalPlace ‹m, p, lean_proof("h_RunnableMachine")› ;
+        evalPlace ‹m, p, lean_proof("h_Runnable")› ;
       placeLoad ‹m↦mem, rp, ty›
   | _ ; .const cv => Some (evalConstant ‹cv›)
 
@@ -69,10 +69,10 @@ defFn evalRvalue (.plain "evalRvalue")
     .code "None", .plain ")."])
   (m "The machine state." : Machine)
   (rv "The rvalue." : Rvalue)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : Option Value where
   | m ; .use o =>
-      evalOperand ‹m, o, lean_proof("h_RunnableMachine")›
+      evalOperand ‹m, o, lean_proof("h_Runnable")›
   | _ ; .ref _ _ _ => None
 
 end Machine

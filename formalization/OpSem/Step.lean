@@ -57,29 +57,29 @@ defFn evalStatement (.plain "evalStatement")
     frame and memory on the machine."])
   (m "The machine state." : Machine)
   (s "The statement to evaluate." : Statement)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : Option Machine where
   | m ; .assign destination source =>
       let ⟨place, _⟩ ← evalPlace
-        ‹m, destination, lean_proof("h_RunnableMachine")› ;
+        ‹m, destination, lean_proof("h_Runnable")› ;
       let val ← evalRvalue
-        ‹m, source, lean_proof("h_RunnableMachine")› ;
+        ‹m, source, lean_proof("h_Runnable")› ;
       Some m[mem => placeStore ‹m↦mem, place, val›]
   | m ; .storageLive lcl =>
       let frame := currentFrame
-        ‹m, lean_proof("h_RunnableMachine")› ;
+        ‹m, lean_proof("h_Runnable")› ;
       let ⟨frame', mem'⟩ := StackFrame.storageLive
         ‹frame, m↦mem, lcl› ;
       let rest := stackTail
-        ‹m, lean_proof("h_RunnableMachine")› ;
+        ‹m, lean_proof("h_Runnable")› ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
   | m ; .storageDead lcl =>
       let frame := currentFrame
-        ‹m, lean_proof("h_RunnableMachine")› ;
+        ‹m, lean_proof("h_Runnable")› ;
       let ⟨frame', mem'⟩ := StackFrame.storageDead
         ‹frame, m↦mem, lcl› ;
       let rest := stackTail
-        ‹m, lean_proof("h_RunnableMachine")› ;
+        ‹m, lean_proof("h_Runnable")› ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
 
 defFn jumpToBlock (.plain "jumpToBlock")
@@ -90,12 +90,12 @@ defFn jumpToBlock (.plain "jumpToBlock")
     .code "jump_to_block", .plain "."])
   (m "The machine state." : Machine)
   (target "The basic block to jump to." : BasicBlockIdx)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : Machine :=
     let frame := currentFrame
-      ‹m, lean_proof("h_RunnableMachine")› ;
+      ‹m, lean_proof("h_Runnable")› ;
     let rest := stackTail
-      ‹m, lean_proof("h_RunnableMachine")› ;
+      ‹m, lean_proof("h_Runnable")› ;
     let newPc := Location⟨target, 0⟩ ;
     let newFrame := frame[pc => newPc] ;
     m[thread => Thread⟨newFrame :: rest⟩]
@@ -125,20 +125,20 @@ defFn evalTerminator (.plain "evalTerminator")
     program halts with ", .code "success", .plain "."])
   (m "The machine state." : Machine)
   (t "The terminator to evaluate." : Terminator)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : StepResult where
   | m ; .goto target =>
       StepResult.ok‹jumpToBlock
-        ‹m, target, lean_proof("h_RunnableMachine")››
+        ‹m, target, lean_proof("h_Runnable")››
   | _ ; .unreachable => StepResult.done‹.error›
   | m ; .drop _ target =>
       StepResult.ok‹jumpToBlock
-        ‹m, target, lean_proof("h_RunnableMachine")››
+        ‹m, target, lean_proof("h_Runnable")››
   | _ ; .switchInt _ => StepResult.done‹.error›
   | _ ; .call _ _ _ _ => StepResult.done‹.error›
   | m ; .return_ =>
       let frame := currentFrame
-        ‹m, lean_proof("h_RunnableMachine")› ;
+        ‹m, lean_proof("h_Runnable")› ;
       let retTy := frame↦body↦decls ! 0 ;
       match mapGet ‹frame↦locals, Local⟨0⟩› with
       | .none => StepResult.done‹.error›
@@ -147,7 +147,7 @@ defFn evalTerminator (.plain "evalTerminator")
           | .none => StepResult.done‹.error›
           | .some retVal =>
               let rest := stackTail
-                ‹m, lean_proof("h_RunnableMachine")› ;
+                ‹m, lean_proof("h_Runnable")› ;
               match rest with
               | [] => StepResult.done‹.success›
               | callerFrame :: _ =>
@@ -187,7 +187,7 @@ defFn step (.plain "step")
     .plain " is advanced by one), a terminator is handed to ",
     .code "evalTerminator", .plain " which produces the next ",
     .code "StepResult", .plain " directly. The ",
-    .code "RunnableMachine",
+    .code "Runnable",
     .plain " precondition guarantees a non-empty call stack \
     (so ", .code "currentFrame", .plain " returns directly) \
     and that every stack frame is valid (so the program \
@@ -198,17 +198,17 @@ defFn step (.plain "step")
     .plain ", minus thread scheduling, deadlock detection, \
     and data-race tracking — this model has only one thread."])
   (m "The machine state." : Machine)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : StepResult :=
     let frame := currentFrame
-      ‹m, lean_proof("h_RunnableMachine")› ;
+      ‹m, lean_proof("h_Runnable")› ;
     match getStmtOrTerminator
         ‹frame↦body, frame↦pc, lean_proof("sorry")› with
     | .terminator t =>
-        evalTerminator ‹m, t, lean_proof("h_RunnableMachine")›
+        evalTerminator ‹m, t, lean_proof("h_Runnable")›
     | .stmt s =>
         match evalStatement
-            ‹m, s, lean_proof("h_RunnableMachine")› with
+            ‹m, s, lean_proof("h_Runnable")› with
         | .none => StepResult.done‹.error›
         | .some m' =>
             match m'↦thread↦stack with

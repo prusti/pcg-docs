@@ -9,10 +9,10 @@ defFn evalLocal (.plain "evalLocal")
     .plain " if the local is dead."])
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
-  requires RunnableMachine(machine)
+  requires Runnable(machine)
   : Option RuntimePlace :=
     let frame := currentFrame
-      ‹machine, lean_proof("h_RunnableMachine")› ;
+      ‹machine, lean_proof("h_Runnable")› ;
     let ptr ← mapGet ‹frame↦locals, lcl› ;
     Some RuntimePlace⟨ptr⟩
 
@@ -75,12 +75,12 @@ defFn evalPlace (.plain "evalPlace")
     .plain "."])
   (machine "The machine state." : Machine)
   (place "The place to evaluate." : Place)
-  requires RunnableMachine(machine)
+  requires Runnable(machine)
   : Option (RuntimePlace × Ty) :=
     let frame := currentFrame
-      ‹machine, lean_proof("h_RunnableMachine")› ;
+      ‹machine, lean_proof("h_Runnable")› ;
     let rootPlace ← evalLocal
-      ‹machine, place↦«local», lean_proof("h_RunnableMachine")› ;
+      ‹machine, place↦«local», lean_proof("h_Runnable")› ;
     let rootTy := frame↦body↦decls ! place↦«local»↦index ;
     evalProjs ‹rootPlace, rootTy, place↦projection›
 

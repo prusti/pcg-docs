@@ -7,7 +7,7 @@ import PCG.PcgData
 import PCG.PlaceCapability
 
 -- Bring the source-side namespace into scope so that
--- references to `RunnableMachine`, `step`, and
+-- references to `Runnable`, `step`, and
 -- `initialMachine` can be written without the `Machine.`
 -- qualifier. The DSL AST records the unqualified text, so
 -- the LaTeX rendering displays the bare name.
@@ -45,7 +45,7 @@ where
   | refl {init : Machine}
       ⊢ Reachable ‹init, init›
   | stepOk {init, m, m' : Machine}
-        {h : RunnableMachine m'}
+        {h : Runnable m'}
       from (Reachable ‹init, m'›,
             step ‹m', h› = StepResult.ok ‹m›)
       ⊢ Reachable ‹init, m›
@@ -134,10 +134,10 @@ defFn placeAllocation (.plain "placeAllocation")
     resulting pointer has no provenance."])
   (m "The machine state." : Machine)
   (p "The place." : Place)
-  requires RunnableMachine(m)
+  requires Runnable(m)
   : Option Allocation :=
     let ⟨rp, _⟩ ← evalPlace
-      ‹m, p, lean_proof("h_RunnableMachine")› ;
+      ‹m, p, lean_proof("h_Runnable")› ;
     let prov ← rp↦ptr↦provenance ;
     Some (m↦mem↦allocs ! prov↦id↦index)
 
@@ -159,7 +159,7 @@ defProperty Framing (.plain "Framing")
          Reachable
            ‹initialMachine
               ‹pr, lean_proof("sorry")›, m› →
-         RunnableMachine ‹m› →
+         Runnable ‹m› →
          ∀∀ p ∈ Place, ∀∀ p' ∈ Place,
            let frame := currentFrame
              ‹m, lean_proof("sorry")› ;
@@ -189,9 +189,9 @@ defProperty Soundness (.plain "Soundness")
             program, every machine state reachable from \
             its \\texttt{initialMachine} is non-stuck — \
             \\texttt{step} never produces an error result.")
-  := ∀∀ program ∈ Program, ∀∀ m ∈ Machine,
-       validProgram ‹program› →
-       pcgAnalysisSucceeds ‹program› →
+  := ∀∀ pr ∈ Program, ∀∀ m ∈ Machine,
+       validProgram ‹pr› →
+       pcgAnalysisSucceeds ‹pr› →
        Reachable
          -- The `validProgram` hypothesis bound by the
          -- preceding implication is proof-irrelevant for
@@ -199,10 +199,10 @@ defProperty Soundness (.plain "Soundness")
          -- gives the same `Machine` term as any concrete
          -- proof would.
          ‹initialMachine
-            ‹program, lean_proof("sorry")›, m›
+            ‹pr, lean_proof("sorry")›, m›
          →
-       RunnableMachine ‹m› →
+       Runnable ‹m› →
        -- Same proof-irrelevance argument as above for the
-       -- `RunnableMachine` precondition of `step`.
+       -- `Runnable` precondition of `step`.
        step ‹m, lean_proof("sorry")›
          ≠ StepResult.done‹.error›
