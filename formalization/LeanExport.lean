@@ -27,9 +27,14 @@ open LeanAST
 
 /-- Position of extra Lean code relative to auto-generated
     definitions. `middle` inserts between type definitions
-    (structs/enums) and function definitions. -/
+    (structs/enums) and function definitions;
+    `beforeProperties` inserts between functions and
+    property definitions for modules where every property
+    follows every function (the renderer asserts that
+    invariant before splitting); `after` inserts after
+    everything. -/
 private inductive ExtraPos where
-  | before | middle | after
+  | before | middle | beforeProperties | after
   deriving BEq
 
 /-- Extra raw Lean code for specific generated modules.
@@ -159,6 +164,45 @@ instance : Inhabited PcgDomainData :=
   ⟨⟨defaultPcgData,
     ⟨defaultPcgData, defaultPcgData,
      defaultPcgData, defaultPcgData⟩⟩⟩
+")
+  , (`PCG.Reachability, .beforeProperties,
+"/-- Walk the PCG with cycle detection. The lexicographic
+    measure `(unvisited.length, frontier.length)` strictly
+    decreases on every recursive call: the skip iteration
+    shrinks `frontier`, the expand iteration shrinks
+    `unvisited` (the `if h : unvisited.any (· == x)`
+    hypothesis guarantees the head is in `unvisited`, so
+    `List.filter (· != x)` removes it). The `defProperty`
+    `reachableFrom` below wraps this with the appropriate
+    initial state. -/
+def reachableSearch
+    (pd : PcgData Place)
+    (target : PcgNode Place)
+    (frontier : List (PcgNode Place))
+    (unvisited : List (PcgNode Place))
+    : Bool :=
+  match frontier with
+  | [] => false
+  | x :: rest =>
+      if x == target then true
+      else if h : unvisited.any (· == x) then
+        reachableSearch pd target
+          (nodeNeighbors pd x ++ rest)
+          (unvisited.filter fun y => y != x)
+      else
+        reachableSearch pd target rest unvisited
+termination_by (unvisited.length, frontier.length)
+decreasing_by
+  all_goals
+    simp_wf
+    first
+    | (apply Prod.Lex.left
+       rw [List.length_filter_lt_length_iff_exists]
+       have ⟨y, hy_mem, hy_eq⟩ :=
+         List.any_eq_true.mp h
+       refine ⟨y, hy_mem, ?_⟩
+       simp [bne, hy_eq])
+    | (apply Prod.Lex.right; omega)
 ")
   ]
 
@@ -568,8 +612,18 @@ private def computeMapSetTypes
 
 /-- Render a module to Lean source, with optional
     extra code before/between/after auto-generated defs.
-    `middle` extras are inserted between type definitions
-    (structs/enums) and function/property definitions. -/
+
+    Layout: imports, `before` extras, type definitions
+    (structs/enums/aliases/inductive properties), `middle`
+    extras, function definitions (`defFn`), `beforeProperties`
+    extras, property definitions (`defProperty`), `after`
+    extras. The `beforeProperties` slot exists so a raw Lean
+    helper that a property's body needs can be injected
+    after the helpers that helper itself depends on; the
+    renderer only splits fns from properties when
+    `beforeProperties` extras are actually present, so
+    modules whose source-level order interleaves the two
+    keep that order. -/
 private def renderModule
     (items : List LeanDefItem)
     (imports : List Lean.Name)
@@ -579,6 +633,7 @@ private def renderModule
     (opens : List String := [])
     (extrasBefore : List String := [])
     (extrasMiddle : List String := [])
+    (extrasBeforeProperties : List String := [])
     (extrasAfter : List String := [])
     : String :=
   let toLeanAST :=
@@ -591,15 +646,22 @@ private def renderModule
     else "\n" ++ "\n".intercalate extrasBefore ++ "\n"
   let afterStr := if extrasAfter.isEmpty then ""
     else "\n\n" ++ "\n".intercalate extrasAfter
-  -- Split items into types (structs/enums) and code
-  -- (fns/properties) so opens and middle extras can be
-  -- placed after types but before code.
+  -- Split items into types and code; if `beforeProperties`
+  -- extras are present, further split code into fns and
+  -- properties so the extras can be inserted between them.
+  -- Without those extras the original interleaved order is
+  -- preserved (other modules — e.g. `MIR.Body` — interleave
+  -- `defFn` and `defProperty` in ways that depend on that
+  -- ordering for elaboration).
   let (typeDefs, codeDefs) :=
     items.partition LeanDefItem.isTypeDef
   let typeStr := typeDefs.map (toString ∘ toLeanAST)
     |> "\n\n".intercalate
   let middleStr := if extrasMiddle.isEmpty then ""
     else "\n" ++ "\n".intercalate extrasMiddle ++ "\n"
+  let isPropertyDef : LeanDefItem → Bool
+    | .property_ _ => true
+    | _ => false
   let renderGroup (group : List LeanDefItem) : String :=
     let hasMutualTag := group.any fun i =>
       i.mutualGroupTag.isSome
@@ -608,10 +670,24 @@ private def renderModule
       "mutual\n" ++ "\n".intercalate rendered ++ "\nend"
     else
       "\n\n".intercalate rendered
-  let codeStr := (groupByMutual codeDefs).map renderGroup
-    |> "\n\n".intercalate
-  let codeBlock := if codeDefs.isEmpty then ""
-    else s!"\n{codeStr}\n"
+  let render (defs : List LeanDefItem) : String :=
+    (groupByMutual defs).map renderGroup
+      |> "\n\n".intercalate
+  let codeBlock :=
+    if extrasBeforeProperties.isEmpty then
+      if codeDefs.isEmpty then ""
+      else s!"\n{render codeDefs}\n"
+    else
+      let (propDefs, fnDefs) :=
+        codeDefs.partition isPropertyDef
+      let beforePropertiesStr :=
+        "\n" ++ "\n".intercalate extrasBeforeProperties
+          ++ "\n"
+      let fnBlock := if fnDefs.isEmpty then "" else
+        s!"\n{render fnDefs}\n"
+      let propBlock := if propDefs.isEmpty then "" else
+        s!"\n{render propDefs}\n"
+      s!"{fnBlock}{beforePropertiesStr}{propBlock}"
   s!"{importStr}\n{beforeStr}\n{typeStr}\n\
      {openStr}{middleStr}{codeBlock}{afterStr}\n"
 
@@ -706,7 +782,8 @@ def main (args : List String) : IO Unit := do
     let path := s!"{outDir}/{moduleToPath mod}"
     let contents := renderModule items imports allTypes
       aliasNames mapSetTypes opens (extrasFor .before)
-      (extrasFor .middle) (extrasFor .after)
+      (extrasFor .middle) (extrasFor .beforeProperties)
+      (extrasFor .after)
     writeFile path contents
   -- Write root files for each lean_lib
   for lib in uniqueLibs do
