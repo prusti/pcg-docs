@@ -178,7 +178,8 @@ defProperty Framing (.plain "Framing")
             at any reachable runnable machine state, two \
             places that the entry-state PCG at the machine's \
             program counter assigns the exclusive capability \
-            are backed by distinct allocations.")
+            are backed by allocations whose address ranges \
+            do not overlap.")
   := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
         p p' ∈ Place .
        describes ‹ar, pr› →
@@ -199,10 +200,24 @@ defProperty Framing (.plain "Framing")
        (getCapability ‹pcg, frame↦body, p',
                        lean_proof("sorry")›
           = Some .exclusive) →
-       Machine.placeAllocation
-           ‹m, p, lean_proof("sorry")›
-         ≠ Machine.placeAllocation
-             ‹m, p', lean_proof("sorry")›
+       -- ∃ a a' : Allocation,
+       --   placeAllocation m p  = Some a  ∧
+       --   placeAllocation m p' = Some a' ∧
+       --   disjoint a a'
+       -- The DSL has no `∃` quantifier, so the existential is
+       -- expressed as a nested match: when either lookup fails
+       -- the conclusion is `false`, otherwise the witnesses
+       -- `a`, `a'` are the result-bound match patterns.
+       match Machine.placeAllocation
+               ‹m, p, lean_proof("sorry")› with
+       | .some a =>
+           match Machine.placeAllocation
+                   ‹m, p', lean_proof("sorry")› with
+           | .some a' => disjoint ‹a, a'›
+           | .none => false
+           end
+       | .none => false
+       end
 
 defProperty Soundness (.plain "Soundness")
   short () =>
