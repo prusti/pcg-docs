@@ -214,19 +214,17 @@ defProperty Soundness (.plain "Soundness")
             its \\texttt{initialMachine} is non-stuck — \
             \\texttt{step} never produces an error result.")
   := ∀∀ pr ∈ Program, ∀∀ m ∈ Machine,
-       validProgram ‹pr› →
-       pcgAnalysisSucceeds ‹pr› →
+       validProgram ‹pr› ∧
+       pcgAnalysisSucceeds ‹pr› ∧
        Reachable
-         -- The `validProgram` hypothesis bound by the
-         -- preceding implication is proof-irrelevant for
-         -- `initialMachine`, so injecting `sorry` here
-         -- gives the same `Machine` term as any concrete
-         -- proof would.
+         -- The `validProgram` conjunct on the LHS is
+         -- proof-irrelevant for `initialMachine`, so
+         -- injecting `sorry` here gives the same `Machine`
+         -- term as any concrete proof would.
          ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m›
-         →
-       Runnable ‹m› →
+            ‹pr, lean_proof("sorry")›, m› ∧
+       Runnable ‹m›
        -- Same proof-irrelevance argument as above for the
        -- `Runnable` precondition of `step`.
-       step ‹m, lean_proof("sorry")›
-         ≠ StepResult.done‹.error›
+       → step ‹m, lean_proof("sorry")›
+           ≠ StepResult.done‹.error›
