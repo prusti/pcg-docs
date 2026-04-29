@@ -130,6 +130,10 @@ syntax:30 fnExpr:31 " ∨ " fnExpr:30 : fnExpr
 syntax:25 fnExpr:26 " → " fnExpr:25 : fnExpr
 -- Universal quantifier: ∀ ident, expr
 syntax "∀∀" ident "," fnExpr : fnExpr
+-- Universal quantifier with explicit type domain:
+-- `∀∀ p ∈ Type, body` — renders as `∀ p ∈ Type, body` in
+-- LaTeX and `∀ (p : Type), body` in Lean.
+syntax "∀∀" ident " ∈ " ident "," fnExpr : fnExpr
 -- Proof placeholder
 syntax "sorry" : fnExpr
 -- Raw Lean proof term (invisible in Rust/LaTeX)
@@ -400,7 +404,12 @@ partial def parseExpr
   | `(fnExpr| $l:fnExpr → $r:fnExpr) =>
     pure (.implies (← parseExpr l) (← parseExpr r))
   | `(fnExpr| ∀∀ $p:ident , $b:fnExpr) =>
-    pure (.forall_ (toString p.getId) (← parseExpr b))
+    pure (.forall_ (toString p.getId) none
+      (← parseExpr b))
+  | `(fnExpr| ∀∀ $p:ident ∈ $t:ident , $b:fnExpr) => do
+    recordIdentRef t t.getId
+    pure (.forall_ (toString p.getId)
+      (some (toString t.getId)) (← parseExpr b))
   | `(fnExpr| sorry) => pure .sorryProof
   | `(fnExpr| lean_proof($s:str)) =>
     pure (.leanProof s.getString)

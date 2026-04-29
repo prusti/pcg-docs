@@ -186,8 +186,10 @@ inductive LeanExpr where
   /-- Bounded `∀ x ∈ s, body`. -/
   | forallIn (binder : String) (set : LeanExpr)
              (body : LeanExpr)
-  /-- Plain `∀ x, body`. -/
-  | forall_ (binder : String) (body : LeanExpr)
+  /-- `∀ x, body` (when `type` is `none`) or
+      `∀ (x : T), body` (when `type` is `some T`). -/
+  | forall_ (binder : String) (type : Option String)
+            (body : LeanExpr)
   /-- `match scrut with | … => …`. -/
   | match_ (scrut : LeanExpr) (arms : List LeanMatchArm)
   /-- `let pat := v\nbody`. The binder is a `LeanPat` so that
@@ -296,8 +298,10 @@ partial def LeanExpr.toString : LeanExpr → String
         s!"{l.toString} {opStr op} {r.toString}")
   | .forallIn binder set body =>
     s!"∀ {binder} ∈ {set.toString}, {body.toString}"
-  | .forall_ binder body =>
+  | .forall_ binder none body =>
     s!"∀ {binder}, {body.toString}"
+  | .forall_ binder (some ty) body =>
+    s!"∀ ({binder} : {ty}), {body.toString}"
   | .match_ scrut arms =>
     let armStrs := arms.map fun
       | .mk pats rhs =>

@@ -81,8 +81,14 @@ inductive DslExpr where
   | or (lhs : DslExpr) (rhs : DslExpr)
   /-- Implication: `lhs → rhs`. -/
   | implies (lhs : DslExpr) (rhs : DslExpr)
-  /-- Universal quantifier: `∀ x, body`. -/
-  | forall_ (param : String) (body : DslExpr)
+  /-- Universal quantifier: `∀ x, body`, or
+      `∀ x ∈ T, body` when `typeName` is `some T`. The
+      type, when present, renders as `∀ x ∈ T, body` in
+      LaTeX and as `∀ (x : T), body` in Lean. The `typeName`
+      is the bare name of an existing type (e.g. `Program`,
+      `Machine`); it is not parsed further. -/
+  | forall_ (param : String) (typeName : Option String)
+      (body : DslExpr)
   /-- Proof placeholder: `sorry`. Used when calling
       a function with preconditions from another
       function that can supply the proof. -/
@@ -169,7 +175,7 @@ def mapChildren (f : DslExpr → DslExpr)
   | .dot e m => .dot (f e) m
   | .field e n => .field (f e) n
   | .setSingleton e => .setSingleton (f e)
-  | .forall_ p b => .forall_ p (f b)
+  | .forall_ p ty b => .forall_ p ty (f b)
   -- Binary
   | .lambda p b => .lambda p (f b)
   | .cons h t => .cons (f h) (f t)
@@ -627,8 +633,16 @@ partial def toDoc
   | .and l r => .seq [go l, .sym .land, go r]
   | .or l r => .seq [go l, .sym .lor, go r]
   | .implies l r => .seq [go l, .sym .implies, go r]
-  | .forall_ p b =>
-    .seq [.sym .forall_, .raw p, .sym .comma, go b]
+  | .forall_ p ty b =>
+    match ty with
+    | none =>
+      .seq [.sym .forall_, .raw p, .sym .comma, go b]
+    | some t =>
+      -- The type name renders as upright `\text{T}` (matching
+      -- how named types appear in `Reachable`-style captions),
+      -- while the bound variable stays italic via `.raw`.
+      .seq [.sym .forall_, .raw p, .sym .setContains,
+            .text t, .sym .comma, go b]
   | .sorryProof => .seq []
   | .leanProof _ => .seq []
   | .match_ scrut arms =>

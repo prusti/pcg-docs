@@ -114,7 +114,7 @@ defProperty Soundness (.plain "Soundness")
             program, every machine state reachable from \
             its \\texttt{initialMachine} is non-stuck — \
             \\texttt{step} never produces an error result.")
-  := ∀∀ program, ∀∀ m,
+  := ∀∀ program ∈ Program, ∀∀ m ∈ Machine,
        validProgram ‹program› →
        pcgAnalysisSucceeds ‹program› →
        Reachable
