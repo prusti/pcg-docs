@@ -2,7 +2,9 @@ import Core.Dsl.DefInductiveProperty
 import Core.Dsl.DefProperty
 import OpSem.Step
 import PCG.Analyze.Body
+import PCG.Capability
 import PCG.PcgData
+import PCG.PlaceCapability
 
 -- Bring the source-side namespace into scope so that
 -- references to `RunnableMachine`, `step`, and
@@ -104,6 +106,79 @@ defProperty pcgAnalysisSucceeds
     | .some _ => true
     | .none => false
     end
+
+defFn entryStateAt (.plain "entryStateAt")
+  (.seq [.plain "The PCG state on entry to the statement at \
+    location ", .code "l", .plain " in analysis results ",
+    .code "ar", .plain ": indexes the per-block list at the \
+    location's statement index and returns the recorded \
+    entry state. ", .code "None", .plain " when the block \
+    has no recorded data or the statement index is out of \
+    range."])
+  (ar "The analysis results." : AnalysisResults)
+  (l "The location to look up." : Location)
+  : Option (PcgData Place) :=
+    let pdds ← mapGet ‹ar, l↦block› ;
+    let pdd ← pdds !! l↦stmtIdx ;
+    Some pdd↦entryState
+
+namespace Machine
+
+defFn placeAllocation (.plain "placeAllocation")
+  (.seq [.plain "The allocation backing a MIR place in a \
+    machine state: evaluates the place to a runtime address \
+    and returns the allocation referenced by the resulting \
+    pointer's provenance. ", .code "None",
+    .plain " when the place cannot be evaluated or the \
+    resulting pointer has no provenance."])
+  (m "The machine state." : Machine)
+  (p "The place." : Place)
+  requires RunnableMachine(m)
+  : Option Allocation :=
+    let ⟨rp, _⟩ ← evalPlace
+      ‹m, p, lean_proof("h_RunnableMachine")› ;
+    let prov ← rp↦ptr↦provenance ;
+    Some (m↦mem↦allocs ! prov↦id↦index)
+
+end Machine
+
+defProperty Framing (.plain "Framing")
+  short () =>
+    (.plain "the PCG analysis frames non-aliasing of \
+            exclusive places")
+  long () =>
+    (.plain "If analysis results describe a program, then \
+            at any reachable runnable machine state, two \
+            places that the entry-state PCG at the machine's \
+            program counter assigns the exclusive capability \
+            are backed by distinct allocations.")
+  := ∀∀ pr ∈ Program, ∀∀ ar ∈ AnalysisResults,
+       describes ‹ar, pr› →
+       ∀∀ m ∈ Machine,
+         Reachable
+           ‹initialMachine
+              ‹pr, lean_proof("sorry")›, m› →
+         RunnableMachine ‹m› →
+         ∀∀ p ∈ Place, ∀∀ p' ∈ Place,
+           let frame := currentFrame
+             ‹m, lean_proof("sorry")› ;
+           validPlace ‹frame↦body, p› →
+           validPlace ‹frame↦body, p'› →
+           match entryStateAt
+                  ‹ar, frame↦pc› with
+           | .some pcg =>
+               (getCapability ‹pcg, frame↦body, p,
+                               lean_proof("sorry")›
+                  = Some .exclusive) →
+               (getCapability ‹pcg, frame↦body, p',
+                               lean_proof("sorry")›
+                  = Some .exclusive) →
+               Machine.placeAllocation
+                   ‹m, p, lean_proof("sorry")›
+                 ≠ Machine.placeAllocation
+                     ‹m, p', lean_proof("sorry")›
+           | .none => True
+           end
 
 defProperty Soundness (.plain "Soundness")
   short () =>
