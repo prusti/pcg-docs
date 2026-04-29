@@ -5,6 +5,7 @@ import PCG.Analyze.Body
 import PCG.Capability
 import PCG.PcgData
 import PCG.PlaceCapability
+import PCG.Reachability
 
 -- Bring the source-side namespace into scope so that
 -- references to `Runnable`, `step`, and
@@ -218,6 +219,44 @@ defProperty Framing (.plain "Framing")
            end
        | .none => false
        end
+
+defProperty NoAlias (.plain "NoAlias")
+  short () =>
+    (.plain "the PCG analysis frames non-overlap of \
+            disconnected places")
+  long () =>
+    (.plain "If analysis results describe a program, then \
+            at any reachable runnable machine state, two \
+            places whose corresponding PCG nodes are not \
+            connected in the entry-state PCG at the machine's \
+            program counter are backed by allocations whose \
+            address ranges do not overlap. The conclusion is \
+            phrased as a disjunction `connected ∨ \
+            nonOverlapping` so that the property's contrapositive \
+            reads as the disconnected-implies-disjoint statement \
+            without needing a negation operator in the DSL.")
+  := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
+        p p' ∈ Place, a1 a2 ∈ Allocation .
+       describes ‹ar, pr› →
+       Reachable
+         ‹initialMachine
+            ‹pr, lean_proof("sorry")›, m› →
+       Runnable ‹m› →
+       let frame := currentFrame
+         ‹m, lean_proof("sorry")› ;
+       validPlace ‹frame↦body, p› →
+       validPlace ‹frame↦body, p'› →
+       contains ‹ar, frame↦pc› →
+       let pcg := entryStateAt
+         ‹ar, frame↦pc, lean_proof("sorry")› ;
+       (Machine.placeAllocation
+            ‹m, p, lean_proof("sorry")›
+          = Some a1) →
+       (Machine.placeAllocation
+            ‹m, p', lean_proof("sorry")›
+          = Some a2) →
+       connected ‹pcg, placeNode ‹p›, placeNode ‹p'›› ∨
+       Allocation.nonOverlapping ‹a1, a2›
 
 defProperty Soundness (.plain "Soundness")
   short () =>
