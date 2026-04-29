@@ -343,6 +343,7 @@ def toLatex : MathSym → LatexMath
   | .mapsto => .raw " \\mapsto "
   | .fatArrow => .raw " \\Rightarrow "
   | .cup => .raw " \\cup "
+  | .cap => .raw " \\cap "
   | .leftarrow => .raw " \\leftarrow "
   | .assign => .raw " := "
   | .append => .raw " \\mathbin{\\texttt{++}} "

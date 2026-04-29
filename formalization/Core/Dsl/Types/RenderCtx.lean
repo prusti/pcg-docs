@@ -20,14 +20,14 @@ structure RenderCtx where
   /-- Whether a string names an existing `fn:` anchor in the
       LaTeX output. For non-ambiguous functions the anchor is
       the short name (`fn:itPlaces`); for ambiguous functions
-      it is qualified by module (`fn:InitTree.join`). -/
+      it is qualified by module (`fn:InitTree.meet`). -/
   knownFnAnchors : String → Bool := fun _ => false
   /-- When rendering a function body, the enclosing function's
       module's last segment (e.g. `"InitTree"` when rendering
-      `PCG.Owned.InitTree.join`'s body). Used to resolve
+      `PCG.Owned.InitTree.meet`'s body). Used to resolve
       unqualified ambiguous calls to the most likely
-      fully-qualified anchor: a bare `join` inside
-      `PCG.Owned.InitTree` resolves to `#fn:InitTree.join`. -/
+      fully-qualified anchor: a bare `meet` inside
+      `PCG.Owned.InitTree` resolves to `#fn:InitTree.meet`. -/
   currentFnModule : Option String := none
   /-- Resolve a short or qualified constructor name to its
       fully-qualified `EnumName.variantName` form. -/

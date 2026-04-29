@@ -184,7 +184,7 @@ private def moduleBodyLatex
     def_ :: orderParts
   -- When a function's short name collides with another
   -- registered function, tag its anchor with the module's last
-  -- segment (e.g. `OwnedState.join`) so each `\\label{fn:...}`
+  -- segment (e.g. `OwnedState.meet`) so each `\\label{fn:...}`
   -- is unique.
   let moduleLastSeg (m : Lean.Name) : String :=
     m.components.getLast?.map toString |>.getD m.toString
@@ -253,7 +253,7 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
   -- properties. These cannot resolve unambiguously to a single
   -- `\\hypertarget{fn:...}`, so `formalDefLatex` qualifies the
   -- label with the module's last segment (e.g.
-  -- `fn:InitTree.join`) and references resolve through
+  -- `fn:InitTree.meet`) and references resolve through
   -- `DslExpr.fnRef`'s `knownFnAnchors` / `currentFnModule`
   -- lookup rather than the bare short name.
   let ambiguousFnNames : List String :=

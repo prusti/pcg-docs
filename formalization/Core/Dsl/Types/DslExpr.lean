@@ -269,8 +269,8 @@ partial def toDoc
     --      fn, link to `#fn:shortName`.
     --  (3) If the short name is ambiguous, try to resolve it
     --      against the enclosing function's module — a bare
-    --      `join` inside `PCG.Owned.InitTree` resolves to
-    --      `#fn:InitTree.join`. This is the best-effort
+    --      `meet` inside `PCG.Owned.InitTree` resolves to
+    --      `#fn:InitTree.meet`. This is the best-effort
     --      resolution for unqualified ambiguous calls.
     --  (4) Otherwise fall back to a constructor reference.
     let shortName := (fn.splitOn ".").getLast?.getD fn
@@ -561,17 +561,20 @@ partial def toDoc
       | _ => none
     -- A call of the form `<ns>.join a b` is rendered as
     -- `a ∪ b` in math mode — for example a call to
-    -- `InitialisationState.join` inside `InitTree.join`'s
-    -- body, or a call to `ValidityConditions.join` inside
-    -- `BorrowsGraph.join`'s body.
-    let joinCupDoc : Option MathDoc := match fn, visibleArgs with
+    -- `ValidityConditions.join` inside `BorrowsGraph.join`'s
+    -- body. Symmetrically, `<ns>.meet a b` renders as
+    -- `a ∩ b` — for example a call to `InitialisationState.meet`
+    -- inside `InitTree.meet`'s body.
+    let latticeOpDoc : Option MathDoc := match fn, visibleArgs with
       | .var n, [a, b] =>
         let short := (n.splitOn ".").getLast?.getD n
         if short == "join" then
           some (.seq [renderArg a, .sym .cup, renderArg b])
+        else if short == "meet" then
+          some (.seq [renderArg a, .sym .cap, renderArg b])
         else none
       | _, _ => none
-    match ctorCallDoc, fnDisplayDoc, joinCupDoc with
+    match ctorCallDoc, fnDisplayDoc, latticeOpDoc with
     | some md, _, _ => md
     | _, some md, _ => md
     | _, _, some md => md

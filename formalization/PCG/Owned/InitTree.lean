@@ -152,12 +152,12 @@ defProperty ValidInitTree (.plain "ValidInitTree")
 
 namespace InitTree
 
-defFn join (.plain "join")
+defFn meet (.plain "meet")
   (.seq [
-    .plain "Join two initialisation trees, implementing the \
-     recursive join of ",
+    .plain "Meet two initialisation trees, implementing the \
+     recursive meet of ",
     .code "owned-state.md", .plain ". At matching leaves we \
-     take the minimum via ", .code "InitialisationState.join",
+     take the minimum via ", .code "InitialisationState.meet",
     .plain ". When one side is a leaf and the other is \
      internal, the uninitialised/shallow leaf dominates (its \
      initialisation state covers every descendant place), \
@@ -176,7 +176,7 @@ defFn join (.plain "join")
   : InitTree where
   -- Leaf + Leaf: take the minimum initialisation state.
   | .leaf x ; .leaf y =>
-      .leaf ‹InitialisationState.join ‹x, y››
+      .leaf ‹InitialisationState.meet ‹x, y››
   -- Leaf U vs Internal (either side): U dominates.
   | .leaf (.uninit) ; .internal _ => .leaf ‹.uninit›
   | .internal _ ; .leaf (.uninit) => .leaf ‹.uninit›
@@ -188,19 +188,19 @@ defFn join (.plain "join")
   | .internal xp ; .leaf (.deep) => .internal ‹xp›
   -- Matching `.deref` internals: recurse on the child.
   | .internal (.deref a) ; .internal (.deref b) =>
-      .internal ‹.deref ‹join ‹a, b›››
+      .internal ‹.deref ‹meet ‹a, b›››
   -- Other internal / internal combinations: conservative.
   | .internal _ ; .internal _ => .leaf ‹.uninit›
 
-/-- The initialisation-tree join is commutative:
-    `join a b = join b a`. Case analysis reduces nearly every
+/-- The initialisation-tree meet is commutative:
+    `meet a b = meet b a`. Case analysis reduces nearly every
     branch to `rfl`; the matching-leaf branch follows from
-    `InitialisationState.join_comm`, and the matching
+    `InitialisationState.meet_comm`, and the matching
     `.deref` branch reduces by structural recursion. -/
-theorem join_comm
-    : ∀ (a b : InitTree), join a b = join b a
+theorem meet_comm
+    : ∀ (a b : InitTree), meet a b = meet b a
   | .leaf x, .leaf y => by
-      simp only [join, InitialisationState.join_comm]
+      simp only [meet, InitialisationState.meet_comm]
   | .leaf .uninit, .internal _ => rfl
   | .internal _, .leaf .uninit => rfl
   | .leaf .shallow, .internal _ => rfl
@@ -208,7 +208,7 @@ theorem join_comm
   | .leaf .deep, .internal _ => rfl
   | .internal _, .leaf .deep => rfl
   | .internal (.deref a), .internal (.deref b) => by
-      simp only [join, join_comm a b]
+      simp only [meet, meet_comm a b]
   | .internal (.deref _), .internal (.fields _) => rfl
   | .internal (.deref _), .internal (.guided _) => rfl
   | .internal (.fields _), .internal (.deref _) => rfl

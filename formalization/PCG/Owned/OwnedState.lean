@@ -32,41 +32,41 @@ defProperty SameLength (.plain "SameLength")
   | [] ; [] => true
   | _ :: xs ; _ :: ys => SameLength ‹xs, ys›
 
--- `open InitTree` so that the unqualified `join` below resolves
--- to `InitTree.join` in source. In the Lean export, `InitTree`
--- is an alias and so receives no namespace; `InitTree.join` is
--- emitted at top level as `join`, where this same call site
+-- `open InitTree` so that the unqualified `meet` below resolves
+-- to `InitTree.meet` in source. In the Lean export, `InitTree`
+-- is an alias and so receives no namespace; `InitTree.meet` is
+-- emitted at top level as `meet`, where this same call site
 -- resolves directly to it without any `open`.
 open InitTree
 
-defFn ownedLocalsJoin (.plain "ownedLocalsJoin")
-  (.seq [.plain "Pairwise join of two lists of owned locals. \
+defFn ownedLocalsMeet (.plain "ownedLocalsMeet")
+  (.seq [.plain "Pairwise meet of two lists of owned locals. \
     For each position, two ", .code "allocated",
-    .plain " locals are joined via ", .code "InitTree.join",
+    .plain " locals are combined via ", .code "InitTree.meet",
     .plain "; any other combination collapses to ",
     .code "unallocated", .plain " — by the deallocation rule \
     of ", .code "join.md",
     .plain ", a local present (allocated) on only one \
-    incoming branch must be deallocated after the join."])
+    incoming branch must be deallocated after the meet."])
   (xs "Owned locals from the first state." : List OwnedLocal)
   (ys "Owned locals from the second state." : List OwnedLocal)
   requires SameLength(xs, ys)
   : List OwnedLocal where
   | [] ; [] => []
   | .allocated x :: xs ; .allocated y :: ys =>
-      .allocated ‹join ‹x, y›› :: ownedLocalsJoin ‹xs, ys›
+      .allocated ‹meet ‹x, y›› :: ownedLocalsMeet ‹xs, ys›
   | _ :: xs ; _ :: ys =>
-      .unallocated :: ownedLocalsJoin ‹xs, ys›
+      .unallocated :: ownedLocalsMeet ‹xs, ys›
 
 namespace OwnedState
 
-defFn join (.plain "join")
-  (.seq [.plain "Join two owned states by pairwise joining \
+defFn meet (.plain "meet")
+  (.seq [.plain "Meet two owned states by pairwise meeting \
     their owned locals."])
   (os1 "The first owned state." : OwnedState)
   (os2 "The second owned state." : OwnedState)
   : OwnedState :=
-    OwnedState⟨ownedLocalsJoin
+    OwnedState⟨ownedLocalsMeet
       ‹os1↦locals, os2↦locals, lean_proof("sorry")›⟩
 
 defFn initial (.plain "initial")

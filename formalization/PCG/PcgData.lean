@@ -191,8 +191,8 @@ defFn join (.plain "join")
   (.seq [
     .plain "Join two PCG data values at the program-point \
      entry of basic block ", .code "bb",
-    .plain ": pointwise-join the borrows graphs and the \
-     owned states (per-local, via ", .code "OwnedState.join",
+    .plain ": pointwise-join the borrows graphs and meet the \
+     owned states (per-local, via ", .code "OwnedState.meet",
     .plain "), tag the result with ", .code "bb",
     .plain " as its current basic block, and reset ",
     .code "transientState", .plain " to ", .code "None",
@@ -206,7 +206,7 @@ defFn join (.plain "join")
   : PcgData Place :=
     PcgData⟨
       BorrowsGraph.join ‹pd1↦bg, pd2↦bg›,
-      OwnedState.join ‹pd1↦ownedState, pd2↦ownedState›,
+      OwnedState.meet ‹pd1↦ownedState, pd2↦ownedState›,
       bb,
       None⟩
 

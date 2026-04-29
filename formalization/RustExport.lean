@@ -22,7 +22,7 @@ import Core.Dsl.Types.OrderDef
 -- `⟨a, b, c⟩` tuples, etc.), and importing it shifts the
 -- enum registration order enough to mis-resolve unqualified
 -- `.deref` in previously-working modules
--- (`InitTree.itPlaces`, `InitialisationState.join`).
+-- (`InitTree.itPlaces`, `InitialisationState.meet`).
 -- The Lean and LaTeX exports remain the authoritative source
 -- for `obtain` until the Rust exporter can translate these
 -- forms on its own; see `rustUnsupported` below for the

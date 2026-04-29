@@ -34,17 +34,17 @@ where
 
 namespace InitialisationState
 
-defFn join (.plain "join")
+defFn meet (.plain "meet")
   (.seq [
-    .plain "Join two initialisation states. This is the leaf \
-     case of the initialisation-tree join described in ",
+    .plain "Meet two initialisation states. This is the leaf \
+     case of the initialisation-tree meet described in ",
     .code "owned-state.md",
     .plain ": return the minimum of the two states under the \
      order ",
     .math (.bold (.raw "D")), .plain " > ",
     .math (.bold (.raw "S")), .plain " > ",
     .math (.bold (.raw "U")),
-    .plain ". In particular, the join is ",
+    .plain ". In particular, the meet is ",
     .math (.bold (.raw "U")),
     .plain " if either side is uninitialised, ",
     .math (.bold (.raw "S")),
@@ -60,11 +60,11 @@ defFn join (.plain "join")
   | _ ; .shallow => .shallow
   | .deep ; .deep => .deep
 
-/-- The leaf join on `InitialisationState` is commutative:
-    `a ∪ b = b ∪ a`. Witnesses the symmetry of the join
+/-- The leaf meet on `InitialisationState` is commutative:
+    `a ∩ b = b ∩ a`. Witnesses the symmetry of the meet
     rules documented in `owned-state.md`. -/
-theorem join_comm
-    (a b : InitialisationState) : join a b = join b a := by
+theorem meet_comm
+    (a b : InitialisationState) : meet a b = meet b a := by
   cases a <;> cases b <;> rfl
 
 end InitialisationState

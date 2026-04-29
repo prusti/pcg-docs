@@ -69,6 +69,8 @@ inductive MathSym where
   | fatArrow
   /-- Set union: `∪` (with surrounding spaces). -/
   | cup
+  /-- Set intersection: `∩` (with surrounding spaces). -/
+  | cap
   /-- Left arrow (monadic bind): `←` (with surrounding spaces). -/
   | leftarrow
   /-- Definition / assignment: ` := `. -/
@@ -216,6 +218,7 @@ def toPlainText : MathSym → String
   | .mapsto => " ↦ "
   | .fatArrow => " ⇒ "
   | .cup => " ∪ "
+  | .cap => " ∩ "
   | .leftarrow => " ← "
   | .assign => " := "
   | .append => " ++ "
@@ -515,6 +518,7 @@ mutual
     | .sym .mapsto => " &mapsto; "
     | .sym .fatArrow => " &rArr; "
     | .sym .cup => " &cup; "
+    | .sym .cap => " &cap; "
     | .sym .leftarrow => " &larr; "
     | .sym .assign => " := "
     | .sym .append => " ++ "

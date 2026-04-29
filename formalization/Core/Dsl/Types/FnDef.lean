@@ -244,7 +244,7 @@ private partial def exprLines
 
     `labelKey` overrides the `\hypertarget` / `\label` key used
     for this function's anchor. Callers pass a qualified key
-    (e.g. `"OwnedState.join"`) for functions whose short name
+    (e.g. `"OwnedState.meet"`) for functions whose short name
     collides with another registered function; `none` falls
     back to `f.name`. -/
 def formalDefLatex
