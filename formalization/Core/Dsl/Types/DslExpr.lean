@@ -485,9 +485,28 @@ partial def toDoc
     | _ => .seq [MathDoc.text "mapUnionSets",
                  MathDoc.paren (go arg)]
   | .call fn args =>
-    -- Drop proof arguments: they render as empty math
-    -- and would otherwise leave a trailing comma.
-    let visibleArgs := args.filter fun
+    -- Drop the trailing N args corresponding to a registered
+    -- function's precondition proofs. The DSL surface form
+    -- always supplies one argument per precondition (either
+    -- a `lean_proof("…")` placeholder or a regular variable
+    -- bound elsewhere), so trimming by count handles both
+    -- cases uniformly. Without this, an inductive-property
+    -- rule like `step ‹m'', h›` would render as `step m'' h`
+    -- — the proof argument is necessary for in-process Lean
+    -- elaboration but carries no information in the
+    -- presentation.
+    let precondCount : Nat := match fn with
+      | .var n =>
+        let short := (n.splitOn ".").getLast?.getD n
+        ctx.fnPrecondCount short
+      | _ => 0
+    let nonProofArgs :=
+      args.take (args.length - precondCount)
+    -- Then drop any remaining proof-shaped expressions (e.g.
+    -- a stray `lean_proof("…")` in non-precondition position):
+    -- they would render as empty math and leave dangling
+    -- commas.
+    let visibleArgs := nonProofArgs.filter fun
       | .sorryProof => false
       | .leanProof _ => false
       | _ => true

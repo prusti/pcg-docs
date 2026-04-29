@@ -59,3 +59,11 @@ structure RenderCtx where
       without a custom display template. -/
   resolveStructDisplay : String → Option (List DisplayPart × List String) :=
     fun _ => none
+  /-- The number of precondition-proof arguments a registered
+      function or property accepts at the end of its argument
+      list. Used by the call-site renderer to drop trailing
+      precondition proofs when rendering, since they carry no
+      information for the reader (the proofs are only needed
+      to make the in-process Lean call type-check). Defaults
+      to `0` for unknown names. -/
+  fnPrecondCount : String → Nat := fun _ => 0
