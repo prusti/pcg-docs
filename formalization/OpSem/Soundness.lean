@@ -80,20 +80,22 @@ defFn analyzeProgram (.plain "analyzeProgram")
     fresh PCG with an empty borrows graph and the entry-point \
     owned state derived from the body via ",
     .code "OwnedState.initial",
-    .plain ". Returns ", .code "None",
-    .plain " when the start function is unregistered or when ",
-    .code "analyzeBody", .plain " fails on any block."])
+    .plain ". The ", .code "validProgram",
+    .plain " precondition makes the start-function lookup \
+    total via ", .code "startProgram", .plain "; the result \
+    is still ", .code "Option AnalysisResults",
+    .plain " because ", .code "analyzeBody",
+    .plain " can fail on a block."])
   (program "The program to analyse." : Program)
+  requires validProgram(program)
   : Option AnalysisResults :=
-    match mapGet ‹program↦functions, program↦start› with
-    | .some body =>
-        let init :=
-          PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
-            OwnedState.initial ‹body›,
-            BasicBlockIdx⟨0⟩, None⟩ ;
-        analyzeBody ‹init, body›
-    | .none => None
-    end
+    let body := startProgram
+      ‹program, lean_proof("h_validProgram")› ;
+    let init :=
+      PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
+        OwnedState.initial ‹body›,
+        BasicBlockIdx⟨0⟩, None⟩ ;
+    analyzeBody ‹init, body›
 
 end Program
 
@@ -110,7 +112,8 @@ defInductiveProperty describes
   displayed (#ar, .text " describes ", #p)
 where
   | analyzeOk {ar : AnalysisResults} {p : Program}
-      from (Program.analyzeProgram ‹p› = Some ar)
+      from (Program.analyzeProgram ‹p, lean_proof("sorry")›
+              = Some ar)
       ⊢ describes ‹ar, p›
 
 defProperty pcgAnalysisSucceeds
@@ -125,7 +128,8 @@ defProperty pcgAnalysisSucceeds
            .plain " returns ", .code "Some"])
   (program "The program to analyse." : Program)
   :=
-    match Program.analyzeProgram ‹program› with
+    match Program.analyzeProgram
+            ‹program, lean_proof("sorry")› with
     | .some _ => true
     | .none => false
     end
