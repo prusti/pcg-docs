@@ -73,6 +73,22 @@ defFn analyzeProgram (.plain "analyzeProgram")
 
 end Program
 
+defInductiveProperty describes
+    (.text "d", .text "Describes")
+  "Analysis Results Describe a Program"
+  (.seq [.plain "Connects an ", .code "AnalysisResults",
+    .plain " value to the program it analyses: ",
+    .code "as", .plain " describes ", .code "p",
+    .plain " when running ", .code "analyzeProgram",
+    .plain " on ", .code "p", .plain " yields ",
+    .code "Some as", .plain "."])
+  (as "The analysis results." : AnalysisResults)
+  (p "The program." : Program)
+where
+  | analyzeOk {as : AnalysisResults} {p : Program}
+      from (Program.analyzeProgram ‹p› = Some as)
+      ⊢ describes ‹as, p›
+
 defProperty pcgAnalysisSucceeds
     (.plain "pcgAnalysisSucceeds")
   short (programDoc) =>
