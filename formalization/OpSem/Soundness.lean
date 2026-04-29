@@ -204,7 +204,7 @@ defProperty Framing (.plain "Framing")
        -- ∃ a a' : Allocation,
        --   placeAllocation m p  = Some a  ∧
        --   placeAllocation m p' = Some a' ∧
-       --   disjoint a a'
+       --   nonOverlapping a a'
        -- The DSL has no `∃` quantifier, so the existential is
        -- expressed as a nested match: when either lookup fails
        -- the conclusion is `false`, otherwise the witnesses
@@ -214,7 +214,7 @@ defProperty Framing (.plain "Framing")
        | .some a =>
            match Machine.placeAllocation
                    ‹m, p', lean_proof("sorry")› with
-           | .some a' => disjoint ‹a, a'›
+           | .some a' => Allocation.nonOverlapping ‹a, a'›
            | .none => false
            end
        | .none => false

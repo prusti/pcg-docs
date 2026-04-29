@@ -1,7 +1,6 @@
 import OpSem.Address
 import OpSem.AbstractByte
 import Core.Dsl.DefFn
-import Core.Dsl.DefProperty
 
 defStruct AllocId (.raw "id", .text "AllocId")
   "Allocation Identifiers"
@@ -54,20 +53,4 @@ defFn nonOverlapping (.plain "nonOverlapping")
     endAddr ‹a› ≤ b↦address ∨ endAddr ‹b› ≤ a↦address
 
 end Allocation
-
-defProperty disjoint (.plain "disjoint")
-  short (aDoc, a'Doc) =>
-    (.seq [aDoc, .plain " is disjoint from ", a'Doc])
-  long (aDoc, a'Doc) =>
-    (.seq [.plain "the address ranges of ", aDoc,
-           .plain " and ", a'Doc, .plain " do not overlap: \
-                  one allocation ends at or before the other \
-                  begins"])
-  (a "The first allocation." : Allocation)
-  (a' "The second allocation." : Allocation)
-  :=
-    let aEnd := Allocation.endAddr ‹a› ;
-    let a'End := Allocation.endAddr ‹a'› ;
-    aEnd↦addr ≤ a'↦address↦addr ∨
-    a'End↦addr ≤ a↦address↦addr
 
