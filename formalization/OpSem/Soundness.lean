@@ -258,16 +258,30 @@ defProperty Framing (.plain "Framing")
          ‹initialMachine
             ‹pr, lean_proof("sorry")›, m› →
        ‹break› Runnable ‹m› →
-       ‹break› let frame := currentFrame
-         ‹m, lean_proof("sorry")› ;
-       ‹break› validPlace ‹frame↦body, p› →
-       ‹break› validPlace ‹frame↦body, p'› →
-       ‹break› programContains ‹par, frame↦body, frame↦pc› →
-       ‹break› let pcg := programEntryStateAt
-         ‹par, frame↦body, frame↦pc,
-          lean_proof("sorry")› ;
-       ‹break› hasCapability ‹pcg, frame↦body, p, .exclusive› →
-       ‹break› hasCapability ‹pcg, frame↦body, p', .exclusive› →
+       ‹break› validPlace
+         ‹currBody ‹m, lean_proof("sorry")›, p› →
+       ‹break› validPlace
+         ‹currBody ‹m, lean_proof("sorry")›, p'› →
+       ‹break› programContains
+         ‹par,
+          currBody ‹m, lean_proof("sorry")›,
+          currPC ‹m, lean_proof("sorry")›› →
+       ‹break› hasCapability
+         ‹programEntryStateAt
+            ‹par,
+             currBody ‹m, lean_proof("sorry")›,
+             currPC ‹m, lean_proof("sorry")›,
+             lean_proof("sorry")›,
+          currBody ‹m, lean_proof("sorry")›,
+          p, .exclusive› →
+       ‹break› hasCapability
+         ‹programEntryStateAt
+            ‹par,
+             currBody ‹m, lean_proof("sorry")›,
+             currPC ‹m, lean_proof("sorry")›,
+             lean_proof("sorry")›,
+          currBody ‹m, lean_proof("sorry")›,
+          p', .exclusive› →
        ‹break› hasAllocation ‹m, p, a› →
        ‹break› hasAllocation ‹m, p', a'› →
        ‹break› Allocation.nonOverlapping ‹a, a'›
@@ -295,21 +309,27 @@ defProperty NoAlias (.plain "NoAlias")
          ‹initialMachine
             ‹pr, lean_proof("sorry")›, m› →
        ‹break› Runnable ‹m› →
-       ‹break› let frame := currentFrame
-         ‹m, lean_proof("sorry")› ;
-       ‹break› validPlace ‹frame↦body, p› →
-       ‹break› validPlace ‹frame↦body, p'› →
-       ‹break› programContains ‹par, frame↦body, frame↦pc› →
-       ‹break› let pcg := programEntryStateAt
-         ‹par, frame↦body, frame↦pc,
-          lean_proof("sorry")› ;
+       ‹break› validPlace
+         ‹currBody ‹m, lean_proof("sorry")›, p› →
+       ‹break› validPlace
+         ‹currBody ‹m, lean_proof("sorry")›, p'› →
+       ‹break› programContains
+         ‹par,
+          currBody ‹m, lean_proof("sorry")›,
+          currPC ‹m, lean_proof("sorry")›› →
        ‹break› (Machine.placeAllocation
             ‹m, p, lean_proof("sorry")›
           = Some a1) →
        ‹break› (Machine.placeAllocation
             ‹m, p', lean_proof("sorry")›
           = Some a2) →
-       ‹break› connected ‹pcg, placeNode ‹p›, placeNode ‹p'›› ∨
+       ‹break› connected
+         ‹programEntryStateAt
+            ‹par,
+             currBody ‹m, lean_proof("sorry")›,
+             currPC ‹m, lean_proof("sorry")›,
+             lean_proof("sorry")›,
+          placeNode ‹p›, placeNode ‹p'›› ∨
        ‹break› Allocation.nonOverlapping ‹a1, a2›
 
 defProperty Soundness (.plain "Soundness")

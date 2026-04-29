@@ -60,6 +60,27 @@ defFn currentFrame (.plain "currentFrame")
   : StackFrame :=
     m↦thread↦stack·head!
 
+defFn currBody (.plain "currBody")
+  (.seq [.plain "The body of the currently executing stack \
+    frame. Shorthand for ", .code "currentFrame",
+    .plain "'s ", .code "body", .plain " field; safe under \
+    the same ", .code "Runnable", .plain " precondition."])
+  (m "The machine state." : Machine)
+  requires Runnable(m)
+  : Body :=
+    (currentFrame ‹m, lean_proof("h_Runnable")›)↦body
+
+defFn currPC (.plain "currPC")
+  (.seq [.plain "The program counter of the currently \
+    executing stack frame. Shorthand for ",
+    .code "currentFrame", .plain "'s ", .code "pc",
+    .plain " field; safe under the same ",
+    .code "Runnable", .plain " precondition."])
+  (m "The machine state." : Machine)
+  requires Runnable(m)
+  : Location :=
+    (currentFrame ‹m, lean_proof("h_Runnable")›)↦pc
+
 defFn stackTail (.plain "stackTail")
   (.seq [.plain "The tail of the call stack — every frame \
     except the currently executing one (which ",
