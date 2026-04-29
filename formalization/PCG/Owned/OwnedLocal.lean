@@ -14,7 +14,6 @@ defEnum OwnedLocal
 where
   | unallocated
     "Unallocated."
-    (.bold (.raw "U"))
   | allocated (it : InitTree)
     "Allocated."
   deriving Repr
