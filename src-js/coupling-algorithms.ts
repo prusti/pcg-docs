@@ -277,6 +277,20 @@ function buildCoupledEdgeResults(
 }
 
 /**
+ * Given a graph and a collection of reachable subgraphs, returns the maximally
+ * coupled edge sets as CoupledEdgeResult objects.
+ */
+function computeMaximallyCoupledEdges(
+    graph: HypergraphForCoupling,
+    reachableGraphs: HypergraphForCoupling[]
+): CoupledEdgeResult[] {
+    const edgeIds = graph.edges.map(e => e.id);
+    const effectivelyCoupled = findEffectivelyCoupledSets(reachableGraphs, edgeIds);
+    const maximallyCoupled = findMaximallyCoupledSets(effectivelyCoupled);
+    return buildCoupledEdgeResults(graph, maximallyCoupled);
+}
+
+/**
  * Coupling algorithm based on unblocking frontier expiries
  *
  * This algorithm generates coupled edges by finding maximally coupled edges.
@@ -295,21 +309,10 @@ function buildCoupledEdgeResults(
  */
 function computeCouplingUnblockingFrontierExpiries(nodes: Node[], edges: Edge[]): CoupledEdgeResult[] {
     const graph = new HypergraphForCoupling(nodes, edges);
-
     const allUnblockings = computeAllUnblockings(graph);
     const distinctUnblockings = getDistinctUnblockings(allUnblockings);
-
-    const reachableGraphs = new Set(distinctUnblockings.flatMap(u => u.reachableGraphs));
-
-    const edgeIds = graph.edges.map(e => e.id);
-    const effectivelyCoupled = findEffectivelyCoupledSets(
-        [...reachableGraphs],
-        edgeIds
-    );
-
-    const maximallyCoupled = findMaximallyCoupledSets(effectivelyCoupled);
-
-    return buildCoupledEdgeResults(graph, maximallyCoupled);
+    const reachableGraphs = [...new Set(distinctUnblockings.flatMap(u => u.reachableGraphs))];
+    return computeMaximallyCoupledEdges(graph, reachableGraphs);
 }
 
 /**
@@ -475,18 +478,8 @@ function findMaximallyCoupledSets(effectivelyCoupled: Set<string>[]): Set<string
  */
 function computeCouplingExpireTogether(nodes: Node[], edges: Edge[]): CoupledEdgeResult[] {
     const graph = new HypergraphForCoupling(nodes, edges);
-
     const allReachableGraphs = getAllReachableGraphs(graph);
-
-    const edgeIds = graph.edges.map(e => e.id);
-    const expireTogetherSets = findEffectivelyCoupledSets(
-        allReachableGraphs,
-        edgeIds
-    );
-
-    const maximalSets = findMaximallyCoupledSets(expireTogetherSets);
-
-    return buildCoupledEdgeResults(graph, maximalSets);
+    return computeMaximallyCoupledEdges(graph, allReachableGraphs);
 }
 
 /**
