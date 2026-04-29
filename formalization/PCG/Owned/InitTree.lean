@@ -1,6 +1,5 @@
 import Core.Dsl.DefAlias
 import Core.Dsl.DefFn
-import Core.Dsl.DefInductiveProperty
 import Core.Dsl.DefProperty
 import MIR.Body
 import MIR.Ty
@@ -29,38 +28,33 @@ defAlias InitTree
     .plain "-typed place rather than a reference."])
   := AbstractInitTree InitialisationState
 
-defInductiveProperty HasNonDeepLeaf
-    (.text "h", .text "HasNonDeepLeaf")
-  "Has Non-Deep Leaf"
-  (.plain "An initialisation tree contains at least one \
-    descendant leaf whose capability is not fully \
-    initialised. The structural recursion is captured by an \
-    inference rule per `PlaceExpansion` variant.")
+defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
+  short (itDoc) =>
+    (.seq [itDoc, .plain " has at least one non-deep leaf"])
+  long (itDoc) =>
+    (.seq [itDoc, .plain " contains at least one descendant \
+           leaf whose capability is not fully initialised — \
+           recurses structurally on the tree, with the ",
+           .code "fields",
+           .plain " case folded over the children list as a \
+           disjunction."])
   (it "The initialisation tree." : InitTree)
-where
-  | leaf {cap : InitialisationState}
-      from (cap ≠ .deep)
-      ⊢ HasNonDeepLeaf ‹.leaf ‹cap››
-  | fields {fs} {fi : FieldIdx} {ty : Ty} {sub : InitTree}
-      from (⟨fi, ty, sub⟩ ∈ fs, HasNonDeepLeaf ‹sub›)
-      ⊢ HasNonDeepLeaf ‹.internal ‹.fields ‹fs›››
-  | deref {d}
-      from (HasNonDeepLeaf ‹d›)
-      ⊢ HasNonDeepLeaf ‹.internal ‹.deref ‹d›››
-  | guidedDowncast {v} {d}
-      from (HasNonDeepLeaf ‹d›)
-      ⊢ HasNonDeepLeaf ‹.internal ‹.guided ‹.downcast ‹v, d››››
-  | guidedConstantIndex {n} {d}
-      from (HasNonDeepLeaf ‹d›)
-      ⊢ HasNonDeepLeaf
-          ‹.internal ‹.guided ‹.constantIndex ‹n, d››››
-  | guidedIndex {l} {d}
-      from (HasNonDeepLeaf ‹d›)
-      ⊢ HasNonDeepLeaf ‹.internal ‹.guided ‹.index ‹l, d››››
-  | guidedSubslice {f} {t} {fromEnd} {d}
-      from (HasNonDeepLeaf ‹d›)
-      ⊢ HasNonDeepLeaf
-          ‹.internal ‹.guided ‹.subslice ‹f, t, fromEnd, d››››
+  := match it with
+     | .leaf cap => cap ≠ .deep
+     | .internal (.fields []) => false
+     | .internal (.fields (⟨_, _, sub⟩ :: rest)) =>
+         HasNonDeepLeaf ‹sub› ∨
+         HasNonDeepLeaf ‹.internal ‹.fields ‹rest›››
+     | .internal (.deref d) => HasNonDeepLeaf ‹d›
+     | .internal (.guided (.downcast _ d)) =>
+         HasNonDeepLeaf ‹d›
+     | .internal (.guided (.constantIndex _ d)) =>
+         HasNonDeepLeaf ‹d›
+     | .internal (.guided (.index _ d)) =>
+         HasNonDeepLeaf ‹d›
+     | .internal (.guided (.subslice _ _ _ d)) =>
+         HasNonDeepLeaf ‹d›
+     end
 
 defFnMutual
 defFn itPlaces (.plain "itPlaces")
