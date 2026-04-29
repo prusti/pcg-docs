@@ -28,7 +28,6 @@ presentation, while `RustExport` continues to see only the original
 filtered out of Rust output anyway). -/
 
 defInductiveProperty Reachable
-    (.text "reach", .text "Reachable")
   "Reachable Machines"
   (.seq [.plain "The set of machine states reachable from a \
     starting state by zero or more successful ", .code "step",
@@ -74,7 +73,6 @@ defFn analyzeProgram (.plain "analyzeProgram")
 end Program
 
 defInductiveProperty describes
-    (.text "d", .text "Describes")
   "Analysis Results Describe a Program"
   (.seq [.plain "Connects an ", .code "AnalysisResults",
     .plain " value to the program it analyses: ",

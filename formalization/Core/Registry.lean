@@ -228,8 +228,6 @@ initialize inductivePropertyRegistry :
 /-- Register an inductive-property definition. -/
 def registerInductivePropertyDef
     (p : InductivePropertyDef) (mod : Lean.Name) : IO Unit := do
-  checkSymbolUnique p.symbolDoc p.name
-  checkSymbolUnique p.setDoc p.name
   inductivePropertyRegistry.modify (· ++ [⟨p, mod⟩])
 
 /-- Retrieve all registered inductive-property definitions. -/

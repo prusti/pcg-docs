@@ -45,10 +45,6 @@ structure InductiveRule where
 structure InductivePropertyDef where
   /-- The property name (e.g. `"HasNonDeepLeaf"`). -/
   name : String
-  /-- Formatted type symbol for document exports. -/
-  symbolDoc : MathDoc
-  /-- Symbol for the property as a set/relation. -/
-  setDoc : MathDoc
   /-- LaTeX definition title (e.g. `"Has Non-Deep Leaf"`). -/
   docParam : String
   /-- Top-level documentation. -/
@@ -120,20 +116,41 @@ private def ruleLatex
   Latex.displayMath inference
 
 /-- Render the inductive property as a LaTeX `definition`
-    environment (prose) followed by one `\inferrule` per rule. -/
+    environment (prose) followed by one `\inferrule` per rule.
+
+    The header is written in natural relational form with a
+    trailing `where` clause binding each parameter to its type
+    via `∈`:
+    * 1 param  : `Name(p) where p ∈ T`
+    * 2 params : `p₁ Name p₂ where p₁ ∈ T₁, p₂ ∈ T₂` (infix)
+    * otherwise: `Name(p₁, …, pₙ) where p₁ ∈ T₁, …, pₙ ∈ Tₙ` -/
 def formalDefLatex
     (p : InductivePropertyDef) (ctx : RenderCtx) : Latex :=
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{p.name}}\{}"
-  let paramSig : LatexMath :=
-    LatexMath.intercalate (.raw ", ")
-      (p.params.map fun f =>
-        .seq [.escaped f.name, .raw " : ",
-              f.ty.toLatexMath (fun _ => false)])
-  let header : LatexMath :=
-    .seq [
-      p.symbolDoc.toLatexMath,
-      .raw " : ", paramSig, .raw " \\to \\mathbf{Prop}" ]
+  let nameLatex : LatexMath := .text (.text p.name)
+  let paramName (f : FieldDef) : LatexMath := .escaped f.name
+  let body : LatexMath := match p.params with
+    | [] => nameLatex
+    | [a] =>
+      .seq [nameLatex, .raw "(", paramName a, .raw ")"]
+    | [a, b] =>
+      .seq [paramName a, .raw "~", nameLatex, .raw "~",
+            paramName b]
+    | xs =>
+      let args := LatexMath.intercalate (.raw ", ")
+        (xs.map paramName)
+      .seq [nameLatex, .raw "(", args, .raw ")"]
+  let whereClause : LatexMath :=
+    if p.params.isEmpty then .raw ""
+    else
+      let bindings : LatexMath :=
+        LatexMath.intercalate (.raw ", ")
+          (p.params.map fun f =>
+            .seq [paramName f, .raw " \\in ",
+                  f.ty.toLatexMath (fun _ => false)])
+      .seq [.raw "\\quad\\text{where}\\quad ", bindings]
+  let header : LatexMath := .seq [body, whereClause]
   let prose : Latex := .seq [p.doc.toLatex, .newline]
   let defBlock : Latex :=
     .envOpts "definition" (.text p.docParam) (.seq [

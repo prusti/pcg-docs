@@ -75,7 +75,6 @@ run_cmd do
       (expected the line of `defFn testFnDecl ...`)"
 
 defInductiveProperty TestInductiveProp
-    (.text "tip", .text "TestInductiveProp")
   "Test Inductive Property"
   (.plain "Sample inductive property for the goto-def regression test.")
   (n "Test param." : Nat)

@@ -48,7 +48,6 @@ syntax "| " ident
     Example:
     ```
     defInductiveProperty HasNonDeepLeaf
-        (.plain "h", .plain "HasNonDeepLeaf")
       "Has Non-Deep Leaf"
       (.plain "An init tree has a non-`.deep` descendant leaf.")
       (it : InitTree)
@@ -61,7 +60,6 @@ syntax "| " ident
           ⊢ HasNonDeepLeaf (.internal (.fields fs))
     ``` -/
 syntax "defInductiveProperty " ident ("{" ident+ "}")?
-    "(" term "," term ")"
     str "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")? " where"
     inductivePropRule*
@@ -134,7 +132,6 @@ open Lean Elab Command in
 elab_rules : command
   | `(defInductiveProperty $name:ident
         $[{ $tps:ident* }]?
-        ($symDoc:term, $setDoc:term)
         $docParam:str ($doc:term)
         $ps:fnParam*
         $[displayed ( $dps:displayPart,* )]?
@@ -233,8 +230,6 @@ elab_rules : command
     elabCommand (← `(command|
       def $ipDefId : InductivePropertyDef :=
         { name := $nameStr,
-          symbolDoc := ($symDoc : MathDoc),
-          setDoc := ($setDoc : MathDoc),
           docParam := $docParam,
           doc := ($doc : Doc),
           typeParams := $typeParamsTerm,
