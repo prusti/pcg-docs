@@ -61,6 +61,14 @@ structure InductivePropertyDef where
   params : List FieldDef
   /-- The inference rules. -/
   rules : List InductiveRule
+  /-- Optional custom display template for applied uses of the
+      property. When set, a call `Name ‹a, b, …›` (e.g. in a
+      rule conclusion or another property's body) renders the
+      template with each `#param` reference replaced by the
+      rendered argument at the matching positional slot, just
+      like `defFn`'s display template. When `none`, the call
+      falls back to the default `Name(args)` rendering. -/
+  display : Option (List DisplayPart) := none
   /-- Pre-rendered Lean source for the underlying
       `inductive Name … : Prop where | …` declaration. The
       DSL command precomputes this so the LeanExport pipeline

@@ -324,9 +324,15 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
           Doc.link (rp.propertyDef.shortDoc args)
             s!"#property:{nm}"
     resolveFnDisplay := fun n =>
-      (reg.fns.find? (·.fnDef.name == n)).bind fun f =>
-        f.fnDef.display.map fun parts =>
-          (parts, f.fnDef.params.map (·.name))
+      let fnHit :=
+        (reg.fns.find? (·.fnDef.name == n)).bind fun f =>
+          f.fnDef.display.map fun parts =>
+            (parts, f.fnDef.params.map (·.name))
+      fnHit.orElse fun _ =>
+        (reg.inductiveProperties.find?
+            (·.inductivePropertyDef.name == n)).bind fun ip =>
+          ip.inductivePropertyDef.display.map fun parts =>
+            (parts, ip.inductivePropertyDef.params.map (·.name))
     resolveStructDisplay := fun n =>
       (reg.structs.find? (·.structDef.name == n)).bind fun s =>
         s.structDef.display.map fun parts =>

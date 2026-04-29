@@ -63,7 +63,7 @@ syntax "| " ident
 syntax "defInductiveProperty " ident ("{" ident+ "}")?
     "(" term "," term ")"
     str "(" term ")"
-    fnParam* " where"
+    fnParam* ("displayed " "(" displayPart,+ ")")? " where"
     inductivePropRule*
     : command
 
@@ -137,6 +137,7 @@ elab_rules : command
         ($symDoc:term, $setDoc:term)
         $docParam:str ($doc:term)
         $ps:fnParam*
+        $[displayed ( $dps:displayPart,* )]?
         where
         $rs:inductivePropRule*) => do
     identRefBuffer.set #[]
@@ -147,6 +148,11 @@ elab_rules : command
       | none => []
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
+    let displayTerm : TSyntax `term ← match dps with
+      | some d => do
+        let dpList ← parseFnDisplay paramData d.getElems
+        `((some $dpList : Option (List DisplayPart)))
+      | none => `((none : Option (List DisplayPart)))
     -- Build the `inductive` declaration as a string and reparse,
     -- since each rule's premises and conclusion are arbitrary
     -- Lean terms whose source we pass through verbatim.
@@ -234,6 +240,7 @@ elab_rules : command
           typeParams := $typeParamsTerm,
           params := $paramList,
           rules := $rulesTerm,
+          display := $displayTerm,
           leanSource := $leanSourceTerm }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod

@@ -78,16 +78,17 @@ defInductiveProperty describes
   "Analysis Results Describe a Program"
   (.seq [.plain "Connects an ", .code "AnalysisResults",
     .plain " value to the program it analyses: ",
-    .code "as", .plain " describes ", .code "p",
+    .code "ar", .plain " describes ", .code "p",
     .plain " when running ", .code "analyzeProgram",
     .plain " on ", .code "p", .plain " yields ",
-    .code "Some as", .plain "."])
-  (as "The analysis results." : AnalysisResults)
+    .code "Some ar", .plain "."])
+  (ar "The analysis results." : AnalysisResults)
   (p "The program." : Program)
+  displayed (#ar, .text " describes ", #p)
 where
-  | analyzeOk {as : AnalysisResults} {p : Program}
-      from (Program.analyzeProgram ‹p› = Some as)
-      ⊢ describes ‹as, p›
+  | analyzeOk {ar : AnalysisResults} {p : Program}
+      from (Program.analyzeProgram ‹p› = Some ar)
+      ⊢ describes ‹ar, p›
 
 defProperty pcgAnalysisSucceeds
     (.plain "pcgAnalysisSucceeds")
