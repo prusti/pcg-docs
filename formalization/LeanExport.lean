@@ -10,6 +10,7 @@ import PCG.Obtain
 import PCG.PcgData
 import PCG.PcgDomainData
 import PCG.PlaceCapability
+import PCG.Reachability
 import PCG.TransientState
 import PCG.ValidityConditions
 import MIR

@@ -14,6 +14,7 @@ import PCG.PcgData
 import PCG.PcgDomainData
 import PCG.PlaceCapability
 import PCG.PlaceExpansion
+import PCG.Reachability
 import PCG.RequiredGuide
 import PCG.TransientState
 import PCG.ValidityConditions
