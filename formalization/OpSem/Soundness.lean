@@ -170,6 +170,47 @@ defFn placeAllocation (.plain "placeAllocation")
 
 end Machine
 
+defInductiveProperty hasCapability
+  "PCG Place Capability"
+  (.seq [.plain "Holds when the PCG data ", .code "pcg",
+    .plain " (interpreted in body ", .code "b", .plain ") \
+    assigns capability ", .code "c", .plain " to place ",
+    .code "p", .plain "."])
+  (pcg "The PCG data." : PcgData Place)
+  (b "The function body." : Body)
+  (p "The place." : Place)
+  (c "The capability." : Capability)
+  -- Renders as `pcg[p, b] ≐ c`. The user-facing notation
+  -- `pcg[p]_b ≐ c` would put `b` in a subscript, but the
+  -- displayed-template machinery escapes `_` (and parameter
+  -- references can't sit inside a single subscript braces
+  -- group), so the body is rendered as a comma-separated
+  -- index instead.
+  displayed (#pcg, .raw "[", #p, .sym .comma, #b,
+             .raw "] \\doteq ", #c)
+where
+  | fromGet {pcg : PcgData Place} {b : Body}
+        {p : Place} {c : Capability}
+      from (getCapability ‹pcg, b, p, lean_proof("sorry")›
+              = Some c)
+      ⊢ hasCapability ‹pcg, b, p, c›
+
+defInductiveProperty hasAllocation
+  "Machine Place Allocation"
+  (.seq [.plain "Holds when the machine state ", .code "m",
+    .plain " backs place ", .code "p",
+    .plain " with allocation ", .code "a", .plain "."])
+  (m "The machine state." : Machine)
+  (p "The place." : Place)
+  (a "The allocation." : Allocation)
+  displayed (#m, .raw "[", #p, .raw "] \\doteq ", #a)
+where
+  | fromGet {m : Machine} {p : Place} {a : Allocation}
+      from (Machine.placeAllocation
+              ‹m, p, lean_proof("sorry")›
+              = Some a)
+      ⊢ hasAllocation ‹m, p, a›
+
 defProperty Framing (.plain "Framing")
   short () =>
     (.plain "the PCG analysis frames non-aliasing of \
@@ -182,7 +223,7 @@ defProperty Framing (.plain "Framing")
             are backed by allocations whose address ranges \
             do not overlap.")
   := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
-        p p' ∈ Place .
+        p p' ∈ Place, a a' ∈ Allocation .
        ‹break› describes ‹ar, pr› →
        ‹break› Reachable
          ‹initialMachine
@@ -195,30 +236,11 @@ defProperty Framing (.plain "Framing")
        ‹break› contains ‹ar, frame↦pc› →
        ‹break› let pcg := entryStateAt
          ‹ar, frame↦pc, lean_proof("sorry")› ;
-       ‹break› (getCapability ‹pcg, frame↦body, p,
-                       lean_proof("sorry")›
-          = Some .exclusive) →
-       ‹break› (getCapability ‹pcg, frame↦body, p',
-                       lean_proof("sorry")›
-          = Some .exclusive) →
-       -- ∃ a a' : Allocation,
-       --   placeAllocation m p  = Some a  ∧
-       --   placeAllocation m p' = Some a' ∧
-       --   nonOverlapping a a'
-       -- The DSL has no `∃` quantifier, so the existential is
-       -- expressed as a nested match: when either lookup fails
-       -- the conclusion is `false`, otherwise the witnesses
-       -- `a`, `a'` are the result-bound match patterns.
-       ‹break› match Machine.placeAllocation
-               ‹m, p, lean_proof("sorry")› with
-       | .some a =>
-           match Machine.placeAllocation
-                   ‹m, p', lean_proof("sorry")› with
-           | .some a' => Allocation.nonOverlapping ‹a, a'›
-           | .none => false
-           end
-       | .none => false
-       end
+       ‹break› hasCapability ‹pcg, frame↦body, p, .exclusive› →
+       ‹break› hasCapability ‹pcg, frame↦body, p', .exclusive› →
+       ‹break› hasAllocation ‹m, p, a› →
+       ‹break› hasAllocation ‹m, p', a'› →
+       ‹break› Allocation.nonOverlapping ‹a, a'›
 
 defProperty NoAlias (.plain "NoAlias")
   short () =>
