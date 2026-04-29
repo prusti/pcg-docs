@@ -620,7 +620,7 @@ private def renderModule
 -- ══════════════════════════════════════════════
 
 private def leanToolchain : String :=
-  "leanprover/lean4:v4.30.0-rc1\n"
+  "leanprover/lean4:v4.30.0-rc2\n"
 
 private def genLakefile
     (libs : List String) : String :=
