@@ -25,7 +25,6 @@ export interface Edge {
 interface CoupledEdgeResult {
     type: 'coupled' | 'merged-coupled' | 'identity';
     underlyingEdges: InternalEdge[];
-    frontier?: string[];
     sources: string[];
     targets: string[];
 }
@@ -58,7 +57,7 @@ interface InternalEdge {
 
 /** Enumerates all non-empty subsets of `items`. */
 function allNonEmptySubsets<T>(items: T[]): T[][] {
-    const numSubsets = Math.pow(2, items.length);
+    const numSubsets = 2 ** items.length;
     const result: T[][] = [];
     for (let i = 1; i < numSubsets; i++) {
         const subset: T[] = [];
@@ -148,16 +147,16 @@ class HypergraphForCoupling {
         while (toVisit.length > 0) {
             const current = toVisit.pop()!;
 
-            this.edges.forEach(e => {
+            for (const e of this.edges) {
                 if (e.sources.includes(current)) {
-                    e.targets.forEach(t => {
+                    for (const t of e.targets) {
                         if (!descendants.has(t)) {
                             descendants.add(t);
                             toVisit.push(t);
                         }
-                    });
+                    }
                 }
-            });
+            }
         }
 
         return descendants;
