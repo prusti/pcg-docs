@@ -400,29 +400,23 @@ const CYTOSCAPE_STYLES = [
             };
             hyperedgeGroups.push(group);
           } else {
-            const edgeData: any = {
-              id: edgeId,
-              source: edge.sources[0],
-              target: edge.targets[0],
-            };
-            if (edge.label) {
-              edgeData.label = edge.label;
-            }
             edgeElements.push({
-              data: edgeData,
+              data: {
+                id: edgeId,
+                source: edge.sources[0],
+                target: edge.targets[0],
+                ...(edge.label ? { label: edge.label } : {}),
+              },
             } as EdgeDefinition);
           }
         } else if (edge.source && edge.target) {
-          const edgeData: any = {
-            id: edgeId,
-            source: edge.source,
-            target: edge.target,
-          };
-          if (edge.label) {
-            edgeData.label = edge.label;
-          }
           edgeElements.push({
-            data: edgeData,
+            data: {
+              id: edgeId,
+              source: edge.source,
+              target: edge.target,
+              ...(edge.label ? { label: edge.label } : {}),
+            },
           } as EdgeDefinition);
         }
       });
