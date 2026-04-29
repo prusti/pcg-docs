@@ -41,9 +41,10 @@ defFn meet (.plain "meet")
     .code "owned-state.md",
     .plain ": return the minimum of the two states under the \
      order ",
-    .math (.bold (.raw "D")), .plain " > ",
-    .math (.bold (.raw "S")), .plain " > ",
-    .math (.bold (.raw "U")),
+    .math (.seq [
+      .bold (.raw "D"), .sym .gt,
+      .bold (.raw "S"), .sym .gt,
+      .bold (.raw "U")]),
     .plain ". In particular, the meet is ",
     .math (.bold (.raw "U")),
     .plain " if either side is uninitialised, ",
