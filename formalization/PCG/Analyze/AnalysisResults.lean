@@ -1,4 +1,5 @@
 import Core.Dsl.DefAlias
+import Core.Dsl.DefProperty
 import MIR.Body
 import PCG.PcgDomainData
 
@@ -16,3 +17,18 @@ defAlias AnalysisResults
     .plain ": one entry per basic block, keyed by ",
     .code "BasicBlockIdx", .plain "."])
   := Map BasicBlockIdx (List PcgDomainData)
+
+defProperty contains (.plain "contains")
+  short (arDoc, lDoc) =>
+    (.seq [arDoc, .plain " contains ", lDoc])
+  long (arDoc, lDoc) =>
+    (.seq [.plain "the basic block of ", lDoc,
+           .plain " is a key of ", arDoc,
+           .plain ", and the statement index of ", lDoc,
+           .plain " is less than the length of the per-block \
+                   list ", arDoc, .plain " stores at that key"])
+  (ar "The analysis results." : AnalysisResults)
+  (l "The location." : Location)
+  :=
+    l↦block ∈ ar ∧
+    l↦stmtIdx < (mapAt ‹ar, l↦block›)·length
