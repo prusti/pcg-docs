@@ -61,3 +61,10 @@ def mapMergeWith {κ ν : Type} [BEq κ] [Hashable κ]
     match acc.get? k with
     | some v' => acc.insert k (f v' v)
     | none => acc.insert k v) m₁
+
+/-- The values of a `Map`, in unspecified order. Useful for
+    iterating every entry of a map without caring about the
+    keys. -/
+def mapValues {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
+    (m : Map κ ν) : List ν :=
+  m.fold (fun acc _ v => v :: acc) []

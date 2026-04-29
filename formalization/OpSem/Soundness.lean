@@ -84,47 +84,49 @@ where
 
 namespace Program
 
+defFn insertAnalyzedBody (.plain "insertAnalyzedBody")
+  (.plain "Fold step for `analyzeProgram`: analyse a single \
+    body and insert the result into the accumulating \
+    `ProgramAnalysisResults`. Short-circuits to `None` when \
+    `analyzeBody` fails on the body.")
+  (acc "The accumulating per-body analysis results."
+      : ProgramAnalysisResults)
+  (b "The body to analyse." : Body)
+  : Option ProgramAnalysisResults :=
+    let ar ← analyzeBody ‹b› ;
+    Some (mapInsert ‹acc, b, ar›)
+
 defFn analyzeProgram (.plain "analyzeProgram")
   (.seq [.plain "Run ", .code "analyzeBody",
-    .plain " on the start function's body, starting from a \
-    fresh PCG with an empty borrows graph and the entry-point \
-    owned state derived from the body via ",
-    .code "OwnedState.initial",
-    .plain ". The ", .code "validProgram",
-    .plain " precondition makes the start-function lookup \
-    total via ", .code "startProgram", .plain "; the result \
-    is still ", .code "Option AnalysisResults",
-    .plain " because ", .code "analyzeBody",
-    .plain " can fail on a block."])
+    .plain " on every function body in the program, \
+    accumulating the per-body results into a ",
+    .code "ProgramAnalysisResults",
+    .plain ". Returns ", .code "None",
+    .plain " when ", .code "analyzeBody",
+    .plain " fails on any body."])
   (program "The program to analyse." : Program)
-  requires validProgram(program)
-  : Option AnalysisResults :=
-    let body := startProgram
-      ‹program, lean_proof("h_validProgram")› ;
-    let init :=
-      PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
-        OwnedState.initial ‹body›,
-        BasicBlockIdx⟨0⟩, None⟩ ;
-    analyzeBody ‹init, body›
+  : Option ProgramAnalysisResults :=
+    let bodies := mapValues ‹program↦functions› ;
+    bodies·foldlM insertAnalyzedBody mapEmpty‹›
 
 end Program
 
 defInductiveProperty describes
-  "Analysis Results Describe a Program"
-  (.seq [.plain "Connects an ", .code "AnalysisResults",
+  "Program Analysis Results Describe a Program"
+  (.seq [.plain "Connects a ", .code "ProgramAnalysisResults",
     .plain " value to the program it analyses: ",
-    .code "ar", .plain " describes ", .code "p",
+    .code "par", .plain " describes ", .code "p",
     .plain " when running ", .code "analyzeProgram",
     .plain " on ", .code "p", .plain " yields ",
-    .code "Some ar", .plain "."])
-  (ar "The analysis results." : AnalysisResults)
+    .code "Some par", .plain "."])
+  (par "The program analysis results."
+      : ProgramAnalysisResults)
   (p "The program." : Program)
-  displayed (#ar, .text " describes ", #p)
+  displayed (#par, .text " describes ", #p)
 where
-  | analyzeOk {ar : AnalysisResults} {p : Program}
-      from (Program.analyzeProgram ‹p, lean_proof("sorry")›
-              = Some ar)
-      ⊢ describes ‹ar, p›
+  | analyzeOk {par : ProgramAnalysisResults} {p : Program}
+      from (Program.analyzeProgram ‹p› = Some par)
+      ⊢ describes ‹par, p›
 
 defProperty pcgAnalysisSucceeds
     (.plain "pcgAnalysisSucceeds")
@@ -138,8 +140,7 @@ defProperty pcgAnalysisSucceeds
            .plain " returns ", .code "Some"])
   (program "The program to analyse." : Program)
   :=
-    match Program.analyzeProgram
-            ‹program, lean_proof("sorry")› with
+    match Program.analyzeProgram ‹program› with
     | .some _ => true
     | .none => false
     end
@@ -158,6 +159,24 @@ defFn entryStateAt (.plain "entryStateAt")
     let pdds := mapAt ‹ar, l↦block› ;
     let pdd := pdds ! l↦stmtIdx ;
     pdd↦entryState
+
+defFn programEntryStateAt (.plain "programEntryStateAt")
+  (.seq [.plain "The PCG state on entry to the statement at \
+    location ", .code "l", .plain " of body ", .code "b",
+    .plain " in program-wide analysis results ",
+    .code "par", .plain ": looks up the body's per-body \
+    analysis results, then defers to ",
+    .code "entryStateAt", .plain ". The ",
+    .code "programContains",
+    .plain " precondition guarantees both lookups succeed."])
+  (par "The program analysis results."
+      : ProgramAnalysisResults)
+  (b "The function body." : Body)
+  (l "The location to look up." : Location)
+  requires programContains(par, b, l)
+  : PcgData Place :=
+    let ar := mapAt ‹par, b› ;
+    entryStateAt ‹ar, l, lean_proof("h_programContains.2")›
 
 namespace Machine
 
@@ -231,9 +250,10 @@ defProperty Framing (.plain "Framing")
             program counter assigns the exclusive capability \
             are backed by allocations whose address ranges \
             do not overlap.")
-  := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
+  := ∀∀ pr ∈ Program, par ∈ ProgramAnalysisResults,
+        m ∈ Machine,
         p p' ∈ Place, a a' ∈ Allocation .
-       ‹break› describes ‹ar, pr› →
+       ‹break› describes ‹par, pr› →
        ‹break› Reachable
          ‹initialMachine
             ‹pr, lean_proof("sorry")›, m› →
@@ -242,9 +262,10 @@ defProperty Framing (.plain "Framing")
          ‹m, lean_proof("sorry")› ;
        ‹break› validPlace ‹frame↦body, p› →
        ‹break› validPlace ‹frame↦body, p'› →
-       ‹break› contains ‹ar, frame↦pc› →
-       ‹break› let pcg := entryStateAt
-         ‹ar, frame↦pc, lean_proof("sorry")› ;
+       ‹break› programContains ‹par, frame↦body, frame↦pc› →
+       ‹break› let pcg := programEntryStateAt
+         ‹par, frame↦body, frame↦pc,
+          lean_proof("sorry")› ;
        ‹break› hasCapability ‹pcg, frame↦body, p, .exclusive› →
        ‹break› hasCapability ‹pcg, frame↦body, p', .exclusive› →
        ‹break› hasAllocation ‹m, p, a› →
@@ -266,9 +287,10 @@ defProperty NoAlias (.plain "NoAlias")
             nonOverlapping` so that the property's contrapositive \
             reads as the disconnected-implies-disjoint statement \
             without needing a negation operator in the DSL.")
-  := ∀∀ pr ∈ Program, ar ∈ AnalysisResults, m ∈ Machine,
+  := ∀∀ pr ∈ Program, par ∈ ProgramAnalysisResults,
+        m ∈ Machine,
         p p' ∈ Place, a1 a2 ∈ Allocation .
-       ‹break› describes ‹ar, pr› →
+       ‹break› describes ‹par, pr› →
        ‹break› Reachable
          ‹initialMachine
             ‹pr, lean_proof("sorry")›, m› →
@@ -277,9 +299,10 @@ defProperty NoAlias (.plain "NoAlias")
          ‹m, lean_proof("sorry")› ;
        ‹break› validPlace ‹frame↦body, p› →
        ‹break› validPlace ‹frame↦body, p'› →
-       ‹break› contains ‹ar, frame↦pc› →
-       ‹break› let pcg := entryStateAt
-         ‹ar, frame↦pc, lean_proof("sorry")› ;
+       ‹break› programContains ‹par, frame↦body, frame↦pc› →
+       ‹break› let pcg := programEntryStateAt
+         ‹par, frame↦body, frame↦pc,
+          lean_proof("sorry")› ;
        ‹break› (Machine.placeAllocation
             ‹m, p, lean_proof("sorry")›
           = Some a1) →

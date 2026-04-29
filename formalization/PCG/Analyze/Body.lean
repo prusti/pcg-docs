@@ -206,20 +206,22 @@ defFn analyzeBody (.plain "analyzeBody")
     .code "PcgData.analyzeBlock",
     .plain " over every basic block of a function body in \
      reverse postorder, returning the per-block analysis \
-     results. The entry state of block 0 is the input ",
-    .code "init",
-    .plain "; every other block's entry state is the join of \
-     the post-main exit states of its already-analyzed \
-     predecessors. Back edges are ignored — predecessors \
-     reached only via a back edge do not contribute to the \
-     join, so the analysis runs once per block. Returns ",
-    .code "None", .plain " if ",
+     results. The entry state of block 0 is constructed from \
+     the body via ", .code "OwnedState.initial",
+    .plain " and an empty borrows graph; every other block's \
+     entry state is the join of the post-main exit states of \
+     its already-analyzed predecessors. Back edges are \
+     ignored — predecessors reached only via a back edge do \
+     not contribute to the join, so the analysis runs once \
+     per block. Returns ", .code "None", .plain " if ",
     .code "PcgData.analyzeBlock",
     .plain " fails on any block."])
-  (init "The PCG data on entry to the function body."
-      : PcgData Place)
   (body "The function body." : Body)
   : Option AnalysisResults :=
+    let init :=
+      PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
+        OwnedState.initial ‹body›,
+        BasicBlockIdx⟨0⟩, None⟩ ;
     let rpo := reversePostorder ‹body› ;
     let entryStates0 :=
       mapSingleton ‹BasicBlockIdx⟨0⟩, init› ;
