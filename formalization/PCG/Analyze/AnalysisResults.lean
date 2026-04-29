@@ -20,7 +20,9 @@ defAlias AnalysisResults
 
 defProperty contains (.plain "contains")
   short (arDoc, lDoc) =>
-    (.seq [arDoc, .plain " contains ", lDoc])
+    (.math (.seq [.doc lDoc,
+                  .sym .setContains,
+                  .doc arDoc]))
   long (arDoc, lDoc) =>
     (.seq [.plain "the basic block of ", lDoc,
            .plain " is a key of ", arDoc,
@@ -29,6 +31,7 @@ defProperty contains (.plain "contains")
                    list ", arDoc, .plain " stores at that key"])
   (ar "The analysis results." : AnalysisResults)
   (l "The location." : Location)
+  displayed (#l, .sym .setContains, #ar)
   :=
     l↦block ∈ ar ∧
     l↦stmtIdx < (mapAt ‹ar, l↦block›)·length
