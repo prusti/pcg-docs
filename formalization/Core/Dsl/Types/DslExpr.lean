@@ -565,12 +565,20 @@ partial def toDoc
     -- body. Symmetrically, `<ns>.meet a b` renders as
     -- `a ∩ b` — for example a call to `InitialisationState.meet`
     -- inside `InitTree.meet`'s body.
+    --
+    -- Compound names whose final segment ends in capitalised
+    -- `Join` / `Meet` are treated the same way so helpers like
+    -- `ownedLocalsMeet xs ys` also render as `xs ∩ ys`.
+    let isJoinName (s : String) : Bool :=
+      s == "join" || s.endsWith "Join"
+    let isMeetName (s : String) : Bool :=
+      s == "meet" || s.endsWith "Meet"
     let latticeOpDoc : Option MathDoc := match fn, visibleArgs with
       | .var n, [a, b] =>
         let short := (n.splitOn ".").getLast?.getD n
-        if short == "join" then
+        if isJoinName short then
           some (.seq [renderArg a, .sym .cup, renderArg b])
-        else if short == "meet" then
+        else if isMeetName short then
           some (.seq [renderArg a, .sym .cap, renderArg b])
         else none
       | _, _ => none
