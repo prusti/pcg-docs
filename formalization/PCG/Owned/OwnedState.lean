@@ -69,11 +69,7 @@ defFn join (.plain "join")
     OwnedState⟨ownedLocalsJoin
       ‹os1↦locals, os2↦locals, lean_proof("sorry")›⟩
 
-end OwnedState
-
-namespace Body
-
-defFn initialState (.plain "initialState")
+defFn initial (.plain "initial")
   (.seq [.plain "The initial owned state at the entry of a MIR \
     body. Local 0 (the return place) starts allocated and \
     uninitialised (",
@@ -91,4 +87,4 @@ defFn initialState (.plain "initialState")
         OwnedLocal.allocated ‹.leaf ‹.deep››
       else OwnedLocal.unallocated⟩
 
-end Body
+end OwnedState

@@ -155,8 +155,18 @@ private inductive LeanDefItem where
   | property_ (p : PropertyDef)
   | inductiveProperty_ (p : InductivePropertyDef)
 
-/-- Infer a namespace for a function from its first
-    parameter type, if it matches a known non-alias type.
+/-- Infer a namespace for a function. Defaults to the first
+    parameter type's name (the "method" convention); for
+    "smart constructor" functions whose source-level
+    `namespace <T>` agrees with the return type — e.g.
+    `OwnedState.initial (body : Body) : OwnedState` — the source
+    namespace wins instead so the function lands in its result's
+    namespace. Source namespaces that disagree with the return
+    type are ignored: `defFn` blocks are sometimes wrapped in a
+    `namespace` for source-level `open` convenience rather than
+    as a placement signal (e.g. `Machine`-namespaced helpers in
+    `OpSem/Expressions.lean` whose return type is `Value`).
+
     Alias type names are excluded because `namespace <alias>`
     does not create a valid namespace the generated code can
     `open` from the top of the file. -/
@@ -164,19 +174,27 @@ private def inferNamespace
     (f : FnDef) (allTypes : List String)
     (aliasNames : List String := [])
     : Option String :=
+  let acceptable (n : String) : Bool :=
+    allTypes.contains n && !aliasNames.contains n
   let headName : DSLType → Option String
     | .named n => some n.name
     | .app head _ => some head.name
     | _ => none
-  match f.params.head? with
-  | some p =>
-    match headName p.ty with
-    | some n =>
-      if aliasNames.contains n then none
-      else if allTypes.contains n then some n
-      else none
+  let returnTypeName := headName f.returnType
+  let sourceMatchesReturn : Option String :=
+    match f.sourceNamespace, returnTypeName with
+    | some s, some r => if s == r && acceptable s then some s
+                        else none
+    | _, _ => none
+  match sourceMatchesReturn with
+  | some n => some n
+  | none =>
+    match f.params.head? with
+    | some p =>
+      match headName p.ty with
+      | some n => if acceptable n then some n else none
+      | none => none
     | none => none
-  | none => none
 
 private def LeanDefItem.toLeanAST
     (definedTypes : List String)

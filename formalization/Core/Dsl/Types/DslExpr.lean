@@ -283,8 +283,8 @@ partial def toDoc
       mkLink fn
     else if ctx.knownFns shortName && !ctx.ambiguousFns shortName then
       -- Short name unambiguously resolves to a registered fn:
-      -- drop any qualifier the call site used (e.g. `Body.initialState`
-      -- → `initialState`) so the display matches the link target.
+      -- drop any qualifier the call site used (e.g. `OwnedState.initial`
+      -- → `initial`) so the display matches the link target.
       mkLinkAs shortName shortName
     else if ctx.knownFns shortName then
       match ctx.currentFnModule with

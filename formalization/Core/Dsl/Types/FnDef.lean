@@ -72,6 +72,14 @@ structure FnDef where
       explicit one supplied at the call site), mirroring
       enum-variant display templates. -/
   display : Option (List DisplayPart) := none
+  /-- Last component of the source-level `namespace` enclosing
+      the `defFn` declaration, if any. The Lean export prefers
+      this over the first-parameter-type heuristic when it
+      corresponds to a registered type — this lets a "smart
+      constructor" like `OwnedState.initial (body : Body)` live
+      in the type's namespace even though its first parameter is
+      a different type. -/
+  sourceNamespace : Option String := none
   deriving Repr
 
 namespace FnDef

@@ -602,6 +602,14 @@ def buildFnDef
   let displayTerm : TSyntax `term ← match display with
     | some dpList => `((some $dpList : Option (List DisplayPart)))
     | none => `((none : Option (List DisplayPart)))
+  -- Capture the last component of the source-level `namespace`
+  -- enclosing this `defFn` so the Lean export can prefer it over
+  -- the first-parameter-type heuristic for placing the function.
+  let curr ← getCurrNamespace
+  let sourceNs : Option String := match curr with
+    | .anonymous => none
+    | _ => curr.components.getLast?.map toString
+  let sourceNsTerm : TSyntax `term := quote sourceNs
   let fnDefId := mkIdent (name.getId ++ `fnDef)
   elabCommand (← `(command|
     def $fnDefId : FnDef :=
@@ -614,7 +622,8 @@ def buildFnDef
         postconditions := $postcondList,
         body := $body,
         mutualGroup := $mutualGroupTerm,
-        display := $displayTerm }))
+        display := $displayTerm,
+        sourceNamespace := $sourceNsTerm }))
   let mod ← getMainModule
   let modName : TSyntax `term := quote mod
   elabCommand (← `(command|

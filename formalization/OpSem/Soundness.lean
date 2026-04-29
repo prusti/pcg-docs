@@ -55,7 +55,7 @@ defFn analyzeProgram (.plain "analyzeProgram")
     .plain " on the start function's body, starting from a \
     fresh PCG with an empty borrows graph and the entry-point \
     owned state derived from the body via ",
-    .code "initialState",
+    .code "OwnedState.initial",
     .plain ". Returns ", .code "None",
     .plain " when the start function is unregistered or when ",
     .code "analyzeBody", .plain " fails on any block."])
@@ -65,7 +65,7 @@ defFn analyzeProgram (.plain "analyzeProgram")
     | .some body =>
         let init :=
           PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
-            Body.initialState ‹body›,
+            OwnedState.initial ‹body›,
             BasicBlockIdx⟨0⟩, None⟩ ;
         analyzeBody ‹init, body›
     | .none => None
