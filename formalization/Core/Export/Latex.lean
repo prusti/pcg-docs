@@ -330,8 +330,15 @@ def toLatex : MathSym → LatexMath
   | .sub => .raw " - "
   | .mul => .raw " \\cdot "
   | .div => .raw " / "
-  | .land => .raw " \\land "
-  | .lor => .raw " \\lor "
+  -- Boolean connectives get an explicit `~` non-breaking
+  -- space on each side. The text spaces in `" \\land "` are
+  -- swallowed in math mode, leaving only the binop's
+  -- automatic `\medmuskip` (~4mu); inside long
+  -- multi-line property bodies that came across as too
+  -- tight against the surrounding identifiers. `~` adds 3mu
+  -- on each side on top of the default binop spacing.
+  | .land => .raw "~\\land~"
+  | .lor => .raw "~\\lor~"
   | .implies => .raw " \\to "
   | .forall_ => .raw "\\forall "
   | .top => .raw "\\top"
