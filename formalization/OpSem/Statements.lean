@@ -1,6 +1,6 @@
 import OpSem.Expressions.Place
 import OpSem.Machine
-import OpSem.RuntimePlace
+import OpSem.PlacePtr
 import Core.Dsl.Descr
 
 namespace Machine
@@ -13,26 +13,26 @@ descr (.seq [
 
 defFn placeStore (.plain "placeStore")
   (.seq [.plain "Store a value into the location \
-    designated by a runtime place. Alignment and \
+    designated by a place pointer. Alignment and \
     atomicity are not currently modelled, so this \
     simply delegates to ",
     .code "typedStore",
     .plain " using the place's thin pointer."])
   (m "The memory." : Memory)
-  (place "The place to store into." : RuntimePlace)
+  (place "The place to store into." : PlacePtr)
   (v "The value to store." : Value)
   : Memory :=
     typedStore ‹m, place↦ptr, v›
 
 defFn placeLoad (.plain "placeLoad")
   (.seq [.plain "Load a value from the location \
-    designated by a runtime place. Alignment and \
+    designated by a place pointer. Alignment and \
     atomicity are not currently modelled, so this \
     simply delegates to ",
     .code "typedLoad",
     .plain " using the place's thin pointer."])
   (m "The memory." : Memory)
-  (place "The place to load from." : RuntimePlace)
+  (place "The place to load from." : PlacePtr)
   (ty "The type to load." : Ty)
   : Option Value :=
     typedLoad ‹m, place↦ptr, ty›
@@ -41,7 +41,7 @@ defFn evalOperand (.plain "evalOperand")
   (.seq [.plain "Evaluate a MIR operand to a runtime value. ",
     .code "copy", .plain " and ", .code "move",
     .plain " resolve the operand's place and load the value \
-    from memory at the resulting runtime place; ",
+    from memory at the resulting place pointer; ",
     .code "const", .plain " converts the constant directly \
     via ", .code "evalConstant", .plain ". Move semantics \
     (storage invalidation of the source) are not yet \
@@ -52,13 +52,13 @@ defFn evalOperand (.plain "evalOperand")
   requires Runnable(m)
   : Option Value where
   | m ; .copy p =>
-      let ⟨rp, ty⟩ ←
+      let ⟨pp, ty⟩ ←
         evalPlace ‹m, p, lean_proof("h_Runnable")› ;
-      placeLoad ‹m↦mem, rp, ty›
+      placeLoad ‹m↦mem, pp, ty›
   | m ; .move p =>
-      let ⟨rp, ty⟩ ←
+      let ⟨pp, ty⟩ ←
         evalPlace ‹m, p, lean_proof("h_Runnable")› ;
-      placeLoad ‹m↦mem, rp, ty›
+      placeLoad ‹m↦mem, pp, ty›
   | _ ; .const cv => Some (evalConstant ‹cv›)
 
 defFn evalRvalue (.plain "evalRvalue")
@@ -81,8 +81,8 @@ defFn evalRvalue (.plain "evalRvalue")
   | m ; .use o =>
       evalOperand ‹m, o, lean_proof("h_Runnable")›
   | m ; .ref _ _ p =>
-      let ⟨rp, _⟩ ←
+      let ⟨pp, _⟩ ←
         evalPlace ‹m, p, lean_proof("h_Runnable")› ;
-      Some Value.ptr‹rp↦ptr›
+      Some Value.ptr‹pp↦ptr›
 
 end Machine

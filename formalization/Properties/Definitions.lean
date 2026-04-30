@@ -185,9 +185,9 @@ defFn placeAllocation (.plain "placeAllocation")
   (p "The place." : Place)
   requires Runnable(m)
   : Option Allocation :=
-    let ⟨rp, _⟩ ← evalPlace
+    let ⟨pp, _⟩ ← evalPlace
       ‹m, p, lean_proof("h_Runnable")› ;
-    let prov ← rp↦ptr↦provenance ;
+    let prov ← pp↦ptr↦provenance ;
     Some (m↦mem↦allocs ! prov↦id↦index)
 
 end Machine

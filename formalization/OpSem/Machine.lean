@@ -1,6 +1,6 @@
 import OpSem.Memory
 import OpSem.Program
-import OpSem.RuntimePlace
+import OpSem.PlacePtr
 import OpSem.Thread
 import OpSem.Value
 import OpSem.Decode

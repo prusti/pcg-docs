@@ -183,9 +183,9 @@ defFn evalTerminator (.plain "evalTerminator")
                           ‹mPopped, targetPlace,
                             lean_proof("sorry")› with
                       | .none => StepResult.done‹.error›
-                      | .some ⟨rp, _⟩ =>
+                      | .some ⟨pp, _⟩ =>
                           let mem' := placeStore
-                            ‹mPopped↦mem, rp, retVal› ;
+                            ‹mPopped↦mem, pp, retVal› ;
                           let mWithMem :=
                             mPopped[mem => mem'] ;
                           StepResult.ok‹jumpToBlock

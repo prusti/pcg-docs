@@ -112,7 +112,7 @@ Will not implement
   - [ ] `Ptr`
   - [ ] `Variant`
   - [N] `Union`
-- [~] `Place` struct (simplified as `RuntimePlace` with just a `ThinPointer`)
+- [~] `Place` struct (simplified as `PlacePtr` with just a `ThinPointer`)
   - [U] `aligned` field
 
 ### [`types.md`](https://github.com/minirust/minirust/blob/master/spec/lang/types.md) -- Types
