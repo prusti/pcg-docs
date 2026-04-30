@@ -334,6 +334,7 @@ def buildCrate
      (`OpSem.Step, "evalTerminator"),
      (`OpSem.Step, "jumpToBlock"),
      (`OpSem.Step, "step"),
+     (`OpSem.Step, "caseTarget"),
      (`Properties.Definitions, "pcgAnalysisSucceeds"),
      (`Properties.Definitions, "isInitialState"),
      (`Properties.Soundness, "Soundness")]

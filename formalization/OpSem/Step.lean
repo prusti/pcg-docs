@@ -38,6 +38,27 @@ defEnum StepResult (.raw "sr", .text "StepResult")
     "The step produced a new machine state."
   deriving Repr
 
+defFn caseTarget (.plain "caseTarget")
+  (.seq [.plain "Look up the basic block that a ",
+    .code "switchInt", .plain " terminator should jump to \
+    when its operand evaluates to ", .code "iv",
+    .plain ". Scans the ", .code "cases",
+    .plain " list in order for the first pair whose first \
+    component is ", .code "iv",
+    .plain "; returns the supplied ", .code "fallback",
+    .plain " when no case matches. Mirrors MiniRust's ",
+    .code "cases.get(value).unwrap_or(fallback)", .plain "."])
+  (cases "The case list of (value, target-block) pairs."
+      : List (IntValue × BasicBlockIdx))
+  (iv "The integer the operand evaluated to." : IntValue)
+  (fallback "The default block when no case matches."
+      : BasicBlockIdx)
+  : BasicBlockIdx where
+  | [] ; _ ; fallback => fallback
+  | ⟨v, bb⟩ :: rest ; iv ; fallback =>
+      if v == iv then bb
+      else caseTarget ‹rest, iv, fallback›
+
 namespace Machine
 
 defFn evalStatement (.plain "evalStatement")
@@ -110,10 +131,14 @@ defFn evalTerminator (.plain "evalTerminator")
     .code "drop", .plain " jumps to its successor without \
     modelling drop semantics; ", .code "unreachable",
     .plain " halts with ", .code "error", .plain "; ",
-    .code "switchInt", .plain " and ", .code "call",
-    .plain " currently halt with ", .code "error",
-    .plain " — switch case maps and function-pointer \
-    resolution are not yet modelled."
+    .code "switchInt", .plain " evaluates its operand and \
+    jumps to the case-matching basic block, falling back to \
+    the terminator's ", .code "fallback",
+    .plain " when no case matches (mirrors MiniRust's ",
+    .code "Terminator::Switch", .plain "); ", .code "call",
+    .plain " currently halts with ", .code "error",
+    .plain " — function-pointer resolution is not yet \
+    modelled."
     , .plain " ", .code "return", .plain " loads the return \
     value out of the callee's return slot (local 0), pops \
     the callee frame, and — when the call stack still \
@@ -134,7 +159,15 @@ defFn evalTerminator (.plain "evalTerminator")
   | m ; .drop _ target =>
       StepResult.ok‹jumpToBlock
         ‹m, target, lean_proof("h_Runnable")››
-  | _ ; .switchInt _ => StepResult.done‹.error›
+  | m ; .switchInt op cases fallback =>
+      match evalOperand
+          ‹m, op, lean_proof("h_Runnable")› with
+      | .some (.int iv) =>
+          let target := caseTarget ‹cases, iv, fallback› ;
+          StepResult.ok‹jumpToBlock
+            ‹m, target, lean_proof("h_Runnable")››
+      | _ => StepResult.done‹.error›
+      end
   | _ ; .call _ _ _ _ => StepResult.done‹.error›
   | m ; .return_ =>
       let frame := currentFrame

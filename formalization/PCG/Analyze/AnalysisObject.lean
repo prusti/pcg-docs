@@ -63,7 +63,7 @@ defFn terminatorTriples (.plain "terminatorTriples")
   (t "The terminator." : Terminator)
   : Set PlaceTriple where
   | .goto _ => ∅
-  | .switchInt o => operandTriple ‹o›
+  | .switchInt o _ _ => operandTriple ‹o›
   | .return_ => ∅
   | .unreachable => ∅
   | .drop _ _ => ∅

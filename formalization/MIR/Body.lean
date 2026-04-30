@@ -28,7 +28,12 @@ where
   | goto (target : BasicBlockIdx)
     "Unconditional jump."
   | switchInt (operand : Operand)
-    "Switch on an integer value."
+      (cases : List (IntValue × BasicBlockIdx))
+      (fallback : BasicBlockIdx)
+    "Switch on an integer value: jump to the case-matching \
+     block, or to `fallback` when no case matches. The cases \
+     are a list of `(value, target)` pairs scanned in order \
+     for the first match."
   | return_
     "Return from the function."
     (.text "return")
@@ -56,7 +61,7 @@ defFn terminatorPlaces (.plain "terminatorPlaces")
   (t "The terminator." : Terminator)
   : Set Place where
   | .goto _ => ∅
-  | .switchInt o => o·operandPlace·toSet
+  | .switchInt o _ _ => o·operandPlace·toSet
   | .return_ => ∅
   | .unreachable => ∅
   | .drop p _ => ⦃p⦄

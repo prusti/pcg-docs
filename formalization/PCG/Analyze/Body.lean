@@ -14,12 +14,14 @@ import PCG.PcgDomainData
 defFn termSuccessors (.plain "termSuccessors")
   (.plain "List the basic-block successors of a terminator. \
     `goto`, `drop`, and `call` each have a single successor; \
-    `return`, `unreachable`, and `switchInt` (in this \
-    formalism) have none.")
+    `switchInt` lists every block referenced by its `cases` \
+    map together with its `fallback`; `return` and \
+    `unreachable` have none.")
   (t "The terminator." : Terminator)
   : List BasicBlockIdx where
   | .goto target => [target]
-  | .switchInt _ => []
+  | .switchInt _ cases fallback =>
+      (cases·map fun ⟨_, bb⟩ => bb) ++ [fallback]
   | .return_ => []
   | .unreachable => []
   | .drop _ target => [target]
@@ -72,7 +74,8 @@ private partial def dfsVisit
     let succs : List BasicBlockIdx :=
       match block.terminator with
       | .goto target => [target]
-      | .switchInt _ => []
+      | .switchInt _ cases fallback =>
+          cases.map (·.2) ++ [fallback]
       | .return_ => []
       | .unreachable => []
       | .drop _ target => [target]
