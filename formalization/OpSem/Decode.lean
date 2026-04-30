@@ -138,10 +138,13 @@ defFn encodeBool (.plain "encode_bool")
 defFn encode (.plain "encode")
   (.plain "Encode a runtime value as a byte sequence. \
    Returns the empty list for values that cannot \
-   be encoded (tuples, arrays).")
+   be encoded (tuples, arrays, pointers — pointer \
+   round-tripping through abstract bytes is not yet \
+   modelled).")
   (v "The value to encode." : Value)
   : List AbstractByte where
   | .bool b => encodeBool ‹b›
   | .int iv => encodeInt ‹iv›
   | .tuple _ => []
   | .array _ => []
+  | .ptr _ => []

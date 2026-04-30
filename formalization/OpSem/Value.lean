@@ -1,12 +1,13 @@
 import MIR.ConstValue
+import OpSem.Pointer
 
 defEnum Value (.raw "v", .cal (.raw "V"))
   "Values"
   (.seq [
     .plain "A runtime value ",
     Doc.defMath (.raw "v") (.cal (.raw "V")),
-    .plain " is either a boolean, an integer, a tuple, or \
-     an array."])
+    .plain " is either a boolean, an integer, a tuple, an \
+     array, or a pointer."])
 where
   | bool (val : Bool)
     "A boolean."
@@ -19,4 +20,7 @@ where
   | array (elems : List Value)
     "An array."
     (.text "array ", #elems (.raw "\\bar{v}"))
+  | ptr (ptr : ThinPointer)
+    "A pointer (the runtime value of a reference or `Box`)."
+    (.text "ptr ", #ptr)
   deriving Repr, BEq, Hashable

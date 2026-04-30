@@ -55,8 +55,17 @@ defFn evalField (.plain "evalField")
 defFn evalProjs (.plain "evalProjs")
   (.seq [.plain "Evaluate a sequence of projection \
     elements, threading a runtime place and type \
-    through each step. Currently only field \
-    projections are supported."])
+    through each step. ", .code ".field",
+    .plain " advances the place by the field's byte offset \
+    and updates the type to the field's type; ",
+    .code ".downcast",
+    .plain " is a no-op on the runtime place — variant \
+    selection only affects subsequent typed access, not \
+    the address itself. ", .code ".deref", .plain " and ",
+    .code ".index",
+    .plain " need to load values out of memory and are not \
+    yet handled here (they fall through to ", .code "None",
+    .plain ")."])
   (place "The current runtime place." : RuntimePlace)
   (ty "The current type." : Ty)
   (projs "The remaining projections." : List ProjElem)
@@ -65,6 +74,8 @@ defFn evalProjs (.plain "evalProjs")
   | place ; ty ; (.field idx _) :: rest =>
       let ⟨fp, ft⟩ ← evalField ‹place, idx, ty› ;
       evalProjs ‹fp, ft, rest›
+  | place ; ty ; (.downcast _) :: rest =>
+      evalProjs ‹place, ty, rest›
   | _ ; _ ; _ :: _ => None
 
 defFn evalPlace (.plain "evalPlace")

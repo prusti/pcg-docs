@@ -65,14 +65,24 @@ defFn evalRvalue (.plain "evalRvalue")
   (.seq [.plain "Evaluate an rvalue to a runtime value. ",
     .code "use", .plain " forwards to ", .code "evalOperand",
     .plain ". The reference-introducing case ",
-    .code "ref", .plain " is not yet modelled (returns ",
-    .code "None", .plain ")."])
+    .code "ref", .plain " resolves the referenced place to \
+    a runtime address via ", .code "evalPlace",
+    .plain " and wraps the resulting thin pointer in ",
+    .code "Value.ptr",
+    .plain ". The region and mutability are presentation-only \
+    in this model: aliasing and mutation are tracked by the \
+    PCG analysis, not by runtime metadata. Returns ",
+    .code "None", .plain " when the referenced place cannot \
+    be resolved."])
   (m "The machine state." : Machine)
   (rv "The rvalue." : Rvalue)
   requires Runnable(m)
   : Option Value where
   | m ; .use o =>
       evalOperand ‹m, o, lean_proof("h_Runnable")›
-  | _ ; .ref _ _ _ => None
+  | m ; .ref _ _ p =>
+      let ⟨rp, _⟩ ←
+        evalPlace ‹m, p, lean_proof("h_Runnable")› ;
+      Some Value.ptr‹rp↦ptr›
 
 end Machine
