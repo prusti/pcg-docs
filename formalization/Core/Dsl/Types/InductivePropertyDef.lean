@@ -140,23 +140,31 @@ def formalDefLatex
   -- When a `displayed` template is supplied, use it for the
   -- header (with arg references rendered as their parameter
   -- name, since the `where`-block below introduces those names
-  -- explicitly). Otherwise fall back to the relational form.
+  -- explicitly). Otherwise the header follows
+  -- `PRESENTATION_PROP_APP_STYLE` — `Haskell` produces
+  -- `Name p₁ p₂ …`; `Rust` keeps the previous `Name(p)` /
+  -- `p₁ Name p₂` (infix for binary) / `Name(p₁, …, pₙ)` shape.
   let header : LatexMath := match p.display with
     | some parts =>
       .seq (parts.map fun
         | .lit d => d.toLatexMath
         | .arg name _ => .escaped name)
-    | none => match p.params with
-      | [] => nameLatex
-      | [a] =>
-        .seq [nameLatex, .raw "(", paramName a, .raw ")"]
-      | [a, b] =>
-        .seq [paramName a, .raw "~", nameLatex, .raw "~",
-              paramName b]
-      | xs =>
-        let args := LatexMath.intercalate (.raw ", ")
-          (xs.map paramName)
-        .seq [nameLatex, .raw "(", args, .raw ")"]
+    | none =>
+      if p.params.isEmpty then nameLatex
+      else if PRESENTATION_PROP_APP_STYLE == .Haskell then
+        let args := LatexMath.intercalate (.raw "~")
+          (p.params.map paramName)
+        .seq [nameLatex, .raw "~", args]
+      else match p.params with
+        | [a] =>
+          .seq [nameLatex, .raw "(", paramName a, .raw ")"]
+        | [a, b] =>
+          .seq [paramName a, .raw "~", nameLatex, .raw "~",
+                paramName b]
+        | xs =>
+          let args := LatexMath.intercalate (.raw ", ")
+            (xs.map paramName)
+          .seq [nameLatex, .raw "(", args, .raw ")"]
   let whereBlock : Latex :=
     if p.params.isEmpty then .seq []
     else

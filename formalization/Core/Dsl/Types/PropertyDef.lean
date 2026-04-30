@@ -33,38 +33,54 @@ def defaultDoc (p : PropertyDef) : Doc :=
 /-- Build the LHS of a property's definition equation.
 
     Mirrors `InductivePropertyDef.formalDefLatex`'s header:
-    a custom display template wins; otherwise binary
-    properties render infix as `p₁ Name p₂`, unary as
-    `Name(p)`, and N-ary as `Name(p₁, …, pₙ)`. -/
+    a custom display template wins; otherwise the LHS follows
+    `PRESENTATION_PROP_APP_STYLE` — `Haskell` produces
+    `Name p₁ p₂ …` (juxtaposition); `Rust` keeps the previous
+    `Name(p)` / `p₁ Name p₂` (infix for binary) /
+    `Name(p₁, …, pₙ)` shape. -/
 private def lhsMath (p : PropertyDef) : LatexMath :=
   match p.fnDef.displayLatexMath? with
   | some disp => disp
   | none =>
     let name : LatexMath := .text (.text p.fnDef.name)
     let argName (f : FieldDef) : LatexMath := .escaped f.name
-    match p.fnDef.params with
-    | [] => name
-    | [a] =>
-      .seq [name, .raw "(", argName a, .raw ")"]
-    | [a, b] =>
-      .seq [argName a, .raw "~", name, .raw "~", argName b]
-    | xs =>
-      let args := LatexMath.intercalate (.raw ", ")
-        (xs.map argName)
-      .seq [name, .raw "(", args, .raw ")"]
+    if p.fnDef.params.isEmpty then name
+    else if PRESENTATION_PROP_APP_STYLE == .Haskell then
+      let args := LatexMath.intercalate (.raw "~")
+        (p.fnDef.params.map argName)
+      .seq [name, .raw "~", args]
+    else match p.fnDef.params with
+      | [a] =>
+        .seq [name, .raw "(", argName a, .raw ")"]
+      | [a, b] =>
+        .seq [argName a, .raw "~", name, .raw "~", argName b]
+      | xs =>
+        let args := LatexMath.intercalate (.raw ", ")
+          (xs.map argName)
+        .seq [name, .raw "(", args, .raw ")"]
 
-/-- Build the `\quad\text{where}\quad p₁ ∈ T₁, …` clause
-    from the property's parameters. Returns `.raw ""` for a
-    nullary property. -/
-private def whereClause (p : PropertyDef) : LatexMath :=
-  if p.fnDef.params.isEmpty then .raw ""
+/-- Build the `where`-block listing each parameter on its own
+    row (binding, type, description) — mirrors `defStruct`'s
+    field block. Returns an empty `Latex` for a nullary
+    property. -/
+private def whereBlock (p : PropertyDef) : Latex :=
+  if p.fnDef.params.isEmpty then .seq []
   else
-    let bindings : LatexMath :=
-      LatexMath.intercalate (.raw ", ")
-        (p.fnDef.params.map fun f =>
-          .seq [.escaped f.name, .raw " \\in ",
-                f.ty.toLatexMath (fun _ => false)])
-    .seq [.raw "\\quad\\text{where}\\quad ", bindings]
+    let paramRows := p.fnDef.params.map fun f =>
+      [ .escaped f.name
+      , .seq [.raw " \\in ",
+              f.ty.toLatexMath (fun _ => false)]
+      , -- Wrap the description in a `\parbox` so long param
+        -- descriptions wrap onto multiple lines instead of
+        -- overflowing the array row, mirroring the
+        -- `defStruct` field-row layout.
+        .seq [.raw "~", .text (Latex.parbox
+          "\\dimexpr\\linewidth-9cm\\relax"
+          (.seq [.raw "(", f.doc.toLatex, .raw ")"]))]
+      ]
+    .seq [.raw "where", .newline,
+          .displayMath (.array none "rll" paramRows),
+          .newline]
 
 /-- Render the body of a property's definition equation as
     a single `LatexMath`. For an expression body the body
@@ -140,16 +156,13 @@ def formalDefLatex
     .raw s!"\\hypertarget\{fn:{key}}\{}\\label\{fn:{key}}"
   let lhs := lhsMath p
   let body := bodyMath p ctx
-  let wclause := whereClause p
   let equation : LatexMath :=
-    .seq [lhs, .raw " \\mathrel{:=} ", body, wclause]
-  let boxed : Latex :=
-    .displayMath
-      (.seq [.raw "\\boxed{", equation, .raw "}"])
+    .seq [lhs, .raw " \\mathrel{:=} ", body]
   .envOpts "definition" (.text p.fnDef.name) (.seq [
     propertyAnchor, fnAnchor, .newline,
     p.defaultDoc.toLatex, .newline,
-    boxed
+    .displayMath equation, .newline,
+    whereBlock p
   ])
 
 end PropertyDef

@@ -1,5 +1,6 @@
 import Core.Export.Latex
 import Core.Dsl.DeriveQuote
+import Core.Dsl.Types.FnAppStyle
 import Core.Dsl.Types.FormatHint
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
@@ -324,7 +325,14 @@ partial def toDoc
     | .var _ | .natLit _ | .true_ | .false_ | .none_ => false
     | .emptyList | .emptySet => false
     | .setSingleton _ => false
-    | .field .. | .dot .. => false
+    | .field .. => false
+    -- `.dot` is atomic in `Rust` style (renders as
+    -- `method(recv)`) but juxtaposed in `Haskell` style
+    -- (`method recv`) — a juxtaposition needs parens when
+    -- placed inside another juxtaposition, otherwise
+    -- `toSet (operandPlace x)` collapses to the ambiguous
+    -- `toSet operandPlace x`.
+    | .dot .. => PRESENTATION_FN_APP_STYLE == .Haskell
     | .index .. | .indexBang .. => false
     | .structUpdate .. => false
     | .mkStruct "" _ => false
@@ -444,7 +452,17 @@ partial def toDoc
     .seq [ go recv, .sym .space, MathDoc.text "as"
          , .sym .space, .bb (.raw "N") ]
   | .dot recv method =>
-    .seq [fnRef method, MathDoc.paren (go recv)]
+    -- `recv.method` desugars to a one-argument function call:
+    -- follow `PRESENTATION_FN_APP_STYLE` so `Haskell` renders
+    -- as `method recv` (with parens around compound receivers)
+    -- and `Rust` keeps the existing `method(recv)` form.
+    let recvDoc := go recv
+    if PRESENTATION_FN_APP_STYLE == .Haskell then
+      let arg := if needsParen recv then MathDoc.paren recvDoc
+                 else recvDoc
+      .seq [fnRef method, .sym .space, arg]
+    else
+      .seq [fnRef method, MathDoc.paren recvDoc]
   | .lambda param body =>
     .seq [ .sym .lambda, .raw param.name, .sym .dot
          , .sym .space, go body ]
@@ -621,13 +639,15 @@ partial def toDoc
       let fnDoc := match fn with
         | .var n => fnRef n
         | _ => go fn
-      if isProperty then
-        -- Inside an inductive-property rule, render calls in
-        -- prefix-application style with space-separated
-        -- arguments (e.g. `HasNonDeepLeaf d`) — matching the
-        -- way propositions are typeset on paper. Compound
-        -- arguments are still parenthesised by `renderArg`,
-        -- so `HasNonDeepLeaf (leaf cap)` stays unambiguous.
+      -- Inside a property body, the call rendering follows
+      -- `PRESENTATION_PROP_APP_STYLE`; outside, it follows
+      -- `PRESENTATION_FN_APP_STYLE`. `Haskell` produces
+      -- `f a b` (with `renderArg` parens around compound
+      -- args), `Rust` produces `f(a, b)`.
+      let style :=
+        if isProperty then PRESENTATION_PROP_APP_STYLE
+        else PRESENTATION_FN_APP_STYLE
+      if style == .Haskell then
         .seq ([fnDoc] ++ visibleArgs.flatMap fun e =>
           [.sym .space, renderArg e])
       else

@@ -425,11 +425,11 @@ def formalDefLatex
         body 0
   -- Render an applied property reference (used by both
   -- `\Require` and `\Ensure` lines): a hyperlinked property
-  -- name optionally followed by `(args)`.
+  -- name followed by its arguments. The argument layout
+  -- follows `PRESENTATION_PROP_APP_STYLE` — `Haskell` emits
+  -- `Name~arg₁~arg₂`, `Rust` emits `Name(arg₁, arg₂)`.
   let appliedPropMath
       (propName : String) (args : List String) : LatexMath :=
-    let argsMath := LatexMath.intercalate
-      (.raw ", ") (args.map LatexMath.escaped)
     -- Link the property name to its definition
     -- (registered under the shared `fn:` label via
     -- `knownFns`).
@@ -451,7 +451,16 @@ def formalDefLatex
             .raw s!"\\text\{\\dashuline\{{propName}}}"
           else .escaped propName
     if args.isEmpty then nameMath
-    else .seq [nameMath, .raw "(", argsMath, .raw ")"]
+    else if PRESENTATION_PROP_APP_STYLE == .Haskell then
+      let argsMath :=
+        LatexMath.intercalate (.raw "~")
+          (args.map LatexMath.escaped)
+      .seq [nameMath, .raw "~", argsMath]
+    else
+      let argsMath :=
+        LatexMath.intercalate (.raw ", ")
+          (args.map LatexMath.escaped)
+      .seq [nameMath, .raw "(", argsMath, .raw ")"]
   let exprMath (e : DslExpr) : LatexMath :=
     (DslExpr.toDoc f.name ctx noDisp isProperty e).toLatexMath
   let precondLines : List Latex :=
