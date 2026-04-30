@@ -15,4 +15,8 @@ where
   | array (elems : List ConstValue)
     "An array value."
     (.text "array ", #elems (.raw "\\bar{cv}"))
+  | fnPtr (name : String)
+    "A function pointer, naming a function in the program's \
+     `functions` map."
+    (.text "fn ", #name (.raw "f"))
   deriving Repr, BEq, Hashable

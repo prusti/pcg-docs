@@ -103,6 +103,7 @@ defFn evalConstant (.plain "evalConstant")
       Value.tuple‹es ·map evalConstant›
   | .array es =>
       Value.array‹es ·map evalConstant›
+  | .fnPtr name => Value.fnPtr‹name›
 
 defFn typedLoad (.plain "typedLoad")
   (.seq [.plain "Load a value of the given type from \

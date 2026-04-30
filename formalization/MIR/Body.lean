@@ -44,7 +44,9 @@ where
   | call (callee : Operand) (args : List Operand)
       (targetPlace : Place)
       (nextBlock : BasicBlockIdx)
-    "Call a function."
+    "Call a function: the callee operand evaluates to a \
+     function pointer (`Value.fnPtr name`) which names a \
+     function in the program's function map."
     (#callee, .sym .lparen,
      #args (.raw "\\bar{o}"),
      .sym .rparen, .text " → ",

@@ -28,6 +28,43 @@ defFn caseTarget (.plain "caseTarget")
 
 namespace Machine
 
+defFn fnFromPtr (.plain "fnFromPtr")
+  (.seq [.plain "Resolve a function-pointer ", .code "Value",
+    .plain " against the machine's program: ",
+    .code "Value.fnPtr name", .plain " looks ", .code "name",
+    .plain " up in ", .code "program.functions",
+    .plain " and returns the matching ", .code "Body",
+    .plain ". Returns ", .code "None",
+    .plain " for any other value (the callee operand did not \
+    evaluate to a function pointer) or when the name is \
+    absent from the program. Mirrors MiniRust's ",
+    .code "fn_from_ptr", .plain "."])
+  (m "The machine state." : Machine)
+  (v "The value to interpret as a function pointer." : Value)
+  : Option Body where
+  | m ; .fnPtr name => mapGet ‹m↦program↦functions, name›
+  | _ ; _ => None
+
+defFn evalArgs (.plain "evalArgs")
+  (.seq [.plain "Evaluate a list of operand arguments \
+    left-to-right. Returns ", .code "Some",
+    .plain " of the resulting value list when every operand \
+    evaluates successfully, ", .code "None",
+    .plain " as soon as any operand fails. Used by the ",
+    .code "call",
+    .plain " terminator to gather the values to pass to a \
+    callee."])
+  (m "The machine state." : Machine)
+  (args "The argument operands." : List Operand)
+  requires Runnable(m)
+  : Option (List Value) where
+  | _ ; [] => Some []
+  | m ; a :: rest =>
+      let v ← evalOperand
+        ‹m, a, lean_proof("h_Runnable")› ;
+      let vs ← evalArgs ‹m, rest› ;
+      Some (v :: vs)
+
 defFn jumpToBlock (.plain "jumpToBlock")
   (.seq [.plain "Set the current frame's program counter to \
     statement 0 of ", .code "target",
@@ -61,9 +98,19 @@ defFn evalTerminator (.plain "evalTerminator")
     the terminator's ", .code "fallback",
     .plain " when no case matches (mirrors MiniRust's ",
     .code "Terminator::Switch", .plain "); ", .code "call",
-    .plain " currently halts with ", .code "error",
-    .plain " — function-pointer resolution is not yet \
-    modelled."
+    .plain " evaluates the callee operand to a function \
+    pointer via ", .code "evalOperand",
+    .plain ", resolves it against the program's function \
+    map via ", .code "fnFromPtr",
+    .plain ", evaluates each argument operand via ",
+    .code "evalArgs", .plain ", and pushes a fresh frame \
+    onto the thread stack via ", .code "createFrame",
+    .plain ". The caller's program counter is left pointing \
+    at the call terminator so the matching ", .code "return",
+    .plain " can recover the destination place and successor \
+    block when the callee returns. ABI-compatibility checks \
+    from MiniRust's ", .code "Terminator::Call",
+    .plain " are intentionally not modelled."
     , .plain " ", .code "return", .plain " loads the return \
     value out of the callee's return slot (local 0), pops \
     the callee frame, and — when the call stack still \
@@ -93,7 +140,23 @@ defFn evalTerminator (.plain "evalTerminator")
             ‹m, target, lean_proof("h_Runnable")››
       | _ => StepResult.done‹.error›
       end
-  | _ ; .call _ _ _ _ => StepResult.done‹.error›
+  | m ; .call calleeOp args _ _ =>
+      match evalOperand
+          ‹m, calleeOp, lean_proof("h_Runnable")› with
+      | .none => StepResult.done‹.error›
+      | .some calleeVal =>
+          match fnFromPtr ‹m, calleeVal› with
+          | .none => StepResult.done‹.error›
+          | .some calleeBody =>
+              match evalArgs
+                  ‹m, args, lean_proof("h_Runnable")› with
+              | .none => StepResult.done‹.error›
+              | .some argVals =>
+                  StepResult.ok‹createFrame
+                    ‹m, calleeBody, argVals››
+              end
+          end
+      end
   | m ; .return_ =>
       let frame := currentFrame
         ‹m, lean_proof("h_Runnable")› ;

@@ -7,7 +7,7 @@ defEnum Value (.raw "v", .cal (.raw "V"))
     .plain "A runtime value ",
     Doc.defMath (.raw "v") (.cal (.raw "V")),
     .plain " is either a boolean, an integer, a tuple, an \
-     array, or a pointer."])
+     array, a (data) pointer, or a function pointer."])
 where
   | bool (val : Bool)
     "A boolean."
@@ -23,4 +23,8 @@ where
   | ptr (ptr : ThinPointer)
     "A pointer (the runtime value of a reference or `Box`)."
     (.text "ptr ", #ptr)
+  | fnPtr (name : String)
+    "A function pointer, naming a function in the program's \
+     `functions` map."
+    (.text "fn ", #name (.raw "f"))
   deriving Repr, BEq, Hashable
