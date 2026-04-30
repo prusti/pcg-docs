@@ -45,21 +45,15 @@ instance : Inhabited PcgDomainData :=
     ⟨defaultPcgData, defaultPcgData,
      defaultPcgData, defaultPcgData⟩⟩⟩
 
-/-! # Soundness statement
+/-! # Soundness supporting definitions
 
-This module is intentionally **not** part of the `OpSem` umbrella
-(`OpSem.lean`). The `RustExport` driver imports `OpSem`, and pulling
-PCG analysis machinery into that import chain shifts the registry
-order in ways that mis-resolve unqualified `.deref` constructors
-inside previously-working PCG modules — the same failure mode the
-top-of-file comment in `RustExport.lean` calls out for `PCG.Obtain`.
-
-Importing this file is therefore opt-in: `LeanExport` and
-`PresentationExport` import it explicitly so the soundness
-definitions appear in the generated Lean project and the LaTeX
-presentation, while `RustExport` continues to see only the original
-`OpSem` chain (these definitions are Prop-level and would be
-filtered out of Rust output anyway). -/
+Definitions used by the soundness statement and the aliasing
+properties: machine reachability, the program-wide analysis
+driver, the analysis-results-describe-program relation,
+analysis-state lookup helpers, and the place-level
+`hasCapability` / `hasAllocation` relations that the property
+bodies project through. The property statements themselves live
+in `Properties.Aliasing` and `Properties.Soundness`. -/
 
 defInductiveProperty Reachable
   "Reachable Machines"
@@ -238,123 +232,3 @@ where
               ‹m, p, lean_proof("sorry")›
               = Some a)
       ⊢ hasAllocation ‹m, p, a›
-
-defProperty Framing (.plain "Framing")
-  short () =>
-    (.plain "the PCG analysis frames non-aliasing of \
-            exclusive places")
-  long () =>
-    (.plain "If analysis results describe a program, then \
-            at any reachable runnable machine state, two \
-            places that the entry-state PCG at the machine's \
-            program counter assigns the exclusive capability \
-            are backed by allocations whose address ranges \
-            do not overlap.")
-  := ∀∀ pr ∈ Program, par ∈ ProgramAnalysisResults,
-        m ∈ Machine,
-        p p' ∈ Place, a a' ∈ Allocation .
-       ‹break› describes ‹par, pr› →
-       ‹break› Reachable
-         ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m› →
-       ‹break› Runnable ‹m› →
-       ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p› →
-       ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p'› →
-       ‹break› programContains
-         ‹par,
-          currBody ‹m, lean_proof("sorry")›,
-          currPC ‹m, lean_proof("sorry")›› →
-       ‹break› hasCapability
-         ‹programEntryStateAt
-            ‹par,
-             currBody ‹m, lean_proof("sorry")›,
-             currPC ‹m, lean_proof("sorry")›,
-             lean_proof("sorry")›,
-          currBody ‹m, lean_proof("sorry")›,
-          p, .exclusive› →
-       ‹break› hasCapability
-         ‹programEntryStateAt
-            ‹par,
-             currBody ‹m, lean_proof("sorry")›,
-             currPC ‹m, lean_proof("sorry")›,
-             lean_proof("sorry")›,
-          currBody ‹m, lean_proof("sorry")›,
-          p', .exclusive› →
-       ‹break› hasAllocation ‹m, p, a› →
-       ‹break› hasAllocation ‹m, p', a'› →
-       ‹break› Allocation.nonOverlapping ‹a, a'›
-
-defProperty NoAlias (.plain "NoAlias")
-  short () =>
-    (.plain "the PCG analysis frames non-overlap of \
-            disconnected places")
-  long () =>
-    (.plain "If analysis results describe a program, then \
-            at any reachable runnable machine state, two \
-            places whose corresponding PCG nodes are not \
-            connected in the entry-state PCG at the machine's \
-            program counter are backed by allocations whose \
-            address ranges do not overlap. The conclusion is \
-            phrased as a disjunction `connected ∨ \
-            nonOverlapping` so that the property's contrapositive \
-            reads as the disconnected-implies-disjoint statement \
-            without needing a negation operator in the DSL.")
-  := ∀∀ pr ∈ Program, par ∈ ProgramAnalysisResults,
-        m ∈ Machine,
-        p p' ∈ Place, a1 a2 ∈ Allocation .
-       ‹break› describes ‹par, pr› →
-       ‹break› Reachable
-         ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m› →
-       ‹break› Runnable ‹m› →
-       ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p› →
-       ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p'› →
-       ‹break› programContains
-         ‹par,
-          currBody ‹m, lean_proof("sorry")›,
-          currPC ‹m, lean_proof("sorry")›› →
-       ‹break› (Machine.placeAllocation
-            ‹m, p, lean_proof("sorry")›
-          = Some a1) →
-       ‹break› (Machine.placeAllocation
-            ‹m, p', lean_proof("sorry")›
-          = Some a2) →
-       ‹break› connected
-         ‹programEntryStateAt
-            ‹par,
-             currBody ‹m, lean_proof("sorry")›,
-             currPC ‹m, lean_proof("sorry")›,
-             lean_proof("sorry")›,
-          placeNode ‹p›, placeNode ‹p'›› ∨
-       ‹break› Allocation.nonOverlapping ‹a1, a2›
-
-defProperty Soundness (.plain "Soundness")
-  short () =>
-    (.plain "the PCG analysis is sound")
-  long () =>
-    (.plain "If the PCG analysis succeeds for a valid \
-            program, every machine state reachable from \
-            its \\texttt{initialMachine} is non-stuck — \
-            \\texttt{step} never produces an error result.")
-  := ∀∀ pr ∈ Program, m ∈ Machine .
-       ‹break› validProgram ‹pr› ∧
-       ‹break› pcgAnalysisSucceeds ‹pr› ∧
-       ‹break› Reachable
-         -- The DSL lowers a top-level `A₁ ∧ … ∧ Aₙ → G`
-         -- antecedent to a chain of named `(hᵢ : Aᵢ)` Pi
-         -- binders (see `DslExpr.bindAntecedentNames`), so
-         -- each conjunct's proof is in scope downstream by
-         -- the auto-derived name `h_<head>`. The first
-         -- conjunct here, `validProgram pr`, gives the
-         -- binder `h_validProgram`.
-         ‹initialMachine
-            ‹pr, lean_proof("h_validProgram")›, m› ∧
-       ‹break› Runnable ‹m›
-       -- And the fourth conjunct gives `h_Runnable`, in
-       -- scope for `step`'s precondition on the goal side.
-       → ‹break› step ‹m, lean_proof("h_Runnable")›
-           ≠ StepResult.done‹.error›

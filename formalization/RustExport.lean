@@ -334,9 +334,9 @@ def buildCrate
      (`OpSem.Step, "evalTerminator"),
      (`OpSem.Step, "jumpToBlock"),
      (`OpSem.Step, "step"),
-     (`OpSem.Step, "pcgAnalysisSucceeds"),
-     (`OpSem.Step, "isInitialState"),
-     (`OpSem.Step, "Soundness")]
+     (`Properties.Definitions, "pcgAnalysisSucceeds"),
+     (`Properties.Definitions, "isInitialState"),
+     (`Properties.Soundness, "Soundness")]
   let crateFns := fns.filter fun f =>
     f.leanModule.getRoot.toString == prefix_ &&
       !rustUnsupported.contains

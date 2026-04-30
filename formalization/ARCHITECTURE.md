@@ -23,6 +23,8 @@ formalization/
 ├── MIR.lean               -- Root import for MIR lib
 ├── OpSem.lean             -- Root import for OpSem lib
 ├── PCG.lean               -- Root import for PCG lib
+├── Properties.lean        -- Bridge between PCG and OpSem
+├── Properties/            --   submodules: Definitions, Aliasing, Soundness
 ├── Presentation.lean      -- LaTeX presentation builder (depends on PCG)
 ├── LeanExport.lean        -- `lake exe lean_export`
 ├── RustExport.lean        -- `lake exe rust_export`
@@ -32,9 +34,20 @@ formalization/
 └── lakefile.lean          -- Lake package definition
 ```
 
-The four "content" libraries (`MIR`, `OpSem`, `PCG`) build on
-top of `Core` (the DSL) and `Runtime` (small helpers used by
-DSL-generated code). Everything else is tooling.
+The "content" libraries (`MIR`, `OpSem`, `PCG`) build on top of
+`Core` (the DSL) and `Runtime` (small helpers used by DSL-generated
+code). `OpSem` and `PCG` are deliberately independent — neither
+imports the other. The `Properties` library is the only place the
+two libraries are combined; it is split into three submodules:
+
+* `Properties.Definitions` — supporting helpers (`Reachable`,
+  `describes`, `analyzeProgram`, `pcgAnalysisSucceeds`,
+  `entryStateAt`, `Machine.placeAllocation`, `hasCapability`,
+  `hasAllocation`).
+* `Properties.Aliasing` — `Framing` and `NoAlias`.
+* `Properties.Soundness` — the top-level `Soundness` statement.
+
+Everything else is tooling.
 
 ## The DSL (`Core/Dsl/`)
 

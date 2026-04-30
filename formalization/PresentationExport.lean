@@ -1,10 +1,10 @@
 import Presentation
 import OpSem
--- `OpSem.Soundness` is opt-in (not in `OpSem.lean`'s umbrella)
--- so the Rust exporter's import chain stays untouched. The
--- presentation export wants the soundness statement rendered,
--- so we pull it in explicitly.
-import OpSem.Soundness
+-- `Properties` is its own library bridging `PCG` and `OpSem`,
+-- opt-in so the Rust exporter's import chain stays untouched.
+-- The presentation export wants the soundness and aliasing
+-- statements rendered, so we pull it in explicitly.
+import Properties
 
 /-- Parse a `--key=value` flag from the argument list. -/
 private def parseFlag (args : List String)

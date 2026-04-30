@@ -15,11 +15,12 @@ import PCG.TransientState
 import PCG.ValidityConditions
 import MIR
 import OpSem
--- `OpSem.Soundness` is opt-in (not in `OpSem.lean`'s umbrella)
--- so the Rust exporter's import chain stays untouched. The
--- Lean exporter wants the soundness statement included in the
--- generated project, so we pull it in explicitly.
-import OpSem.Soundness
+-- `Properties` is its own library bridging `PCG` and `OpSem`,
+-- opt-in so the Rust exporter's import chain stays untouched.
+-- The Lean exporter wants the soundness / aliasing statements
+-- included in the generated project, so we pull it in
+-- explicitly.
+import Properties
 import Core.Dsl.DefRaw
 import Core.Export.Lean
 import Core.LeanAST
@@ -27,16 +28,16 @@ import Core.LeanAST
 open LeanAST Core.Dsl
 
 -- Until the constructor-aware import inference replaces it,
--- `OpSem.Soundness` still needs a hand-written `import PCG.…`
--- shim because `analyzeProgram`'s body constructs a `PcgData
--- Place` via record literal and `LeanDefItem.referencedNames`
--- doesn't follow `mkStruct` constructor heads. The two
--- imports stay as a small inline list rather than living on
--- the `defRaw` registry, since `defRaw`'s elaborator can't
--- run `import` commands mid-file.
+-- `Properties.Definitions` still needs a hand-written
+-- `import PCG.…` shim because `analyzeProgram`'s body
+-- constructs a `PcgData Place` via record literal and
+-- `LeanDefItem.referencedNames` doesn't follow `mkStruct`
+-- constructor heads. The two imports stay as a small inline
+-- list rather than living on the `defRaw` registry, since
+-- `defRaw`'s elaborator can't run `import` commands mid-file.
 private def extraImportShims :
     List (Lean.Name × String) :=
-  [ (`OpSem.Soundness,
+  [ (`Properties.Definitions,
 "-- `analyzeProgram`'s body constructs a `PcgData Place` via
 -- record literal, but `mkStruct` constructor names aren't
 -- tracked by `calledNames` so `computeImports` can't infer
@@ -396,6 +397,10 @@ private def computeOpens
     match item with
     | .fn_ f => f.body.calledNames
     | .property_ p => p.fnDef.body.calledNames
+    | .inductiveProperty_ p =>
+      p.rules.flatMap fun r =>
+        (r.premises.flatMap DslExpr.calledNames)
+          ++ r.conclusion.calledNames
     | _ => []
   let needed := calledFns.filterMap fun fn =>
     let candidates := nsMap.filter (·.1 == fn)

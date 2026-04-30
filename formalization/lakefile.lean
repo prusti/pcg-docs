@@ -36,6 +36,14 @@ lean_lib PCG where
 lean_lib OpSem where
   srcDir := "."
 
+-- The Properties library bridges PCG and OpSem. Its
+-- submodules house the supporting definitions and the analysis
+-- properties (aliasing, soundness) that combine the two
+-- otherwise-independent halves of the formalization.
+@[default_target]
+lean_lib Properties where
+  srcDir := "."
+
 @[default_target]
 lean_lib Presentation where
   srcDir := "."
