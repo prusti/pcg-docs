@@ -26,7 +26,7 @@ defProperty Framing (.plain "Framing")
             program counter assigns the exclusive capability \
             are backed by allocations whose address ranges \
             do not overlap.")
-  := ∀∀ pr ∈ Program, par ∈ ProgramAnalysisResults,
+  := ∀∀ pr ∈ Program, par ∈ ProgAnalysisResults,
         m ∈ Machine,
         p p' ∈ Place, a a' ∈ Allocation .
        ‹break› describes ‹par, pr› →
@@ -77,7 +77,7 @@ defProperty NoAlias (.plain "NoAlias")
             nonOverlapping` so that the property's contrapositive \
             reads as the disconnected-implies-disjoint statement \
             without needing a negation operator in the DSL.")
-  := ∀∀ pr ∈ Program, par ∈ ProgramAnalysisResults,
+  := ∀∀ pr ∈ Program, par ∈ ProgAnalysisResults,
         m ∈ Machine,
         p p' ∈ Place, a1 a2 ∈ Allocation .
        ‹break› describes ‹par, pr› →

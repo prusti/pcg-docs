@@ -36,14 +36,14 @@ defProperty contains (.plain "contains")
     l↦block ∈ ar ∧
     l↦stmtIdx < (mapAt ‹ar, l↦block›)·length
 
-defAlias ProgramAnalysisResults
+defAlias ProgAnalysisResults
     (.text "par",
-     .text "ProgramAnalysisResults")
+     .text "ProgAnalysisResults")
   "Whole-program Analysis Results"
   (.seq [
     .plain "Program analysis results ",
     Doc.defMath (.text "par")
-      (.text "ProgramAnalysisResults"),
+      (.text "ProgAnalysisResults"),
     .plain " bundle the per-body ", .code "AnalysisResults",
     .plain " produced by running ", .code "analyzeBody",
     .plain " on every function in a program: one entry per \
@@ -62,7 +62,7 @@ defProperty programContains (.plain "programContains")
            the per-body analysis results that ", parDoc,
            .plain " stores under ", bDoc])
   (par "The program analysis results."
-      : ProgramAnalysisResults)
+      : ProgAnalysisResults)
   (b "The function body." : Body)
   (l "The location." : Location)
   displayed (#l, .sym .setContains, #par, .raw "[", #b,

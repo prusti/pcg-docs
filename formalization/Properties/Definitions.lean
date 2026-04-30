@@ -81,12 +81,12 @@ namespace Program
 defFn insertAnalyzedBody (.plain "insertAnalyzedBody")
   (.plain "Fold step for `analyzeProgram`: analyse a single \
     body and insert the result into the accumulating \
-    `ProgramAnalysisResults`. Short-circuits to `None` when \
+    `ProgAnalysisResults`. Short-circuits to `None` when \
     `analyzeBody` fails on the body.")
   (acc "The accumulating per-body analysis results."
-      : ProgramAnalysisResults)
+      : ProgAnalysisResults)
   (b "The body to analyse." : Body)
-  : Option ProgramAnalysisResults :=
+  : Option ProgAnalysisResults :=
     let ar ← analyzeBody ‹b› ;
     Some (mapInsert ‹acc, b, ar›)
 
@@ -94,12 +94,12 @@ defFn analyzeProgram (.plain "analyzeProgram")
   (.seq [.plain "Run ", .code "analyzeBody",
     .plain " on every function body in the program, \
     accumulating the per-body results into a ",
-    .code "ProgramAnalysisResults",
+    .code "ProgAnalysisResults",
     .plain ". Returns ", .code "None",
     .plain " when ", .code "analyzeBody",
     .plain " fails on any body."])
   (program "The program to analyse." : Program)
-  : Option ProgramAnalysisResults :=
+  : Option ProgAnalysisResults :=
     let bodies := mapValues ‹program↦functions› ;
     bodies·foldlM insertAnalyzedBody mapEmpty‹›
 
@@ -107,18 +107,18 @@ end Program
 
 defInductiveProperty describes
   "Program Analysis Results Describe a Program"
-  (.seq [.plain "Connects a ", .code "ProgramAnalysisResults",
+  (.seq [.plain "Connects a ", .code "ProgAnalysisResults",
     .plain " value to the program it analyses: ",
     .code "par", .plain " describes ", .code "p",
     .plain " when running ", .code "analyzeProgram",
     .plain " on ", .code "p", .plain " yields ",
     .code "Some par", .plain "."])
   (par "The program analysis results."
-      : ProgramAnalysisResults)
+      : ProgAnalysisResults)
   (p "The program." : Program)
   displayed (#par, .text " describes ", #p)
 where
-  | analyzeOk {par : ProgramAnalysisResults} {p : Program}
+  | analyzeOk {par : ProgAnalysisResults} {p : Program}
       from (Program.analyzeProgram ‹p› = Some par)
       ⊢ describes ‹par, p›
 
@@ -164,7 +164,7 @@ defFn programEntryStateAt (.plain "programEntryStateAt")
     .code "programContains",
     .plain " precondition guarantees both lookups succeed."])
   (par "The program analysis results."
-      : ProgramAnalysisResults)
+      : ProgAnalysisResults)
   (b "The function body." : Body)
   (l "The location to look up." : Location)
   requires programContains(par, b, l)
