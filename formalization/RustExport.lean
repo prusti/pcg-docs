@@ -331,10 +331,10 @@ def buildCrate
      (`PCG.Obtain.PcgData, "obtain"),
      (`OpSem.Machine, "stackTail"),
      (`OpSem.Step, "evalStatement"),
-     (`OpSem.Step, "evalTerminator"),
-     (`OpSem.Step, "jumpToBlock"),
+     (`OpSem.Terminator, "evalTerminator"),
+     (`OpSem.Terminator, "jumpToBlock"),
      (`OpSem.Step, "step"),
-     (`OpSem.Step, "caseTarget"),
+     (`OpSem.Terminator, "caseTarget"),
      (`Properties.Definitions, "pcgAnalysisSucceeds"),
      (`Properties.Definitions, "isInitialState"),
      (`Properties.Soundness, "Soundness")]

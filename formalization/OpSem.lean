@@ -14,4 +14,6 @@ import OpSem.Decode
 import OpSem.Expressions
 import OpSem.Expressions.Place
 import OpSem.Statements
+import OpSem.StepResult
+import OpSem.Terminator
 import OpSem.Step
