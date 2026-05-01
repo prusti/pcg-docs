@@ -187,6 +187,17 @@ defFn localsUnpackEdges (.plain "localsUnpackEdges")
 
 namespace PcgData
 
+defFn init (.plain "init")
+  (doc! "The initial PCG data at the entry of a MIR body: \
+    an empty borrows graph, the per-local owned state \
+    computed via #OwnedState.initial, basic block 0 as the \
+    starting program point, and no transient state.")
+  (body "The function body." : Body)
+  : PcgData Place :=
+    PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
+      OwnedState.initial ‹body›,
+      BasicBlockIdx⟨0⟩, None⟩
+
 defFn join (.plain "join")
   (.seq [
     .plain "Join two PCG data values at the program-point \
