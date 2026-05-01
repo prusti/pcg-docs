@@ -88,11 +88,9 @@ defFn edgeTargets (.plain "edgeTargets")
   | .abstraction _ ; _ => []
 
 defFn nodeNeighbors (.plain "nodeNeighbors")
-  (.seq [.plain "All nodes that ", .code "a",
-    .plain " directly reaches in ", .code "pd",
-    .plain ": the concatenation of ", .code "edgeTargets",
-    .plain " over every edge in ", .code "edges",
-    .plain "."])
+  (doc! "All nodes that {a} directly reaches in {pd}: \
+         the concatenation of {Doc.c "edgeTargets"} over every \
+         edge in {Doc.c "edges"}.")
   (pd "The PCG data." : PcgData Place)
   (a "The candidate source node." : PcgNode Place)
   : List (PcgNode Place) :=

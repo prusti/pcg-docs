@@ -601,6 +601,16 @@ def parseFnDisplay
     (parseDisplayPart argTypes "" dummySym [])
   `([$[$dpDefs],*])
 
+/-- Whether a free identifier reference to `name` appears
+    anywhere inside `stx`. Used by `buildFnDef` to skip
+    let-bindings for parameter names that the user's `doc!`
+    string never references — keeps the generated `def` clear
+    of unused-variable linter warnings. -/
+private partial def hasIdentRef (stx : Lean.Syntax)
+    (name : Lean.Name) : Bool :=
+  if stx.isIdent && stx.getId == name then true
+  else stx.getArgs.any (hasIdentRef · name)
+
 open Lean Elab Command in
 def buildFnDef
     (hdr : FnDefHeader)
@@ -616,7 +626,21 @@ def buildFnDef
     : CommandElabM Unit := do
   let name := hdr.name
   let symDoc := hdr.symDoc
-  let doc := hdr.doc
+  -- Make each parameter name available as a `Doc.code "<name>"`
+  -- in scope of the user's `doc` term, so a `doc!` description
+  -- can interpolate parameter references via `{paramName}` —
+  -- e.g. `defFn nodeNeighbors (doc! "All nodes {a} reaches in
+  -- {pd}.") (pd : …) (a : …)`. The `Doc.code` binding (rather
+  -- than `Doc.plain`) preserves the prior `\texttt{…}` rendering
+  -- for parameter references in `defFn` docs, where prose
+  -- traditionally typesets parameter names in monospace.
+  let mut doc := hdr.doc
+  for (pn, _, _) in paramData.reverse do
+    let pname := pn.getId
+    if hasIdentRef hdr.doc.raw pname then
+      let pns : TSyntax `term :=
+        quote (toString pname)
+      doc ← `(let $pn:ident : Doc := Doc.code $pns; $doc)
   if isImplicit && paramData.size != 1 then
     Lean.throwErrorAt name
       m!"an `implicit` defFn must take exactly one explicit \
