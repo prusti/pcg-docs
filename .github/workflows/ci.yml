@@ -79,8 +79,21 @@ jobs:
         key: ${{ runner.os }}-lean-${{ hashFiles('formalization/lean-toolchain', 'formalization/lakefile.lean') }}
 
     - name: Build Lean formalization
+      # Fails the build if Lean's linter reports an unused simp
+      # argument anywhere in the project — those warnings indicate
+      # a stale `simp only [...]` term that should be pruned. The
+      # `set -o pipefail` keeps the original `lake build` exit
+      # code visible through the `tee` pipe; the grep that follows
+      # turns the targeted warning into a hard failure.
       working-directory: formalization
-      run: lake build
+      run: |
+        set -o pipefail
+        lake build 2>&1 | tee build.log
+        if grep -q "This simp argument is unused" build.log; then
+          echo "::error::unused simp argument(s) detected — \
+            prune the offending term from the simp list"
+          exit 1
+        fi
 
     - name: Check banned source patterns
       # Walks elaborated `Expr` trees of every user-package decl

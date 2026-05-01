@@ -146,7 +146,6 @@ theorem getCapability_initialPcg_local0_not_exclusive
     getCapability (initialPcg body) body ⟨⟨0⟩, projs⟩ h_validPlace
       ≠ some .exclusive := by
   unfold getCapability initialPcg
-  simp only [PcgData.mk]
   unfold getAlloc OwnedState.initial
   cases hdecls : body.decls with
   | nil =>
@@ -161,7 +160,7 @@ theorem getCapability_initialPcg_local0_not_exclusive
     --   of empty graph is [], so .any returns false.
     -- treeLeafCapability _ (.leaf .uninit) = some .write.
     -- Result: some .write ≠ some .exclusive.
-    simp only [List.zipIdx, List.zipIdx_cons, List.map_cons,
+    simp only [List.zipIdx, List.map_cons,
                List.getElem?_cons_zero, Option.bind_some,
                beq_self_eq_true, ↓reduceIte]
     simp only [treeIsInternal, BorrowsGraph.placeIsMutablyBorrowed,
