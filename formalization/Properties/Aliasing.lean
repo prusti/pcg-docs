@@ -32,15 +32,15 @@ defProperty Framing' (.plain "Framing'")
            .plain ", allocations ", aDoc, .plain " and ",
            a'Doc])
   long (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (.seq [.plain "If ", parDoc, .plain " describes ", prDoc,
-           .plain " and ", mDoc, .plain " is a runnable \
+    (.seq [.plain "Holds when ", parDoc, .plain " describes ",
+           prDoc, .plain ", ", mDoc, .plain " is a runnable \
            machine reachable from the initial machine of ",
            prDoc, .plain " whose currently-executing body and \
            program counter are tracked by ", parDoc,
-           .plain ", and the entry-state PCG at that program \
+           .plain ", the entry-state PCG at that program \
            point assigns the exclusive capability to both \
            valid places ", pDoc, .plain " and ", p'Doc,
-           .plain ", then their backing allocations ", aDoc,
+           .plain ", and their backing allocations ", aDoc,
            .plain " and ", a'Doc, .plain " do not overlap."])
   (pr "The program." : Program)
   (par "The program-wide analysis results."
@@ -51,19 +51,19 @@ defProperty Framing' (.plain "Framing'")
   (a "The allocation backing p." : Allocation)
   (a' "The allocation backing p'." : Allocation)
   :=
-       ‹break› describes ‹par, pr› →
+       ‹break› describes ‹par, pr› ∧
        ‹break› Reachable
          ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m› →
-       ‹break› Runnable ‹m› →
+            ‹pr, lean_proof("sorry")›, m› ∧
+       ‹break› Runnable ‹m› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p› →
+         ‹currBody ‹m, lean_proof("sorry")›, p› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p'› →
+         ‹currBody ‹m, lean_proof("sorry")›, p'› ∧
        ‹break› programContains
          ‹par,
           currBody ‹m, lean_proof("sorry")›,
-          currPC ‹m, lean_proof("sorry")›› →
+          currPC ‹m, lean_proof("sorry")›› ∧
        ‹break› hasCapability
          ‹pcgEntryStateAt
             ‹par,
@@ -71,7 +71,7 @@ defProperty Framing' (.plain "Framing'")
              currPC ‹m, lean_proof("sorry")›,
              lean_proof("sorry")›,
           currBody ‹m, lean_proof("sorry")›,
-          p, .exclusive› →
+          p, .exclusive› ∧
        ‹break› hasCapability
          ‹pcgEntryStateAt
             ‹par,
@@ -79,9 +79,9 @@ defProperty Framing' (.plain "Framing'")
              currPC ‹m, lean_proof("sorry")›,
              lean_proof("sorry")›,
           currBody ‹m, lean_proof("sorry")›,
-          p', .exclusive› →
-       ‹break› hasAllocation ‹m, p, a› →
-       ‹break› hasAllocation ‹m, p', a'› →
+          p', .exclusive› ∧
+       ‹break› hasAllocation ‹m, p, a› ∧
+       ‹break› hasAllocation ‹m, p', a'› ∧
        ‹break› Allocation.nonOverlapping ‹a, a'›
 
 defProperty Framing (.plain "Framing")
@@ -108,18 +108,18 @@ defProperty NoAlias' (.plain "NoAlias'")
            .plain ", allocations ", aDoc, .plain " and ",
            a'Doc])
   long (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (.seq [.plain "If ", parDoc, .plain " describes ", prDoc,
-           .plain " and ", mDoc, .plain " is a runnable \
+    (.seq [.plain "Holds when ", parDoc, .plain " describes ",
+           prDoc, .plain ", ", mDoc, .plain " is a runnable \
            machine reachable from the initial machine of ",
            prDoc, .plain " whose currently-executing body and \
            program counter are tracked by ", parDoc,
-           .plain ", then for any two valid places ", pDoc,
+           .plain ", and for the two valid places ", pDoc,
            .plain " and ", p'Doc, .plain " backed by \
            allocations ", aDoc, .plain " and ", a'Doc,
            .plain ", either their PCG nodes are connected in \
            the entry-state PCG at that program point or the \
            allocations have non-overlapping address ranges. \
-           The conclusion is phrased as a disjunction so the \
+           The final clause is phrased as a disjunction so the \
            contrapositive reads as the disconnected-implies-\
            disjoint statement without needing a negation \
            operator in the DSL."])
@@ -132,29 +132,29 @@ defProperty NoAlias' (.plain "NoAlias'")
   (a "The allocation backing p." : Allocation)
   (a' "The allocation backing p'." : Allocation)
   :=
-       ‹break› describes ‹par, pr› →
+       ‹break› describes ‹par, pr› ∧
        ‹break› Reachable
          ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m› →
-       ‹break› Runnable ‹m› →
+            ‹pr, lean_proof("sorry")›, m› ∧
+       ‹break› Runnable ‹m› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p› →
+         ‹currBody ‹m, lean_proof("sorry")›, p› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p'› →
+         ‹currBody ‹m, lean_proof("sorry")›, p'› ∧
        ‹break› programContains
          ‹par,
           currBody ‹m, lean_proof("sorry")›,
-          currPC ‹m, lean_proof("sorry")›› →
-       ‹break› hasAllocation ‹m, p, a› →
-       ‹break› hasAllocation ‹m, p', a'› →
-       ‹break› connected
+          currPC ‹m, lean_proof("sorry")›› ∧
+       ‹break› hasAllocation ‹m, p, a› ∧
+       ‹break› hasAllocation ‹m, p', a'› ∧
+       ‹break› (connected
          ‹pcgEntryStateAt
             ‹par,
              currBody ‹m, lean_proof("sorry")›,
              currPC ‹m, lean_proof("sorry")›,
              lean_proof("sorry")›,
           placeNode ‹p›, placeNode ‹p'›› ∨
-       ‹break› Allocation.nonOverlapping ‹a, a'›
+       ‹break› Allocation.nonOverlapping ‹a, a'›)
 
 defProperty NoAlias (.plain "NoAlias")
   short () =>
