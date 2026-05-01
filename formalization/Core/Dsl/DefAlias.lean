@@ -49,7 +49,9 @@ elab_rules : command
       s!"abbrev {name.getId}{tpStr} := {bodyStr}"
     let env ← getEnv
     match Parser.runParserCategory env `command abbrevStr with
-    | .ok stx => elabCommand stx
+    | .ok stx =>
+      let stx := graftUserNameToken name.getId name.raw stx
+      elabCommand stx
     | .error e =>
       throwError s!"defAlias: parse error: {e}\n\
         ---\n{abbrevStr}\n---"

@@ -182,7 +182,9 @@ elab_rules : command
         ++ String.intercalate "\n" ctorStrs
     let env ← getEnv
     match Parser.runParserCategory env `command inductiveStr with
-    | .ok stx => elabCommand stx
+    | .ok stx =>
+      let stx := graftUserNameToken name.getId name.raw stx
+      elabCommand stx
     | .error e =>
       throwError s!"defInductiveProperty: parse error: {e}\n\
         ---\n{inductiveStr}\n---"

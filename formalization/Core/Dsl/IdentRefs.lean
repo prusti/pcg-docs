@@ -140,13 +140,36 @@ def flushIdentRefs : CommandElabM Unit := do
     | [n] => addConstInfo stx n
     | _ => pure ()
 
+/-- Replace the first identifier token in a parsed-from-string
+    syntax tree whose `Name` matches `targetName` with
+    `userNameStx`. Used to graft the user's `defFn`/... name
+    token (with its original source position) over the
+    parsed-from-string copy that Lean's elaborator would
+    otherwise emit info-tree binder leaves at — without this,
+    `.ilean`'s `definition` field for the resulting constant
+    points at synthetic positions inside the rendered string,
+    so LSP `textDocument/definition` lands on whatever line of
+    the user file happens to share those byte offsets (usually
+    nowhere meaningful). -/
+partial def graftUserNameToken
+    (targetName : Lean.Name) (userNameStx : Lean.Syntax)
+    (stx : Lean.Syntax) : Lean.Syntax :=
+  match stx with
+  | .ident _ _ n _ =>
+    if n == targetName then userNameStx else stx
+  | .node info kind args =>
+    .node info kind (args.map (graftUserNameToken targetName
+      userNameStx))
+  | _ => stx
+
 open Lean Elab Command in
 /-- After elaborating a DSL-synthesised declaration, override
-    its recorded `DeclarationRanges` so gotoDef *to* the
-    declaration lands on the original `defFn`/`defProperty`/...
-    block in the user's source file rather than at the start of
-    the file (which is where the synthetic syntax parsed from
-    the rendered string ends up).
+    its recorded `DeclarationRanges` so `findDeclarationRanges?`
+    (and the LSP gotoDef path that consults it) lands on the
+    original `defFn`/`defProperty`/... block in the user's
+    source file rather than at the start of the file (which is
+    where the synthetic syntax parsed from the rendered string
+    ends up).
 
     `name` is the unqualified declaration identifier as written
     in the DSL; the current namespace is prepended to obtain
@@ -154,7 +177,15 @@ open Lean Elab Command in
     `elabCommand`. `rangeStx` is the entire user `defFn`/...
     block (typically `← getRef`); `name.raw` doubles as the
     selection range so the LSP highlights just the identifier
-    when it lands on the definition. -/
+    when it lands on the definition.
+
+    The `.ilean`-driven half of gotoDef (used by
+    `textDocument/definition` in the LSP) is fixed
+    separately by `graftUserNameToken`, which substitutes the
+    user's name token into the parsed-from-string syntax
+    *before* the synthesised `elabCommand` so the binder
+    `TermInfo` Lean's elaborator records lands on the user's
+    source position. -/
 def setUserDeclRanges (name : Ident)
     (rangeStx : Syntax) : CommandElabM Unit := do
   let declName := (← getCurrNamespace) ++ name.getId

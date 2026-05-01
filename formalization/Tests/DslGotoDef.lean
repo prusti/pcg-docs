@@ -179,6 +179,28 @@ elab "checkCallSiteGotoDef" : command => do
          let x := 1 ; \
          testCallee ‹›"
     `Tests.DslGotoDef.Wrap.testCallee
+  -- defProperty body referencing a callee. Mirrors the way
+  -- `FramingInvariant`'s body references `hasAllocation`,
+  -- `hasCapability`, `Runnable`, etc. via `‹...›` calls.
+  checkCallSiteGotoDef
+    "defProperty testPropCallerSimple \
+       (.plain \"testPropCallerSimple\") \
+       short (.seq [.plain \"short\"]) \
+       long (.seq [.plain \"long\"]) \
+       (n \"Test param.\" : Nat) \
+       := testGuard ‹n›"
+    `Tests.DslGotoDef.Wrap.testGuard
+  -- defProperty body using a forall + chained conjunctions
+  -- ending with the call, the shape used by `FramingInvariant`.
+  checkCallSiteGotoDef
+    "defProperty testPropCallerForall \
+       (.plain \"testPropCallerForall\") \
+       short (.seq [.plain \"short\"]) \
+       long (.seq [.plain \"long\"]) \
+       := ∀∀ n ∈ Nat . \
+            ‹break› n < 10 ∧ \
+            ‹break› testGuard ‹n›"
+    `Tests.DslGotoDef.Wrap.testGuard
 
 namespace Wrap
 checkCallSiteGotoDef

@@ -855,7 +855,9 @@ elab_rules : command
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with
-    | .ok stx => elabCommand stx
+    | .ok stx =>
+      let stx := graftUserNameToken name.getId name.raw stx
+      elabCommand stx
     | .error e =>
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
@@ -929,7 +931,9 @@ elab_rules : command
     let env ← getEnv
     match Parser.runParserCategory env `command
       defStr with
-    | .ok stx => elabCommand stx
+    | .ok stx =>
+      let stx := graftUserNameToken name.getId name.raw stx
+      elabCommand stx
     | .error e =>
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
@@ -1081,7 +1085,14 @@ elab_rules : command
     let env ← getEnv
     match Parser.runParserCategory env `command
       mutualStr with
-    | .ok stx => elabCommand stx
+    | .ok stx =>
+      -- Graft each entry's user-source name into the parsed
+      -- mutual block so binder TermInfos point at the user's
+      -- file rather than synthetic positions inside `mutualStr`.
+      let stx := results.foldl
+        (fun s r => graftUserNameToken r.name.getId r.name.raw s)
+        stx
+      elabCommand stx
     | .error e =>
       throwError s!"defFnMutual: parse error: {e}\n\
         ---\n{mutualStr}\n---"

@@ -82,7 +82,9 @@ private def elabPropertyDecl
   let env ← getEnv
   match Parser.runParserCategory env `command
     defStr with
-  | .ok stx => elabCommand stx
+  | .ok stx =>
+    let stx := graftUserNameToken name.getId name.raw stx
+    elabCommand stx
   | .error e =>
     throwError
       s!"defProperty: parse error: {e}\n\
