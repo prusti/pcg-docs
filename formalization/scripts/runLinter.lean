@@ -57,6 +57,11 @@ private partial def countExplicitArgs : Expr → Nat
     countExplicitArgs body
   | _ => 0
 
+/-- Walk past every `forallE` binder and return the body. -/
+private partial def stripBinders : Expr → Expr
+  | .forallE _ _ body _ => stripBinders body
+  | e => e
+
 /-- Maximum number of explicit arguments allowed in a
     function definition. -/
 def maxExplicitArgs : Nat := 6
@@ -64,7 +69,12 @@ def maxExplicitArgs : Nat := 6
 /-- Check that no user-written function definition has more
     than `maxExplicitArgs` explicit arguments. Bundling
     related arguments into a structure usually beats long
-    positional lists. -/
+    positional lists.
+
+    `Prop`-valued definitions (i.e. `defProperty`s) are
+    exempt: properties are quantified relations over their
+    witnesses, and bundling those witnesses into a struct
+    obscures the relation rather than clarifying it. -/
 def tooManyArgsLint
     (env : Environment) (decls : Array Name)
     : CoreM (Std.HashMap Name MessageData) := do
@@ -76,6 +86,7 @@ def tooManyArgsLint
     if ← isProjectionFn d then continue
     if env.isConstructor d then continue
     if isAuxDecl d then continue
+    if (stripBinders ci.type).isProp then continue
     let n := countExplicitArgs ci.type
     if n > maxExplicitArgs then
       results := results.insert d
