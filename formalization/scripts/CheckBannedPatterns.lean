@@ -1,6 +1,7 @@
 import Lean.Elab.Frontend
 import Core.Doc
 import Core.Export.Latex
+import Core.Dsl.Types.EnumDef
 
 /-! # Lean-AST banned-pattern check
 
@@ -83,11 +84,30 @@ private partial def collectBanned
       else ["raw `.cmd \"href\"` — use `Latex.externalLink` instead, \
              which adds URL escaping and the blue-underline styling."]
     -- `MathDoc.doc (Doc.plain _)` should be `MathDoc.text _` — the
-    -- one-liner that wraps this exact pattern. The exempt site is
-    -- `MathDoc.text` itself, whose body is the wrapper.
+    -- one-liner that wraps this exact pattern. Exempt sites:
+    -- - `MathDoc.text` itself (body is the wrapper);
+    -- - `Doc.toDisplayParts` / `MathDoc.toDisplayParts` and their
+    --   compiler-generated match helpers, which deliberately
+    --   pattern-match on the canonical `.doc (.plain _)` shape to
+    --   reclassify a `MathDoc.text` produced by `doc!`'s `#name`
+    --   handler as a parameter slot. Pattern matches go through
+    --   the constructor form regardless of which surface alias
+    --   the user typed, so the ban — written for *construction*
+    --   sites — has nothing useful to say here.
     | .app (.const ``MathDoc.doc _)
         (.app (.const ``Doc.plain _) _) =>
-      if declName == ``MathDoc.text then []
+      let exempt : List Name :=
+        [ ``MathDoc.text
+        , ``Doc.toDisplayParts
+        , ``MathDoc.toDisplayParts ]
+      let isExempt := exempt.any fun n =>
+        declName == n
+        -- compiler-generated match helpers like
+        -- `Doc.toDisplayParts._unsafe_rec` /
+        -- `Doc.toDisplayParts.match_1` carry the parent decl
+        -- as their name prefix.
+        || n.isPrefixOf declName
+      if isExempt then []
       else ["`MathDoc.doc (Doc.plain s)` should be `MathDoc.text s` \
              — the thin `MathDoc` wrapper that renders as `\\text{s}` \
              in LaTeX."]

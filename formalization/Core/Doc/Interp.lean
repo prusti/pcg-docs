@@ -122,9 +122,19 @@ open Lean
 
 namespace Doc.Interp
 
+/-- A segment of a math sub-chunk inside a `$...$` block of a
+    `doc!` literal. `mathLit` carries already-translated LaTeX
+    (Unicode math characters like `≐` are mapped to
+    `\doteq` etc. at parse time); `mathRef` carries a
+    `#identifier` reference, rendered in math text mode. -/
+inductive MathChunkSeg where
+  | mathLit (s : String)
+  | mathRef (name : String)
+  deriving Inhabited
+
 /-- A segment of a `doc!` literal chunk: a run of plain text,
-    a `#identifier` cross-reference, or a backtick-delimited
-    inline code span.
+    a `#identifier` cross-reference, a backtick-delimited
+    inline code span, or a `$...$` math block.
 
     `ref` carries the byte offsets of its `#identifier`
     substring relative to the start of the (decoded) chunk
@@ -133,12 +143,55 @@ namespace Doc.Interp
     uses these offsets to attach `SourceInfo.original` to the
     synthesised `Syntax.ident`, so the language server can
     treat the substring as a real identifier reference for
-    goto-definition, hover, and semantic highlighting. -/
+    goto-definition, hover, and semantic highlighting.
+
+    `mathBlock` carries the segments of the `$...$` content —
+    plain text inside math is Unicode-translated to LaTeX
+    commands (e.g. `≐` → `\doteq`) at parse time, and
+    `#identifier` references inside math become text-mode
+    name renderings. -/
 inductive ChunkSeg where
   | literal (s : String)
   | ref (parts : List String) (startOff endOff : Nat)
   | code (s : String)
+  | mathBlock (segs : List MathChunkSeg)
   deriving Inhabited
+
+/-- Map a Unicode math character to its LaTeX command form.
+    Each translation is followed by `{}` so the command stays
+    a separate token from a following alphabetic character —
+    e.g. `≐y` becomes `\doteq{}y` rather than the undefined
+    `\doteqy` — without inserting a non-breaking space. The
+    user typically writes a space around binary relations,
+    so the empty group is invisible in the common case.
+    Returns `none` for characters that pass through verbatim.
+    Used inside `$...$` blocks of a `doc!` literal. -/
+def unicodeMathToLatex (c : Char) : Option String :=
+  match c with
+  | '≐' => some "\\doteq{}"
+  | '→' => some "\\rightarrow{}"
+  | '⇒' => some "\\Rightarrow{}"
+  | '≠' => some "\\neq{}"
+  | '≤' => some "\\le{}"
+  | '≥' => some "\\ge{}"
+  | '∈' => some "\\in{}"
+  | '∉' => some "\\notin{}"
+  | '∪' => some "\\cup{}"
+  | '∩' => some "\\cap{}"
+  | '∧' => some "\\land{}"
+  | '∨' => some "\\lor{}"
+  | '∀' => some "\\forall{}"
+  | '∃' => some "\\exists{}"
+  | '∅' => some "\\emptyset{}"
+  | '↦' => some "\\mapsto{}"
+  | '⟨' => some "\\langle{}"
+  | '⟩' => some "\\rangle{}"
+  | '⊥' => some "\\bot{}"
+  | '⊤' => some "\\top{}"
+  | _ => none
+
+private def renderMathChar (c : Char) : String :=
+  unicodeMathToLatex c |>.getD (String.ofList [c])
 
 private def isIdentStart (c : Char) : Bool :=
   c.isAlpha || c == '_'
@@ -187,6 +240,34 @@ private def consLitChar (c : Char) : List ChunkSeg → List ChunkSeg
   | .literal p :: rest => .literal (String.ofList [c] ++ p) :: rest
   | rest => .literal (String.ofList [c]) :: rest
 
+private def consMathLitStr (s : String) :
+    List MathChunkSeg → List MathChunkSeg
+  | .mathLit p :: rest => .mathLit (s ++ p) :: rest
+  | rest => .mathLit s :: rest
+
+/-- Parse the body of a `$...$` math block. Returns the parsed
+    segments, the remainder after the closing `$`, and whether
+    a closing `$` was actually found. If unclosed, the caller
+    treats the opening `$` as a literal. -/
+private partial def parseMathSegsAux :
+    List Char → List MathChunkSeg × List Char × Bool
+  | [] => ([], [], false)
+  | '$' :: rest => ([], rest, true)
+  | '#' :: rest =>
+    match rest with
+    | c :: rest' =>
+      if isIdentStart c then
+        let (name, after) := consumePart (c :: rest')
+        let (more, restFinal, closed) := parseMathSegsAux after
+        (.mathRef name :: more, restFinal, closed)
+      else
+        let (more, restFinal, closed) := parseMathSegsAux rest
+        (consMathLitStr "#" more, restFinal, closed)
+    | [] => ([.mathLit "#"], [], false)
+  | c :: rest =>
+    let (more, restFinal, closed) := parseMathSegsAux rest
+    (consMathLitStr (renderMathChar c) more, restFinal, closed)
+
 /-- Consume characters up to (but not including) the next
     backtick. Returns the consumed prefix and the remainder
     starting at the closing backtick, or `none` if no closing
@@ -201,6 +282,12 @@ private partial def consumeUntilBacktick :
 
 private partial def parseSegsAux : List Char → List ChunkSeg
   | [] => []
+  | '$' :: rest =>
+    let (segs, rest', closed) := parseMathSegsAux rest
+    if closed then
+      .mathBlock segs :: parseSegsAux rest'
+    else
+      consLitChar '$' (parseSegsAux rest)
   | '#' :: rest =>
     let (ident, rest') := consumeRef rest
     if ident.isEmpty then
@@ -225,10 +312,15 @@ private partial def parseSegsAux : List Char → List ChunkSeg
     chars verbatim), `.ref parts` consumes `1 +
     intercalated.utf8ByteSize` (a leading `#` plus the dotted
     name), and `.code s` consumes `2 + s.utf8ByteSize` (the
-    pair of backticks). Walking the segment list and summing
-    these per-segment widths gives a running offset that is
-    the byte position of each segment's start in the decoded
-    chunk. -/
+    pair of backticks). `.mathBlock` segments hold the
+    *translated* LaTeX form of the source characters and so
+    can't be sized from the stored string; we don't track
+    per-segment offsets inside math blocks (no goto-def
+    support there yet) and only charge an opaque advance for
+    the surrounding `$...$` delimiters. Walking the segment
+    list and summing these per-segment widths gives a running
+    offset that is the byte position of each segment's start
+    in the decoded chunk. -/
 private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
   | [], _ => []
   | .literal t :: rest, off =>
@@ -239,6 +331,8 @@ private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
     .ref parts off endOff :: annotateOffsets rest endOff
   | .code t :: rest, off =>
     .code t :: annotateOffsets rest (off + 2 + t.utf8ByteSize)
+  | .mathBlock segs :: rest, off =>
+    .mathBlock segs :: annotateOffsets rest (off + 2)
 
 /-- Split a literal `doc!` chunk into segments: `.literal` runs of
     plain text, `.ref parts startOff endOff` for each
@@ -354,6 +448,26 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
             if s.isEmpty then continue
             let lit := Syntax.mkStrLit s
             parts := parts.push (← `((Doc.code $lit : Doc)))
+          | .mathBlock segs =>
+            -- Build a `MathDoc.seq` of the math segments. Each
+            -- `mathLit` becomes `MathDoc.raw` (already
+            -- Unicode-translated to LaTeX), each `mathRef`
+            -- becomes `MathDoc.text` (a math-mode text rendering
+            -- of the identifier name; consumers like
+            -- `defInductiveProperty`'s `displayed` repurpose
+            -- these as parameter slots).
+            let mut mdParts : Array (TSyntax `term) := #[]
+            for s in segs do
+              match s with
+              | .mathLit t =>
+                if t.isEmpty then continue
+                let lit := Syntax.mkStrLit t
+                mdParts := mdParts.push (← `(MathDoc.raw $lit))
+              | .mathRef name =>
+                let lit := Syntax.mkStrLit name
+                mdParts := mdParts.push (← `(MathDoc.text $lit))
+            parts := parts.push
+              (← `((Doc.math (MathDoc.seq [$mdParts,*]) : Doc)))
       | none =>
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))

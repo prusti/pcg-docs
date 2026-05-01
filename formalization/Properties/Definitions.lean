@@ -62,7 +62,7 @@ defInductiveProperty Reachable
     invocations of `step` whose results are `.ok`.")
   (m "The starting machine state." : Machine)
   (m' "A machine state reachable from m." : Machine)
-  displayed (#m, .raw " \\rightsquigarrow^{*} ", #m')
+  displayed doc! "$#m \\rightsquigarrow^* #m'$"
 where
   | refl {m : Machine}
       ⊢ Reachable ‹m, m›
@@ -108,7 +108,7 @@ defInductiveProperty describes
   (par "The program analysis results."
       : ProgAnalysisResults)
   (p "The program." : Program)
-  displayed (#par, .text " describes ", #p)
+  displayed doc! "$#par$ describes $#p$"
 where
   | analyzeOk {par : ProgAnalysisResults} {p : Program}
       from (Program.analyzeProgram ‹p› = Some par)
@@ -189,8 +189,7 @@ defInductiveProperty hasCapability
   -- references can't sit inside a single subscript braces
   -- group), so the body is rendered as a comma-separated
   -- index instead.
-  displayed (#pcg, .raw "[", #p, .sym .comma, #b,
-             .raw "] \\doteq ", #c)
+  displayed doc! "$#pcg[#p, #b] ≐ #c$"
 where
   | fromGet {pcg : PcgData Place} {b : Body}
         {p : Place} {c : Capability}
@@ -205,7 +204,7 @@ defInductiveProperty hasAllocation
   (m "The machine state." : Machine)
   (p "The place." : Place)
   (a "The allocation." : Allocation)
-  displayed (#m, .raw "[", #p, .raw "] \\doteq ", #a)
+  displayed doc! "$#m[#p] ≐ #a$"
 where
   | fromGet {m : Machine} {p : Place} {a : Allocation}
         {h_Runnable : Runnable m}

@@ -81,6 +81,46 @@ def toDoc : DisplayPart → Doc
 
 end DisplayPart
 
+mutual
+
+/-- Convert a `Doc` (typically produced by `doc! "$...$"`)
+    into a list of `DisplayPart`s for use as a `displayed`
+    template. Each `MathDoc.text name` (which is what `doc!`
+    emits for `#name` references inside a `$...$` block) is
+    classified as either a parameter slot — when `name`
+    matches a registered parameter — or as a literal piece
+    of math text. Every other `MathDoc` and outer-`Doc`
+    fragment becomes a literal display part, so non-math
+    prose surrounding the math block flows through the same
+    template. -/
+partial def Doc.toDisplayParts
+    (paramNames : List String) :
+    Doc → List DisplayPart
+  | .math md => MathDoc.toDisplayParts paramNames md
+  | .seq ds => ds.flatMap (Doc.toDisplayParts paramNames)
+  | .plain s =>
+    if s.isEmpty then [] else [.lit (.doc (.plain s))]
+  | d => [.lit (.doc d)]
+
+partial def MathDoc.toDisplayParts
+    (paramNames : List String) :
+    MathDoc → List DisplayPart
+  -- A `MathDoc.text name` (= `MathDoc.doc (Doc.plain name)`)
+  -- whose name matches a registered parameter is reclassified
+  -- as a parameter slot. The fallback symbol doc is set to an
+  -- empty `MathDoc.raw` since the inductive-property header
+  -- renderer ignores it, and call-site rendering substitutes
+  -- the actual argument.
+  | .doc (.plain s) =>
+    if paramNames.contains s then
+      [.arg s (.raw "")]
+    else
+      [.lit (.doc (.plain s))]
+  | .seq mds => mds.flatMap (MathDoc.toDisplayParts paramNames)
+  | md => [.lit md]
+
+end
+
 namespace VariantDef
 
 /-- Render the variant's display template as a `Doc`

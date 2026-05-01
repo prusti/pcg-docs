@@ -61,7 +61,7 @@ syntax "| " ident
     ``` -/
 syntax "defInductiveProperty " ident ("{" ident+ "}")?
     str "(" term ")"
-    fnParam* ("displayed " "(" displayPart,+ ")")? " where"
+    fnParam* ("displayed " term)? " where"
     inductivePropRule*
     : command
 
@@ -134,7 +134,7 @@ elab_rules : command
         $[{ $tps:ident* }]?
         $docParam:str ($doc:term)
         $ps:fnParam*
-        $[displayed ( $dps:displayPart,* )]?
+        $[displayed $dispDoc:term]?
         where
         $rs:inductivePropRule*) => do
     DslLint.lintDocTerm doc
@@ -146,10 +146,25 @@ elab_rules : command
       | none => []
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
-    let displayTerm : TSyntax `term ← match dps with
-      | some d => do
-        let dpList ← parseFnDisplay paramData d.getElems
-        `((some $dpList : Option (List DisplayPart)))
+    -- The `displayed` template is a single `Doc` value
+    -- (typically `doc! "$...$"`). At runtime we convert it to
+    -- a `List DisplayPart` via `Doc.toDisplayParts`, with the
+    -- registered parameter names so each `MathDoc.text name`
+    -- (i.e. each `#name` reference inside the `doc!`'s math
+    -- block) becomes a parameter slot. Doing the conversion
+    -- in the generated `InductivePropertyDef` term — rather
+    -- than at macro-expansion time — keeps the `displayed`
+    -- syntax open to any `Doc`-producing expression, not just
+    -- a literal `doc!` invocation.
+    let paramNamesTerm : TSyntax `term :=
+      quote (paramData.toList.map fun (pn, _, _) =>
+        toString pn.getId)
+    let displayTerm : TSyntax `term ← match dispDoc with
+      | some d =>
+        `((some
+            (Doc.toDisplayParts $paramNamesTerm
+              ($d : Doc))
+            : Option (List DisplayPart)))
       | none => `((none : Option (List DisplayPart)))
     -- Build the `inductive` declaration as a string and reparse,
     -- since each rule's premises and conclusion are arbitrary
