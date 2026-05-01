@@ -133,8 +133,9 @@ inductive MathChunkSeg where
   deriving Inhabited
 
 /-- A segment of a `doc!` literal chunk: a run of plain text,
-    a `#identifier` cross-reference, a backtick-delimited
-    inline code span, or a `$...$` math block.
+    a `#identifier` cross-reference, a `#{name}` braced
+    cross-reference, a backtick-delimited inline code span,
+    or a `$...$` math block.
 
     `ref` carries the byte offsets of its `#identifier`
     substring relative to the start of the (decoded) chunk
@@ -145,14 +146,23 @@ inductive MathChunkSeg where
     treat the substring as a real identifier reference for
     goto-definition, hover, and semantic highlighting.
 
+    `refByName` is the brace-delimited `#{name}` form: it lets
+    the source spell a label whose characters fall outside
+    Lean's identifier alphabet (e.g. `#{m'}`, where the `'`
+    is needed to address a parameter named `m'`). The label
+    is treated as an *unvalidated* string — the elaborator
+    does not try to resolve it as a `@<ident>` reference, so
+    typos surface only at render time, not at compile time.
+
     `mathBlock` carries the segments of the `$...$` content —
     plain text inside math is Unicode-translated to LaTeX
     commands (e.g. `≐` → `\doteq`) at parse time, and
-    `#identifier` references inside math become text-mode
-    name renderings. -/
+    `#identifier` / `#{name}` references inside math become
+    text-mode name renderings. -/
 inductive ChunkSeg where
   | literal (s : String)
   | ref (parts : List String) (startOff endOff : Nat)
+  | refByName (name : String)
   | code (s : String)
   | mathBlock (segs : List MathChunkSeg)
   deriving Inhabited
@@ -245,6 +255,20 @@ private def consMathLitStr (s : String) :
   | .mathLit p :: rest => .mathLit (s ++ p) :: rest
   | rest => .mathLit s :: rest
 
+/-- Consume characters up to (and consuming) the next `}`.
+    Returns the inner text and the remainder *after* the
+    closing brace, or `none` if no closing brace is found.
+    Used to parse the body of a `#{name}` braced reference,
+    which lets a source label include characters that are
+    not valid in a Lean identifier (e.g. an apostrophe). -/
+private partial def consumeUntilRBrace :
+    List Char → Option (String × List Char)
+  | [] => none
+  | '}' :: rest => some ("", rest)
+  | c :: rest =>
+    (consumeUntilRBrace rest).map fun (more, after) =>
+      (String.ofList [c] ++ more, after)
+
 /-- Parse the body of a `$...$` math block. Returns the parsed
     segments, the remainder after the closing `$`, and whether
     a closing `$` was actually found. If unclosed, the caller
@@ -253,6 +277,23 @@ private partial def parseMathSegsAux :
     List Char → List MathChunkSeg × List Char × Bool
   | [] => ([], [], false)
   | '$' :: rest => ([], rest, true)
+  | '#' :: '{' :: rest =>
+    -- `#{name}` form: any chars up to the closing `}` form
+    -- the name. Falls back to a literal `#` when no closing
+    -- brace is found, or when the brace pair is empty.
+    match consumeUntilRBrace rest with
+    | some (name, after) =>
+      if name.isEmpty then
+        let (more, restFinal, closed) :=
+          parseMathSegsAux ('{' :: rest)
+        (consMathLitStr "#" more, restFinal, closed)
+      else
+        let (more, restFinal, closed) := parseMathSegsAux after
+        (.mathRef name :: more, restFinal, closed)
+    | none =>
+      let (more, restFinal, closed) :=
+        parseMathSegsAux ('{' :: rest)
+      (consMathLitStr "#" more, restFinal, closed)
   | '#' :: rest =>
     match rest with
     | c :: rest' =>
@@ -288,6 +329,21 @@ private partial def parseSegsAux : List Char → List ChunkSeg
       .mathBlock segs :: parseSegsAux rest'
     else
       consLitChar '$' (parseSegsAux rest)
+  | '#' :: '{' :: rest =>
+    -- `#{name}` form: any chars up to the closing `}` form
+    -- the name. The body is treated as an unvalidated label
+    -- (no `@<ident>` resolution), so it can contain
+    -- characters that aren't legal in a Lean identifier
+    -- (e.g. `#{m'}`). Falls back to a literal `#` when no
+    -- closing brace is found or the brace pair is empty.
+    match consumeUntilRBrace rest with
+    | some (name, after) =>
+      if name.isEmpty then
+        consLitChar '#' (parseSegsAux ('{' :: rest))
+      else
+        .refByName name :: parseSegsAux after
+    | none =>
+      consLitChar '#' (parseSegsAux ('{' :: rest))
   | '#' :: rest =>
     let (ident, rest') := consumeRef rest
     if ident.isEmpty then
@@ -329,6 +385,11 @@ private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
     let identLen := (".".intercalate parts).utf8ByteSize
     let endOff := off + 1 + identLen
     .ref parts off endOff :: annotateOffsets rest endOff
+  | .refByName name :: rest, off =>
+    -- Source bytes consumed by the `#{name}` form: `#{` +
+    -- the name's bytes + `}`.
+    .refByName name ::
+      annotateOffsets rest (off + 3 + name.utf8ByteSize)
   | .code t :: rest, off =>
     .code t :: annotateOffsets rest (off + 2 + t.utf8ByteSize)
   | .mathBlock segs :: rest, off =>
@@ -444,6 +505,17 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
             let strLit := Syntax.mkStrLit nameStr
             parts := parts.push
               (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
+          | .refByName name =>
+            -- `#{name}` form: emit `Doc.refLinkByName "name"`.
+            -- Unlike `.ref`, the name is not validated as a
+            -- Lean identifier, so this admits labels containing
+            -- characters like `'` that the unbraced `#name`
+            -- form rejects. No `addConstInfo` push: there is
+            -- no resolved declaration to point semantic-token
+            -- highlighting at.
+            let lit := Syntax.mkStrLit name
+            parts := parts.push
+              (← `((Doc.refLinkByName $lit : Doc)))
           | .code s =>
             if s.isEmpty then continue
             let lit := Syntax.mkStrLit s
