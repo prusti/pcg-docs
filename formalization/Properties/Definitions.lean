@@ -62,7 +62,7 @@ defInductiveProperty Reachable
     invocations of `step` whose results are `.ok`.")
   (m "The starting machine state." : Machine)
   (m' "A machine state reachable from m." : Machine)
-  displayed doc! "$#\{m} \\rightsquigarrow^* #\{m'}$"
+  displayed doc! "$#m \\rightsquigarrow^* #m'$"
 where
   | refl {m : Machine}
       ⊢ Reachable ‹m, m›

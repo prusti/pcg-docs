@@ -70,7 +70,21 @@ hyperlink in the PDF. The link target is
   anchors emitted by `defFn` and `defProperty`).
 
 A `#` not followed by an identifier-start character is left as a
-literal `#` in the prose. -/
+literal `#` in the prose.
+
+For labels that fall outside the `#name` form's accepted set —
+e.g. ones that need to abut surrounding prose without a terminator
+— the bracketed `#[name]` form takes any characters up to the
+closing `]`:
+
+```lean
+doc! "Pointer #[m'->next] is owned by #[ProjectionElem.Field]'s parent"
+```
+
+The bracketed body is *not* validated as a Lean identifier (the
+elaborator does not push a `@<ident>` reference for it), so typos
+surface only as broken hyperlinks at render time, not as compile
+errors. -/
 
 namespace Doc
 
@@ -146,18 +160,24 @@ inductive MathChunkSeg where
     treat the substring as a real identifier reference for
     goto-definition, hover, and semantic highlighting.
 
-    `refByName` is the brace-delimited `#{name}` form: it lets
-    the source spell a label whose characters fall outside
-    Lean's identifier alphabet (e.g. `#{m'}`, where the `'`
-    is needed to address a parameter named `m'`). The label
-    is treated as an *unvalidated* string — the elaborator
-    does not try to resolve it as a `@<ident>` reference, so
-    typos surface only at render time, not at compile time.
+    `refByName` is the bracket-delimited `#[name]` form: it
+    lets the source spell a label whose characters fall
+    outside the unbracketed `#name` form's accepted set
+    (anything beyond Lean's `isIdRest` plus dotted segments)
+    or that needs to abut surrounding prose without a
+    terminator (`#[name]'s` keeps the `'s` outside the
+    label). The label is treated as an *unvalidated* string —
+    the elaborator does not try to resolve it as a
+    `@<ident>` reference, so typos surface only at render
+    time, not at compile time. Square brackets were chosen
+    so the form needs no escaping inside an interpolated
+    string literal (curly braces would collide with `doc!`'s
+    `{expr}` interpolation syntax).
 
     `mathBlock` carries the segments of the `$...$` content —
     plain text inside math is Unicode-translated to LaTeX
     commands (e.g. `≐` → `\doteq`) at parse time, and
-    `#identifier` / `#{name}` references inside math become
+    `#identifier` / `#[name]` references inside math become
     text-mode name renderings. -/
 inductive ChunkSeg where
   | literal (s : String)
@@ -206,8 +226,16 @@ private def renderMathChar (c : Char) : String :=
 private def isIdentStart (c : Char) : Bool :=
   c.isAlpha || c == '_'
 
+/-- Accepted continuation characters for the unbracketed
+    `#name` form. Mirrors Lean's `String.isIdRest` to the
+    extent that matters here: alphanumerics, `_`, and `'` (so
+    primed names like `m'` round-trip without needing the
+    bracketed `#[m']` form). `!` / `?` are deliberately *not*
+    accepted; they're commonly punctuation in prose, and the
+    bracketed form is available when they're really part of
+    the identifier. -/
 private def isIdentCont (c : Char) : Bool :=
-  c.isAlphanum || c == '_'
+  c.isAlphanum || c == '_' || c == '\''
 
 /-- Greedily consume identifier-continuation characters. Returns
     the consumed prefix as a string and the remaining tail. -/
@@ -255,18 +283,19 @@ private def consMathLitStr (s : String) :
   | .mathLit p :: rest => .mathLit (s ++ p) :: rest
   | rest => .mathLit s :: rest
 
-/-- Consume characters up to (and consuming) the next `}`.
+/-- Consume characters up to (and consuming) the next `]`.
     Returns the inner text and the remainder *after* the
-    closing brace, or `none` if no closing brace is found.
-    Used to parse the body of a `#{name}` braced reference,
+    closing bracket, or `none` if no closing bracket is found.
+    Used to parse the body of a `#[name]` bracketed reference,
     which lets a source label include characters that are
-    not valid in a Lean identifier (e.g. an apostrophe). -/
-private partial def consumeUntilRBrace :
+    not accepted by the unbracketed `#name` form (or that
+    need to abut surrounding prose without a terminator). -/
+private partial def consumeUntilRBracket :
     List Char → Option (String × List Char)
   | [] => none
-  | '}' :: rest => some ("", rest)
+  | ']' :: rest => some ("", rest)
   | c :: rest =>
-    (consumeUntilRBrace rest).map fun (more, after) =>
+    (consumeUntilRBracket rest).map fun (more, after) =>
       (String.ofList [c] ++ more, after)
 
 /-- Parse the body of a `$...$` math block. Returns the parsed
@@ -277,22 +306,22 @@ private partial def parseMathSegsAux :
     List Char → List MathChunkSeg × List Char × Bool
   | [] => ([], [], false)
   | '$' :: rest => ([], rest, true)
-  | '#' :: '{' :: rest =>
-    -- `#{name}` form: any chars up to the closing `}` form
+  | '#' :: '[' :: rest =>
+    -- `#[name]` form: any chars up to the closing `]` form
     -- the name. Falls back to a literal `#` when no closing
-    -- brace is found, or when the brace pair is empty.
-    match consumeUntilRBrace rest with
+    -- bracket is found, or when the bracket pair is empty.
+    match consumeUntilRBracket rest with
     | some (name, after) =>
       if name.isEmpty then
         let (more, restFinal, closed) :=
-          parseMathSegsAux ('{' :: rest)
+          parseMathSegsAux ('[' :: rest)
         (consMathLitStr "#" more, restFinal, closed)
       else
         let (more, restFinal, closed) := parseMathSegsAux after
         (.mathRef name :: more, restFinal, closed)
     | none =>
       let (more, restFinal, closed) :=
-        parseMathSegsAux ('{' :: rest)
+        parseMathSegsAux ('[' :: rest)
       (consMathLitStr "#" more, restFinal, closed)
   | '#' :: rest =>
     match rest with
@@ -329,21 +358,23 @@ private partial def parseSegsAux : List Char → List ChunkSeg
       .mathBlock segs :: parseSegsAux rest'
     else
       consLitChar '$' (parseSegsAux rest)
-  | '#' :: '{' :: rest =>
-    -- `#{name}` form: any chars up to the closing `}` form
+  | '#' :: '[' :: rest =>
+    -- `#[name]` form: any chars up to the closing `]` form
     -- the name. The body is treated as an unvalidated label
     -- (no `@<ident>` resolution), so it can contain
-    -- characters that aren't legal in a Lean identifier
-    -- (e.g. `#{m'}`). Falls back to a literal `#` when no
-    -- closing brace is found or the brace pair is empty.
-    match consumeUntilRBrace rest with
+    -- characters not accepted by the unbracketed form, or
+    -- abut surrounding prose without a terminator (e.g.
+    -- `#[name]'s` keeps the `'s` outside the label). Falls
+    -- back to a literal `#` when no closing bracket is found
+    -- or the bracket pair is empty.
+    match consumeUntilRBracket rest with
     | some (name, after) =>
       if name.isEmpty then
-        consLitChar '#' (parseSegsAux ('{' :: rest))
+        consLitChar '#' (parseSegsAux ('[' :: rest))
       else
         .refByName name :: parseSegsAux after
     | none =>
-      consLitChar '#' (parseSegsAux ('{' :: rest))
+      consLitChar '#' (parseSegsAux ('[' :: rest))
   | '#' :: rest =>
     let (ident, rest') := consumeRef rest
     if ident.isEmpty then
@@ -386,8 +417,8 @@ private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
     let endOff := off + 1 + identLen
     .ref parts off endOff :: annotateOffsets rest endOff
   | .refByName name :: rest, off =>
-    -- Source bytes consumed by the `#{name}` form: `#{` +
-    -- the name's bytes + `}`.
+    -- Source bytes consumed by the `#[name]` form: `#[` +
+    -- the name's bytes + `]`.
     .refByName name ::
       annotateOffsets rest (off + 3 + name.utf8ByteSize)
   | .code t :: rest, off =>
@@ -506,12 +537,14 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
             parts := parts.push
               (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
           | .refByName name =>
-            -- `#{name}` form: emit `Doc.refLinkByName "name"`.
+            -- `#[name]` form: emit `Doc.refLinkByName "name"`.
             -- Unlike `.ref`, the name is not validated as a
-            -- Lean identifier, so this admits labels containing
-            -- characters like `'` that the unbraced `#name`
-            -- form rejects. No `addConstInfo` push: there is
-            -- no resolved declaration to point semantic-token
+            -- Lean identifier, so this admits labels whose
+            -- characters fall outside the unbracketed `#name`
+            -- form's accepted set or that need to abut
+            -- surrounding prose without a terminator. No
+            -- `addConstInfo` push: there is no resolved
+            -- declaration to point semantic-token
             -- highlighting at.
             let lit := Syntax.mkStrLit name
             parts := parts.push

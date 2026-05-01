@@ -76,7 +76,7 @@ defFn intValueToNat (.plain "int_value_to_nat")
   | .usize x => x · toNat
 
 defFn intValueBytes (.plain "int_value_bytes")
-  (doc! "Number of bytes in an #IntValue's representation.")
+  (doc! "Number of bytes in an #[IntValue]'s representation.")
   (iv "The integer value." : IntValue)
   : Nat where
   | .u8 _ => 1
