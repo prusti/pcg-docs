@@ -742,13 +742,17 @@ private def wrapRetType
   else s!"\{ result : {retTy} // {postcondPredicate postconds} }"
 
 /-- Wrap a body expression with the subtype anonymous
-    constructor `⟨body, by sorry⟩` when postconds are
-    present; otherwise return the body unchanged. -/
+    constructor `⟨body, <proof>⟩` when postconds are present;
+    otherwise return the body unchanged. The proof tactic
+    starts with `decide` so postconds that hold by computation
+    on the literal body discharge cleanly (no `sorry` warning);
+    when `decide` fails or doesn't apply, it falls back to
+    `sorry` to keep the build going. -/
 private def wrapBody
     (body : String) (postconds : List Postcondition)
     : String :=
   if postconds.isEmpty then body
-  else s!"⟨{body}, by sorry⟩"
+  else s!"⟨{body}, by first | trivial | decide | sorry⟩"
 
 /-- Lean proof tactic for a self-recursive call's
     precondition obligation. Named preconditions unfold via

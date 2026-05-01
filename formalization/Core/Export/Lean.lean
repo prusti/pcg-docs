@@ -392,13 +392,16 @@ private def wrapRetType
        {postcondPredicate postconds} }"
 
 /-- Wrap a `LeanExpr` body with the subtype anonymous
-    constructor `⟨body, by sorry⟩` when postconds are
-    present; otherwise return the body unchanged. -/
+    constructor `⟨body, <proof>⟩` when postconds are present;
+    otherwise return the body unchanged. The proof tactic
+    starts with `decide` so postconds that hold by computation
+    on the literal body discharge cleanly (no `sorry` warning),
+    falling back to `sorry` when `decide` doesn't apply. -/
 private def wrapBodyExpr
     (body : LeanExpr)
     (postconds : List Postcondition) : LeanExpr :=
   if postconds.isEmpty then body
-  else .anonCtor [body, .raw "by sorry"]
+  else .anonCtor [body, .raw "by first | trivial | decide | sorry"]
 
 /-- Convert FnDef params to AST binders. -/
 private def paramBinders
