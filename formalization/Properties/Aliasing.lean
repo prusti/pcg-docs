@@ -31,14 +31,15 @@ defProperty Framing' (.plain "Framing'")
            places {p} and {p'}, \
            allocations {a} and {a'}")
   long
-    (doc! "Holds when {par} describes {pr}, {m} is a \
+    (doc! "If {par} describes {pr}, {m} is a \
            runnable machine reachable from the initial machine \
            of {pr} whose currently-executing body and \
            program counter are tracked by {par}, the \
            entry-state PCG at that program point assigns the \
            exclusive capability to both valid places {p} \
-           and {p'}, and their backing allocations {a} \
-           and {a'} do not overlap.")
+           and {p'}, and {a}, {a'} back the two places, \
+           then the allocations have non-overlapping address \
+           ranges.")
   (pr "The program." : Program)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
@@ -48,38 +49,39 @@ defProperty Framing' (.plain "Framing'")
   (a "The allocation backing p." : Allocation)
   (a' "The allocation backing p'." : Allocation)
   :=
+       ‹break› validProgram ‹pr› ∧
        ‹break› describes ‹par, pr› ∧
        ‹break› Reachable
          ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m› ∧
+            ‹pr, lean_proof("h_validProgram")›, m› ∧
        ‹break› Runnable ‹m› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p› ∧
+         ‹currBody ‹m, lean_proof("h_Runnable")›, p› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p'› ∧
+         ‹currBody ‹m, lean_proof("h_Runnable")›, p'› ∧
        ‹break› programContains
          ‹par,
-          currBody ‹m, lean_proof("sorry")›,
-          currPC ‹m, lean_proof("sorry")›› ∧
+          currBody ‹m, lean_proof("h_Runnable")›,
+          currPC ‹m, lean_proof("h_Runnable")›› ∧
        ‹break› hasCapability
          ‹pcgEntryStateAt
             ‹par,
-             currBody ‹m, lean_proof("sorry")›,
-             currPC ‹m, lean_proof("sorry")›,
-             lean_proof("sorry")›,
-          currBody ‹m, lean_proof("sorry")›,
+             currBody ‹m, lean_proof("h_Runnable")›,
+             currPC ‹m, lean_proof("h_Runnable")›,
+             lean_proof("h_programContains")›,
+          currBody ‹m, lean_proof("h_Runnable")›,
           p, .exclusive› ∧
        ‹break› hasCapability
          ‹pcgEntryStateAt
             ‹par,
-             currBody ‹m, lean_proof("sorry")›,
-             currPC ‹m, lean_proof("sorry")›,
-             lean_proof("sorry")›,
-          currBody ‹m, lean_proof("sorry")›,
+             currBody ‹m, lean_proof("h_Runnable")›,
+             currPC ‹m, lean_proof("h_Runnable")›,
+             lean_proof("h_programContains")›,
+          currBody ‹m, lean_proof("h_Runnable")›,
           p', .exclusive› ∧
        ‹break› hasAllocation ‹m, p, a› ∧
-       ‹break› hasAllocation ‹m, p', a'› ∧
-       ‹break› Allocation.nonOverlapping ‹a, a'›
+       ‹break› hasAllocation ‹m, p', a'›
+       → ‹break› Allocation.nonOverlapping ‹a, a'›
 
 defProperty Framing (.plain "Framing")
   short
@@ -103,19 +105,18 @@ defProperty NoAlias' (.plain "NoAlias'")
            places {p} and {p'}, \
            allocations {a} and {a'}")
   long
-    (doc! "Holds when {par} describes {pr}, {m} is a \
-           runnable machine reachable from the initial machine \
-           of {pr} whose currently-executing body and \
-           program counter are tracked by {par}, and for \
-           the two valid places {p} and {p'} backed by \
-           allocations {a} and {a'}, either their PCG \
-           nodes are connected in the entry-state PCG at that \
-           program point or the allocations have \
-           non-overlapping address ranges. The final clause is \
-           phrased as a disjunction so the contrapositive \
-           reads as the disconnected-implies-disjoint \
-           statement without needing a negation operator in \
-           the DSL.")
+    (doc! "If {par} describes {pr}, {m} is a runnable machine \
+           reachable from the initial machine of {pr} whose \
+           currently-executing body and program counter are \
+           tracked by {par}, and the two valid places {p} \
+           and {p'} are backed by allocations {a} and {a'}, \
+           then either their PCG nodes are connected in the \
+           entry-state PCG at that program point or the \
+           allocations have non-overlapping address ranges. \
+           The conclusion is phrased as a disjunction so the \
+           contrapositive reads as the disconnected-implies-\
+           disjoint statement without needing a negation \
+           operator in the DSL.")
   (pr "The program." : Program)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
@@ -125,29 +126,30 @@ defProperty NoAlias' (.plain "NoAlias'")
   (a "The allocation backing p." : Allocation)
   (a' "The allocation backing p'." : Allocation)
   :=
+       ‹break› validProgram ‹pr› ∧
        ‹break› describes ‹par, pr› ∧
        ‹break› Reachable
          ‹initialMachine
-            ‹pr, lean_proof("sorry")›, m› ∧
+            ‹pr, lean_proof("h_validProgram")›, m› ∧
        ‹break› Runnable ‹m› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p› ∧
+         ‹currBody ‹m, lean_proof("h_Runnable")›, p› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("sorry")›, p'› ∧
+         ‹currBody ‹m, lean_proof("h_Runnable")›, p'› ∧
        ‹break› programContains
          ‹par,
-          currBody ‹m, lean_proof("sorry")›,
-          currPC ‹m, lean_proof("sorry")›› ∧
+          currBody ‹m, lean_proof("h_Runnable")›,
+          currPC ‹m, lean_proof("h_Runnable")›› ∧
        ‹break› hasAllocation ‹m, p, a› ∧
-       ‹break› hasAllocation ‹m, p', a'› ∧
-       ‹break› (connected
+       ‹break› hasAllocation ‹m, p', a'›
+       → ‹break› connected
          ‹pcgEntryStateAt
             ‹par,
-             currBody ‹m, lean_proof("sorry")›,
-             currPC ‹m, lean_proof("sorry")›,
-             lean_proof("sorry")›,
+             currBody ‹m, lean_proof("h_Runnable")›,
+             currPC ‹m, lean_proof("h_Runnable")›,
+             lean_proof("h_programContains")›,
           placeNode ‹p›, placeNode ‹p'›› ∨
-       ‹break› Allocation.nonOverlapping ‹a, a'›)
+       ‹break› Allocation.nonOverlapping ‹a, a'›
 
 defProperty NoAlias (.plain "NoAlias")
   short
