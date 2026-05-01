@@ -42,7 +42,14 @@ private def lhsMath (p : PropertyDef) : LatexMath :=
   match p.fnDef.displayLatexMath? with
   | some disp => disp
   | none =>
-    let name : LatexMath := .text (.text p.fnDef.name)
+    -- Route the name through `fnNameDisplay` so trailing
+    -- prime apostrophes (e.g. `Framing'`) become Unicode
+    -- primes, which `escapeLatex` then maps to math-mode
+    -- `\ensuremath{'}`. Without this the bare `'` survives
+    -- into `\text{Framing'}` and renders as a text-mode
+    -- closing single quote rather than a prime.
+    let name : LatexMath :=
+      .text (.text (Doc.fnNameDisplay p.fnDef.name))
     let argName (f : FieldDef) : LatexMath := .escaped f.name
     if p.fnDef.params.isEmpty then name
     else if PRESENTATION_PROP_APP_STYLE == .Haskell then
@@ -158,7 +165,8 @@ def formalDefLatex
   let body := bodyMath p ctx
   let equation : LatexMath :=
     .seq [lhs, .raw " \\mathrel{:=} ", body]
-  .envOpts "definition" (.text p.fnDef.name) (.seq [
+  .envOpts "definition"
+      (.text (Doc.fnNameDisplay p.fnDef.name)) (.seq [
     propertyAnchor, fnAnchor, .newline,
     p.defaultDoc.toLatex, .newline,
     .displayMath equation, .newline,

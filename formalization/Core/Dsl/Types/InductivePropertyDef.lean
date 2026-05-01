@@ -135,7 +135,12 @@ def formalDefLatex
     (p : InductivePropertyDef) (ctx : RenderCtx) : Latex :=
   let typeTarget : Latex :=
     .raw s!"\\hypertarget\{type:{p.name}}\{}"
-  let nameLatex : LatexMath := .text (.text p.name)
+  -- Route the name through `fnNameDisplay` so trailing
+  -- prime apostrophes (e.g. `Reachable'`) become Unicode
+  -- primes, which `escapeLatex` maps to math-mode
+  -- `\ensuremath{'}` rather than a text-mode close-quote.
+  let nameLatex : LatexMath :=
+    .text (.text (Doc.fnNameDisplay p.name))
   let paramName (f : FieldDef) : LatexMath := .escaped f.name
   -- When a `displayed` template is supplied, use it for the
   -- header (with arg references rendered as their parameter
