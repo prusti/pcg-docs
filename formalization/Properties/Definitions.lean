@@ -155,14 +155,11 @@ defFn entryStateAt (.plain "entryStateAt")
     pdd↦entryState
 
 defFn pcgEntryStateAt (.plain "pcgEntryStateAt")
-  (.seq [.plain "The PCG state on entry to the statement at \
-    location ", .code "l", .plain " of body ", .code "b",
-    .plain " in program-wide analysis results ",
-    .code "par", .plain ": looks up the body's per-body \
-    analysis results, then defers to ",
-    .code "entryStateAt", .plain ". The ",
-    .code "programContains",
-    .plain " precondition guarantees both lookups succeed."])
+  (doc! "The PCG state on entry to the statement at location \
+    `l` of body `b` in program-wide analysis results `par`: \
+    looks up the body's per-body analysis results, then \
+    defers to #entryStateAt. The #programContains \
+    precondition guarantees both lookups succeed.")
   (par "The program analysis results."
       : ProgAnalysisResults)
   (b "The function body." : Body)
