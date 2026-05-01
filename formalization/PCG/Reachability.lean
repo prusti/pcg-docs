@@ -1,3 +1,4 @@
+import Core.Doc.Interp
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 import Core.Dsl.DefRaw
@@ -37,16 +38,16 @@ that thread through unmodelled lifetime-projection nodes. -/
 -- ══════════════════════════════════════════════
 
 defFn mlpNode (.plain "mlpNode")
-  (.plain "Lift a maybe-labelled place to a PCG node by \
-    wrapping it in a `PcgPlace.maybeLabelled` and then a \
-    `PcgNode.place`.")
+  (doc! "Lift a maybe-labelled place to a PCG node by \
+    wrapping it in a #PcgPlace.maybeLabelled and then a \
+    #PcgNode.place.")
   (mlp "The maybe-labelled place." : MaybeLabelled Place)
   : PcgNode Place :=
     PcgNode.place ‹PcgPlace.maybeLabelled ‹mlp››
 
 defFn pcgLpNode (.plain "pcgLpNode")
-  (.plain "Lift a PCG lifetime projection to a PCG node by \
-    wrapping it in `PcgNode.lifetimeProjection`.")
+  (doc! "Lift a PCG lifetime projection to a PCG node by \
+    wrapping it in #PcgNode.lifetimeProjection.")
   (lp "The PCG lifetime projection."
       : PcgLifetimeProjection Place)
   : PcgNode Place :=
