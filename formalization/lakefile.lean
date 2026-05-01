@@ -73,3 +73,8 @@ lean_exe runLinter where
   srcDir := "scripts"
   root := `runLinter
   supportInterpreter := true
+
+lean_exe check_banned_patterns where
+  srcDir := "scripts"
+  root := `CheckBannedPatterns
+  supportInterpreter := true

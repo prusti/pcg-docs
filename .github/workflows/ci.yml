@@ -78,13 +78,20 @@ jobs:
         path: formalization/.lake
         key: ${{ runner.os }}-lean-${{ hashFiles('formalization/lean-toolchain', 'formalization/lakefile.lean') }}
 
-    - name: Check banned source patterns
-      working-directory: formalization
-      run: scripts/check_banned_patterns.sh
-
     - name: Build Lean formalization
       working-directory: formalization
       run: lake build
+
+    - name: Check banned source patterns
+      # Walks elaborated `Expr` trees of every user-package decl
+      # and reports forbidden constructor / call patterns
+      # (`Latex.cmd "href"` outside `Latex.externalLink`,
+      # `MathDoc.doc (Doc.plain s)` outside `MathDoc.text`).
+      # Replaces the older `scripts/check_banned_patterns.sh`.
+      working-directory: formalization
+      run: |
+        lake exe check_banned_patterns \
+          Core MIR OpSem PCG Presentation Properties Runtime Tests
 
     - name: Export and build generated Lean project
       working-directory: formalization

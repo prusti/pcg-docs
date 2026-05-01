@@ -155,8 +155,7 @@ def buildArgRef
       -- Type-parameter-typed argument: render using
       -- the parameter name as a plain math symbol.
       let raw : TSyntax `term := quote head
-      `(DisplayPart.arg $ns
-          (MathDoc.doc (Doc.plain $raw)))
+      `(DisplayPart.arg $ns (MathDoc.text $raw))
     else if env.find? (tnName ++ `enumDef)
         |>.isSome then
       let ref := mkIdent
@@ -180,8 +179,7 @@ def buildArgRef
       -- argument by its name in the variant's default
       -- display template.
       let raw : TSyntax `term := quote argName
-      `(DisplayPart.arg $ns
-          (MathDoc.doc (Doc.plain $raw)))
+      `(DisplayPart.arg $ns (MathDoc.text $raw))
     else
       throwError
         s!"defEnum: no enumDef, structDef, or aliasDef \
@@ -231,8 +229,7 @@ private def defaultDisplayParts
     : Lean.Elab.Command.CommandElabM
         (Array (Lean.TSyntax `term)) := do
   let ctorStr : TSyntax `term := quote ctorName
-  let ctorPart ← `(DisplayPart.lit
-      (MathDoc.doc (Doc.plain $ctorStr)))
+  let ctorPart ← `(DisplayPart.lit (MathDoc.text $ctorStr))
   let mut parts : Array (Lean.TSyntax `term) := #[ctorPart]
   for a in args do
     let (argName, _) ← parseVariantArg a.raw
