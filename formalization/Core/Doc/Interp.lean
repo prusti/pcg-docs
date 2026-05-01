@@ -43,7 +43,13 @@ doc! "Lift a PCG lifetime projection by wrapping it in \
 
 renders the `PcgNode.lifetimeProjection` token in monospace with the
 dashed underline used for intra-document links, and clicking it in the
-PDF jumps to the definition. The reference target is
+PDF jumps to the definition.
+
+The `#identifier` is parsed at *macro-expansion time* and emitted as
+a real Lean identifier reference, so the elaborator validates the
+name: a typo like `#PcgNode.fooBar` produces a Lean build error
+(`unknown identifier 'PcgNode.fooBar'`) rather than a broken
+hyperlink in the PDF. The link target is
 
 - `ctor:<TypeName>.<CtorName>` for a dotted name (matches the
   `\hypertarget{ctor:...}{}` anchors emitted by `defEnum` for each
@@ -64,13 +70,43 @@ abbrev c (s : String) : Doc := .code s
     interpolation holes (e.g. `{m (.bold (.raw "W"))}`). -/
 abbrev m (md : MathDoc) : Doc := .math md
 
+/-- LaTeX hyperlink target for a `#`-reference. Dotted names map
+    to the constructor anchor convention used by `defEnum`;
+    undotted names map to the `fn:` anchor used by `defFn` /
+    `defProperty`. -/
+private def refTarget (ident : String) : String :=
+  if ident.contains '.' then s!"#ctor:{ident}"
+  else s!"#fn:{ident}"
+
+/-- Build a `Doc.link` for a `#`-reference. The first argument is
+    a placeholder whose only purpose is to force elaboration of
+    the named expression — typos in the name surface as a Lean
+    build error rather than a broken hyperlink. The placeholder
+    is discarded at runtime. The `doc!` macro emits calls to this
+    function for each `#identifier` it sees in a literal chunk. -/
+def refLinkOf {α : Sort _} (_x : α) (name : String) : Doc :=
+  Doc.link (.code name) (refTarget name)
+
+end Doc
+
+open Lean
+
+namespace Doc.Interp
+
+/-- A segment of a `doc!` literal chunk: either a run of plain
+    text or a `#identifier` cross-reference. -/
+inductive ChunkSeg where
+  | literal (s : String)
+  | ref (parts : List String)
+  deriving Inhabited
+
 private def isIdentStart (c : Char) : Bool :=
   c.isAlpha || c == '_'
 
 private def isIdentCont (c : Char) : Bool :=
   c.isAlphanum || c == '_'
 
-/-- Greedily consume identifier-continuation characters, returning
+/-- Greedily consume identifier-continuation characters. Returns
     the consumed prefix as a string and the remaining tail. -/
 private partial def consumePart :
     List Char → String × List Char
@@ -107,52 +143,39 @@ private def consumeRef (cs : List Char) : String × List Char :=
       let (first, after1) := consumePart (c :: rest)
       consumeDottedTail (first, after1)
 
-/-- LaTeX hyperlink target for a `#`-reference. Dotted names map
-    to the constructor anchor convention used by `defEnum`;
-    undotted names map to the `fn:` anchor used by `defFn` /
-    `defProperty`. -/
-private def refTarget (ident : String) : String :=
-  if ident.contains '.' then s!"#ctor:{ident}"
-  else s!"#fn:{ident}"
+private def consLitChar (c : Char) : List ChunkSeg → List ChunkSeg
+  | .literal p :: rest => .literal (String.mk [c] ++ p) :: rest
+  | rest => .literal (String.mk [c]) :: rest
 
-private def consLit (c : Char) : List Doc → List Doc
-  | .plain p :: rest => .plain (String.mk [c] ++ p) :: rest
-  | rest => .plain (String.mk [c]) :: rest
-
-private partial def parseLinksAux : List Char → List Doc
+private partial def parseSegsAux : List Char → List ChunkSeg
   | [] => []
   | '#' :: rest =>
     let (ident, rest') := consumeRef rest
     if ident.isEmpty then
-      consLit '#' (parseLinksAux rest)
+      consLitChar '#' (parseSegsAux rest)
     else
-      .link (.code ident) (refTarget ident) :: parseLinksAux rest'
-  | c :: rest => consLit c (parseLinksAux rest)
+      .ref (ident.splitOn ".") :: parseSegsAux rest'
+  | c :: rest => consLitChar c (parseSegsAux rest)
 
-/-- Parse a literal `doc!` chunk into a `Doc`, expanding
-    `#identifier` (and `#identifier.path`) into `Doc.link`
-    hyperlinks. Returns a single `.plain s` when the chunk
-    contains no references. -/
-def parseLinks (s : String) : Doc :=
-  match parseLinksAux s.toList with
-  | [] => .plain ""
-  | [d] => d
-  | ds => .seq ds
+/-- Split a literal `doc!` chunk into segments: `.literal` runs of
+    plain text and `.ref parts` for each `#identifier`
+    (or `#identifier.path`) found in the chunk. -/
+def parseSegs (s : String) : List ChunkSeg :=
+  parseSegsAux s.toList
 
-end Doc
-
-open Lean
+end Doc.Interp
 
 /-- Interpolated-string literal that desugars to a `Doc` value.
 
-    Each literal text chunk is parsed by `Doc.parseLinks` so any
-    `#identifier` patterns become `Doc.link` hyperlinks (see the
-    file docstring); chunks without `#`-references just produce
-    `Doc.plain "<chunk>"`. Each `{expr}` hole becomes
-    `(expr : Doc)`, so a `String`-valued hole coerces (via
-    `Coe String Doc`) and a `Doc`-valued hole passes through
-    unchanged. The whole thing is wrapped in a single
-    `Doc.seq [...]`. -/
+    Each literal text chunk is split into segments at macro-
+    expansion time: runs of plain text become `Doc.plain "..."`,
+    and `#identifier` (or `#identifier.path`) references become
+    `Doc.refLinkOf @<ident> "<name>"` — where `@<ident>` is a real
+    Lean identifier reference, so the elaborator validates that
+    the name resolves. Each `{expr}` hole becomes `(expr : Doc)`,
+    so a `String`-valued hole coerces (via `Coe String Doc`) and a
+    `Doc`-valued hole passes through unchanged. The whole thing is
+    wrapped in a single `Doc.seq [...]`. -/
 syntax (name := docInterp) "doc! " interpolatedStr(term) : term
 
 @[macro docInterp]
@@ -166,8 +189,20 @@ def expandDocInterp : Macro := fun stx => do
       | some str =>
         if str.isEmpty then
           continue
-        let lit := Syntax.mkStrLit str
-        parts := parts.push (← `((Doc.parseLinks $lit : Doc)))
+        for seg in Doc.Interp.parseSegs str do
+          match seg with
+          | .literal s =>
+            if s.isEmpty then continue
+            let lit := Syntax.mkStrLit s
+            parts := parts.push (← `((Doc.plain $lit : Doc)))
+          | .ref nameParts =>
+            let leanName := nameParts.foldl
+              (fun acc p => Name.mkStr acc p) Name.anonymous
+            let ident := mkIdent leanName
+            let nameStr := ".".intercalate nameParts
+            let strLit := Syntax.mkStrLit nameStr
+            parts := parts.push
+              (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
       | none =>
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))
