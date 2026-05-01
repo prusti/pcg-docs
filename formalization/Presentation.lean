@@ -108,6 +108,8 @@ def restrictToModule
     properties := reg.properties.filter
       (·.leanModule == mod)
     inductiveProperties := reg.inductiveProperties.filter
+      (·.leanModule == mod)
+    theorems := reg.theorems.filter
       (·.leanModule == mod) }
 
 /-- Keep only the definitions whose module's root crate
@@ -125,7 +127,9 @@ def restrictToCrate
     properties := reg.properties.filter
       (fun q => p q.leanModule)
     inductiveProperties := reg.inductiveProperties.filter
-      (fun q => p q.leanModule) }
+      (fun q => p q.leanModule)
+    theorems := reg.theorems.filter
+      (fun t => p t.leanModule) }
 
 /-- Union of every module name that appears in the registry
     (de-duplicated, preserving registration order). -/
@@ -137,6 +141,7 @@ def moduleNames (reg : Registry) : List Lean.Name :=
     ++ reg.fns.map (·.leanModule)
     ++ reg.properties.map (·.leanModule)
     ++ reg.inductiveProperties.map (·.leanModule)
+    ++ reg.theorems.map (·.leanModule)
   ).foldl (init := [])
     fun acc m =>
       if acc.contains m then acc else acc ++ [m]
@@ -151,6 +156,7 @@ def cratePrefixes (reg : Registry) : List String :=
     ++ reg.properties.map (·.leanModule.getRoot.toString)
     ++ reg.inductiveProperties.map
         (·.leanModule.getRoot.toString)
+    ++ reg.theorems.map (·.leanModule.getRoot.toString)
   ).foldl (init := [])
     fun acc p =>
       if acc.contains p then acc else acc ++ [p]
@@ -219,8 +225,13 @@ private def moduleBodyLatex
     reg.inductiveProperties.map fun p =>
       Latex.seq [p.inductivePropertyDef.formalDefLatex ctx,
                  .newline, .newline]
+  let theoremParts :=
+    reg.theorems.map fun t =>
+      Latex.seq [t.theoremDef.formalDefLatex (ctxFor t.leanModule),
+                 .newline, .newline]
   .seq (descrParts ++ structParts ++ aliasParts ++ enumParts
-    ++ inductivePropParts ++ fnParts ++ propParts)
+    ++ inductivePropParts ++ fnParts ++ propParts
+    ++ theoremParts)
 
 /-- Build the LaTeX sections for a single crate prefix,
     grouped by module. -/
@@ -423,11 +434,14 @@ def latexPreamble : Latex :=
   .seq [
     geometrySetup,
     .raw "\\newtheorem{definition}{Definition}\n",
-    -- Number algorithms and definitions per subsection, so
-    -- an algorithm/definition in subsection 3.8 is rendered
-    -- as "Algorithm 3.8.1", "Definition 3.8.1", etc.
+    .raw "\\newtheorem{theorem}{Theorem}\n",
+    -- Number algorithms, definitions, and theorems per
+    -- subsection, so an algorithm/definition/theorem in
+    -- subsection 3.8 is rendered as "Algorithm 3.8.1",
+    -- "Definition 3.8.1", "Theorem 3.8.1", etc.
     .raw "\\numberwithin{algorithm}{subsection}\n",
     .raw "\\numberwithin{definition}{subsection}\n",
+    .raw "\\numberwithin{theorem}{subsection}\n",
     .raw "\\usepackage[normalem]{ulem}\n",
     -- Redefine `\dashuline` so hyperlinks get a denser,
     -- grey dashed underline instead of ulem's default

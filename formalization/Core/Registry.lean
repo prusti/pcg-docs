@@ -5,6 +5,7 @@ import Core.Dsl.Types.OrderDef
 import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.PropertyDef
 import Core.Dsl.Types.InductivePropertyDef
+import Core.Dsl.Types.TheoremDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where
@@ -235,6 +236,29 @@ def getRegisteredInductiveProperties :
     IO (List RegisteredInductiveProperty) :=
   inductivePropertyRegistry.get
 
+/-- A registered theorem definition with its source module. -/
+structure RegisteredTheorem where
+  /-- The theorem definition. -/
+  theoremDef : TheoremDef
+  /-- The Lean module where this theorem was defined. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of all `defTheorem`-defined theorems. -/
+initialize theoremRegistry :
+    IO.Ref (List RegisteredTheorem) ←
+  IO.mkRef []
+
+/-- Register a theorem definition. -/
+def registerTheoremDef
+    (t : TheoremDef) (mod : Lean.Name) : IO Unit :=
+  theoremRegistry.modify (· ++ [⟨t, mod⟩])
+
+/-- Retrieve all registered theorem definitions. -/
+def getRegisteredTheorems :
+    IO (List RegisteredTheorem) :=
+  theoremRegistry.get
+
 /-- A snapshot of every kind of registered DSL definition.
 
     Grouping the registry lists lets downstream consumers
@@ -249,6 +273,7 @@ structure Registry where
   fns : List RegisteredFn
   properties : List RegisteredProperty
   inductiveProperties : List RegisteredInductiveProperty
+  theorems : List RegisteredTheorem
 
 namespace Registry
 
@@ -263,6 +288,7 @@ def current : IO Registry := do
     fns := ← getRegisteredFns
     properties := ← getRegisteredProperties
     inductiveProperties := ← getRegisteredInductiveProperties
+    theorems := ← getRegisteredTheorems
   }
 
 end Registry
