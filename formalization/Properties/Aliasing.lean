@@ -98,7 +98,7 @@ defProperty Framing (.plain "Framing")
   := ∀∀ pr ∈ Program, par ∈ ProgAnalysisResults,
         m ∈ Machine,
         p p' ∈ Place, a a' ∈ Allocation .
-       Framing' ‹pr, par, m, p, p', a, a'›
+       ‹break› Framing' ‹pr, par, m, p, p', a, a'›
 
 defProperty NoAlias' (.plain "NoAlias'")
   short (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
@@ -174,4 +174,4 @@ defProperty NoAlias (.plain "NoAlias")
   := ∀∀ pr ∈ Program, par ∈ ProgAnalysisResults,
         m ∈ Machine,
         p p' ∈ Place, a a' ∈ Allocation .
-       NoAlias' ‹pr, par, m, p, p', a, a'›
+       ‹break› NoAlias' ‹pr, par, m, p, p', a, a'›
