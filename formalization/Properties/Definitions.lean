@@ -154,7 +154,7 @@ defFn entryStateAt (.plain "entryStateAt")
     let pdd := pdds ! l↦stmtIdx ;
     pdd↦entryState
 
-defFn programEntryStateAt (.plain "programEntryStateAt")
+defFn pcgEntryStateAt (.plain "pcgEntryStateAt")
   (.seq [.plain "The PCG state on entry to the statement at \
     location ", .code "l", .plain " of body ", .code "b",
     .plain " in program-wide analysis results ",

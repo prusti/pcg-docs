@@ -65,7 +65,7 @@ defProperty Framing' (.plain "Framing'")
           currBody ‹m, lean_proof("sorry")›,
           currPC ‹m, lean_proof("sorry")›› →
        ‹break› hasCapability
-         ‹programEntryStateAt
+         ‹pcgEntryStateAt
             ‹par,
              currBody ‹m, lean_proof("sorry")›,
              currPC ‹m, lean_proof("sorry")›,
@@ -73,7 +73,7 @@ defProperty Framing' (.plain "Framing'")
           currBody ‹m, lean_proof("sorry")›,
           p, .exclusive› →
        ‹break› hasCapability
-         ‹programEntryStateAt
+         ‹pcgEntryStateAt
             ‹par,
              currBody ‹m, lean_proof("sorry")›,
              currPC ‹m, lean_proof("sorry")›,
@@ -148,7 +148,7 @@ defProperty NoAlias' (.plain "NoAlias'")
        ‹break› hasAllocation ‹m, p, a› →
        ‹break› hasAllocation ‹m, p', a'› →
        ‹break› connected
-         ‹programEntryStateAt
+         ‹pcgEntryStateAt
             ‹par,
              currBody ‹m, lean_proof("sorry")›,
              currPC ‹m, lean_proof("sorry")›,
