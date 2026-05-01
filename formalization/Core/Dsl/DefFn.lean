@@ -1,3 +1,4 @@
+import Core.Doc.Interp
 import Core.Registry
 import Core.Export.Lean
 import Core.Dsl.DefEnum

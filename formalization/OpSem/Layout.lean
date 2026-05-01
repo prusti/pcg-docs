@@ -10,7 +10,7 @@ defFn sizeOf (.plain "sizeOf")
     Pointers (", .code "ref", .plain " and ", .code "box",
     .plain ") are assumed to be thin and use 8 bytes; \
     arrays scale their element's size by the array length. \
-    The ", .code "IsSized",
+    The ", Doc.refLinkOf @IsSized "IsSized",
     .plain " precondition rules out the type-parameter, \
     alias, and constructor-application cases (whose size \
     cannot be determined without further context) and \
@@ -29,7 +29,7 @@ defFn layout (.plain "layout")
     type, following MiniRust's ", .code "Type::layout",
     .plain " stripped of alignment and trait-object \
     handling: every sized type lays out as a single ",
-    .code "LayoutStrategy.sized",
+    Doc.refLinkOf @LayoutStrategy.sized "LayoutStrategy.sized",
     .plain " bucket whose width is given by ", .code "sizeOf",
     .plain "."])
   (τ "The MIR type." : Ty)

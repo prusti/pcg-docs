@@ -56,7 +56,7 @@ defFn step (.plain "step")
   (.seq [.plain "Execute a single step of the operational \
     semantics. Looks up the program element at the current \
     frame's program counter via ",
-    .code "getStmtOrTerminator", .plain ": a statement is \
+    Doc.refLinkOf @getStmtOrTerminator "getStmtOrTerminator", .plain ": a statement is \
     handed to ", .code "evalStatement",
     .plain " (and the resulting frame's ", .code "pc.stmtIdx",
     .plain " is advanced by one), a terminator is handed to ",
@@ -66,8 +66,8 @@ defFn step (.plain "step")
     .plain " precondition guarantees a non-empty call stack \
     (so ", .code "currentFrame", .plain " returns directly) \
     and that every stack frame is valid (so the program \
-    counter is a ", .code "validLocation",
-    .plain " and ", .code "getStmtOrTerminator",
+    counter is a ", Doc.refLinkOf @validLocation "validLocation",
+    .plain " and ", Doc.refLinkOf @getStmtOrTerminator "getStmtOrTerminator",
     .plain " applies). Mirrors MiniRust's ",
     .code "Machine::step",
     .plain ", minus thread scheduling, deadlock detection, \

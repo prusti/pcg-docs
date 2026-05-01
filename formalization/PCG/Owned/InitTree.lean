@@ -89,7 +89,7 @@ defFn itPlaces (.plain "itPlaces")
   | .internal (.guided (.subslice _ _ _ d)) ; base ; projAcc =>
       itPlaces ‹d, base, projAcc›
 defFn placesFromFields (.plain "placesFromFields")
-  (.seq [.plain "Helper for ", .code "itPlaces",
+  (.seq [.plain "Helper for ", Doc.refLinkOf @itPlaces "itPlaces",
     .plain ": collect places from every child of a ",
     .code "fields", .plain " expansion, prefixing each \
     child's path with its field step."])
@@ -163,7 +163,7 @@ defFn meet (.plain "meet")
     .plain "Meet two initialisation trees, implementing the \
      recursive meet of ",
     .code "owned-state.md", .plain ". At matching leaves we \
-     take the minimum via ", .code "InitialisationState.meet",
+     take the minimum via ", Doc.refLinkOf @InitialisationState.meet "InitialisationState.meet",
     .plain ". When one side is a leaf and the other is \
      internal, the uninitialised/shallow leaf dominates (its \
      initialisation state covers every descendant place), \

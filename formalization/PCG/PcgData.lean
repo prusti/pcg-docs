@@ -116,7 +116,7 @@ defFn itUnpackEdges (.plain "itUnpackEdges")
   | .internal (.guided (.subslice _ _ _ d)) ; base ; projAcc =>
       itUnpackEdges ‹d, base, projAcc›
 defFn fieldsSubedges (.plain "fieldsSubedges")
-  (.seq [.plain "Helper for ", .code "itUnpackEdges",
+  (.seq [.plain "Helper for ", Doc.refLinkOf @itUnpackEdges "itUnpackEdges",
     .plain ": accumulate unpack edges from every child of a \
     fields expansion, prefixing each child's path with its \
     field step."])
@@ -216,7 +216,7 @@ defFn transientReadPlaces (.plain "transientReadPlaces")
   (.seq [.plain "Extract the read-place set from the optional \
     transient place: returns the carried set when ",
     .code "transientState", .plain " is ",
-    .code "TransientState.readPlaces",
+    Doc.refLinkOf @TransientState.readPlaces "TransientState.readPlaces",
     .plain ", and the empty list otherwise (",
     .code "None", .plain " or a write-borrowed place)."])
   (tp "The optional transient place."
@@ -233,7 +233,7 @@ defFn edges (.plain "edges")
     edges materialising the tree further to reach every place \
     in the transient read-place set (when ",
     .code "transientState", .plain " carries ",
-    .code "TransientState.readPlaces",
+    Doc.refLinkOf @TransientState.readPlaces "TransientState.readPlaces",
     .plain ") and every owned place blocked by a deref edge, \
     and (3) every edge already recorded in the borrows graph."])
   (pd "The PCG data." : PcgData Place)

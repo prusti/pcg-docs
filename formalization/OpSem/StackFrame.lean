@@ -76,8 +76,8 @@ defFn storageLive (.plain "storageLive")
     same local via ", .code "storageDead",
     .plain ", then looks up the local's type on the current \
     body's declarations, computes its size via ",
-    .code "Ty.sizeOf", .plain ", and allocates that many \
-    bytes. ", .code "validBody",
+    Doc.refLinkOf @Ty.sizeOf "Ty.sizeOf", .plain ", and allocates that many \
+    bytes. ", Doc.refLinkOf @validBody "validBody",
     .plain " guarantees every declared local type is sized, \
     so this is total."])
   (frame "The stack frame." : StackFrame)

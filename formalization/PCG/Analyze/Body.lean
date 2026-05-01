@@ -181,12 +181,12 @@ defFn computeEntry (.plain "computeEntry")
 defFn analyzeRpo (.plain "analyzeRpo")
   (.seq [
     .plain "Walk the reverse-postorder list, processing each \
-     block in turn with ", .code "computeEntry",
+     block in turn with ", Doc.refLinkOf @computeEntry "computeEntry",
     .plain ". The analysis state — both the accumulated \
      per-block results and the pending entry-state map — is \
      threaded through the traversal. Returns ",
     .code "None", .plain " as soon as ",
-    .code "computeEntry", .plain " fails on any block."])
+    Doc.refLinkOf @computeEntry "computeEntry", .plain " fails on any block."])
   (body "The function body." : Body)
   (state "The current analysis state." : AnalysisState)
   (rpo "Remaining blocks to process, in reverse postorder."

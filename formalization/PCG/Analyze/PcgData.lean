@@ -34,10 +34,10 @@ defFn analyze (.plain "analyze")
      evaluation phase. First looks up the analysis object \
      at ", .code "loc", .plain " in ", .code "body",
     .plain ". For ", .code "PreOperands", .plain " the \
-     pre-conditions of every ", .code "operandTriples",
+     pre-conditions of every ", Doc.refLinkOf @operandTriples "operandTriples",
     .plain " entry are obtained on the PCG; for ",
     .code "PreMain", .plain " the pre-conditions of every ",
-    .code "mainTriples", .plain " entry are obtained. The \
+    Doc.refLinkOf @mainTriples "mainTriples", .plain " entry are obtained. The \
      two ", .code "Post", .plain " phases leave the PCG \
      unchanged."])
   (pd "The incoming PCG data." : PcgData Place)

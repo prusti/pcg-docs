@@ -188,7 +188,7 @@ defFn initialMachine (.plain "initialMachine")
     an initial stack frame for the start body via ",
     .code "createFrame",
     .plain " with no caller-supplied argument values. The ",
-    .code "validProgram",
+    Doc.refLinkOf @validProgram "validProgram",
     .plain " precondition guarantees the start function is \
     registered in the program. Mirrors MiniRust's ",
     .code "Machine::new",

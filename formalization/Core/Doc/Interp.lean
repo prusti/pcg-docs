@@ -99,6 +99,23 @@ private def refTarget (ident : String) : String :=
 def refLinkOf {α : Sort _} (_x : α) (name : String) : Doc :=
   Doc.link (.code name) (refTarget name)
 
+/-- Like `refLinkOf` but takes the name as a `String` only — no
+    compile-time validation that the identifier resolves. Use
+    only for forward references that can't be expressed with
+    `refLinkOf`'s `@<ident>` argument due to definition order
+    (e.g. a helper whose doc references the higher-level function
+    it is called from, where adding the import or moving the
+    decl would create a cycle).
+
+    The banned-pattern lint matches `Doc.code` directly, so calls
+    to this function are exempt — their head is `Doc.refLinkByName`
+    rather than `Doc.code` — which is also why this function is
+    intentionally one-shot rather than reused: the `_` arg of
+    `refLinkOf` exists to provide validation, and there's no way
+    to opt out per-call without giving up that validation. -/
+def refLinkByName (name : String) : Doc :=
+  Doc.link (.code name) (refTarget name)
+
 end Doc
 
 open Lean

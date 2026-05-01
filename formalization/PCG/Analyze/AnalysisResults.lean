@@ -45,7 +45,7 @@ defAlias ProgAnalysisResults
     Doc.defMath (.text "par")
       (.text "ProgAnalysisResults"),
     .plain " bundle the per-body ", .code "AnalysisResults",
-    .plain " produced by running ", .code "analyzeBody",
+    .plain " produced by running ", Doc.refLinkByName "analyzeBody",
     .plain " on every function in a program: one entry per \
      ", .code "Body", .plain "."])
   := Map Body AnalysisResults

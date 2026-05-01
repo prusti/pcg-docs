@@ -15,7 +15,7 @@ defEnum StmtOrTerminator
      block's statement list, otherwise the block's \
      terminator (when ", .code "stmtIdx",
     .plain " equals ", .code "statements.length",
-    .plain ", which a ", .code "validLocation",
+    .plain ", which a ", Doc.refLinkOf @validLocation "validLocation",
     .plain " allows)."])
 where
   | stmt (s : Statement)
@@ -39,7 +39,7 @@ defFn getStmtOrTerminator (.plain "getStmtOrTerminator")
     in the block, returns that statement; when it equals \
     ", .code "statements.length",
     .plain " (the terminator slot allowed by ",
-    .code "validLocation", .plain "), returns the block's \
+    Doc.refLinkOf @validLocation "validLocation", .plain "), returns the block's \
     terminator."])
   (body "The function body." : Body)
   (loc "The location to look up." : Location)

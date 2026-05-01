@@ -91,12 +91,12 @@ defFn insertAnalyzedBody (.plain "insertAnalyzedBody")
     Some (mapInsert ‹acc, b, ar›)
 
 defFn analyzeProgram (.plain "analyzeProgram")
-  (.seq [.plain "Run ", .code "analyzeBody",
+  (.seq [.plain "Run ", Doc.refLinkOf @analyzeBody "analyzeBody",
     .plain " on every function body in the program, \
     accumulating the per-body results into a ",
     .code "ProgAnalysisResults",
     .plain ". Returns ", .code "None",
-    .plain " when ", .code "analyzeBody",
+    .plain " when ", Doc.refLinkOf @analyzeBody "analyzeBody",
     .plain " fails on any body."])
   (program "The program to analyse." : Program)
   : Option ProgAnalysisResults :=
@@ -144,7 +144,7 @@ defFn entryStateAt (.plain "entryStateAt")
     location ", .code "l", .plain " in analysis results ",
     .code "ar", .plain ": indexes the per-block list at the \
     location's statement index and returns the recorded \
-    entry state. The ", .code "contains",
+    entry state. The ", Doc.refLinkOf @contains "contains",
     .plain " precondition guarantees both lookups succeed."])
   (ar "The analysis results." : AnalysisResults)
   (l "The location to look up." : Location)

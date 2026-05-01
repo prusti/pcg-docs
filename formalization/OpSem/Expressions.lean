@@ -28,7 +28,7 @@ defFn evalTuple (.plain "evalTuple")
   (.seq [.plain "Evaluate a tuple value expression: \
     recursively invoke ", .code "evalValue",
     .plain " on each sub-expression and wrap the results \
-    in ", .code "Value.tuple", .plain "."])
+    in ", Doc.refLinkOf @Value.tuple "Value.tuple", .plain "."])
   (exprs "The sub-expressions." : List ValueExpr)
   (ty "The tuple type." : Ty)
   : Value :=

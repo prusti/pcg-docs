@@ -137,8 +137,8 @@ defFn decode (.plain "decode")
     value of the given type. Returns ", .code "None",
     .plain " if the type is not decodable or the bytes \
     cannot be decoded. References and `Box` pointers \
-    decode through ", .code "decodePtr",
-    .plain " into ", .code "Value.ptr", .plain "."])
+    decode through ", Doc.refLinkOf @decodePtr "decodePtr",
+    .plain " into ", Doc.refLinkOf @Value.ptr "Value.ptr", .plain "."])
   (ty "The type to decode as." : Ty)
   (bs "The bytes to decode." : List AbstractByte)
   : Option Value where
@@ -174,7 +174,7 @@ defFn encodePtr (.plain "encode_ptr")
     .plain " bytes. Each fragment redundantly carries the \
     full address and the optional allocation index of the \
     pointer's provenance plus its position within the \
-    pointer (0–7), so ", .code "decodePtr",
+    pointer (0–7), so ", Doc.refLinkOf @decodePtr "decodePtr",
     .plain " can reconstruct the pointer from the head \
     fragment alone."])
   (ptr "The pointer to encode." : ThinPointer)

@@ -21,10 +21,55 @@ Compared to the shell version this:
 
 open Lean
 
+/-- Whether `s` is a syntactically-clean (possibly dotted) Lean
+    identifier — i.e. each `.`-separated component starts with a
+    letter or underscore and contains only alphanumerics and
+    underscores. Excludes strings with whitespace or punctuation
+    (e.g. `"Value.fnPtr name"`, `"Some par"`) which the `#s`
+    shorthand cannot represent. -/
+private def isCleanIdent (s : String) : Bool :=
+  let isStart (c : Char) := c.isAlpha || c == '_'
+  let isCont (c : Char) := c.isAlphanum || c == '_'
+  let parts := s.splitOn "."
+  !parts.isEmpty && parts.all fun p =>
+    !p.isEmpty && isStart p.front && p.all isCont
+
+/-- Whether the string `s` is a (possibly dotted) DSL identifier
+    registered with a hyperlink anchor — i.e. a name the `doc!`
+    macro's `#s` shorthand would resolve to a real anchor:
+
+    - undotted `s`: `s.fnDef` (a `defFn`),
+      `s.propertyDef` (a `defProperty`), or
+      `s.inductivePropertyDef` (a `defInductiveProperty`)
+      exists, all of which emit `\hypertarget{fn:s}` anchors;
+    - dotted `s = X.Y`: `X.enumDef` (a `defEnum`) exists,
+      whose constructors emit `\hypertarget{ctor:X.Y}` anchors.
+
+    Type-only references (e.g. `Doc.code "PcgNode"` for a type
+    name) are *not* flagged: `#PcgNode` would resolve to a
+    `fn:PcgNode` target the renderer never emits, so the link
+    would be broken. The `s.structDef` / `s.aliasDef` cases are
+    skipped for the same reason — types live at `type:` anchors
+    that the `#`-shorthand doesn't reach. -/
+private def isHyperlinkedIdent
+    (env : Environment) (s : String) : Bool :=
+  if !isCleanIdent s then false
+  else
+    match s.splitOn "." with
+    | [] => false
+    | [head] =>
+      let base : Name := .mkSimple head
+      [`fnDef, `propertyDef, `inductivePropertyDef].any fun suf =>
+        (env.find? (base ++ suf)).isSome
+    | head :: _ =>
+      let base : Name := .mkSimple head
+      (env.find? (base ++ `enumDef)).isSome
+
 /-- Walk `e` and return one `String` diagnostic per banned pattern
     found in any subtree, with `declName` (the enclosing decl) used
     to skip the unique sites where each pattern is permitted. -/
-private partial def collectBanned (declName : Name) (e : Expr)
+private partial def collectBanned
+    (env : Environment) (declName : Name) (e : Expr)
     : List String :=
   let here : List String := match e with
     -- `.cmd "href"` outside `Latex.externalLink`. `Latex.cmd`
@@ -46,16 +91,29 @@ private partial def collectBanned (declName : Name) (e : Expr)
       else ["`MathDoc.doc (Doc.plain s)` should be `MathDoc.text s` \
              — the thin `MathDoc` wrapper that renders as `\\text{s}` \
              in LaTeX."]
+    -- `Doc.code "<name>"` where `<name>` is a registered DSL
+    -- identifier — both the explicit `.code "x"` form and the
+    -- backtick shorthand `` `x` `` inside a `doc!` literal lower
+    -- to this same `Doc.code` Expr. In either case `#x` should
+    -- be used instead, since it produces the same monospace
+    -- visible label *and* a hyperlink to the definition.
+    | .app (.const ``Doc.code _) (.lit (.strVal s)) =>
+      if isHyperlinkedIdent env s then
+        [s!"`Doc.code \"{s}\"` (or backtick `\\`{s}\\`` inside a \
+            `doc!` literal) names a registered DSL identifier — \
+            replace with `#{s}` so the rendered output also \
+            hyperlinks to the definition."]
+      else []
     | _ => []
   let kids : List String := match e with
     | .app f a =>
-      collectBanned declName f ++ collectBanned declName a
+      collectBanned env declName f ++ collectBanned env declName a
     | .lam _ t b _ | .forallE _ t b _ =>
-      collectBanned declName t ++ collectBanned declName b
+      collectBanned env declName t ++ collectBanned env declName b
     | .letE _ t v b _ =>
-      collectBanned declName t ++ collectBanned declName v
-        ++ collectBanned declName b
-    | .mdata _ e' | .proj _ _ e' => collectBanned declName e'
+      collectBanned env declName t ++ collectBanned env declName v
+        ++ collectBanned env declName b
+    | .mdata _ e' | .proj _ _ e' => collectBanned env declName e'
     | _ => []
   here ++ kids
 
@@ -92,7 +150,7 @@ unsafe def main (args : List String) : IO UInt32 := do
     if n.hasMacroScopes then return
     if !isFromUserPackage env modules n then return
     let some body := ci.value? | return
-    for d in collectBanned n body do
+    for d in collectBanned env n body do
       anyViolation.set true
       IO.eprintln s!"ERROR in {n}: {d}"
   if (← anyViolation.get) then

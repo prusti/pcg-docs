@@ -68,7 +68,7 @@ defFn evalRvalue (.plain "evalRvalue")
     .code "ref", .plain " resolves the referenced place to \
     a runtime address via ", .code "evalPlace",
     .plain " and wraps the resulting thin pointer in ",
-    .code "Value.ptr",
+    Doc.refLinkOf @Value.ptr "Value.ptr",
     .plain ". The region and mutability are presentation-only \
     in this model: aliasing and mutation are tracked by the \
     PCG analysis, not by runtime metadata. Returns ",

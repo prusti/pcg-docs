@@ -1,3 +1,4 @@
+import Core.Doc.Interp
 import Core.Dsl.DefFn
 import MIR.Body
 import MIR.Place
@@ -95,7 +96,7 @@ defFn treeLeafCapability (.plain "treeLeafCapability")
     .plain " for a shallowly initialised leaf. Fully \
     initialised leaves and walks that end at (or fall off) an \
     internal node return ", .code "None",
-    .plain ", deferring to the rest of ", .code "getCapability",
+    .plain ", deferring to the rest of ", Doc.refLinkByName "getCapability",
     .plain "'s cascade."])
   (projs "The remaining projection elements."
       : List ProjElem)

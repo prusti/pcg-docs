@@ -46,7 +46,7 @@ defFn obtainWriteInTree (.plain "obtainWriteInTree")
     uninitialised leaf; (2) when the tree is a fully \
     initialised (", .math (.bold (.raw "D")),
     .plain ") leaf and a projection step remains, unpack one \
-    level via ", .code "expansionOfStep",
+    level via ", Doc.refLinkOf @expansionOfStep "expansionOfStep",
     .plain " and recurse on the single child carrying the \
     same ", .math (.bold (.raw "D")),
     .plain " leaf (the capability dominating the prefix \

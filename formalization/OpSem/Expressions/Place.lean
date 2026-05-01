@@ -63,7 +63,7 @@ defFn evalProjs (.plain "evalProjs")
     selection only affects subsequent typed access. ",
     .code ".deref",
     .plain " loads the pointer stored at the current place \
-    via ", .code "decodePtr",
+    via ", Doc.refLinkOf @decodePtr "decodePtr",
     .plain " and continues evaluation at the loaded \
     pointer's address (the new type is the pointee). ",
     .code ".index",
