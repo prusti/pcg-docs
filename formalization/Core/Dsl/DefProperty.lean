@@ -5,16 +5,18 @@ open Core.Dsl.IdentRefs
 
 open Lean in
 
-/-- Human-readable `Doc` description of a property,
-    parameterised by one `Doc` binder per input parameter.
-    Two of these appear in every `defProperty` after the
-    symbol doc: a `short` form (used in `Require`
-    preconditions, rendered as a hyperlink to the long form)
-    and a `long` form (used in the property's definition
-    box). The body must be wrapped in parentheses so the
-    grammar is unambiguous. -/
-syntax docDescr :=
-  "(" ident,* ")" "=>" "(" term ")"
+/-- Human-readable `Doc` description of a property. Two of
+    these appear in every `defProperty` after the symbol doc:
+    a `short` form (used in `Require` preconditions, rendered
+    as a hyperlink to the long form) and a `long` form (used
+    in the property's definition box). The body is just a
+    `Doc` expression; references to the property's parameters
+    use the same names as the `(name : Type)` binders below,
+    so e.g. `connected (pd : PcgData …) (a b : PcgNode …)`
+    can write `(.seq [a, …, b, …, pd])` directly. The body
+    must be wrapped in parentheses so the grammar is
+    unambiguous. -/
+syntax docDescr := "(" term ")"
 
 /-- Pattern-matching property. -/
 syntax "defProperty " ident "(" term ")"
@@ -150,16 +152,16 @@ open Lean Elab Command Term in
 open LeanAST in
 elab_rules : command
   | `(defProperty $name:ident ($symDoc:term)
-       short ( $shortBinders:ident,* ) => ($shortExpr:term)
-       long ( $docBinders:ident,* ) => ($docExpr:term)
+       short ($shortExpr:term)
+       long ($docExpr:term)
        $ps:fnParam*
        $[displayed ( $dps:displayPart,* )]?
        where $arms:fnArm*) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
-    let shortBinders := shortBinders.getElems
-    let docBinders := docBinders.getElems
+    let shortBinders := paramData.map (·.1)
+    let docBinders := shortBinders
     let displayTerm ← match dps with
       | some d => Option.some <$>
           parseFnDisplay paramData d.getElems
@@ -250,16 +252,16 @@ private def elabExprProperty
 open Lean Elab Command Term in
 elab_rules : command
   | `(defProperty $name:ident ($symDoc:term)
-       short ( $shortBinders:ident,* ) => ($shortExpr:term)
-       long ( $docBinders:ident,* ) => ($docExpr:term)
+       short ($shortExpr:term)
+       long ($docExpr:term)
        $ps:fnParam*
        $[displayed ( $dps:displayPart,* )]?
        $body:propertyBody) => do
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
-    let shortBinders := shortBinders.getElems
-    let docBinders := docBinders.getElems
+    let shortBinders := paramData.map (·.1)
+    let docBinders := shortBinders
     let displayTerm ← match dps with
       | some d => Option.some <$>
           parseFnDisplay paramData d.getElems

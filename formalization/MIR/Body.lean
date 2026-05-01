@@ -126,12 +126,12 @@ where
   deriving Repr, BEq, Hashable
 
 defProperty validProjTy (.plain "validProjTy")
-  short (τDoc, projsDoc) =>
-    (.seq [τDoc, .plain " is a valid type for projection list ",
-           projsDoc])
-  long (τDoc, projsDoc) =>
-    (.seq [.plain "every projection step in ", projsDoc,
-           .plain " is well-typed when applied to ", τDoc,
+  short
+    (.seq [τ, .plain " is a valid type for projection list ",
+           projs])
+  long
+    (.seq [.plain "every projection step in ", projs,
+           .plain " is well-typed when applied to ", τ,
            .plain ": a ", .code ".deref",
            .plain " step requires a reference or ",
            .code "Box", .plain ", a ", .code ".field",
@@ -199,14 +199,14 @@ defFn placeTy' (.plain "placeTy'")
       placeTy' ‹τ, Some v, π›
 
 defProperty validPlace (.plain "valid")
-  short (bodyDoc, pDoc) =>
-    (.seq [pDoc, .plain " is a valid place in body ",
-           bodyDoc])
-  long (bodyDoc, pDoc) =>
-    (.seq [.plain "the base local of ", pDoc,
-           .plain " is in range of ", bodyDoc,
+  short
+    (.seq [p, .plain " is a valid place in body ",
+           body])
+  long
+    (.seq [.plain "the base local of ", p,
+           .plain " is in range of ", body,
            .plain "'s declarations, and the projection list \
-           of ", pDoc,
+           of ", p,
            .plain " is well-typed against the type of that \
            local"])
   (body "The function body." : Body)
@@ -216,14 +216,14 @@ defProperty validPlace (.plain "valid")
     validProjTy ‹body↦decls ! p↦«local»↦index, p↦projection›
 
 defProperty validLocation (.plain "validLocation")
-  short (bodyDoc, locDoc) =>
-    (.seq [locDoc, .plain " is a valid location in body ",
-           bodyDoc])
-  long (bodyDoc, locDoc) =>
-    (.seq [.plain "the block index of ", locDoc,
-           .plain " is in range of ", bodyDoc,
+  short
+    (.seq [loc, .plain " is a valid location in body ",
+           body])
+  long
+    (.seq [.plain "the block index of ", loc,
+           .plain " is in range of ", body,
            .plain "'s blocks, and the statement index of ",
-           locDoc,
+           loc,
            .plain " is at most the number of statements in \
            that block (so the terminator position is \
            included)"])
@@ -235,13 +235,13 @@ defProperty validLocation (.plain "validLocation")
       (body↦blocks ! loc↦block↦index)↦statements·length
 
 defProperty validBody (.plain "validBody")
-  short (bodyDoc) =>
-    (.seq [bodyDoc, .plain " is a valid body"])
-  long (bodyDoc) =>
-    (.seq [.plain "every place referenced in ", bodyDoc,
-           .plain " is a valid place in ", bodyDoc,
+  short
+    (.seq [body, .plain " is a valid body"])
+  long
+    (.seq [.plain "every place referenced in ", body,
+           .plain " is a valid place in ", body,
            .plain ", and every local declaration of ",
-           bodyDoc, .plain " is a sized type"])
+           body, .plain " is a sized type"])
   (body "The function body." : Body)
   :=
     (body·bodyPlaces·forAll fun p => validPlace ‹body, p›) ∧

@@ -11,10 +11,10 @@ import Core.Dsl.DefProperty
 -- `sorry` placeholder).
 
 defProperty IsTrue (.plain "IsTrue")
-  short (bDoc) =>
-    (.seq [bDoc, .plain " holds"])
-  long (bDoc) =>
-    (.seq [bDoc, .plain " is the boolean value ",
+  short
+    (.seq [b, .plain " holds"])
+  long
+    (.seq [b, .plain " is the boolean value ",
            .code "true"])
   (b "The boolean to test." : Bool)
   where

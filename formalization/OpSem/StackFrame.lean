@@ -100,12 +100,12 @@ defFn storageLive (.plain "storageLive")
 end StackFrame
 
 defProperty validStackFrame (.plain "validStackFrame")
-  short (frameDoc) =>
-    (.seq [frameDoc, .plain " is a valid stack frame"])
-  long (frameDoc) =>
-    (.seq [.plain "the body of ", frameDoc,
+  short
+    (.seq [frame, .plain " is a valid stack frame"])
+  long
+    (.seq [.plain "the body of ", frame,
            .plain " is a valid body, and the program \
-           counter of ", frameDoc,
+           counter of ", frame,
            .plain " is a valid location in that body"])
   (frame "The stack frame." : StackFrame)
   :=

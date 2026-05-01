@@ -184,15 +184,15 @@ decreasing_by
 -- ══════════════════════════════════════════════
 
 defProperty reachableFrom (.plain "reachableFrom")
-  short (pdDoc, aDoc, bDoc) =>
-    (.seq [bDoc, .plain " is reachable from ", aDoc,
-           .plain " in ", pdDoc])
-  long (pdDoc, aDoc, bDoc) =>
-    (.seq [bDoc, .plain " is reachable from ", aDoc,
-           .plain " in ", pdDoc, .plain ": ",
+  short
+    (.seq [b, .plain " is reachable from ", a,
+           .plain " in ", pd])
+  long
+    (.seq [b, .plain " is reachable from ", a,
+           .plain " in ", pd, .plain ": ",
            .code "reachableSearch",
-           .plain " starting from ", aDoc,
-           .plain " finds ", bDoc, .plain " by walking the \
+           .plain " starting from ", a,
+           .plain " finds ", b, .plain " by walking the \
            PCG with cycle detection."])
   (pd "The PCG data." : PcgData Place)
   (a "The starting node." : PcgNode Place)
@@ -201,12 +201,12 @@ defProperty reachableFrom (.plain "reachableFrom")
        ‹pd, b, [a], candidateNodes ‹pd, a››
 
 defProperty connected (.plain "connected")
-  short (pdDoc, aDoc, bDoc) =>
-    (.seq [aDoc, .plain " and ", bDoc,
-           .plain " are connected in ", pdDoc])
-  long (pdDoc, aDoc, bDoc) =>
-    (.seq [aDoc, .plain " and ", bDoc,
-           .plain " are connected in ", pdDoc,
+  short
+    (.seq [a, .plain " and ", b,
+           .plain " are connected in ", pd])
+  long
+    (.seq [a, .plain " and ", b,
+           .plain " are connected in ", pd,
            .plain ": one of the two nodes is reachable \
            from the other along the directed edge \
            relation."])

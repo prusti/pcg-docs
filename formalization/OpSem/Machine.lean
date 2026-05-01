@@ -27,13 +27,13 @@ where
 namespace Machine
 
 defProperty Runnable (.plain "Runnable")
-  short (mDoc) =>
-    (.seq [mDoc, .plain " is a runnable machine"])
-  long (mDoc) =>
-    (.seq [.plain "the call stack of ", mDoc,
-           .plain " is non-empty, the program of ", mDoc,
+  short
+    (.seq [m, .plain " is a runnable machine"])
+  long
+    (.seq [.plain "the call stack of ", m,
+           .plain " is non-empty, the program of ", m,
            .plain " is valid, and every stack frame on the \
-           call stack of ", mDoc, .plain " is valid"])
+           call stack of ", m, .plain " is valid"])
   (m "The machine state." : Machine)
   :=
     m↦thread↦stack ≠ [] ∧

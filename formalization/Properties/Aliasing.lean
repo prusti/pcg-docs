@@ -26,19 +26,19 @@ base case where `m = initialMachine pr`) without having to
 re-quantify. -/
 
 defProperty Framing' (.plain "Framing'")
-  short (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (doc! "the framing instance for {prDoc}, {parDoc}, {mDoc}, \
-           places {pDoc} and {p'Doc}, \
-           allocations {aDoc} and {a'Doc}")
-  long (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (doc! "Holds when {parDoc} describes {prDoc}, {mDoc} is a \
+  short
+    (doc! "the framing instance for {pr}, {par}, {m}, \
+           places {p} and {p'}, \
+           allocations {a} and {a'}")
+  long
+    (doc! "Holds when {par} describes {pr}, {m} is a \
            runnable machine reachable from the initial machine \
-           of {prDoc} whose currently-executing body and \
-           program counter are tracked by {parDoc}, the \
+           of {pr} whose currently-executing body and \
+           program counter are tracked by {par}, the \
            entry-state PCG at that program point assigns the \
-           exclusive capability to both valid places {pDoc} \
-           and {p'Doc}, and their backing allocations {aDoc} \
-           and {a'Doc} do not overlap.")
+           exclusive capability to both valid places {p} \
+           and {p'}, and their backing allocations {a} \
+           and {a'} do not overlap.")
   (pr "The program." : Program)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
@@ -82,10 +82,10 @@ defProperty Framing' (.plain "Framing'")
        ‹break› Allocation.nonOverlapping ‹a, a'›
 
 defProperty Framing (.plain "Framing")
-  short () =>
+  short
     (.plain "the PCG analysis frames non-aliasing of \
             exclusive places")
-  long () =>
+  long
     (.plain "If analysis results describe a program, then \
             at any reachable runnable machine state, two \
             places that the entry-state PCG at the machine's \
@@ -98,17 +98,17 @@ defProperty Framing (.plain "Framing")
        ‹break› Framing' ‹pr, par, m, p, p', a, a'›
 
 defProperty NoAlias' (.plain "NoAlias'")
-  short (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (doc! "the no-alias instance for {prDoc}, {parDoc}, {mDoc}, \
-           places {pDoc} and {p'Doc}, \
-           allocations {aDoc} and {a'Doc}")
-  long (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (doc! "Holds when {parDoc} describes {prDoc}, {mDoc} is a \
+  short
+    (doc! "the no-alias instance for {pr}, {par}, {m}, \
+           places {p} and {p'}, \
+           allocations {a} and {a'}")
+  long
+    (doc! "Holds when {par} describes {pr}, {m} is a \
            runnable machine reachable from the initial machine \
-           of {prDoc} whose currently-executing body and \
-           program counter are tracked by {parDoc}, and for \
-           the two valid places {pDoc} and {p'Doc} backed by \
-           allocations {aDoc} and {a'Doc}, either their PCG \
+           of {pr} whose currently-executing body and \
+           program counter are tracked by {par}, and for \
+           the two valid places {p} and {p'} backed by \
+           allocations {a} and {a'}, either their PCG \
            nodes are connected in the entry-state PCG at that \
            program point or the allocations have \
            non-overlapping address ranges. The final clause is \
@@ -150,10 +150,10 @@ defProperty NoAlias' (.plain "NoAlias'")
        ‹break› Allocation.nonOverlapping ‹a, a'›)
 
 defProperty NoAlias (.plain "NoAlias")
-  short () =>
+  short
     (.plain "the PCG analysis frames non-overlap of \
             disconnected places")
-  long () =>
+  long
     (.plain "If analysis results describe a program, then \
             at any reachable runnable machine state, two \
             places whose corresponding PCG nodes are not \

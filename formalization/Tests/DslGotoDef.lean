@@ -43,10 +43,10 @@ run_cmd do
       (expected the line of `defAlias TestAliasDecl ...`)"
 
 defProperty testPropertyDecl (.plain "testPropertyDecl")
-  short (xDoc) =>
-    (.seq [.plain "test about ", xDoc])
-  long (xDoc) =>
-    (.seq [.plain "test about ", xDoc])
+  short
+    (.seq [.plain "test about ", x])
+  long
+    (.seq [.plain "test about ", x])
   (x "Test param." : Nat)
   := x < 10
 

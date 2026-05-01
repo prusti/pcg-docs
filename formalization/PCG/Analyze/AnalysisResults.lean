@@ -19,16 +19,16 @@ defAlias AnalysisResults
   := Map BasicBlockIdx (List PcgDomainData)
 
 defProperty contains (.plain "contains")
-  short (arDoc, lDoc) =>
-    (.math (.seq [.doc lDoc,
+  short
+    (.math (.seq [.doc l,
                   .sym .setContains,
-                  .doc arDoc]))
-  long (arDoc, lDoc) =>
-    (.seq [.plain "the basic block of ", lDoc,
-           .plain " is a key of ", arDoc,
-           .plain ", and the statement index of ", lDoc,
+                  .doc ar]))
+  long
+    (.seq [.plain "the basic block of ", l,
+           .plain " is a key of ", ar,
+           .plain ", and the statement index of ", l,
            .plain " is less than the length of the per-block \
-                   list ", arDoc, .plain " stores at that key"])
+                   list ", ar, .plain " stores at that key"])
   (ar "The analysis results." : AnalysisResults)
   (l "The location." : Location)
   displayed (#l, .sym .setContains, #ar)
@@ -51,16 +51,16 @@ defAlias ProgAnalysisResults
   := Map Body AnalysisResults
 
 defProperty programContains (.plain "programContains")
-  short (parDoc, bDoc, lDoc) =>
-    (.math (.seq [.doc lDoc,
+  short
+    (.math (.seq [.doc l,
                   .sym .setContains,
-                  .doc parDoc, .raw "[",
-                  .doc bDoc, .raw "]"]))
-  long (parDoc, bDoc, lDoc) =>
-    (.seq [bDoc, .plain " is a key of ", parDoc,
-           .plain ", and ", lDoc, .plain " is contained in \
-           the per-body analysis results that ", parDoc,
-           .plain " stores under ", bDoc])
+                  .doc par, .raw "[",
+                  .doc b, .raw "]"]))
+  long
+    (.seq [b, .plain " is a key of ", par,
+           .plain ", and ", l, .plain " is contained in \
+           the per-body analysis results that ", par,
+           .plain " stores under ", b])
   (par "The program analysis results."
       : ProgAnalysisResults)
   (b "The function body." : Body)

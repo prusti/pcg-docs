@@ -2,10 +2,10 @@ import Core.Dsl.DefProperty
 import MIR.Ty
 
 defProperty IsSized (.plain "IsSized")
-  short (τDoc) =>
-    (.seq [τDoc, .plain " is a sized type"])
-  long (τDoc) =>
-    (.seq [τDoc, .plain " is a primitive (",
+  short
+    (.seq [τ, .plain " is a sized type"])
+  long
+    (.seq [τ, .plain " is a primitive (",
            .code "bool", .plain ", ", .code "int",
            .plain "), a pointer (", .code "ref",
            .plain ", ", .code "box", .plain "), or an \

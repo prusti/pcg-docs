@@ -21,12 +21,12 @@ where
   deriving Repr
 
 defProperty validProgram (.plain "validProgram")
-  short (programDoc) =>
-    (.seq [programDoc, .plain " is a valid program"])
-  long (programDoc) =>
-    (.seq [.plain "the start function name of ", programDoc,
+  short
+    (.seq [program, .plain " is a valid program"])
+  long
+    (.seq [.plain "the start function name of ", program,
            .plain " is registered in the function map of ",
-           programDoc])
+           program])
   (program "The program." : Program)
   :=
     program↦start ∈ program↦functions

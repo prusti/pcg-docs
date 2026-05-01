@@ -124,12 +124,12 @@ where
 
 defProperty pcgAnalysisSucceeds
     (.plain "pcgAnalysisSucceeds")
-  short (programDoc) =>
+  short
     (.seq [.plain "the PCG analysis succeeds for program ",
-           programDoc])
-  long (programDoc) =>
+           program])
+  long
     (.seq [.plain "the PCG analysis succeeds for program ",
-           programDoc, .plain ": ",
+           program, .plain ": ",
            .code "analyzeProgram",
            .plain " returns ", .code "Some"])
   (program "The program to analyse." : Program)

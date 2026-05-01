@@ -13,9 +13,9 @@ the joined `validProgram` / `pcgAnalysisSucceeds` / `Reachable`
 result. -/
 
 defProperty Soundness (.plain "Soundness")
-  short () =>
+  short
     (.plain "the PCG analysis is sound")
-  long () =>
+  long
     (.plain "If the PCG analysis succeeds for a valid \
             program, every machine state reachable from \
             its \\texttt{initialMachine} is non-stuck — \
