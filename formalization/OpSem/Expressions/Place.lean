@@ -4,9 +4,8 @@ import OpSem.PlacePtr
 namespace Machine
 
 defFn evalLocal (.plain "evalLocal")
-  (.seq [.plain "Evaluate a local variable, returning its \
-    place pointer. Returns ", .code "None",
-    .plain " if the local is dead."])
+  (doc! "Evaluate a local variable, returning its place pointer. Returns `None` if the local is \
+    dead.")
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
   requires Runnable(machine)
@@ -17,12 +16,8 @@ defFn evalLocal (.plain "evalLocal")
     Some PlacePtr⟨ptr⟩
 
 defFn fieldOffset (.plain "fieldOffset")
-  (.seq [.plain "Compute the byte offset of a field at \
-    position ", .code "idx",
-    .plain " within a list of field types. Returns ",
-    .code "None",
-    .plain " if any preceding field has unknown size \
-    or the index is out of bounds."])
+  (doc! "Compute the byte offset of a field at position `idx` within a list of field types. Returns \
+    `None` if any preceding field has unknown size or the index is out of bounds.")
   (fields "The field types." : List Ty)
   (idx "The target field index." : Nat)
   : Option Nat where
@@ -34,14 +29,10 @@ defFn fieldOffset (.plain "fieldOffset")
       Some (sz + off)
 
 defFn evalField (.plain "evalField")
-  (.seq [.plain "Evaluate a field projection on a place \
-    pointer. Given the place, field index, and the \
-    container type, computes the byte offset and \
-    returns the field's place pointer and type. \
-    Returns ", .code "None",
-    .plain " if the type is not a constructor type, \
-    the field index is out of bounds, or the offset \
-    cannot be computed."])
+  (doc! "Evaluate a field projection on a place pointer. Given the place, field index, and the \
+    container type, computes the byte offset and returns the field's place pointer and type. Returns \
+    `None` if the type is not a constructor type, the field index is out of bounds, or the offset \
+    cannot be computed.")
   (place "The place pointer of the container." : PlacePtr)
   (field "The field index." : FieldIdx)
   (ty "The type of the container." : Ty)
@@ -103,11 +94,8 @@ defFn evalProjs (.plain "evalProjs")
   | _ ; _ ; _ ; _ :: _ => None
 
 defFn evalPlace (.plain "evalPlace")
-  (.seq [.plain "Evaluate a place to a place pointer \
-    and its type. Looks up the base local with ",
-    .code "evalLocal", .plain ", then applies each \
-    projection element with ", .code "evalProjs",
-    .plain "."])
+  (doc! "Evaluate a place to a place pointer and its type. Looks up the base local with \
+    `evalLocal`, then applies each projection element with `evalProjs`.")
   (machine "The machine state." : Machine)
   (place "The place to evaluate." : Place)
   requires Runnable(machine)

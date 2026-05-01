@@ -111,12 +111,9 @@ defFn readBytesAt (.plain "read_bytes_at")
 
 open Allocation in
 defFn checkPtr (.plain "check_ptr")
-  (.seq [.plain "Check whether a pointer can be \
-    dereferenced to access ", .code "len",
-    .plain " bytes, returning the allocation identifier \
-    on success. Returns ", .code "None", .plain " if the \
-    pointer has no provenance, the allocation is dead, \
-    or the access is out of bounds."])
+  (doc! "Check whether a pointer can be dereferenced to access `len` bytes, returning the \
+    allocation identifier on success. Returns `None` if the pointer has no provenance, the \
+    allocation is dead, or the access is out of bounds.")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (len "The access length in bytes." : Nat)

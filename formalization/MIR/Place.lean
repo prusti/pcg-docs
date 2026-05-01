@@ -27,8 +27,7 @@ where
 
 defEnum ProjElem (.raw "π", .raw "Π")
   "Projection Elements"
-  (.seq [.plain "A projection element applied to a place. See ",
-    .code "definitions/places.md", .plain "."])
+  (doc! "A projection element applied to a place. See `definitions/places.md`.")
 where
   | deref
     "Dereference a pointer or reference."
@@ -52,8 +51,7 @@ where
 
 defStruct Place (.raw "p", .raw "P")
   "Places"
-  (.seq [.plain "A place in the MIR: a local with a projection. \
-   See ", .code "definitions/places.md", .plain "."])
+  (doc! "A place in the MIR: a local with a projection. See `definitions/places.md`.")
 where
   | «local» "The local variable." : Local
   | projection "The list of projection elements."

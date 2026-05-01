@@ -21,11 +21,9 @@ defFn decodeBool (.plain "decode_bool")
 
 open AbstractByte in
 defFn data (.plain "data")
-  (.seq [.plain "Extract the concrete byte values from a \
-    sequence of abstract bytes. Returns ", .code "None",
-    .plain " if any byte is uninitialised or carries pointer \
-    provenance — pointer-fragment bytes don't have a \
-    standalone concrete byte value."])
+  (doc! "Extract the concrete byte values from a sequence of abstract bytes. Returns `None` if any \
+    byte is uninitialised or carries pointer provenance — pointer-fragment bytes don't have a \
+    standalone concrete byte value.")
   (bs "The abstract bytes." : List AbstractByte)
   : Option (List UInt8) where
   | [] => Some []
@@ -68,8 +66,7 @@ def intValueOfNat : Nat → Nat → Option IntValue
   | _, _ => none
 
 defFn intValueToNat (.plain "int_value_to_nat")
-  (.seq [.plain "Extract the nat payload of an ",
-    Doc.refLinkOf @IntValue "IntValue", .plain "."])
+  (doc! "Extract the nat payload of an #IntValue.")
   (iv "The integer value." : IntValue)
   : Nat where
   | .u8 x => x · toNat
@@ -90,11 +87,8 @@ defFn intValueBytes (.plain "int_value_bytes")
   | .usize _ => 8
 
 defFn decodeInt (.plain "decode_int")
-  (.seq [.plain "Decode a byte sequence as an ",
-    Doc.refLinkOf @IntValue "IntValue", .plain ". Endianness is hardcoded \
-    to little-endian. Returns ", .code "None",
-    .plain " on length mismatch, uninit bytes, signed \
-    types, or unsupported sizes."])
+  (doc! "Decode a byte sequence as an #IntValue. Endianness is hardcoded to little-endian. Returns \
+    `None` on length mismatch, uninit bytes, signed types, or unsupported sizes.")
   (it "The target integer type." : IntType)
   (bs "The bytes to decode." : List AbstractByte)
   : Option IntValue :=
@@ -104,24 +98,17 @@ defFn decodeInt (.plain "decode_int")
       intValueOfNat ‹sizeBytes ‹it↦size›, decodeLeUnsigned ‹raw››
 
 defFn encodeInt (.plain "encode_int")
-  (.seq [.plain "Encode an ", Doc.refLinkOf @IntValue "IntValue",
-    .plain " as a little-endian byte sequence."])
+  (doc! "Encode an #IntValue as a little-endian byte sequence.")
   (iv "The integer value to encode." : IntValue)
   : List AbstractByte :=
     encodeLeUnsigned ‹intValueToNat ‹iv›, intValueBytes ‹iv››
 
 defFn decodePtr (.plain "decode_ptr")
-  (.seq [.plain "Decode an 8-byte pointer encoding back \
-    into a ", Doc.refLinkOf @ThinPointer "ThinPointer",
-    .plain ". Each input byte is expected to be a ",
-    .code "ptrFragment",
-    .plain " carrying the full address and provenance index \
-    redundantly (the encoder writes the same pair into all \
-    eight fragments), so reading the first fragment is \
-    sufficient. Returns ", .code "None", .plain " if the \
-    list is not exactly one ", .code "ptrFragment",
-    .plain " followed by seven trailing bytes (their \
-    contents are not inspected)."])
+  (doc! "Decode an 8-byte pointer encoding back into a #ThinPointer. Each input byte is expected to \
+    be a `ptrFragment` carrying the full address and provenance index redundantly (the encoder \
+    writes the same pair into all eight fragments), so reading the first fragment is sufficient. \
+    Returns `None` if the list is not exactly one `ptrFragment` followed by seven trailing bytes \
+    (their contents are not inspected).")
   (bs "The bytes to decode." : List AbstractByte)
   : Option ThinPointer where
   | .ptrFragment provIdx addr _ :: _ =>
@@ -169,14 +156,10 @@ defFn encodeBool (.plain "encode_bool")
   | false => [AbstractByte.init‹0›]
 
 defFn encodePtr (.plain "encode_ptr")
-  (.seq [.plain "Encode a ", Doc.refLinkOf @ThinPointer "ThinPointer",
-    .plain " as eight ", .code "ptrFragment",
-    .plain " bytes. Each fragment redundantly carries the \
-    full address and the optional allocation index of the \
-    pointer's provenance plus its position within the \
-    pointer (0–7), so ", Doc.refLinkOf @decodePtr "decodePtr",
-    .plain " can reconstruct the pointer from the head \
-    fragment alone."])
+  (doc! "Encode a #ThinPointer as eight `ptrFragment` bytes. Each fragment redundantly carries the \
+    full address and the optional allocation index of the pointer's provenance plus its position \
+    within the pointer (0–7), so #decodePtr can reconstruct the pointer from the head fragment \
+    alone.")
   (ptr "The pointer to encode." : ThinPointer)
   : List AbstractByte :=
     let prov := ptr↦provenance ;

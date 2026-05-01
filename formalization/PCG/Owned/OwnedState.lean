@@ -27,14 +27,10 @@ where
 open InitTree
 
 defFn ownedLocalsMeet (.plain "ownedLocalsMeet")
-  (.seq [.plain "Pairwise meet of two lists of owned locals. \
-    For each position, two ", .code "allocated",
-    .plain " locals are combined via ", .code "InitTree.meet",
-    .plain "; any other combination collapses to ",
-    .code "unallocated", .plain " — by the deallocation rule \
-    of ", .code "join.md",
-    .plain ", a local present (allocated) on only one \
-    incoming branch must be deallocated after the meet."])
+  (doc! "Pairwise meet of two lists of owned locals. For each position, two `allocated` locals are \
+    combined via `InitTree.meet`; any other combination collapses to `unallocated` — by the \
+    deallocation rule of `join.md`, a local present (allocated) on only one incoming branch must be \
+    deallocated after the meet.")
   (xs "Owned locals from the first state." : List OwnedLocal)
   (ys "Owned locals from the second state." : List OwnedLocal)
   requires xs·length = ys·length
@@ -48,8 +44,7 @@ defFn ownedLocalsMeet (.plain "ownedLocalsMeet")
 namespace OwnedState
 
 defFn meet (.plain "meet")
-  (.seq [.plain "Meet two owned states by pairwise meeting \
-    their owned locals."])
+  (doc! "Meet two owned states by pairwise meeting their owned locals.")
   (os1 "The first owned state." : OwnedState)
   (os2 "The second owned state." : OwnedState)
   : OwnedState :=

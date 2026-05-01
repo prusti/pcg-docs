@@ -26,17 +26,9 @@ defStruct BorrowEdge {P}
      resulting reference, and an optional label for the \
      lifetime projection of the assigned reference."])
 where
-  | blocked (.seq [
-        .plain "The place that is blocked by the borrow \
-          (e.g. ",
-        .code "y", .plain " in ", .code "let x = &mut y",
-        .plain ")."])
+  | blocked (doc! "The place that is blocked by the borrow (e.g. `y` in `let x = &mut y`).")
       : MaybeLabelled P
-  | assignedRef (.seq [
-        .plain "The place that is assigned by the borrow \
-          (e.g. ",
-        .code "x", .plain " in ", .code "let x = &mut y",
-        .plain ")."])
+  | assignedRef (doc! "The place that is assigned by the borrow (e.g. `x` in `let x = &mut y`).")
       : MaybeLabelled P
   | kind "Mutability of the borrow." : Mutability
   | reserveLocation "The MIR location at which the borrow \

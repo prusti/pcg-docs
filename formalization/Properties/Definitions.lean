@@ -57,13 +57,9 @@ in `Properties.Aliasing` and `Properties.Soundness`. -/
 
 defInductiveProperty Reachable
   "Reachable Machines"
-  (.seq [.plain "The set of machine states reachable from a \
-    starting state by zero or more successful ", .code "step",
-    .plain " transitions. ", .code "Reachable m m'",
-    .plain " holds when ", .code "m'", .plain " is derivable \
-    from ", .code "m", .plain " by repeated invocations of ",
-    .code "step", .plain " whose results are ", .code ".ok",
-    .plain "."])
+  (doc! "The set of machine states reachable from a starting state by zero or more successful \
+    `step` transitions. `Reachable m m'` holds when `m'` is derivable from `m` by repeated \
+    invocations of `step` whose results are `.ok`.")
   (m "The starting machine state." : Machine)
   (m' "A machine state reachable from m." : Machine)
   displayed (#m, .raw " \\rightsquigarrow^{*} ", #m')
@@ -91,13 +87,8 @@ defFn insertAnalyzedBody (.plain "insertAnalyzedBody")
     Some (mapInsert ‹acc, b, ar›)
 
 defFn analyzeProgram (.plain "analyzeProgram")
-  (.seq [.plain "Run ", Doc.refLinkOf @analyzeBody "analyzeBody",
-    .plain " on every function body in the program, \
-    accumulating the per-body results into a ",
-    Doc.refLinkOf @ProgAnalysisResults "ProgAnalysisResults",
-    .plain ". Returns ", .code "None",
-    .plain " when ", Doc.refLinkOf @analyzeBody "analyzeBody",
-    .plain " fails on any body."])
+  (doc! "Run #analyzeBody on every function body in the program, accumulating the per-body results \
+    into a #ProgAnalysisResults. Returns `None` when #analyzeBody fails on any body.")
   (program "The program to analyse." : Program)
   : Option ProgAnalysisResults :=
     let bodies := mapValues ‹program↦functions› ;
@@ -107,12 +98,8 @@ end Program
 
 defInductiveProperty describes
   "Program Analysis Results Describe a Program"
-  (.seq [.plain "Connects a ", Doc.refLinkOf @ProgAnalysisResults "ProgAnalysisResults",
-    .plain " value to the program it analyses: ",
-    .code "par", .plain " describes ", .code "p",
-    .plain " when running ", .code "analyzeProgram",
-    .plain " on ", .code "p", .plain " yields ",
-    .code "Some par", .plain "."])
+  (doc! "Connects a #ProgAnalysisResults value to the program it analyses: `par` describes `p` when \
+    running `analyzeProgram` on `p` yields `Some par`.")
   (par "The program analysis results."
       : ProgAnalysisResults)
   (p "The program." : Program)
@@ -140,12 +127,9 @@ defProperty pcgAnalysisSucceeds
     end
 
 defFn entryStateAt (.plain "entryStateAt")
-  (.seq [.plain "The PCG state on entry to the statement at \
-    location ", .code "l", .plain " in analysis results ",
-    .code "ar", .plain ": indexes the per-block list at the \
-    location's statement index and returns the recorded \
-    entry state. The ", Doc.refLinkOf @contains "contains",
-    .plain " precondition guarantees both lookups succeed."])
+  (doc! "The PCG state on entry to the statement at location `l` in analysis results `ar`: indexes \
+    the per-block list at the location's statement index and returns the recorded entry state. The \
+    #contains precondition guarantees both lookups succeed.")
   (ar "The analysis results." : AnalysisResults)
   (l "The location to look up." : Location)
   requires contains(ar, l)
@@ -172,12 +156,9 @@ defFn pcgEntryStateAt (.plain "pcgEntryStateAt")
 namespace Machine
 
 defFn placeAllocation (.plain "placeAllocation")
-  (.seq [.plain "The allocation backing a MIR place in a \
-    machine state: evaluates the place to a runtime address \
-    and returns the allocation referenced by the resulting \
-    pointer's provenance. ", .code "None",
-    .plain " when the place cannot be evaluated or the \
-    resulting pointer has no provenance."])
+  (doc! "The allocation backing a MIR place in a machine state: evaluates the place to a runtime \
+    address and returns the allocation referenced by the resulting pointer's provenance. `None` when \
+    the place cannot be evaluated or the resulting pointer has no provenance.")
   (m "The machine state." : Machine)
   (p "The place." : Place)
   requires Runnable(m)
@@ -191,10 +172,8 @@ end Machine
 
 defInductiveProperty hasCapability
   "PCG Place Capability"
-  (.seq [.plain "Holds when the PCG data ", .code "pcg",
-    .plain " (interpreted in body ", .code "b", .plain ") \
-    assigns capability ", .code "c", .plain " to place ",
-    .code "p", .plain "."])
+  (doc! "Holds when the PCG data `pcg` (interpreted in body `b`) assigns capability `c` to place \
+    `p`.")
   (pcg "The PCG data." : PcgData Place)
   (b "The function body." : Body)
   (p "The place." : Place)
@@ -217,9 +196,7 @@ where
 
 defInductiveProperty hasAllocation
   "Machine Place Allocation"
-  (.seq [.plain "Holds when the machine state ", .code "m",
-    .plain " backs place ", .code "p",
-    .plain " with allocation ", .code "a", .plain "."])
+  (doc! "Holds when the machine state `m` backs place `p` with allocation `a`.")
   (m "The machine state." : Machine)
   (p "The place." : Place)
   (a "The allocation." : Allocation)

@@ -59,14 +59,10 @@ defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
 
 defFnMutual
 defFn itPlaces (.plain "itPlaces")
-  (.seq [.plain "All MIR places reached by walking an \
-    initialisation tree from a base local along an accumulated \
-    projection. Each leaf contributes a single place; internal \
-    nodes extend the projection with the corresponding ",
-    Doc.refLinkOf @ProjElem "ProjElem",
-    .plain " step. Constant-index and subslice guided \
-    expansions have no ", Doc.refLinkOf @ProjElem "ProjElem",
-    .plain " counterpart and leave the projection unchanged."])
+  (doc! "All MIR places reached by walking an initialisation tree from a base local along an \
+    accumulated projection. Each leaf contributes a single place; internal nodes extend the \
+    projection with the corresponding #ProjElem step. Constant-index and subslice guided expansions \
+    have no #ProjElem counterpart and leave the projection unchanged.")
   (it "The initialisation tree." : InitTree)
   (base "The base local the tree is rooted at." : Local)
   (projAcc "The projection accumulated so far, from the root."
@@ -89,10 +85,8 @@ defFn itPlaces (.plain "itPlaces")
   | .internal (.guided (.subslice _ _ _ d)) ; base ; projAcc =>
       itPlaces ‹d, base, projAcc›
 defFn placesFromFields (.plain "placesFromFields")
-  (.seq [.plain "Helper for ", Doc.refLinkOf @itPlaces "itPlaces",
-    .plain ": collect places from every child of a ",
-    .code "fields", .plain " expansion, prefixing each \
-    child's path with its field step."])
+  (doc! "Helper for #itPlaces: collect places from every child of a `fields` expansion, prefixing \
+    each child's path with its field step.")
   (fs "Children of a fields expansion."
       : List (FieldIdx × Ty × InitTree))
   (base "The base local the tree is rooted at." : Local)
@@ -106,9 +100,8 @@ defFn placesFromFields (.plain "placesFromFields")
 end
 
 defFn places (.plain "places")
-  (.seq [.plain "All MIR places covered by an initialisation \
-    tree rooted at a given base local, with the empty \
-    projection."])
+  (doc! "All MIR places covered by an initialisation tree rooted at a given base local, with the \
+    empty projection.")
   (it "The initialisation tree." : InitTree)
   (base "The base local the tree is rooted at." : Local)
   : Set Place :=

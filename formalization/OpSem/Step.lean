@@ -11,20 +11,12 @@ import OpSem.Terminator
 namespace Machine
 
 defFn evalStatement (.plain "evalStatement")
-  (.seq [.plain "Evaluate a single MIR statement against the \
-    machine, returning the resulting machine state. Mirrors \
-    MiniRust's ", .code "Machine::eval_statement",
-    .plain ". The ", .code "assign",
-    .plain " case resolves the destination place via ",
-    .code "evalPlace", .plain ", evaluates the rvalue via ",
-    .code "evalRvalue", .plain ", and writes the value to \
-    memory via ", .code "placeStore", .plain ". The ",
-    .code "storageLive", .plain " and ", .code "storageDead",
-    .plain " cases delegate to ",
-    .code "StackFrame.storageLive", .plain " and ",
-    .code "StackFrame.storageDead",
-    .plain " on the current frame and reinstall the updated \
-    frame and memory on the machine."])
+  (doc! "Evaluate a single MIR statement against the machine, returning the resulting machine \
+    state. Mirrors MiniRust's `Machine::eval_statement`. The `assign` case resolves the destination \
+    place via `evalPlace`, evaluates the rvalue via `evalRvalue`, and writes the value to memory via \
+    `placeStore`. The `storageLive` and `storageDead` cases delegate to `StackFrame.storageLive` and \
+    `StackFrame.storageDead` on the current frame and reinstall the updated frame and memory on the \
+    machine.")
   (m "The machine state." : Machine)
   (s "The statement to evaluate." : Statement)
   requires Runnable(m)
@@ -53,25 +45,14 @@ defFn evalStatement (.plain "evalStatement")
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
 
 defFn step (.plain "step")
-  (.seq [.plain "Execute a single step of the operational \
-    semantics. Looks up the program element at the current \
-    frame's program counter via ",
-    Doc.refLinkOf @getStmtOrTerminator "getStmtOrTerminator", .plain ": a statement is \
-    handed to ", .code "evalStatement",
-    .plain " (and the resulting frame's ", .code "pc.stmtIdx",
-    .plain " is advanced by one), a terminator is handed to ",
-    .code "evalTerminator", .plain " which produces the next ",
-    Doc.refLinkOf @StepResult "StepResult", .plain " directly. The ",
-    .code "Runnable",
-    .plain " precondition guarantees a non-empty call stack \
-    (so ", .code "currentFrame", .plain " returns directly) \
-    and that every stack frame is valid (so the program \
-    counter is a ", Doc.refLinkOf @validLocation "validLocation",
-    .plain " and ", Doc.refLinkOf @getStmtOrTerminator "getStmtOrTerminator",
-    .plain " applies). Mirrors MiniRust's ",
-    .code "Machine::step",
-    .plain ", minus thread scheduling, deadlock detection, \
-    and data-race tracking — this model has only one thread."])
+  (doc! "Execute a single step of the operational semantics. Looks up the program element at the \
+    current frame's program counter via #getStmtOrTerminator: a statement is handed to \
+    `evalStatement` (and the resulting frame's `pc.stmtIdx` is advanced by one), a terminator is \
+    handed to `evalTerminator` which produces the next #StepResult directly. The `Runnable` \
+    precondition guarantees a non-empty call stack (so `currentFrame` returns directly) and that \
+    every stack frame is valid (so the program counter is a #validLocation and #getStmtOrTerminator \
+    applies). Mirrors MiniRust's `Machine::step`, minus thread scheduling, deadlock detection, and \
+    data-race tracking — this model has only one thread.")
   (m "The machine state." : Machine)
   requires Runnable(m)
   : StepResult :=

@@ -6,15 +6,11 @@ import OpSem.Pointer
 namespace Ty
 
 defFn sizeOf (.plain "sizeOf")
-  (.seq [.plain "Compute the byte size of a sized MIR type. \
-    Pointers (", .code "ref", .plain " and ", .code "box",
-    .plain ") are assumed to be thin and use 8 bytes; \
-    arrays scale their element's size by the array length. \
-    The ", Doc.refLinkOf @IsSized "IsSized",
-    .plain " precondition rules out the type-parameter, \
-    alias, and constructor-application cases (whose size \
-    cannot be determined without further context) and \
-    rules out array elements that are themselves not sized."])
+  (doc! "Compute the byte size of a sized MIR type. Pointers (`ref` and `box`) are assumed to be \
+    thin and use 8 bytes; arrays scale their element's size by the array length. The #IsSized \
+    precondition rules out the type-parameter, alias, and constructor-application cases (whose size \
+    cannot be determined without further context) and rules out array elements that are themselves \
+    not sized.")
   (τ "The MIR type." : Ty)
   requires IsSized(τ)
   : Nat where
@@ -25,13 +21,9 @@ defFn sizeOf (.plain "sizeOf")
   | .array elem n => sizeOf ‹elem› * n
 
 defFn layout (.plain "layout")
-  (.seq [.plain "Compute the layout strategy of a sized MIR \
-    type, following MiniRust's ", .code "Type::layout",
-    .plain " stripped of alignment and trait-object \
-    handling: every sized type lays out as a single ",
-    Doc.refLinkOf @LayoutStrategy.sized "LayoutStrategy.sized",
-    .plain " bucket whose width is given by ", .code "sizeOf",
-    .plain "."])
+  (doc! "Compute the layout strategy of a sized MIR type, following MiniRust's `Type::layout` \
+    stripped of alignment and trait-object handling: every sized type lays out as a single \
+    #LayoutStrategy.sized bucket whose width is given by `sizeOf`.")
   (τ "The MIR type." : Ty)
   requires IsSized(τ)
   : LayoutStrategy :=

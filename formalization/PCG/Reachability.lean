@@ -58,19 +58,12 @@ defFn pcgLpNode (.plain "pcgLpNode")
 -- ══════════════════════════════════════════════
 
 defFn edgeTargets (.plain "edgeTargets")
-  (.seq [.plain "The list of nodes that ", .code "a",
-    .plain " directly reaches via a single PCG edge ",
-    .code "e", .plain ". An unpack edge contributes its \
-    expansion when ", .code "a", .plain " is the base; a \
-    deref edge contributes the deref place when ",
-    .code "a", .plain " is the blocked place; a borrow \
-    edge contributes the assigned reference when ",
-    .code "a", .plain " is the blocked place. Borrow-flow \
-    and abstraction edges have target endpoints in \
-    lifetime-projection types with no direct ",
-    Doc.refLinkOf @PcgNode "PcgNode", .plain " lifter and contribute no \
-    targets here, making the search a sound under-\
-    approximation."])
+  (doc! "The list of nodes that `a` directly reaches via a single PCG edge `e`. An unpack edge \
+    contributes its expansion when `a` is the base; a deref edge contributes the deref place when \
+    `a` is the blocked place; a borrow edge contributes the assigned reference when `a` is the \
+    blocked place. Borrow-flow and abstraction edges have target endpoints in lifetime-projection \
+    types with no direct #PcgNode lifter and contribute no targets here, making the search a sound \
+    under-approximation.")
   (e "The PCG edge." : PcgEdge Place)
   (a "The candidate source node." : PcgNode Place)
   : List (PcgNode Place) where
@@ -113,15 +106,10 @@ defFn edgeAllTargets (.plain "edgeAllTargets")
   | .abstraction _ => []
 
 defFn candidateNodes (.plain "candidateNodes")
-  (.seq [.plain "An upper bound on the set of nodes the \
-    reachability search starting from ", .code "start",
-    .plain " could ever visit: the start node together with \
-    every target node appearing in some edge of ",
-    .code "pd", .plain ". Initialises the ",
-    .code "unvisited", .plain " parameter of ",
-    .code "reachableSearch", .plain " — every node the \
-    search actually expands belongs to this list, so erasing \
-    one per expansion strictly shrinks its length."])
+  (doc! "An upper bound on the set of nodes the reachability search starting from `start` could \
+    ever visit: the start node together with every target node appearing in some edge of `pd`. \
+    Initialises the `unvisited` parameter of `reachableSearch` — every node the search actually \
+    expands belongs to this list, so erasing one per expansion strictly shrinks its length.")
   (pd "The PCG data." : PcgData Place)
   (start "The starting node." : PcgNode Place)
   : List (PcgNode Place) :=

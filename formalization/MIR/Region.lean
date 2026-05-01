@@ -19,8 +19,7 @@ where
 
 defEnum Region (.raw "r", .raw "R")
   "Regions"
-  (.seq [.plain "A region (lifetime) in the MIR. See ",
-    .code "definitions/regions.md", .plain "."])
+  (doc! "A region (lifetime) in the MIR. See `definitions/regions.md`.")
 where
   | vid (v : RegionVid)
     "A region variable identifier."

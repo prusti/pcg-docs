@@ -156,12 +156,9 @@ defProperty validProjTy (.plain "validProjTy")
       validProjTy ‹τ, π›
 
 defFn isOwned' (.plain "isOwned'")
-  (.seq [.plain "Check whether a place is owned by walking \
-    its projection list. Returns ", .code "false",
-    .plain " as soon as a dereference of a reference is \
-    encountered, ", .code "true", .plain " if all \
-    projections are traversed without dereferencing a \
-    reference."])
+  (doc! "Check whether a place is owned by walking its projection list. Returns `false` as soon as \
+    a dereference of a reference is encountered, `true` if all projections are traversed without \
+    dereferencing a reference.")
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
   requires validProjTy(τ, projs)
@@ -178,9 +175,8 @@ defFn isOwned' (.plain "isOwned'")
       isOwned' ‹τ, π›
 
 defFn placeTy' (.plain "placeTy'")
-  (.seq [.plain "Project a type through a list of \
-    projection elements. Returns the final ",
-    Doc.refLinkOf @PlaceTy "PlaceTy", .plain " after all projections."])
+  (doc! "Project a type through a list of projection elements. Returns the final #PlaceTy after all \
+    projections.")
   (τ "The current type." : Ty)
   (v "The variant index." : Option VariantIdx)
   (projs "The projection elements." : List ProjElem)
@@ -258,10 +254,8 @@ defFn placeTy (.plain "ty")
     placeTy' ‹body↦decls ! place↦«local»↦index, None, place↦projection, lean_proof("h_validPlace.2")›
 
 defFn isOwned (.plain "isOwned")
-  (.seq [.plain "Returns ", .code "true",
-    .plain " iff a place is owned, i.e. it does not project \
-    from the dereference of a reference-typed place. See ",
-    .code "definitions/places.md", .plain "."])
+  (doc! "Returns `true` iff a place is owned, i.e. it does not project from the dereference of a \
+    reference-typed place. See `definitions/places.md`.")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace(body, place)

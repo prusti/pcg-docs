@@ -10,15 +10,10 @@ import PCG.PlaceExpansion
 -- ══════════════════════════════════════════════
 
 defFn expansionOfStep (.plain "expansionOfStep")
-  (.seq [.plain "Build a single-child place expansion that \
-    models one projection step taken while unpacking an owned \
-    initialisation tree. The caller supplies the subtree to \
-    carry as the single child; no sibling children are \
-    materialised. Returns ", .code "None",
-    .plain " for guided expansions that have no ",
-    Doc.refLinkOf @ProjElem "ProjElem", .plain " counterpart \
-    (", .code "constantIndex", .plain " and ",
-    .code "subslice", .plain ")."])
+  (doc! "Build a single-child place expansion that models one projection step taken while unpacking \
+    an owned initialisation tree. The caller supplies the subtree to carry as the single child; no \
+    sibling children are materialised. Returns `None` for guided expansions that have no #ProjElem \
+    counterpart (`constantIndex` and `subslice`).")
   (π "The projection step taken." : ProjElem)
   (child "The subtree to carry as the single child."
       : InitTree)
@@ -86,11 +81,9 @@ defFn obtainWriteInTree (.plain "obtainWriteInTree")
       else None
   | .internal _ ; _ :: _ => None
 defFn obtainWriteInFields (.plain "obtainWriteInFields")
-  (.seq [.plain "Descend into a ", .code "fields",
-    .plain " expansion looking for the child with the given \
-    field index and recursively obtain write capability on \
-    that child along the remaining projection. Returns the \
-    updated list of children, preserving the other entries."])
+  (doc! "Descend into a `fields` expansion looking for the child with the given field index and \
+    recursively obtain write capability on that child along the remaining projection. Returns the \
+    updated list of children, preserving the other entries.")
   (fs "The children of the fields expansion."
       : List (FieldIdx × Ty × InitTree))
   (fi "The field index to descend into." : FieldIdx)

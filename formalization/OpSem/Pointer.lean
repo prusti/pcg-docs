@@ -125,9 +125,7 @@ instance : Inhabited PtrType where
 namespace Allocation
 
 defFn canAccess (.plain "can_access")
-  (.seq [.plain "Whether the allocation is live and can \
-    be accessed at the given pointer for ", .code "len",
-    .plain " bytes."])
+  (doc! "Whether the allocation is live and can be accessed at the given pointer for `len` bytes.")
   (alloc "The allocation." : Allocation)
   (ptr "The pointer." : ThinPointer)
   (len "The access length in bytes." : Nat)

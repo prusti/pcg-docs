@@ -54,8 +54,7 @@ where
 
 defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
-  (.seq [.plain "A type in the MIR. See ",
-    .code "definitions/types.md", .plain "."])
+  (doc! "A type in the MIR. See `definitions/types.md`.")
 where
   | bool
     "The boolean type."

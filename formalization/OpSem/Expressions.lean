@@ -15,20 +15,16 @@ where
 namespace Machine
 
 defFn evalValue (.plain "evalValue")
-  (.seq [.plain "Evaluate a value expression to a runtime \
-    value. Currently only the tuple case is implemented; \
-    the function will be extended as additional value \
-    expressions are introduced."])
+  (doc! "Evaluate a value expression to a runtime value. Currently only the tuple case is \
+    implemented; the function will be extended as additional value expressions are introduced.")
   (e "The value expression." : ValueExpr)
   : Value where
   | .tuple exprs _ =>
       Value.tuple‹exprs ·map evalValue›
 
 defFn evalTuple (.plain "evalTuple")
-  (.seq [.plain "Evaluate a tuple value expression: \
-    recursively invoke ", .code "evalValue",
-    .plain " on each sub-expression and wrap the results \
-    in ", Doc.refLinkOf @Value.tuple "Value.tuple", .plain "."])
+  (doc! "Evaluate a tuple value expression: recursively invoke `evalValue` on each sub-expression \
+    and wrap the results in #Value.tuple.")
   (exprs "The sub-expressions." : List ValueExpr)
   (ty "The tuple type." : Ty)
   : Value :=

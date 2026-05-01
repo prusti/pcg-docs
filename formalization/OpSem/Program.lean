@@ -34,10 +34,8 @@ defProperty validProgram (.plain "validProgram")
 namespace Program
 
 defFn startProgram (.plain "startProgram")
-  (.seq [.plain "Look up the body of the program's start \
-    function. Safe because the ", Doc.refLinkOf @validProgram "validProgram",
-    .plain " precondition guarantees the start name is \
-    registered in the function map."])
+  (doc! "Look up the body of the program's start function. Safe because the #validProgram \
+    precondition guarantees the start name is registered in the function map.")
   (program "The program." : Program)
   requires validProgram(program)
   : Body :=

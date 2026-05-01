@@ -12,12 +12,8 @@ descr (.seq [
      blob/master/spec/lang/step/statements.md"])
 
 defFn placeStore (.plain "placeStore")
-  (.seq [.plain "Store a value into the location \
-    designated by a place pointer. Alignment and \
-    atomicity are not currently modelled, so this \
-    simply delegates to ",
-    .code "typedStore",
-    .plain " using the place's thin pointer."])
+  (doc! "Store a value into the location designated by a place pointer. Alignment and atomicity are \
+    not currently modelled, so this simply delegates to `typedStore` using the place's thin pointer.")
   (m "The memory." : Memory)
   (place "The place to store into." : PlacePtr)
   (v "The value to store." : Value)
@@ -25,12 +21,8 @@ defFn placeStore (.plain "placeStore")
     typedStore ‹m, place↦ptr, v›
 
 defFn placeLoad (.plain "placeLoad")
-  (.seq [.plain "Load a value from the location \
-    designated by a place pointer. Alignment and \
-    atomicity are not currently modelled, so this \
-    simply delegates to ",
-    .code "typedLoad",
-    .plain " using the place's thin pointer."])
+  (doc! "Load a value from the location designated by a place pointer. Alignment and atomicity are \
+    not currently modelled, so this simply delegates to `typedLoad` using the place's thin pointer.")
   (m "The memory." : Memory)
   (place "The place to load from." : PlacePtr)
   (ty "The type to load." : Ty)
@@ -38,15 +30,10 @@ defFn placeLoad (.plain "placeLoad")
     typedLoad ‹m, place↦ptr, ty›
 
 defFn evalOperand (.plain "evalOperand")
-  (.seq [.plain "Evaluate a MIR operand to a runtime value. ",
-    .code "copy", .plain " and ", .code "move",
-    .plain " resolve the operand's place and load the value \
-    from memory at the resulting place pointer; ",
-    .code "const", .plain " converts the constant directly \
-    via ", .code "evalConstant", .plain ". Move semantics \
-    (storage invalidation of the source) are not yet \
-    modelled — both ", .code "copy", .plain " and ",
-    .code "move", .plain " currently just load."])
+  (doc! "Evaluate a MIR operand to a runtime value. `copy` and `move` resolve the operand's place \
+    and load the value from memory at the resulting place pointer; `const` converts the constant \
+    directly via `evalConstant`. Move semantics (storage invalidation of the source) are not yet \
+    modelled — both `copy` and `move` currently just load.")
   (m "The machine state." : Machine)
   (o "The operand." : Operand)
   requires Runnable(m)
@@ -62,18 +49,11 @@ defFn evalOperand (.plain "evalOperand")
   | _ ; .const cv => Some (evalConstant ‹cv›)
 
 defFn evalRvalue (.plain "evalRvalue")
-  (.seq [.plain "Evaluate an rvalue to a runtime value. ",
-    .code "use", .plain " forwards to ", .code "evalOperand",
-    .plain ". The reference-introducing case ",
-    .code "ref", .plain " resolves the referenced place to \
-    a runtime address via ", .code "evalPlace",
-    .plain " and wraps the resulting thin pointer in ",
-    Doc.refLinkOf @Value.ptr "Value.ptr",
-    .plain ". The region and mutability are presentation-only \
-    in this model: aliasing and mutation are tracked by the \
-    PCG analysis, not by runtime metadata. Returns ",
-    .code "None", .plain " when the referenced place cannot \
-    be resolved."])
+  (doc! "Evaluate an rvalue to a runtime value. `use` forwards to `evalOperand`. The \
+    reference-introducing case `ref` resolves the referenced place to a runtime address via \
+    `evalPlace` and wraps the resulting thin pointer in #Value.ptr. The region and mutability are \
+    presentation-only in this model: aliasing and mutation are tracked by the PCG analysis, not by \
+    runtime metadata. Returns `None` when the referenced place cannot be resolved.")
   (m "The machine state." : Machine)
   (rv "The rvalue." : Rvalue)
   requires Runnable(m)

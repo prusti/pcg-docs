@@ -28,12 +28,9 @@ where
 namespace StackFrame
 
 defFn storageDeadPtr (.plain "storageDeadPtr")
-  (.seq [.plain "Helper for ", .code "storageDead",
-    .plain ": given a live thin pointer already looked up in ",
-    .code "locals",
-    .plain ", deallocate the backing allocation (when the \
-    pointer has provenance) and remove the local's entry from ",
-    .code "locals", .plain "."])
+  (doc! "Helper for `storageDead`: given a live thin pointer already looked up in `locals`, \
+    deallocate the backing allocation (when the pointer has provenance) and remove the local's entry \
+    from `locals`.")
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage is being torn down." : Local)
@@ -51,15 +48,10 @@ defFn storageDeadPtr (.plain "storageDeadPtr")
   | frame ; mem ; _ ; _ => ⟨frame, mem⟩
 
 defFn storageDead (.plain "storageDead")
-  (.seq [.plain "Tear down the stack allocation backing a \
-    local, if one is live, returning the updated stack frame \
-    (with the local removed from ", .code "locals",
-    .plain ") together with the updated memory. If the local \
-    has no entry in ", .code "locals",
-    .plain ", the frame and memory are returned unchanged. \
-    Mirrors MiniRust's ", .code "StackFrame::storage_dead",
-    .plain " — alignment is ignored and the allocation kind \
-    is implicitly ", .code "Stack", .plain "."])
+  (doc! "Tear down the stack allocation backing a local, if one is live, returning the updated \
+    stack frame (with the local removed from `locals`) together with the updated memory. If the \
+    local has no entry in `locals`, the frame and memory are returned unchanged. Mirrors MiniRust's \
+    `StackFrame::storage_dead` — alignment is ignored and the allocation kind is implicitly `Stack`.")
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage should be torn down." : Local)
@@ -70,16 +62,10 @@ defFn storageDead (.plain "storageDead")
     end
 
 defFn storageLive (.plain "storageLive")
-  (.seq [.plain "Allocate stack storage for a local and bind \
-    the resulting thin pointer into ", .code "locals",
-    .plain ". First tears down any prior allocation for the \
-    same local via ", .code "storageDead",
-    .plain ", then looks up the local's type on the current \
-    body's declarations, computes its size via ",
-    Doc.refLinkOf @Ty.sizeOf "Ty.sizeOf", .plain ", and allocates that many \
-    bytes. ", Doc.refLinkOf @validBody "validBody",
-    .plain " guarantees every declared local type is sized, \
-    so this is total."])
+  (doc! "Allocate stack storage for a local and bind the resulting thin pointer into `locals`. \
+    First tears down any prior allocation for the same local via `storageDead`, then looks up the \
+    local's type on the current body's declarations, computes its size via #Ty.sizeOf, and allocates \
+    that many bytes. #validBody guarantees every declared local type is sized, so this is total.")
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage should be brought live." : Local)

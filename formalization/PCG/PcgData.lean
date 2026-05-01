@@ -40,11 +40,9 @@ where
 namespace BorrowsGraph
 
 defFn blockedCurrentPlaces (.plain "blockedCurrentPlaces")
-  (.seq [.plain "The current (unlabelled) blocked places \
-    appearing as the source of a deref edge in the graph. \
-    Labelled blocked places are skipped; the remaining \
-    places are the candidates for the owned places that \
-    the materialised tree should expose."])
+  (doc! "The current (unlabelled) blocked places appearing as the source of a deref edge in the \
+    graph. Labelled blocked places are skipped; the remaining places are the candidates for the \
+    owned places that the materialised tree should expose.")
   (bg "The borrows graph." : BorrowsGraph Place)
   : List Place :=
   bg↦edges·toList·flatMap fun ⟨e, _⟩ =>
@@ -75,11 +73,9 @@ defFn implicit placeNode (.plain "placeNode")
 
 defFnMutual
 defFn itUnpackEdges (.plain "itUnpackEdges")
-  (.seq [.plain "All unpack edges derived from walking an \
-    initialisation tree from a base local along an accumulated \
-    projection. Each internal node contributes one unpack edge \
-    from the node's place to the list of its children's places; \
-    leaves contribute no edges."])
+  (doc! "All unpack edges derived from walking an initialisation tree from a base local along an \
+    accumulated projection. Each internal node contributes one unpack edge from the node's place to \
+    the list of its children's places; leaves contribute no edges.")
   (it "The initialisation tree." : InitTree)
   (base "The base local the tree is rooted at." : Local)
   (projAcc "The projection accumulated so far, from the root."
@@ -116,10 +112,8 @@ defFn itUnpackEdges (.plain "itUnpackEdges")
   | .internal (.guided (.subslice _ _ _ d)) ; base ; projAcc =>
       itUnpackEdges ‹d, base, projAcc›
 defFn fieldsSubedges (.plain "fieldsSubedges")
-  (.seq [.plain "Helper for ", Doc.refLinkOf @itUnpackEdges "itUnpackEdges",
-    .plain ": accumulate unpack edges from every child of a \
-    fields expansion, prefixing each child's path with its \
-    field step."])
+  (doc! "Helper for #itUnpackEdges: accumulate unpack edges from every child of a fields expansion, \
+    prefixing each child's path with its field step.")
   (fs "Children of a fields expansion."
       : List (FieldIdx × Ty × InitTree))
   (base "The base local the tree is rooted at." : Local)
@@ -138,14 +132,11 @@ end
 -- ══════════════════════════════════════════════
 
 defFn projUnpackChain (.plain "projUnpackChain")
-  (.seq [.plain "Emit single-child unpack edges walking a \
-    remaining projection one step at a time from a base local. \
-    Used to materialise the owned part of the PCG beyond the \
-    existing init-tree shape so that each target place becomes \
-    reachable via an unbroken chain of unpack edges. Because \
-    sibling places at each synthetic step are unknown without \
-    type information, the expansion of every emitted edge \
-    contains just the single child that extends the prefix."])
+  (doc! "Emit single-child unpack edges walking a remaining projection one step at a time from a \
+    base local. Used to materialise the owned part of the PCG beyond the existing init-tree shape so \
+    that each target place becomes reachable via an unbroken chain of unpack edges. Because sibling \
+    places at each synthetic step are unknown without type information, the expansion of every \
+    emitted edge contains just the single child that extends the prefix.")
   (base "The base local the chain is rooted at." : Local)
   (projAcc "The projection covered so far." : List ProjElem)
   (remaining "The projection steps still to walk."
@@ -168,11 +159,9 @@ defFn placeUnpackChain (.plain "placeUnpackChain")
   projUnpackChain ‹p↦«local», [], p↦projection›
 
 defFn localsUnpackEdges (.plain "localsUnpackEdges")
-  (.seq [.plain "For every allocated local in an owned state, \
-    collect the unpack edges derived from that local's \
-    initialisation tree. Unallocated slots contribute nothing. \
-    The local index carried by each entry is recovered from the \
-    list position via ", .code "zipIdx", .plain "."])
+  (doc! "For every allocated local in an owned state, collect the unpack edges derived from that \
+    local's initialisation tree. Unallocated slots contribute nothing. The local index carried by \
+    each entry is recovered from the list position via `zipIdx`.")
   (locals "The owned locals to walk." : List OwnedLocal)
   : List (UnpackEdge (PcgNode Place)) :=
     locals·zipIdx·flatMap fun ⟨ol, idx⟩ =>
@@ -199,17 +188,11 @@ defFn init (.plain "init")
       BasicBlockIdx⟨0⟩, None⟩
 
 defFn join (.plain "join")
-  (.seq [
-    .plain "Join two PCG data values at the program-point \
-     entry of basic block ", .code "bb",
-    .plain ": pointwise-join the borrows graphs and meet the \
-     owned states (per-local, via ", .code "OwnedState.meet",
-    .plain "), tag the result with ", .code "bb",
-    .plain " as its current basic block, and reset ",
-    .code "transientState", .plain " to ", .code "None",
-    .plain " — the transient read/write-borrow side condition \
-    is local to a single program point and does not propagate \
-    across joins."])
+  (doc! "Join two PCG data values at the program-point entry of basic block `bb`: pointwise-join \
+    the borrows graphs and meet the owned states (per-local, via `OwnedState.meet`), tag the result \
+    with `bb` as its current basic block, and reset `transientState` to `None` — the transient \
+    read/write-borrow side condition is local to a single program point and does not propagate \
+    across joins.")
   (pd1 "The first PCG data." : PcgData Place)
   (pd2 "The second PCG data." : PcgData Place)
   (bb "The basic block of the joined program point."
@@ -224,12 +207,9 @@ defFn join (.plain "join")
 end PcgData
 
 defFn transientReadPlaces (.plain "transientReadPlaces")
-  (.seq [.plain "Extract the read-place set from the optional \
-    transient place: returns the carried set when ",
-    .code "transientState", .plain " is ",
-    Doc.refLinkOf @TransientState.readPlaces "TransientState.readPlaces",
-    .plain ", and the empty list otherwise (",
-    .code "None", .plain " or a write-borrowed place)."])
+  (doc! "Extract the read-place set from the optional transient place: returns the carried set when \
+    `transientState` is #TransientState.readPlaces, and the empty list otherwise (`None` or a \
+    write-borrowed place).")
   (tp "The optional transient place."
       : Option (TransientState Place))
   : List Place where
@@ -237,16 +217,11 @@ defFn transientReadPlaces (.plain "transientReadPlaces")
   | _ => []
 
 defFn edges (.plain "edges")
-  (.seq [.plain "All PCG hyperedges represented by the per-\
-    program-point PCG data. The result is the union of three \
-    sources: (1) unpack edges derived from the internal \
-    structure of each allocated owned init tree, (2) unpack \
-    edges materialising the tree further to reach every place \
-    in the transient read-place set (when ",
-    .code "transientState", .plain " carries ",
-    Doc.refLinkOf @TransientState.readPlaces "TransientState.readPlaces",
-    .plain ") and every owned place blocked by a deref edge, \
-    and (3) every edge already recorded in the borrows graph."])
+  (doc! "All PCG hyperedges represented by the per-program-point PCG data. The result is the union \
+    of three sources: (1) unpack edges derived from the internal structure of each allocated owned \
+    init tree, (2) unpack edges materialising the tree further to reach every place in the transient \
+    read-place set (when `transientState` carries #TransientState.readPlaces) and every owned place \
+    blocked by a deref edge, and (3) every edge already recorded in the borrows graph.")
   (pd "The PCG data." : PcgData Place)
   : List (PcgEdge Place) :=
     let treeEdges := localsUnpackEdges ‹pd↦ownedState↦locals› ;

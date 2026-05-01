@@ -96,14 +96,9 @@ private def reversePostorder (body : Body)
 -- ══════════════════════════════════════════════
 
 defFn pushOne (.plain "pushOne")
-  (.seq [
-    .plain "Join an exit state ", .code "exit",
-    .plain " into the pending entry state of one successor \
-     block. If ", .code "succ", .plain " already has a \
-     pending entry, the two are combined with ",
-    .code "PcgData.join", .plain "; otherwise the \
-     contribution becomes the entry, rebased to ",
-    .code "succ", .plain "."])
+  (doc! "Join an exit state `exit` into the pending entry state of one successor block. If `succ` \
+    already has a pending entry, the two are combined with `PcgData.join`; otherwise the \
+    contribution becomes the entry, rebased to `succ`.")
   (state "The current analysis state." : AnalysisState)
   (exit "The exit state of the just-processed predecessor."
       : PcgData Place)
@@ -139,20 +134,11 @@ defFn pushToSuccessors (.plain "pushToSuccessors")
 -- ══════════════════════════════════════════════
 
 defFn computeEntry (.plain "computeEntry")
-  (.seq [
-    .plain "Forward step for one basic block. Reads the \
-     pending entry state for ", .code "bb",
-    .plain " from ", .code "state.entryStates",
-    .plain ", runs ", .code "PcgData.analyzeBlock",
-    .plain " to obtain the per-step results, inserts those \
-     results into ", .code "state.results",
-    .plain ", and joins the post-main exit state into the \
-     pending entry of every successor of ", .code "bb",
-    .plain ". Blocks with no pending entry are unreachable \
-     so far in the traversal and are returned without \
-     change. Returns ", .code "None",
-    .plain " if ", .code "PcgData.analyzeBlock",
-    .plain " fails."])
+  (doc! "Forward step for one basic block. Reads the pending entry state for `bb` from \
+    `state.entryStates`, runs `PcgData.analyzeBlock` to obtain the per-step results, inserts those \
+    results into `state.results`, and joins the post-main exit state into the pending entry of every \
+    successor of `bb`. Blocks with no pending entry are unreachable so far in the traversal and are \
+    returned without change. Returns `None` if `PcgData.analyzeBlock` fails.")
   (body "The function body." : Body)
   (state "The current analysis state." : AnalysisState)
   (bb "The block to step over." : BasicBlockIdx)
@@ -179,14 +165,9 @@ defFn computeEntry (.plain "computeEntry")
 -- ══════════════════════════════════════════════
 
 defFn analyzeRpo (.plain "analyzeRpo")
-  (.seq [
-    .plain "Walk the reverse-postorder list, processing each \
-     block in turn with ", Doc.refLinkOf @computeEntry "computeEntry",
-    .plain ". The analysis state — both the accumulated \
-     per-block results and the pending entry-state map — is \
-     threaded through the traversal. Returns ",
-    .code "None", .plain " as soon as ",
-    Doc.refLinkOf @computeEntry "computeEntry", .plain " fails on any block."])
+  (doc! "Walk the reverse-postorder list, processing each block in turn with #computeEntry. The \
+    analysis state — both the accumulated per-block results and the pending entry-state map — is \
+    threaded through the traversal. Returns `None` as soon as #computeEntry fails on any block.")
   (body "The function body." : Body)
   (state "The current analysis state." : AnalysisState)
   (rpo "Remaining blocks to process, in reverse postorder."

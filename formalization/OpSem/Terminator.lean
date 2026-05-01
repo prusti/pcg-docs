@@ -6,15 +6,10 @@ import OpSem.Statements
 import OpSem.StepResult
 
 defFn caseTarget (.plain "caseTarget")
-  (.seq [.plain "Look up the basic block that a ",
-    .code "switchInt", .plain " terminator should jump to \
-    when its operand evaluates to ", .code "iv",
-    .plain ". Scans the ", .code "cases",
-    .plain " list in order for the first pair whose first \
-    component is ", .code "iv",
-    .plain "; returns the supplied ", .code "fallback",
-    .plain " when no case matches. Mirrors MiniRust's ",
-    .code "cases.get(value).unwrap_or(fallback)", .plain "."])
+  (doc! "Look up the basic block that a `switchInt` terminator should jump to when its operand \
+    evaluates to `iv`. Scans the `cases` list in order for the first pair whose first component is \
+    `iv`; returns the supplied `fallback` when no case matches. Mirrors MiniRust's \
+    `cases.get(value).unwrap_or(fallback)`.")
   (cases "The case list of (value, target-block) pairs."
       : List (IntValue × BasicBlockIdx))
   (iv "The integer the operand evaluated to." : IntValue)
@@ -29,16 +24,10 @@ defFn caseTarget (.plain "caseTarget")
 namespace Machine
 
 defFn fnFromPtr (.plain "fnFromPtr")
-  (.seq [.plain "Resolve a function-pointer ", Doc.refLinkOf @Value "Value",
-    .plain " against the machine's program: ",
-    .code "Value.fnPtr name", .plain " looks ", .code "name",
-    .plain " up in ", .code "program.functions",
-    .plain " and returns the matching ", Doc.refLinkOf @Body "Body",
-    .plain ". Returns ", .code "None",
-    .plain " for any other value (the callee operand did not \
-    evaluate to a function pointer) or when the name is \
-    absent from the program. Mirrors MiniRust's ",
-    .code "fn_from_ptr", .plain "."])
+  (doc! "Resolve a function-pointer #Value against the machine's program: `Value.fnPtr name` looks \
+    `name` up in `program.functions` and returns the matching #Body. Returns `None` for any other \
+    value (the callee operand did not evaluate to a function pointer) or when the name is absent \
+    from the program. Mirrors MiniRust's `fn_from_ptr`.")
   (m "The machine state." : Machine)
   (v "The value to interpret as a function pointer." : Value)
   : Option Body where
@@ -46,14 +35,9 @@ defFn fnFromPtr (.plain "fnFromPtr")
   | _ ; _ => None
 
 defFn evalArgs (.plain "evalArgs")
-  (.seq [.plain "Evaluate a list of operand arguments \
-    left-to-right. Returns ", .code "Some",
-    .plain " of the resulting value list when every operand \
-    evaluates successfully, ", .code "None",
-    .plain " as soon as any operand fails. Used by the ",
-    .code "call",
-    .plain " terminator to gather the values to pass to a \
-    callee."])
+  (doc! "Evaluate a list of operand arguments left-to-right. Returns `Some` of the resulting value \
+    list when every operand evaluates successfully, `None` as soon as any operand fails. Used by the \
+    `call` terminator to gather the values to pass to a callee.")
   (m "The machine state." : Machine)
   (args "The argument operands." : List Operand)
   requires Runnable(m)
@@ -66,11 +50,8 @@ defFn evalArgs (.plain "evalArgs")
       Some (v :: vs)
 
 defFn jumpToBlock (.plain "jumpToBlock")
-  (.seq [.plain "Set the current frame's program counter to \
-    statement 0 of ", .code "target",
-    .plain ", leaving the rest of the call stack and memory \
-    unchanged. Mirrors MiniRust's ",
-    .code "jump_to_block", .plain "."])
+  (doc! "Set the current frame's program counter to statement 0 of `target`, leaving the rest of \
+    the call stack and memory unchanged. Mirrors MiniRust's `jump_to_block`.")
   (m "The machine state." : Machine)
   (target "The basic block to jump to." : BasicBlockIdx)
   requires Runnable(m)
@@ -84,42 +65,22 @@ defFn jumpToBlock (.plain "jumpToBlock")
     m[thread => Thread⟨newFrame :: rest⟩]
 
 defFn evalTerminator (.plain "evalTerminator")
-  (.seq [.plain "Evaluate a basic block terminator. The \
-    terminator is responsible for advancing the program \
-    counter — including switching to a new basic block when \
-    appropriate."
-    , .plain " ", .code "goto", .plain " jumps to its target \
-    block via ", .code "jumpToBlock", .plain "; ",
-    .code "drop", .plain " jumps to its successor without \
-    modelling drop semantics; ", .code "unreachable",
-    .plain " halts with ", .code "error", .plain "; ",
-    .code "switchInt", .plain " evaluates its operand and \
-    jumps to the case-matching basic block, falling back to \
-    the terminator's ", .code "fallback",
-    .plain " when no case matches (mirrors MiniRust's ",
-    .code "Terminator::Switch", .plain "); ", .code "call",
-    .plain " evaluates the callee operand to a function \
-    pointer via ", .code "evalOperand",
-    .plain ", resolves it against the program's function \
-    map via ", .code "fnFromPtr",
-    .plain ", evaluates each argument operand via ",
-    .code "evalArgs", .plain ", and pushes a fresh frame \
-    onto the thread stack via ", .code "createFrame",
-    .plain ". The caller's program counter is left pointing \
-    at the call terminator so the matching ", .code "return",
-    .plain " can recover the destination place and successor \
-    block when the callee returns. ABI-compatibility checks \
-    from MiniRust's ", .code "Terminator::Call",
-    .plain " are intentionally not modelled."
-    , .plain " ", .code "return", .plain " loads the return \
-    value out of the callee's return slot (local 0), pops \
-    the callee frame, and — when the call stack still \
-    contains a caller — looks at the caller's pending call \
-    terminator to recover the destination place and \
-    successor block, stores the return value into the \
-    destination, and jumps the caller to that block. When \
-    the popped frame was the bottom of the stack, the \
-    program halts with ", .code "success", .plain "."])
+  (doc! "Evaluate a basic block terminator. The terminator is responsible for advancing the program \
+    counter — including switching to a new basic block when appropriate. `goto` jumps to its target \
+    block via `jumpToBlock`; `drop` jumps to its successor without modelling drop semantics; \
+    `unreachable` halts with `error`; `switchInt` evaluates its operand and jumps to the \
+    case-matching basic block, falling back to the terminator's `fallback` when no case matches \
+    (mirrors MiniRust's `Terminator::Switch`); `call` evaluates the callee operand to a function \
+    pointer via `evalOperand`, resolves it against the program's function map via `fnFromPtr`, \
+    evaluates each argument operand via `evalArgs`, and pushes a fresh frame onto the thread stack \
+    via `createFrame`. The caller's program counter is left pointing at the call terminator so the \
+    matching `return` can recover the destination place and successor block when the callee returns. \
+    ABI-compatibility checks from MiniRust's `Terminator::Call` are intentionally not modelled. \
+    `return` loads the return value out of the callee's return slot (local 0), pops the callee \
+    frame, and — when the call stack still contains a caller — looks at the caller's pending call \
+    terminator to recover the destination place and successor block, stores the return value into \
+    the destination, and jumps the caller to that block. When the popped frame was the bottom of the \
+    stack, the program halts with `success`.")
   (m "The machine state." : Machine)
   (t "The terminator to evaluate." : Terminator)
   requires Runnable(m)

@@ -29,17 +29,10 @@ defFn obtainTriples (.plain "obtainTriples")
       obtainTriples ‹pd', body, rest›
 
 defFn analyze (.plain "analyze")
-  (.seq [
-    .plain "Step the PCG state across a single statement \
-     evaluation phase. First looks up the analysis object \
-     at ", .code "loc", .plain " in ", .code "body",
-    .plain ". For ", .code "PreOperands", .plain " the \
-     pre-conditions of every ", Doc.refLinkOf @operandTriples "operandTriples",
-    .plain " entry are obtained on the PCG; for ",
-    .code "PreMain", .plain " the pre-conditions of every ",
-    Doc.refLinkOf @mainTriples "mainTriples", .plain " entry are obtained. The \
-     two ", .code "Post", .plain " phases leave the PCG \
-     unchanged."])
+  (doc! "Step the PCG state across a single statement evaluation phase. First looks up the analysis \
+    object at `loc` in `body`. For `PreOperands` the pre-conditions of every #operandTriples entry \
+    are obtained on the PCG; for `PreMain` the pre-conditions of every #mainTriples entry are \
+    obtained. The two `Post` phases leave the PCG unchanged.")
   (pd "The incoming PCG data." : PcgData Place)
   (body "The function body." : Body)
   (loc "The program point at which the phase is evaluated."
@@ -57,15 +50,10 @@ defFn analyze (.plain "analyze")
     obtainTriples ‹pd, body, triples·toList›
 
 defFn analyzeAt (.plain "analyzeAt")
-  (.seq [
-    .plain "Step the PCG state across all four evaluation \
-     phases at a single location, threading each phase's \
-     output into the next. The returned ",
-    Doc.refLinkOf @PcgDomainData "PcgDomainData", .plain " carries the incoming \
-     PCG data as its entry state and the four per-phase \
-     states produced by ", .code "analyze",
-    .plain ". Returns ", .code "None",
-    .plain " if any phase fails."])
+  (doc! "Step the PCG state across all four evaluation phases at a single location, threading each \
+    phase's output into the next. The returned #PcgDomainData carries the incoming PCG data as its \
+    entry state and the four per-phase states produced by `analyze`. Returns `None` if any phase \
+    fails.")
   (pd "The incoming PCG data, at the entry to the location."
       : PcgData Place)
   (body "The function body." : Body)
@@ -80,18 +68,11 @@ defFn analyzeAt (.plain "analyzeAt")
       EvalStmtData⟨preOp, postOp, preM, postM⟩⟩
 
 defFn analyzeStmtsFrom (.plain "analyzeStmtsFrom")
-  (.seq [
-    .plain "Recursively step the PCG through the remaining \
-     statements of a basic block starting at ",
-    .code "idx", .plain ", followed by the basic block's \
-     terminator. Each step calls ", .code "analyzeAt",
-    .plain " at ", .code "Location⟨bb, idx⟩",
-    .plain ", threading the post-main state into the next \
-     step. The empty-list case is the terminator step at \
-     ", .code "stmtIdx == statements.length",
-    .plain ". Returns the per-step ", Doc.refLinkOf @PcgDomainData "PcgDomainData",
-    .plain " values, or ", .code "None",
-    .plain " if any phase fails."])
+  (doc! "Recursively step the PCG through the remaining statements of a basic block starting at \
+    `idx`, followed by the basic block's terminator. Each step calls `analyzeAt` at `Location⟨bb, \
+    idx⟩`, threading the post-main state into the next step. The empty-list case is the terminator \
+    step at `stmtIdx == statements.length`. Returns the per-step #PcgDomainData values, or `None` if \
+    any phase fails.")
   (pd "The PCG data on entry to the next step."
       : PcgData Place)
   (body "The function body." : Body)

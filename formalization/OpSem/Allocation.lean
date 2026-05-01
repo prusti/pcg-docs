@@ -41,12 +41,10 @@ defFn overlaps (.plain "overlaps")
   : Bool := alloc↦address < a ≤ endAddr ‹alloc›
 
 defFn nonOverlapping (.plain "nonOverlapping")
-  (.seq [.plain "Whether two allocations occupy disjoint \
-    address ranges: one's end address is at or before the \
-    other's start address. Symmetric in its arguments. An \
-    allocation is never non-overlapping with itself (unless \
-    it has zero bytes), since each allocation's address range \
-    overlaps fully with itself."])
+  (doc! "Whether two allocations occupy disjoint address ranges: one's end address is at or before \
+    the other's start address. Symmetric in its arguments. An allocation is never non-overlapping \
+    with itself (unless it has zero bytes), since each allocation's address range overlaps fully \
+    with itself.")
   (a "The first allocation." : Allocation)
   (b "The second allocation." : Allocation)
   : Bool :=

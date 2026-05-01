@@ -19,12 +19,9 @@ where
 
 defEnum StepResult (.raw "sr", .text "StepResult")
   "Step Results"
-  (.seq [.plain "The outcome of a single execution step. ",
-    .code "done", .plain " indicates that the program has \
-      finished, carrying an ", Doc.refLinkOf @ExecutionResult "ExecutionResult",
-    .plain " describing how it ended; ", .code "ok",
-    .plain " indicates that the step produced a new machine \
-      state and execution should continue."])
+  (doc! "The outcome of a single execution step. `done` indicates that the program has finished, \
+    carrying an #ExecutionResult describing how it ended; `ok` indicates that the step produced a \
+    new machine state and execution should continue.")
   long where
   | done (result : ExecutionResult)
     "The program has finished with the given result."

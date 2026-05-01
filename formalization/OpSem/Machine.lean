@@ -61,33 +61,25 @@ defFn currentFrame (.plain "currentFrame")
     m↦thread↦stack·head!
 
 defFn currBody (.plain "currBody")
-  (.seq [.plain "The body of the currently executing stack \
-    frame. Shorthand for ", .code "currentFrame",
-    .plain "'s ", .code "body", .plain " field; safe under \
-    the same ", .code "Runnable", .plain " precondition."])
+  (doc! "The body of the currently executing stack frame. Shorthand for `currentFrame`'s `body` \
+    field; safe under the same `Runnable` precondition.")
   (m "The machine state." : Machine)
   requires Runnable(m)
   : Body :=
     (currentFrame ‹m, lean_proof("h_Runnable")›)↦body
 
 defFn currPC (.plain "currPC")
-  (.seq [.plain "The program counter of the currently \
-    executing stack frame. Shorthand for ",
-    .code "currentFrame", .plain "'s ", .code "pc",
-    .plain " field; safe under the same ",
-    .code "Runnable", .plain " precondition."])
+  (doc! "The program counter of the currently executing stack frame. Shorthand for `currentFrame`'s \
+    `pc` field; safe under the same `Runnable` precondition.")
   (m "The machine state." : Machine)
   requires Runnable(m)
   : Location :=
     (currentFrame ‹m, lean_proof("h_Runnable")›)↦pc
 
 defFn stackTail (.plain "stackTail")
-  (.seq [.plain "The tail of the call stack — every frame \
-    except the currently executing one (which ",
-    .code "currentFrame",
-    .plain " returns). Safe because the ",
-    .code "Runnable",
-    .plain " precondition guarantees the stack is non-empty."])
+  (doc! "The tail of the call stack — every frame except the currently executing one (which \
+    `currentFrame` returns). Safe because the `Runnable` precondition guarantees the stack is \
+    non-empty.")
   (m "The machine state." : Machine)
   requires Runnable(m)
   : List StackFrame :=
@@ -106,10 +98,8 @@ defFn evalConstant (.plain "evalConstant")
   | .fnPtr name => Value.fnPtr‹name›
 
 defFn typedLoad (.plain "typedLoad")
-  (.seq [.plain "Load a value of the given type from \
-    memory at the given pointer. Returns ", .code "None",
-    .plain " if the pointer is invalid or the bytes \
-    cannot be decoded."])
+  (doc! "Load a value of the given type from memory at the given pointer. Returns `None` if the \
+    pointer is invalid or the bytes cannot be decoded.")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (ty "The type to load." : Ty)
@@ -128,18 +118,11 @@ defFn typedStore (.plain "typedStore")
     Memory.store ‹m, ptr, encode ‹v››
 
 defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
-  (.seq [.plain "Per-argument helper for ", .code "createFrame",
-    .plain ": iterate the caller-provided value list with ",
-    .code "k", .plain " tracking the current callee local \
-    index (starting at 1 for the first argument). For each \
-    value, allocate the local's backing storage via ",
-    .code "StackFrame.storageLive",
-    .plain " and write the value into that allocation with ",
-    .code "typedStore",
-    .plain ". The locals-map lookup is total because ",
-    .code "StackFrame.storageLive",
-    .plain " always inserts an entry for the local it was \
-    just called with."])
+  (doc! "Per-argument helper for `createFrame`: iterate the caller-provided value list with `k` \
+    tracking the current callee local index (starting at 1 for the first argument). For each value, \
+    allocate the local's backing storage via `StackFrame.storageLive` and write the value into that \
+    allocation with `typedStore`. The locals-map lookup is total because `StackFrame.storageLive` \
+    always inserts an entry for the local it was just called with.")
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
@@ -154,17 +137,11 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
         typedStore ‹mem1, ptr, v››
 
 defFn createFrame (.plain "createFrame")
-  (.seq [.plain "Build a fresh stack frame for a call into ",
-    .code "body", .plain " and push it onto the thread's \
-    call stack. Allocates the return place (local 0) and \
-    each argument local via ", .code "StackFrame.storageLive",
-    .plain ", then writes the caller-provided argument \
-    values into those allocations with ", .code "typedStore",
-    .plain ". The program counter starts at statement 0 of \
-    basic block 0. ABI, calling convention, and \
-    stack-pop-action handling from MiniRust's ",
-    .code "create_frame", .plain " are intentionally not \
-    modelled here."])
+  (doc! "Build a fresh stack frame for a call into `body` and push it onto the thread's call stack. \
+    Allocates the return place (local 0) and each argument local via `StackFrame.storageLive`, then \
+    writes the caller-provided argument values into those allocations with `typedStore`. The program \
+    counter starts at statement 0 of basic block 0. ABI, calling convention, and stack-pop-action \
+    handling from MiniRust's `create_frame` are intentionally not modelled here.")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
@@ -180,21 +157,12 @@ defFn createFrame (.plain "createFrame")
       mem2⟩
 
 defFn initialMachine (.plain "initialMachine")
-  (.seq [.plain "Build the initial machine state for ",
-    .code "program",
-    .plain ": look up the start function body via ",
-    .code "startProgram",
-    .plain ", allocate an empty memory and thread, and push \
-    an initial stack frame for the start body via ",
-    .code "createFrame",
-    .plain " with no caller-supplied argument values. The ",
-    Doc.refLinkOf @validProgram "validProgram",
-    .plain " precondition guarantees the start function is \
-    registered in the program. Mirrors MiniRust's ",
-    .code "Machine::new",
-    .plain ", with globals, function pointers, vtables, lock \
-    state, additional threads, and I/O streams stripped — this \
-    model is single-threaded and ignores those concerns."])
+  (doc! "Build the initial machine state for `program`: look up the start function body via \
+    `startProgram`, allocate an empty memory and thread, and push an initial stack frame for the \
+    start body via `createFrame` with no caller-supplied argument values. The #validProgram \
+    precondition guarantees the start function is registered in the program. Mirrors MiniRust's \
+    `Machine::new`, with globals, function pointers, vtables, lock state, additional threads, and \
+    I/O streams stripped — this model is single-threaded and ignores those concerns.")
   (program "The program to initialise." : Program)
   requires validProgram(program)
   : Machine :=

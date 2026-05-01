@@ -10,11 +10,9 @@ import PCG.Owned.OwnedLocal
 import PCG.PcgData
 
 defFn getAlloc (.plain "getAlloc")
-  (.seq [.plain "Look up the owned allocation for a local in \
-    an owned state. Returns the ",
-    Doc.refLinkOf @InitTree "InitTree", .plain " when the local is in bounds \
-    and has been allocated, and ", .code "None",
-    .plain " when it is out of bounds or still unallocated."])
+  (doc! "Look up the owned allocation for a local in an owned state. Returns the #InitTree when the \
+    local is in bounds and has been allocated, and `None` when it is out of bounds or still \
+    unallocated.")
   (os "The owned state." : OwnedState)
   (l "The local whose allocation is requested." : Local)
   : Option InitTree :=
@@ -70,12 +68,9 @@ end BorrowsGraph
 -- ══════════════════════════════════════════════
 
 defFn treeIsInternal (.plain "treeIsInternal")
-  (.seq [.plain "Whether walking an initialisation tree along \
-    the given projection ends at an internal (partially \
-    initialised) node. A leaf anywhere in the walk returns ",
-    .code "false", .plain "; so does a projection step that \
-    does not match the tree's expansion shape (the walk leaves \
-    the tree)."])
+  (doc! "Whether walking an initialisation tree along the given projection ends at an internal \
+    (partially initialised) node. A leaf anywhere in the walk returns `false`; so does a projection \
+    step that does not match the tree's expansion shape (the walk leaves the tree).")
   (projs "The remaining projection elements."
       : List ProjElem)
   (t "The initialisation tree." : InitTree)
@@ -146,12 +141,9 @@ defFn isPrefixOfReadPlace (.plain "isPrefixOfReadPlace")
 
 defFn isPrefixOfTransientReadPlace
     (.plain "isPrefixOfTransientReadPlace")
-  (.seq [.plain "Whether a place is a prefix of some place in \
-    the transient read set carried by the optional ",
-    Doc.refLinkOf @TransientState "TransientState",
-    .plain ". Returns ", .code "false",
-    .plain " when the transient place is absent or carries a \
-    write-borrowed place rather than a read-place set."])
+  (doc! "Whether a place is a prefix of some place in the transient read set carried by the \
+    optional #TransientState. Returns `false` when the transient place is absent or carries a \
+    write-borrowed place rather than a read-place set.")
   (tp "The optional transient place."
       : Option (TransientState Place))
   (p "The candidate prefix." : Place)
@@ -166,14 +158,9 @@ defFn isPrefixOfTransientReadPlace
 -- ══════════════════════════════════════════════
 
 defFn projectsSharedRef' (.plain "projectsSharedRef'")
-  (.seq [.plain "Walk a projection list against a starting \
-    type and report whether any ", .code "*", .plain " step \
-    is applied to a shared-reference type. Returns ",
-    .code "true", .plain " on the first ",
-    .code ".deref", .plain " step taken on a ",
-    .code ".ref _ shared _", .plain "; ",
-    .code "false",
-    .plain " when the projection finishes without one."])
+  (doc! "Walk a projection list against a starting type and report whether any `*` step is applied \
+    to a shared-reference type. Returns `true` on the first `.deref` step taken on a `.ref _ shared \
+    _`; `false` when the projection finishes without one.")
   (τ "The current type." : Ty)
   (projs "The remaining projection elements."
       : List ProjElem)
@@ -193,10 +180,8 @@ defFn projectsSharedRef' (.plain "projectsSharedRef'")
       projectsSharedRef' ‹τ, π›
 
 defFn projectsSharedRef (.plain "projectsSharedRef")
-  (.seq [.plain "Whether the place's projection ever \
-    dereferences a shared-reference-typed place: walks the \
-    projection from the base local's declared type and \
-    reports the first such dereference."])
+  (doc! "Whether the place's projection ever dereferences a shared-reference-typed place: walks the \
+    projection from the base local's declared type and reports the first such dereference.")
   (body "The function body." : Body)
   (p "The place." : Place)
   requires validPlace(body, p)

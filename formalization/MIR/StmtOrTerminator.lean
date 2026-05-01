@@ -33,14 +33,10 @@ private instance : Inhabited Statement :=
   ⟨.storageLive ⟨0⟩⟩
 
 defFn getStmtOrTerminator (.plain "getStmtOrTerminator")
-  (.seq [.plain "Look up the program element at a valid \
-    location in a body. When ", .code "loc.stmtIdx",
-    .plain " is strictly less than the number of statements \
-    in the block, returns that statement; when it equals \
-    ", .code "statements.length",
-    .plain " (the terminator slot allowed by ",
-    Doc.refLinkOf @validLocation "validLocation", .plain "), returns the block's \
-    terminator."])
+  (doc! "Look up the program element at a valid location in a body. When `loc.stmtIdx` is strictly \
+    less than the number of statements in the block, returns that statement; when it equals \
+    `statements.length` (the terminator slot allowed by #validLocation), returns the block's \
+    terminator.")
   (body "The function body." : Body)
   (loc "The location to look up." : Location)
   requires validLocation(body, loc)
