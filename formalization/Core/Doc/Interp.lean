@@ -124,10 +124,19 @@ namespace Doc.Interp
 
 /-- A segment of a `doc!` literal chunk: a run of plain text,
     a `#identifier` cross-reference, or a backtick-delimited
-    inline code span. -/
+    inline code span.
+
+    `ref` carries the byte offsets of its `#identifier`
+    substring relative to the start of the (decoded) chunk
+    string — `startOff` points at the `#`, `endOff` points
+    one byte past the last identifier character. The macro
+    uses these offsets to attach `SourceInfo.original` to the
+    synthesised `Syntax.ident`, so the language server can
+    treat the substring as a real identifier reference for
+    goto-definition, hover, and semantic highlighting. -/
 inductive ChunkSeg where
   | literal (s : String)
-  | ref (parts : List String)
+  | ref (parts : List String) (startOff endOff : Nat)
   | code (s : String)
   deriving Inhabited
 
@@ -197,7 +206,8 @@ private partial def parseSegsAux : List Char → List ChunkSeg
     if ident.isEmpty then
       consLitChar '#' (parseSegsAux rest)
     else
-      .ref (ident.splitOn ".") :: parseSegsAux rest'
+      -- Offsets are filled in by `parseSegs`'s annotation pass.
+      .ref (ident.splitOn ".") 0 0 :: parseSegsAux rest'
   | '`' :: rest =>
     match consumeUntilBacktick rest with
     | some (codeStr, '`' :: after) =>
@@ -206,11 +216,37 @@ private partial def parseSegsAux : List Char → List ChunkSeg
       consLitChar '`' (parseSegsAux rest)
   | c :: rest => consLitChar c (parseSegsAux rest)
 
+/-- Annotate each `.ref` segment with the byte offset of its
+    `#identifier` substring inside the decoded chunk string.
+
+    Each segment consumes a known number of bytes from the
+    original chunk: `.literal s` consumes `s.utf8ByteSize`
+    (the parser builds the literal from the consumed source
+    chars verbatim), `.ref parts` consumes `1 +
+    intercalated.utf8ByteSize` (a leading `#` plus the dotted
+    name), and `.code s` consumes `2 + s.utf8ByteSize` (the
+    pair of backticks). Walking the segment list and summing
+    these per-segment widths gives a running offset that is
+    the byte position of each segment's start in the decoded
+    chunk. -/
+private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
+  | [], _ => []
+  | .literal t :: rest, off =>
+    .literal t :: annotateOffsets rest (off + t.utf8ByteSize)
+  | .ref parts _ _ :: rest, off =>
+    let identLen := (".".intercalate parts).utf8ByteSize
+    let endOff := off + 1 + identLen
+    .ref parts off endOff :: annotateOffsets rest endOff
+  | .code t :: rest, off =>
+    .code t :: annotateOffsets rest (off + 2 + t.utf8ByteSize)
+
 /-- Split a literal `doc!` chunk into segments: `.literal` runs of
-    plain text and `.ref parts` for each `#identifier`
-    (or `#identifier.path`) found in the chunk. -/
+    plain text, `.ref parts startOff endOff` for each
+    `#identifier` (or `#identifier.path`) found in the chunk
+    (with byte offsets in the decoded chunk string), and
+    `.code s` for each backtick-delimited inline code span. -/
 def parseSegs (s : String) : List ChunkSeg :=
-  parseSegsAux s.toList
+  annotateOffsets (parseSegsAux s.toList) 0
 
 end Doc.Interp
 
@@ -239,17 +275,52 @@ def expandDocInterp : Macro := fun stx => do
       | some str =>
         if str.isEmpty then
           continue
+        -- Position of the chunk's leading delimiter (the
+        -- opening `"` for the first chunk, or `}` for chunks
+        -- following an `{expr}` hole). The chunk's *content*
+        -- begins one byte after that delimiter.
+        let chunkPos? := chunk.getPos? (canonicalOnly := true)
         for seg in Doc.Interp.parseSegs str do
           match seg with
           | .literal s =>
             if s.isEmpty then continue
             let lit := Syntax.mkStrLit s
             parts := parts.push (← `((Doc.plain $lit : Doc)))
-          | .ref nameParts =>
+          | .ref nameParts startOff endOff =>
             let leanName := nameParts.foldl
               (fun acc p => Name.mkStr acc p) Name.anonymous
-            let ident := mkIdent leanName
             let nameStr := ".".intercalate nameParts
+            -- Build the synthesised `Syntax.ident` with
+            -- `SourceInfo.original` pointing at the
+            -- `#identifier` substring's absolute file
+            -- position. The IDE then treats this as a real
+            -- identifier reference (goto-def, hover,
+            -- semantic highlighting), exactly as if the user
+            -- had written the identifier outside the literal.
+            -- Falls back to `SourceInfo.none` for chunks
+            -- without source positions (e.g. macro-generated
+            -- callsites).
+            --
+            -- Note: byte offsets are computed in the
+            -- *decoded* chunk string, so a chunk containing
+            -- escape sequences (e.g. `\<newline>` line
+            -- continuations) yields positions that are off
+            -- by the escape's width-difference. In practice
+            -- `#refs` rarely sit after escapes within the
+            -- same chunk, and the IDE tolerates being a few
+            -- bytes off — typo errors from the elaborator
+            -- still surface unchanged regardless.
+            let info : SourceInfo := match chunkPos? with
+              | some chunkPos =>
+                let absStart : String.Pos.Raw :=
+                  ⟨chunkPos.byteIdx + 1 + startOff⟩
+                let absEnd : String.Pos.Raw :=
+                  ⟨chunkPos.byteIdx + 1 + endOff⟩
+                .original "".toRawSubstring absStart
+                  "".toRawSubstring absEnd
+              | none => SourceInfo.none
+            let ident : Ident := ⟨Syntax.ident info
+              nameStr.toRawSubstring leanName []⟩
             let strLit := Syntax.mkStrLit nameStr
             parts := parts.push
               (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
