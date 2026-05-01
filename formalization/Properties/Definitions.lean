@@ -213,7 +213,8 @@ defInductiveProperty hasCapability
 where
   | fromGet {pcg : PcgData Place} {b : Body}
         {p : Place} {c : Capability}
-      from (getCapability ‹pcg, b, p, lean_proof("sorry")›
+        {h_validPlace : validPlace b p}
+      from (getCapability ‹pcg, b, p, lean_proof("h_validPlace")›
               = Some c)
       ⊢ hasCapability ‹pcg, b, p, c›
 
@@ -228,7 +229,8 @@ defInductiveProperty hasAllocation
   displayed (#m, .raw "[", #p, .raw "] \\doteq ", #a)
 where
   | fromGet {m : Machine} {p : Place} {a : Allocation}
+        {h_Runnable : Runnable m}
       from (Machine.placeAllocation
-              ‹m, p, lean_proof("sorry")›
+              ‹m, p, lean_proof("h_Runnable")›
               = Some a)
       ⊢ hasAllocation ‹m, p, a›

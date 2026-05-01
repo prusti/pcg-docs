@@ -490,25 +490,43 @@ private def conjunctBinderName
     | none => s!"h_pre{i}"
   if used.contains base then s!"{base}{i}" else base
 
-/-- Rewrite `∀ vars, A₁ ∧ A₂ ∧ … ∧ Aₙ → G` into the
-    named-binder Pi chain
-    `∀ vars (h₁ : A₁) (h₂ : A₂) … (hₙ : Aₙ), G`. Each `hᵢ` is
-    auto-named from `Aᵢ`'s head identifier (see
-    `conjunctBinderName`); the conjunct's rendered Lean source
+/-- Flatten a right-associated `→` chain into the list of
+    antecedents and the final goal. `A → B → C → G` becomes
+    `([A, B, C], G)`; a non-`→` expression yields `([], e)`. -/
+private partial def flattenImplies
+    : DslExpr → List DslExpr × DslExpr
+  | .implies l r =>
+    let (rest, goal) := flattenImplies r
+    (l :: rest, goal)
+  | e => ([], e)
+
+/-- Rewrite a property body's antecedent chain into a sequence of
+    named-binder Pi binders so that earlier preconditions are in
+    scope as `h_<head>` hypotheses for later antecedents and the
+    goal. Two shapes are recognised:
+
+    * `A₁ ∧ A₂ ∧ … ∧ Aₙ → G` — a single `→` whose antecedent is
+      a `∧`-chain; each conjunct becomes a named Pi binder.
+    * `A₁ → A₂ → … → Aₙ → G` — a pure `→`-chain; each
+      antecedent becomes a named Pi binder. Single-implication
+      bodies (`A → G`) are still rewritten so `A`'s head names
+      a hypothesis the goal can reference.
+
+    Each `hᵢ` is auto-named from `Aᵢ`'s head identifier (see
+    `conjunctBinderName`); the antecedent's rendered Lean source
     becomes the binder's `typeName`, so a later occurrence of
-    `lean_proof("h₁")` in the goal or in a later antecedent
-    resolves to a real hypothesis instead of `sorry`.
+    `lean_proof("hᵢ")` in the goal or in a later antecedent
+    resolves to a real hypothesis instead of `sorry`. The DSL
+    `FnBody` registry entry is left untouched, so the LaTeX
+    renderer continues to display the original `∧`/`→` shape.
 
     Walks through leading `forall_` binders so the rewrite
-    reaches the eventual implication. No-op when the body
-    isn't of `∀ …, A ∧ … → G` shape — the transformation is
-    targeted at `defProperty` bodies that opt into the four-
-    conjunct style; other shapes pass through unchanged. -/
-partial def bindAntecedentNames : DslExpr → DslExpr
-  | .forall_ binders body =>
-    .forall_ binders (bindAntecedentNames body)
-  | .implies (.and l r) goal =>
-    let antecedents := flattenAnd (.and l r)
+    reaches the eventual antecedent chain, and recursively
+    descends into the goal so a `∧`-chain followed by a
+    `→`-chain (or vice-versa) is fully named. -/
+partial def bindAntecedentNames : DslExpr → DslExpr :=
+  let nameAndBind (antecedents : List DslExpr) (goal : DslExpr)
+      : DslExpr :=
     let assignNames :
         List String × List String → DslExpr × Nat →
         List String × List String :=
@@ -518,14 +536,24 @@ partial def bindAntecedentNames : DslExpr → DslExpr
     let (_, namesRev) :=
       antecedents.zipIdx.foldl assignNames ([], [])
     let names := namesRev.reverse
-    -- Each conjunct becomes its own one-element binder group
+    -- Each antecedent becomes its own one-element binder group
     -- so the resulting Pi chain is rendered as a sequence of
     -- `(hᵢ : Aᵢ)` Lean binders.
     (names.zip antecedents).foldr
-      (fun (name, conjunct) acc =>
-        .forall_ [([name], some conjunct.toLean)] acc)
+      (fun (name, ant) acc =>
+        .forall_ [([name], some ant.toLean)] acc)
       goal
-  | e => e
+  fun e => match e with
+  | .forall_ binders body =>
+    .forall_ binders (bindAntecedentNames body)
+  | .implies (.and l r) goal =>
+    let antecedents := flattenAnd (.and l r)
+    nameAndBind antecedents (bindAntecedentNames goal)
+  | .implies _ _ =>
+    let (antecedents, goal) := flattenImplies e
+    if antecedents.isEmpty then e
+    else nameAndBind antecedents (bindAntecedentNames goal)
+  | _ => e
 
 end DslExpr
 
