@@ -50,6 +50,13 @@ structure RenderCtx where
       functions without a custom display. -/
   resolveFnDisplay : String → Option (List DisplayPart × List String) :=
     fun _ => none
+  /-- For a `defInductiveProperty` name, return its `\hypertarget`
+      anchor target (e.g. `"fn:Reachable"`) so call sites that
+      render via the inductive property's `displayed` template
+      can wrap the result in a hyperlink. Returns `none` for
+      names that don't refer to a registered inductive property. -/
+  inductivePropertyAnchor : String → Option String :=
+    fun _ => none
   /-- Look up a struct's display template and field names by
       struct name. Used to render constructor expressions with
       the struct's pretty form: each `#field` reference in the

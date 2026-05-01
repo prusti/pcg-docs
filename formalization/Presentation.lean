@@ -361,6 +361,11 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
           ip.inductivePropertyDef.display.map fun parts =>
             (parts, ip.inductivePropertyDef.params.map (·.name))
       (fnHit.orElse propHit).orElse indHit
+    inductivePropertyAnchor := fun n =>
+      (reg.inductiveProperties.find?
+          (·.inductivePropertyDef.name == n)).bind fun ip =>
+        ip.inductivePropertyDef.display.map fun _ =>
+          s!"fn:{ip.inductivePropertyDef.name}"
     resolveStructDisplay := fun n =>
       (reg.structs.find? (·.structDef.name == n)).bind fun s =>
         s.structDef.display.map fun parts =>

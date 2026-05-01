@@ -679,7 +679,21 @@ partial def toDoc
                 Option (DslExpr × MathDoc) :=
               argMap.find? (·.1 == name) |>.map
                 fun (_, e) => (e, go e)
-            some (renderDisplayParts parts resolveArg)
+            let rendered := renderDisplayParts parts resolveArg
+            -- For `defInductiveProperty`s with a custom
+            -- `displayed` template (e.g. `Reachable a b`
+            -- rendering as `a ⇝* b`), wrap the rendered
+            -- math in a hyperlink to the inductive
+            -- property's definition so PDF readers can
+            -- click through to it. The anchor lookup
+            -- returns `none` for non-inductive-property
+            -- callees, so regular fn / property displays
+            -- pass through unchanged.
+            match ctx.inductivePropertyAnchor short with
+            | some anchor =>
+              some (.doc
+                (.link (.math rendered) s!"#{anchor}"))
+            | none => some rendered
           else none
         | none => none
       | _ => none
