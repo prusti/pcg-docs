@@ -860,5 +860,6 @@ partial def toDoc
       | .break_ => .seq [.break_, go body]
       | .indent n => .indent n (go body)
       | .breakIndent n => .seq [.break_, .indent n (go body)]
+      | .breakAfter => .seq [go body, .break_]
 
 end DslExpr

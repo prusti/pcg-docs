@@ -123,12 +123,27 @@ syntax:50 fnExpr:51 " ∈ " fnExpr:51 : fnExpr
 -- Prec 35 (matching Lean's standard) so `a < b ∧ c < d` parses
 -- as `(a < b) ∧ (c < d)` rather than `a < (b ∧ c < d)`.
 syntax:35 fnExpr:36 " ∧ " fnExpr:35 : fnExpr
+-- Conjunction with a soft line break before the `∧`. Renders
+-- as `a ⏎ ∧ b` (the operator starts the next line) rather
+-- than `a ∧ ⏎ b` (the prefix form `a ∧ ‹break› b`).
+-- The atom is intentionally `‹break›∧` (no space) to keep the
+-- token disjoint from the leading `‹break›` prefix marker —
+-- without that, the parser cannot decide between the two when
+-- chaining (`a ‹break› ∧ b ‹break› → c`) and bails on the
+-- `‹break›` after `b`.
+syntax:35 fnExpr:36 " ‹break›∧ " fnExpr:35 : fnExpr
 -- Logical disjunction: expr ∨ expr. Prec 30, looser than `∧`.
 syntax:30 fnExpr:31 " ∨ " fnExpr:30 : fnExpr
 -- Implication: expr → expr. Prec 25, right-associative —
 -- looser than `∨` so `a ∨ b → c ∨ d` parses as
 -- `(a ∨ b) → (c ∨ d)`.
 syntax:25 fnExpr:26 " → " fnExpr:25 : fnExpr
+-- Implication with a soft line break before the `→`.
+-- Same right-associativity / precedence as the bare `→`;
+-- emits the break so the operator starts the next line.
+-- Spelled `‹break›→` for the same disambiguation reason as
+-- `‹break›∧` above.
+syntax:25 fnExpr:26 " ‹break›→ " fnExpr:25 : fnExpr
 -- Universal-quantifier binder group:
 --   * `x` — a single untyped variable.
 --   * `x y z ∈ T` — one or more variables sharing a type.
@@ -431,10 +446,16 @@ partial def parseExpr
     pure (.memberOf (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr ∧ $r:fnExpr) =>
     pure (.and (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr ‹break›∧ $r:fnExpr) =>
+    pure (.and (.formatHint .breakAfter (← parseExpr l))
+      (← parseExpr r))
   | `(fnExpr| $l:fnExpr ∨ $r:fnExpr) =>
     pure (.or (← parseExpr l) (← parseExpr r))
   | `(fnExpr| $l:fnExpr → $r:fnExpr) =>
     pure (.implies (← parseExpr l) (← parseExpr r))
+  | `(fnExpr| $l:fnExpr ‹break›→ $r:fnExpr) =>
+    pure (.implies (.formatHint .breakAfter (← parseExpr l))
+      (← parseExpr r))
   | `(fnExpr| ∀∀ $groups:fnForallGroup,* . $b:fnExpr) => do
     -- Each binder group is either a single untyped ident or
     -- one-or-more idents sharing a type via `∈ T`. The typed

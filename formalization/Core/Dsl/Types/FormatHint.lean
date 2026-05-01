@@ -19,4 +19,13 @@ inductive FormatHint where
   | indent (n : Nat)
   /-- Soft break followed by indentation on the new line. -/
   | breakIndent (n : Nat)
+  /-- Insert a soft line break *after* the wrapped expression.
+      Emitted when the user wrote `‹break›` immediately before
+      an operator (`a ‹break› → b`, `a ‹break› ∧ b`): the
+      break attaches to the left operand so the rendered form
+      starts the next line with the operator (`a ⏎ → b`)
+      rather than starting it with the right operand
+      (`a → ⏎ b`, the layout produced by the prefix form
+      `a → ‹break› b`). -/
+  | breakAfter
   deriving Repr, Inhabited, Lean.Quote

@@ -201,6 +201,19 @@ elab "checkCallSiteGotoDef" : command => do
             ‹break› n < 10 ∧ \
             ‹break› testGuard ‹n›"
     `Tests.DslGotoDef.Wrap.testGuard
+  -- Same shape, but with the `‹break›` placed *before* the
+  -- operator rather than the next conjunct. Exercises the
+  -- `‹break›∧` and `‹break›→` parser rules.
+  checkCallSiteGotoDef
+    "defProperty testPropBreakBeforeOp \
+       (.plain \"testPropBreakBeforeOp\") \
+       short (.seq [.plain \"short\"]) \
+       long (.seq [.plain \"long\"]) \
+       := ∀∀ n ∈ Nat . \
+            n < 10 ‹break›∧ \
+            testGuard ‹n› \
+            ‹break›→ testGuard ‹n + 1›"
+    `Tests.DslGotoDef.Wrap.testGuard
 
 namespace Wrap
 checkCallSiteGotoDef
