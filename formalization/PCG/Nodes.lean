@@ -1,7 +1,7 @@
 import Core.Dsl.Descr
 import PCG.Nodes.AnalysisLocation
 import PCG.Nodes.LifetimeProjection
-import PCG.Nodes.LifetimeProjectionLabel
+import PCG.Nodes.LPLabel
 import PCG.Nodes.LocalLifetimeProjection
 import PCG.Nodes.MaybeLabelled
 import PCG.Nodes.PcgLifetimeProjection

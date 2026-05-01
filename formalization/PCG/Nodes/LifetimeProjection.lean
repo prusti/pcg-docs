@@ -1,5 +1,5 @@
 import Core.Dsl.DefStruct
-import PCG.Nodes.LifetimeProjectionLabel
+import PCG.Nodes.LPLabel
 
 defStruct LifetimeProjection {B I}
     (.text "lp", .text "LifetimeProjection")
@@ -20,5 +20,5 @@ where
   | base "Base of the projection." : B
   | index "Index of the projection." : I
   | label "Optional lifetime projection label."
-      : Option LifetimeProjectionLabel
+      : Option LPLabel
   deriving DecidableEq, BEq, Repr, Hashable

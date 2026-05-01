@@ -2,7 +2,7 @@ import Core.Dsl.DefStruct
 import MIR.Body
 import MIR.Region
 import MIR.Ty
-import PCG.Nodes.LifetimeProjectionLabel
+import PCG.Nodes.LPLabel
 import PCG.Nodes.MaybeLabelled
 
 defStruct BorrowEdge {P}
@@ -45,5 +45,5 @@ where
       reference." : Region
   | assignedLPLabel "Optional label for the lifetime \
       projection of the assigned reference."
-      : Option LifetimeProjectionLabel
+      : Option LPLabel
   deriving BEq, Repr, Hashable

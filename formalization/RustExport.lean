@@ -65,7 +65,7 @@ use formal_mir::statements::Statement;
 "use formal_mir::body::Location;
 use formal_mir::region::Region;
 use formal_mir::ty::Mutability;
-use crate::lifetimeprojectionlabel::LifetimeProjectionLabel;
+use crate::lplabel::LPLabel;
 use crate::maybelabelled::MaybeLabelled;
 ")
   , ("PCG", "snapshotlocation", .raw
