@@ -37,14 +37,16 @@ defProperty FramingInvariant (.plain "FramingInvariant")
   short
     (doc! "the framing invariant holds between {m} and {pcg}")
   long
-    (doc! "Holds when, for every pair of places assigned the \
-           exclusive capability by {pcg} (interpreted in {m}'s \
-           current body), the allocations backing those places \
-           in {m} do not overlap.")
+    (doc! "Holds when, for every pair of distinct places \
+           assigned the exclusive capability by {pcg} \
+           (interpreted in {m}'s current body), the \
+           allocations backing those places in {m} do not \
+           overlap.")
   (m "The machine state." : Machine)
   (pcg "The PCG data, interpreted in m's current body."
       : PcgData Place)
   := ∀∀ p p' ∈ Place, a a' ∈ Allocation .
+       ‹break› p ≠ p' ∧
        ‹break› Runnable ‹m› ∧
        ‹break› hasCapability
          ‹pcg,
@@ -92,18 +94,20 @@ defProperty NoAliasInvariant (.plain "NoAliasInvariant")
   short
     (doc! "the no-alias invariant holds between {m} and {pcg}")
   long
-    (doc! "Holds when, for every pair of valid places in {m}'s \
-           current body backed by allocations in {m}, either \
-           their corresponding PCG nodes are connected in {pcg} \
-           or the backing allocations have non-overlapping \
-           address ranges. The conclusion is phrased as a \
-           disjunction so its contrapositive reads as the \
-           disconnected-implies-disjoint statement without \
-           needing a negation operator in the DSL.")
+    (doc! "Holds when, for every pair of distinct valid \
+           places in {m}'s current body backed by allocations \
+           in {m}, either their corresponding PCG nodes are \
+           connected in {pcg} or the backing allocations have \
+           non-overlapping address ranges. The conclusion is \
+           phrased as a disjunction so its contrapositive \
+           reads as the disconnected-implies-disjoint \
+           statement without needing a negation operator in \
+           the DSL.")
   (m "The machine state." : Machine)
   (pcg "The PCG data, interpreted in m's current body."
       : PcgData Place)
   := ∀∀ p p' ∈ Place, a a' ∈ Allocation .
+       ‹break› p ≠ p' ∧
        ‹break› Runnable ‹m› ∧
        ‹break› validPlace
          ‹currBody ‹m, lean_proof("h_Runnable")›, p› ∧
