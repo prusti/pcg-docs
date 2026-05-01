@@ -75,17 +75,18 @@ defProperty FramingInvariant' (.plain "FramingInvariant'")
   (m "The machine state." : Machine)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
-  := ‹break› programContains
+  := ‹break› Runnable ‹m› ∧
+     ‹break› programContains
        ‹par,
-        currBody ‹m, lean_proof("sorry")›,
-        currPC ‹m, lean_proof("sorry")››
-     → ‹break› FramingInvariant
-         ‹m,
-          pcgEntryStateAt
-            ‹par,
-             currBody ‹m, lean_proof("sorry")›,
-             currPC ‹m, lean_proof("sorry")›,
-             lean_proof("h_programContains")››
+        currBody ‹m, lean_proof("h_Runnable")›,
+        currPC ‹m, lean_proof("h_Runnable")›› ∧
+     ‹break› FramingInvariant
+       ‹m,
+        pcgEntryStateAt
+          ‹par,
+           currBody ‹m, lean_proof("h_Runnable")›,
+           currPC ‹m, lean_proof("h_Runnable")›,
+           lean_proof("h_programContains")››
 
 defProperty Framing (.plain "Framing")
   short

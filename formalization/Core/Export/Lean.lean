@@ -503,6 +503,45 @@ private partial def flattenImplies
     (l :: rest, goal)
   | e => ([], e)
 
+/-- Whether `e` (or any subterm) contains a `lean_proof("h_…")`
+    reference, indicating the user expects the surrounding
+    property body to introduce named-Pi hypotheses (`h_<head>`
+    binders) that the reference resolves against. Used by
+    `bindAntecedentNames` to decide whether a bare ∧-chain
+    should curry into Pi-binders or stay as a pure conjunction
+    (e.g. `validPlace`'s `_ < _ ∧ validProjTy …`, where
+    callers project via `h_validPlace.2` and currying would
+    silently break them). -/
+private partial def hasHypothesisRef : DslExpr → Bool
+  | .leanProof t => t.startsWith "h_"
+  | .var _ | .natLit _ | .true_ | .false_ | .emptyList
+  | .none_ | .emptySet | .sorryProof => false
+  | .some_ x | .dot x _ | .field x _ | .setSingleton x
+  | .forall_ _ x | .lambda _ x => hasHypothesisRef x
+  | .cons l r | .append l r | .flatMap l r | .map l r
+  | .index l r | .indexBang l r | .lt l r | .le l r
+  | .add l r | .sub l r | .mul l r | .div l r
+  | .setUnion l r | .and l r | .or l r | .implies l r
+  | .neq l r | .eq l r | .propEq l r | .memberOf l r =>
+    hasHypothesisRef l || hasHypothesisRef r
+  | .anyList l _ b | .setAll l _ b | .setFlatMap l _ b
+  | .letIn _ l b | .letBindIn _ l b =>
+    hasHypothesisRef l || hasHypothesisRef b
+  | .ifThenElse c t f =>
+    hasHypothesisRef c || hasHypothesisRef t || hasHypothesisRef f
+  | .foldlM fn init list =>
+    hasHypothesisRef fn || hasHypothesisRef init
+      || hasHypothesisRef list
+  | .mkStruct _ args => args.any hasHypothesisRef
+  | .call fn args =>
+    hasHypothesisRef fn || args.any hasHypothesisRef
+  | .ineqChain _ es => es.any hasHypothesisRef
+  | .match_ s arms =>
+    hasHypothesisRef s || arms.any (hasHypothesisRef ·.2)
+  | .structUpdate r _ v =>
+    hasHypothesisRef r || hasHypothesisRef v
+  | .formatHint _ b => hasHypothesisRef b
+
 /-- Rewrite a property body's antecedent chain into a sequence of
     named-binder Pi binders so that earlier preconditions are in
     scope as `h_<head>` hypotheses for later antecedents and the
@@ -556,6 +595,27 @@ partial def bindAntecedentNames : DslExpr → DslExpr :=
     let (antecedents, goal) := flattenImplies e
     if antecedents.isEmpty then e
     else nameAndBind antecedents (bindAntecedentNames goal)
+  -- Bare top-level `A₁ ∧ A₂ ∧ … ∧ Aₙ` (no enclosing `→`): when
+  -- the body references some `lean_proof("h_…")` between
+  -- clauses, elect the rightmost conjunct as the implicit goal
+  -- and the others as named-Pi antecedents. This lets a
+  -- `defProperty` body written as a ∧-chain (e.g. `Framing'`,
+  -- `NoAlias'`, `FramingInvariant'`) carry hypothesis
+  -- references between clauses without an explicit `→ goal` at
+  -- the end. ∧-chains that don't carry hypothesis references
+  -- (e.g. `validPlace`'s `_ < _ ∧ validProjTy …`, where
+  -- callers project via `h_validPlace.2`) keep their pure
+  -- conjunction shape — currying them would break those
+  -- projections.
+  | .and l r =>
+    if hasHypothesisRef e then
+      let conjuncts := flattenAnd (.and l r)
+      match conjuncts.dropLast, conjuncts.getLast? with
+      | _, none => e
+      | [], _ => e
+      | antecedents, some goal =>
+        nameAndBind antecedents (bindAntecedentNames goal)
+    else e
   | _ => e
 
 end DslExpr
