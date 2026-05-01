@@ -1,3 +1,4 @@
+import Core.Doc.Interp
 import Properties.Definitions
 
 -- See `Properties.Definitions` for the rationale on `open
@@ -26,22 +27,18 @@ re-quantify. -/
 
 defProperty Framing' (.plain "Framing'")
   short (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (.seq [.plain "the framing instance for ",
-           prDoc, .plain ", ", parDoc, .plain ", ", mDoc,
-           .plain ", places ", pDoc, .plain " and ", p'Doc,
-           .plain ", allocations ", aDoc, .plain " and ",
-           a'Doc])
+    (doc! "the framing instance for {prDoc}, {parDoc}, {mDoc}, \
+           places {pDoc} and {p'Doc}, \
+           allocations {aDoc} and {a'Doc}")
   long (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (.seq [.plain "Holds when ", parDoc, .plain " describes ",
-           prDoc, .plain ", ", mDoc, .plain " is a runnable \
-           machine reachable from the initial machine of ",
-           prDoc, .plain " whose currently-executing body and \
-           program counter are tracked by ", parDoc,
-           .plain ", the entry-state PCG at that program \
-           point assigns the exclusive capability to both \
-           valid places ", pDoc, .plain " and ", p'Doc,
-           .plain ", and their backing allocations ", aDoc,
-           .plain " and ", a'Doc, .plain " do not overlap."])
+    (doc! "Holds when {parDoc} describes {prDoc}, {mDoc} is a \
+           runnable machine reachable from the initial machine \
+           of {prDoc} whose currently-executing body and \
+           program counter are tracked by {parDoc}, the \
+           entry-state PCG at that program point assigns the \
+           exclusive capability to both valid places {pDoc} \
+           and {p'Doc}, and their backing allocations {aDoc} \
+           and {a'Doc} do not overlap.")
   (pr "The program." : Program)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
@@ -102,27 +99,23 @@ defProperty Framing (.plain "Framing")
 
 defProperty NoAlias' (.plain "NoAlias'")
   short (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (.seq [.plain "the no-alias instance for ",
-           prDoc, .plain ", ", parDoc, .plain ", ", mDoc,
-           .plain ", places ", pDoc, .plain " and ", p'Doc,
-           .plain ", allocations ", aDoc, .plain " and ",
-           a'Doc])
+    (doc! "the no-alias instance for {prDoc}, {parDoc}, {mDoc}, \
+           places {pDoc} and {p'Doc}, \
+           allocations {aDoc} and {a'Doc}")
   long (prDoc, parDoc, mDoc, pDoc, p'Doc, aDoc, a'Doc) =>
-    (.seq [.plain "Holds when ", parDoc, .plain " describes ",
-           prDoc, .plain ", ", mDoc, .plain " is a runnable \
-           machine reachable from the initial machine of ",
-           prDoc, .plain " whose currently-executing body and \
-           program counter are tracked by ", parDoc,
-           .plain ", and for the two valid places ", pDoc,
-           .plain " and ", p'Doc, .plain " backed by \
-           allocations ", aDoc, .plain " and ", a'Doc,
-           .plain ", either their PCG nodes are connected in \
-           the entry-state PCG at that program point or the \
-           allocations have non-overlapping address ranges. \
-           The final clause is phrased as a disjunction so the \
-           contrapositive reads as the disconnected-implies-\
-           disjoint statement without needing a negation \
-           operator in the DSL."])
+    (doc! "Holds when {parDoc} describes {prDoc}, {mDoc} is a \
+           runnable machine reachable from the initial machine \
+           of {prDoc} whose currently-executing body and \
+           program counter are tracked by {parDoc}, and for \
+           the two valid places {pDoc} and {p'Doc} backed by \
+           allocations {aDoc} and {a'Doc}, either their PCG \
+           nodes are connected in the entry-state PCG at that \
+           program point or the allocations have \
+           non-overlapping address ranges. The final clause is \
+           phrased as a disjunction so the contrapositive \
+           reads as the disconnected-implies-disjoint \
+           statement without needing a negation operator in \
+           the DSL.")
   (pr "The program." : Program)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
