@@ -1,5 +1,6 @@
 import MIR.ConstValue
 import OpSem.Pointer
+import Core.Dsl.DefFn
 
 defEnum Value (.raw "v", .cal (.raw "V"))
   "Values"
@@ -28,3 +29,19 @@ where
      `functions` map."
     (.text "fn ", #name (.raw "f"))
   deriving Repr, BEq, Hashable
+
+defFn valueToPtr (.plain "valueToPtr")
+  (.plain "Extract the `ThinPointer` from a `Value.ptr`. \
+    Returns `None` for any other variant.")
+  (v "The value." : Value)
+  : Option ThinPointer where
+  | .ptr p => Some p
+  | _ => None
+
+defFn valueToInt (.plain "valueToInt")
+  (.plain "Extract the `IntValue` from a `Value.int`. \
+    Returns `None` for any other variant.")
+  (v "The value." : Value)
+  : Option IntValue where
+  | .int iv => Some iv
+  | _ => None

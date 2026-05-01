@@ -60,23 +60,47 @@ defFn evalProjs (.plain "evalProjs")
     and updates the type to the field's type; ",
     .code ".downcast",
     .plain " is a no-op on the place pointer — variant \
-    selection only affects subsequent typed access, not \
-    the address itself. ", .code ".deref", .plain " and ",
+    selection only affects subsequent typed access. ",
+    .code ".deref",
+    .plain " loads the pointer stored at the current place \
+    via ", .code "decodePtr",
+    .plain " and continues evaluation at the loaded \
+    pointer's address (the new type is the pointee). ",
     .code ".index",
-    .plain " need to load values out of memory and are not \
-    yet handled here (they fall through to ", .code "None",
-    .plain ")."])
+    .plain " loads the index local's value and advances the \
+    address by `index * elemSize`."])
+  (m "The machine state." : Machine)
   (place "The current place pointer." : PlacePtr)
   (ty "The current type." : Ty)
   (projs "The remaining projections." : List ProjElem)
+  requires Runnable(m)
   : Option (PlacePtr × Ty) where
-  | place ; ty ; [] => Some ⟨place, ty⟩
-  | place ; ty ; (.field idx _) :: rest =>
+  | _ ; place ; ty ; [] => Some ⟨place, ty⟩
+  | m ; place ; ty ; (.field idx _) :: rest =>
       let ⟨fp, ft⟩ ← evalField ‹place, idx, ty› ;
-      evalProjs ‹fp, ft, rest›
-  | place ; ty ; (.downcast _) :: rest =>
-      evalProjs ‹place, ty, rest›
-  | _ ; _ ; _ :: _ => None
+      evalProjs ‹m, fp, ft, rest›
+  | m ; place ; ty ; (.downcast _) :: rest =>
+      evalProjs ‹m, place, ty, rest›
+  | m ; place ; .ref _ _ pointee ; .deref :: rest =>
+      let bytes := Memory.load ‹m↦mem, place↦ptr, 8› ;
+      let ptr ← decodePtr ‹bytes› ;
+      evalProjs ‹m, PlacePtr⟨ptr⟩, pointee, rest›
+  | m ; place ; .box pointee ; .deref :: rest =>
+      let bytes := Memory.load ‹m↦mem, place↦ptr, 8› ;
+      let ptr ← decodePtr ‹bytes› ;
+      evalProjs ‹m, PlacePtr⟨ptr⟩, pointee, rest›
+  | m ; place ; .array elem _ ; (.index lcl) :: rest =>
+      let elemSz ← Ty.bytes ‹elem› ;
+      let idxPp ← evalLocal
+        ‹m, lcl, lean_proof("h_Runnable")› ;
+      let idxBytes := Memory.load ‹m↦mem, idxPp↦ptr, 8› ;
+      let idxRaw ← data ‹idxBytes› ;
+      let off := decodeLeUnsigned ‹idxRaw› * elemSz ;
+      let newPtr := ThinPointer⟨
+        Address⟨place↦ptr↦addr↦addr + off⟩,
+        place↦ptr↦provenance⟩ ;
+      evalProjs ‹m, PlacePtr⟨newPtr⟩, elem, rest›
+  | _ ; _ ; _ ; _ :: _ => None
 
 defFn evalPlace (.plain "evalPlace")
   (.seq [.plain "Evaluate a place to a place pointer \
@@ -93,6 +117,7 @@ defFn evalPlace (.plain "evalPlace")
     let rootPlace ← evalLocal
       ‹machine, place↦«local», lean_proof("h_Runnable")› ;
     let rootTy := frame↦body↦decls ! place↦«local»↦index ;
-    evalProjs ‹rootPlace, rootTy, place↦projection›
+    evalProjs ‹machine, rootPlace, rootTy, place↦projection,
+               lean_proof("h_Runnable")›
 
 end Machine

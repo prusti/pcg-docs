@@ -147,11 +147,20 @@ abbrev ParamEnv := List Constraint
 namespace Ty
 
 defFn bytes (.plain "bytes")
-  (.plain "The size of a type in bytes, if known.")
+  (.plain "The size of a type in bytes, if known. \
+    References and `Box` pointers occupy 8 bytes (the size \
+    of an address). Arrays multiply the element size by \
+    the length, propagating `None` when the element has \
+    unknown size.")
   (τ "The type." : Ty)
   : Option Nat where
   | .bool => Some 1
   | .int it => Some (sizeBytes ‹it↦size›)
+  | .ref _ _ _ => Some 8
+  | .box _ => Some 8
+  | .array elem n =>
+      let sz ← bytes ‹elem› ;
+      Some (sz * n)
   | _ => None
 
 defFn regions (.plain "regions")

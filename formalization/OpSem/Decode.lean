@@ -23,11 +23,14 @@ open AbstractByte in
 defFn data (.plain "data")
   (.seq [.plain "Extract the concrete byte values from a \
     sequence of abstract bytes. Returns ", .code "None",
-    .plain " if any byte is uninitialised."])
+    .plain " if any byte is uninitialised or carries pointer \
+    provenance — pointer-fragment bytes don't have a \
+    standalone concrete byte value."])
   (bs "The abstract bytes." : List AbstractByte)
   : Option (List UInt8) where
   | [] => Some []
   | .uninit :: _ => None
+  | .ptrFragment _ _ _ :: _ => None
   | .init v :: rest =>
       let vs ← data ‹rest› ;
       Some (v :: vs)
@@ -107,11 +110,35 @@ defFn encodeInt (.plain "encode_int")
   : List AbstractByte :=
     encodeLeUnsigned ‹intValueToNat ‹iv›, intValueBytes ‹iv››
 
+defFn decodePtr (.plain "decode_ptr")
+  (.seq [.plain "Decode an 8-byte pointer encoding back \
+    into a ", .code "ThinPointer",
+    .plain ". Each input byte is expected to be a ",
+    .code "ptrFragment",
+    .plain " carrying the full address and provenance index \
+    redundantly (the encoder writes the same pair into all \
+    eight fragments), so reading the first fragment is \
+    sufficient. Returns ", .code "None", .plain " if the \
+    list is not exactly one ", .code "ptrFragment",
+    .plain " followed by seven trailing bytes (their \
+    contents are not inspected)."])
+  (bs "The bytes to decode." : List AbstractByte)
+  : Option ThinPointer where
+  | .ptrFragment provIdx addr _ :: _ =>
+      let prov := match provIdx with
+        | .some i => Some Provenance⟨AllocId⟨i⟩⟩
+        | .none => None
+        end ;
+      Some ThinPointer⟨Address⟨addr⟩, prov⟩
+  | _ => None
+
 defFn decode (.plain "decode")
   (.seq [.plain "Decode a byte sequence as a runtime \
     value of the given type. Returns ", .code "None",
     .plain " if the type is not decodable or the bytes \
-    cannot be decoded."])
+    cannot be decoded. References and `Box` pointers \
+    decode through ", .code "decodePtr",
+    .plain " into ", .code "Value.ptr", .plain "."])
   (ty "The type to decode as." : Ty)
   (bs "The bytes to decode." : List AbstractByte)
   : Option Value where
@@ -121,6 +148,12 @@ defFn decode (.plain "decode")
   | .int it ; bs =>
       let iv ← decodeInt ‹it, bs› ;
       Some (Value.int‹iv›)
+  | .ref _ _ _ ; bs =>
+      let ptr ← decodePtr ‹bs› ;
+      Some (Value.ptr‹ptr›)
+  | .box _ ; bs =>
+      let ptr ← decodePtr ‹bs› ;
+      Some (Value.ptr‹ptr›)
   | _ ; _ => None
 
 open AbstractByte in
@@ -135,17 +168,43 @@ defFn encodeBool (.plain "encode_bool")
   | true => [AbstractByte.init‹1›]
   | false => [AbstractByte.init‹0›]
 
+defFn encodePtr (.plain "encode_ptr")
+  (.seq [.plain "Encode a ", .code "ThinPointer",
+    .plain " as eight ", .code "ptrFragment",
+    .plain " bytes. Each fragment redundantly carries the \
+    full address and the optional allocation index of the \
+    pointer's provenance plus its position within the \
+    pointer (0–7), so ", .code "decodePtr",
+    .plain " can reconstruct the pointer from the head \
+    fragment alone."])
+  (ptr "The pointer to encode." : ThinPointer)
+  : List AbstractByte :=
+    let prov := ptr↦provenance ;
+    let provIdx := match prov with
+      | .some p => Some p↦id↦index
+      | .none => None
+      end ;
+    let addr := ptr↦addr↦addr ;
+    [AbstractByte.ptrFragment‹provIdx, addr, 0›,
+     AbstractByte.ptrFragment‹provIdx, addr, 1›,
+     AbstractByte.ptrFragment‹provIdx, addr, 2›,
+     AbstractByte.ptrFragment‹provIdx, addr, 3›,
+     AbstractByte.ptrFragment‹provIdx, addr, 4›,
+     AbstractByte.ptrFragment‹provIdx, addr, 5›,
+     AbstractByte.ptrFragment‹provIdx, addr, 6›,
+     AbstractByte.ptrFragment‹provIdx, addr, 7›]
+
 defFn encode (.plain "encode")
   (.plain "Encode a runtime value as a byte sequence. \
-   Returns the empty list for values that cannot \
-   be encoded (tuples, arrays, pointers, function \
-   pointers — pointer round-tripping through abstract \
-   bytes is not yet modelled).")
+   Returns the empty list for tuples, arrays, and function \
+   pointers (compound values aren't laid out as flat bytes in \
+   this model; function-pointer encoding is not modelled). \
+   Pointers go through `encodePtr`.")
   (v "The value to encode." : Value)
   : List AbstractByte where
   | .bool b => encodeBool ‹b›
   | .int iv => encodeInt ‹iv›
   | .tuple _ => []
   | .array _ => []
-  | .ptr _ => []
+  | .ptr p => encodePtr ‹p›
   | .fnPtr _ => []
