@@ -94,7 +94,7 @@ defFn analyzeProgram (.plain "analyzeProgram")
   (.seq [.plain "Run ", Doc.refLinkOf @analyzeBody "analyzeBody",
     .plain " on every function body in the program, \
     accumulating the per-body results into a ",
-    .code "ProgAnalysisResults",
+    Doc.refLinkOf @ProgAnalysisResults "ProgAnalysisResults",
     .plain ". Returns ", .code "None",
     .plain " when ", Doc.refLinkOf @analyzeBody "analyzeBody",
     .plain " fails on any body."])
@@ -107,7 +107,7 @@ end Program
 
 defInductiveProperty describes
   "Program Analysis Results Describe a Program"
-  (.seq [.plain "Connects a ", .code "ProgAnalysisResults",
+  (.seq [.plain "Connects a ", Doc.refLinkOf @ProgAnalysisResults "ProgAnalysisResults",
     .plain " value to the program it analyses: ",
     .code "par", .plain " describes ", .code "p",
     .plain " when running ", .code "analyzeProgram",

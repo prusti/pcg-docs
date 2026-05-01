@@ -21,7 +21,7 @@ defEnum StepResult (.raw "sr", .text "StepResult")
   "Step Results"
   (.seq [.plain "The outcome of a single execution step. ",
     .code "done", .plain " indicates that the program has \
-      finished, carrying an ", .code "ExecutionResult",
+      finished, carrying an ", Doc.refLinkOf @ExecutionResult "ExecutionResult",
     .plain " describing how it ended; ", .code "ok",
     .plain " indicates that the step produced a new machine \
       state and execution should continue."])

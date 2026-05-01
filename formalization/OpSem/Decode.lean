@@ -69,7 +69,7 @@ def intValueOfNat : Nat → Nat → Option IntValue
 
 defFn intValueToNat (.plain "int_value_to_nat")
   (.seq [.plain "Extract the nat payload of an ",
-    .code "IntValue", .plain "."])
+    Doc.refLinkOf @IntValue "IntValue", .plain "."])
   (iv "The integer value." : IntValue)
   : Nat where
   | .u8 x => x · toNat
@@ -91,7 +91,7 @@ defFn intValueBytes (.plain "int_value_bytes")
 
 defFn decodeInt (.plain "decode_int")
   (.seq [.plain "Decode a byte sequence as an ",
-    .code "IntValue", .plain ". Endianness is hardcoded \
+    Doc.refLinkOf @IntValue "IntValue", .plain ". Endianness is hardcoded \
     to little-endian. Returns ", .code "None",
     .plain " on length mismatch, uninit bytes, signed \
     types, or unsupported sizes."])
@@ -104,7 +104,7 @@ defFn decodeInt (.plain "decode_int")
       intValueOfNat ‹sizeBytes ‹it↦size›, decodeLeUnsigned ‹raw››
 
 defFn encodeInt (.plain "encode_int")
-  (.seq [.plain "Encode an ", .code "IntValue",
+  (.seq [.plain "Encode an ", Doc.refLinkOf @IntValue "IntValue",
     .plain " as a little-endian byte sequence."])
   (iv "The integer value to encode." : IntValue)
   : List AbstractByte :=
@@ -112,7 +112,7 @@ defFn encodeInt (.plain "encode_int")
 
 defFn decodePtr (.plain "decode_ptr")
   (.seq [.plain "Decode an 8-byte pointer encoding back \
-    into a ", .code "ThinPointer",
+    into a ", Doc.refLinkOf @ThinPointer "ThinPointer",
     .plain ". Each input byte is expected to be a ",
     .code "ptrFragment",
     .plain " carrying the full address and provenance index \
@@ -169,7 +169,7 @@ defFn encodeBool (.plain "encode_bool")
   | false => [AbstractByte.init‹0›]
 
 defFn encodePtr (.plain "encode_ptr")
-  (.seq [.plain "Encode a ", .code "ThinPointer",
+  (.seq [.plain "Encode a ", Doc.refLinkOf @ThinPointer "ThinPointer",
     .plain " as eight ", .code "ptrFragment",
     .plain " bytes. Each fragment redundantly carries the \
     full address and the optional allocation index of the \

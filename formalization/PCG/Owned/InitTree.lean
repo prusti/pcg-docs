@@ -63,9 +63,9 @@ defFn itPlaces (.plain "itPlaces")
     initialisation tree from a base local along an accumulated \
     projection. Each leaf contributes a single place; internal \
     nodes extend the projection with the corresponding ",
-    .code "ProjElem",
+    Doc.refLinkOf @ProjElem "ProjElem",
     .plain " step. Constant-index and subslice guided \
-    expansions have no ", .code "ProjElem",
+    expansions have no ", Doc.refLinkOf @ProjElem "ProjElem",
     .plain " counterpart and leave the projection unchanged."])
   (it "The initialisation tree." : InitTree)
   (base "The base local the tree is rooted at." : Local)

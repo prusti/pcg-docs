@@ -10,7 +10,7 @@ defEnum StmtOrTerminator
     Doc.defMath (.raw "sot")
       (.text "StmtOrTerminator"),
     .plain " is the single MIR program element observed at \
-     one ", .code "Location", .plain ": the statement at \
+     one ", Doc.refLinkOf @Location "Location", .plain ": the statement at \
      ", .code "stmtIdx", .plain " when that index is in the \
      block's statement list, otherwise the block's \
      terminator (when ", .code "stmtIdx",

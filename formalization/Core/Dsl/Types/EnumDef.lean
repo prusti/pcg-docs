@@ -247,11 +247,13 @@ def formalDefLatex (d : EnumDef)
   let rows : List (List LatexMath) :=
     if d.useLongForm then longRows d knownTypes
     else shortRows d
-  -- Invisible hypertarget so cross-references to this type
-  -- (e.g. from function signatures) can link here via
-  -- `\hyperlink{type:<name>}{...}`.
+  -- Invisible hypertargets so cross-references to this type
+  -- (e.g. from function signatures, or via the `doc!` macro's
+  -- `#X` shorthand which resolves to `fn:X`) can link here via
+  -- `\hyperlink{type:<name>}{...}` or `\hyperlink{fn:<name>}{...}`.
   let typeTarget : Latex :=
-    .raw s!"\\hypertarget\{type:{d.name.name}}\{}"
+    .raw s!"\\hypertarget\{type:{d.name.name}}\{}\
+            \\hypertarget\{fn:{d.name.name}}\{}"
   let typeParamsLM : LatexMath :=
     .seq (d.typeParams.flatMap fun p =>
       [.raw "~", .var p])

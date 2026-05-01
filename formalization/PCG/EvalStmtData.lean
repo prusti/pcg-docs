@@ -1,4 +1,5 @@
 import Core.Dsl.DefStruct
+import PCG.EvalStmtPhase
 
 defStruct EvalStmtData {T}
     (.text "esd",
@@ -11,7 +12,7 @@ defStruct EvalStmtData {T}
     .plain " bundles four values of type ",
     .math (.text "T"),
     .plain ", one for each ",
-    .code "EvalStmtPhase",
+    Doc.refLinkOf @EvalStmtPhase "EvalStmtPhase",
     .plain ": before and after the operands are evaluated, \
      and before and after the main effect of the statement. \
      The element type ",

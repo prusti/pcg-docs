@@ -29,11 +29,11 @@ defFn caseTarget (.plain "caseTarget")
 namespace Machine
 
 defFn fnFromPtr (.plain "fnFromPtr")
-  (.seq [.plain "Resolve a function-pointer ", .code "Value",
+  (.seq [.plain "Resolve a function-pointer ", Doc.refLinkOf @Value "Value",
     .plain " against the machine's program: ",
     .code "Value.fnPtr name", .plain " looks ", .code "name",
     .plain " up in ", .code "program.functions",
-    .plain " and returns the matching ", .code "Body",
+    .plain " and returns the matching ", Doc.refLinkOf @Body "Body",
     .plain ". Returns ", .code "None",
     .plain " for any other value (the callee operand did not \
     evaluate to a function pointer) or when the name is \

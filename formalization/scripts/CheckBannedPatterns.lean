@@ -38,19 +38,16 @@ private def isCleanIdent (s : String) : Bool :=
     registered with a hyperlink anchor — i.e. a name the `doc!`
     macro's `#s` shorthand would resolve to a real anchor:
 
-    - undotted `s`: `s.fnDef` (a `defFn`),
-      `s.propertyDef` (a `defProperty`), or
-      `s.inductivePropertyDef` (a `defInductiveProperty`)
-      exists, all of which emit `\hypertarget{fn:s}` anchors;
-    - dotted `s = X.Y`: `X.enumDef` (a `defEnum`) exists,
-      whose constructors emit `\hypertarget{ctor:X.Y}` anchors.
-
-    Type-only references (e.g. `Doc.code "PcgNode"` for a type
-    name) are *not* flagged: `#PcgNode` would resolve to a
-    `fn:PcgNode` target the renderer never emits, so the link
-    would be broken. The `s.structDef` / `s.aliasDef` cases are
-    skipped for the same reason — types live at `type:` anchors
-    that the `#`-shorthand doesn't reach. -/
+    - undotted `s`: `s.fnDef` (a `defFn`), `s.propertyDef` (a
+      `defProperty`), `s.inductivePropertyDef` (a
+      `defInductiveProperty`), `s.enumDef` (a `defEnum`),
+      `s.structDef` (a `defStruct`), or `s.aliasDef` (a
+      `defAlias`) exists. All such definitions emit a
+      `\hypertarget{fn:s}` anchor at their LaTeX rendering site
+      (in addition to the kind-specific anchors `type:s` /
+      `property:s`), which is the target `#s` resolves to;
+    - dotted `s = X.Y`: `X.enumDef` (a `defEnum`) exists, whose
+      constructors emit `\hypertarget{ctor:X.Y}` anchors. -/
 private def isHyperlinkedIdent
     (env : Environment) (s : String) : Bool :=
   if !isCleanIdent s then false
@@ -59,7 +56,10 @@ private def isHyperlinkedIdent
     | [] => false
     | [head] =>
       let base : Name := .mkSimple head
-      [`fnDef, `propertyDef, `inductivePropertyDef].any fun suf =>
+      let suffixes : List Name :=
+        [`fnDef, `propertyDef, `inductivePropertyDef,
+         `enumDef, `structDef, `aliasDef]
+      suffixes.any fun suf =>
         (env.find? (base ++ suf)).isSome
     | head :: _ =>
       let base : Name := .mkSimple head

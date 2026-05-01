@@ -180,7 +180,7 @@ defFn isOwned' (.plain "isOwned'")
 defFn placeTy' (.plain "placeTy'")
   (.seq [.plain "Project a type through a list of \
     projection elements. Returns the final ",
-    .code "PlaceTy", .plain " after all projections."])
+    Doc.refLinkOf @PlaceTy "PlaceTy", .plain " after all projections."])
   (τ "The current type." : Ty)
   (v "The variant index." : Option VariantIdx)
   (projs "The projection elements." : List ProjElem)

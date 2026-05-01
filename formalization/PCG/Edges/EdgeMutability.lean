@@ -1,4 +1,5 @@
 import Core.Dsl.DefEnum
+import MIR.Ty
 
 defEnum EdgeMutability (.raw "em", .raw "EdgeMutability")
   "Edge Mutabilities"
@@ -10,7 +11,7 @@ defEnum EdgeMutability (.raw "em", .raw "EdgeMutability")
     .plain ") or immutable/shared (",
     .math (.doc (.code "Imm")),
     .plain ") borrow. It mirrors the ",
-    .code "Mutability",
+    Doc.refLinkOf @Mutability "Mutability",
     .plain " enum used on MIR reference types, named \
      `Mut`/`Imm` to match the terminology used throughout \
      the borrow PCG."])

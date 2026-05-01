@@ -1,3 +1,4 @@
+import Core.Doc.Interp
 import Core.Registry
 import Lean
 

@@ -68,7 +68,7 @@ defFn edgeTargets (.plain "edgeTargets")
     .code "a", .plain " is the blocked place. Borrow-flow \
     and abstraction edges have target endpoints in \
     lifetime-projection types with no direct ",
-    .code "PcgNode", .plain " lifter and contribute no \
+    Doc.refLinkOf @PcgNode "PcgNode", .plain " lifter and contribute no \
     targets here, making the search a sound under-\
     approximation."])
   (e "The PCG edge." : PcgEdge Place)

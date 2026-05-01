@@ -16,7 +16,7 @@ defFn expansionOfStep (.plain "expansionOfStep")
     carry as the single child; no sibling children are \
     materialised. Returns ", .code "None",
     .plain " for guided expansions that have no ",
-    .code "ProjElem", .plain " counterpart \
+    Doc.refLinkOf @ProjElem "ProjElem", .plain " counterpart \
     (", .code "constantIndex", .plain " and ",
     .code "subslice", .plain ")."])
   (π "The projection step taken." : ProjElem)

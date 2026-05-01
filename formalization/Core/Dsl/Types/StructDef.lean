@@ -148,11 +148,12 @@ def formalDefLatex (s : StructDef)
   let title : Latex := match s.link with
     | some url => Latex.externalLink url (.text s.docParam)
     | none => .text s.docParam
-  -- Invisible hypertarget so cross-references to this type
-  -- (e.g. from function signatures) can link here via
-  -- `\hyperlink{type:<name>}{...}`.
+  -- Invisible hypertargets so cross-references to this type
+  -- (e.g. from function signatures, or via the `doc!` macro's
+  -- `#X` shorthand which resolves to `fn:X`) can link here via
+  -- `\hyperlink{type:<name>}{...}` or `\hyperlink{fn:<name>}{...}`.
   let typeTarget : Latex :=
-    .raw s!"\\hypertarget\{type:{s.name}}\{}"
+    .raw s!"\\hypertarget\{type:{s.name}}\{}\\hypertarget\{fn:{s.name}}\{}"
   -- Render the prose description as a paragraph BEFORE the
   -- `definition` environment, so the formal `\begin{definition}
   -- ... \end{definition}` block contains only the formal

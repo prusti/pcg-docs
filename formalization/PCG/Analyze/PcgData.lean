@@ -61,7 +61,7 @@ defFn analyzeAt (.plain "analyzeAt")
     .plain "Step the PCG state across all four evaluation \
      phases at a single location, threading each phase's \
      output into the next. The returned ",
-    .code "PcgDomainData", .plain " carries the incoming \
+    Doc.refLinkOf @PcgDomainData "PcgDomainData", .plain " carries the incoming \
      PCG data as its entry state and the four per-phase \
      states produced by ", .code "analyze",
     .plain ". Returns ", .code "None",
@@ -89,7 +89,7 @@ defFn analyzeStmtsFrom (.plain "analyzeStmtsFrom")
     .plain ", threading the post-main state into the next \
      step. The empty-list case is the terminator step at \
      ", .code "stmtIdx == statements.length",
-    .plain ". Returns the per-step ", .code "PcgDomainData",
+    .plain ". Returns the per-step ", Doc.refLinkOf @PcgDomainData "PcgDomainData",
     .plain " values, or ", .code "None",
     .plain " if any phase fails."])
   (pd "The PCG data on entry to the next step."
@@ -118,7 +118,7 @@ defFn analyzeBlock (.plain "analyzeBlock")
      block: one ", .code "analyzeAt",
     .plain " call per statement followed by one for the \
      terminator. Returns the resulting list of ",
-    .code "PcgDomainData", .plain " values of length ",
+    Doc.refLinkOf @PcgDomainData "PcgDomainData", .plain " values of length ",
     .math (.bold (.raw "n+1")),
     .plain ", where ", .math (.bold (.raw "n")),
     .plain " is the statement count, or ", .code "None",

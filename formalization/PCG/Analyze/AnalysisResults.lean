@@ -11,11 +11,11 @@ defAlias AnalysisResults
     .plain "Analysis results ",
     Doc.defMath (.text "ar")
       (.text "AnalysisResults"),
-    .plain " bundle the per-block ", .code "PcgDomainData",
+    .plain " bundle the per-block ", Doc.refLinkOf @PcgDomainData "PcgDomainData",
     .plain " lists produced by a single sweep of ",
     .code "PcgData.analyzeBody",
     .plain ": one entry per basic block, keyed by ",
-    .code "BasicBlockIdx", .plain "."])
+    Doc.refLinkOf @BasicBlockIdx "BasicBlockIdx", .plain "."])
   := Map BasicBlockIdx (List PcgDomainData)
 
 defProperty contains (.plain "contains")
@@ -44,10 +44,10 @@ defAlias ProgAnalysisResults
     .plain "Program analysis results ",
     Doc.defMath (.text "par")
       (.text "ProgAnalysisResults"),
-    .plain " bundle the per-body ", .code "AnalysisResults",
+    .plain " bundle the per-body ", Doc.refLinkOf @AnalysisResults "AnalysisResults",
     .plain " produced by running ", Doc.refLinkByName "analyzeBody",
     .plain " on every function in a program: one entry per \
-     ", .code "Body", .plain "."])
+     ", Doc.refLinkOf @Body "Body", .plain "."])
   := Map Body AnalysisResults
 
 defProperty programContains (.plain "programContains")

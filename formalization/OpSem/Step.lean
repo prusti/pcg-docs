@@ -61,7 +61,7 @@ defFn step (.plain "step")
     .plain " (and the resulting frame's ", .code "pc.stmtIdx",
     .plain " is advanced by one), a terminator is handed to ",
     .code "evalTerminator", .plain " which produces the next ",
-    .code "StepResult", .plain " directly. The ",
+    Doc.refLinkOf @StepResult "StepResult", .plain " directly. The ",
     .code "Runnable",
     .plain " precondition guarantees a non-empty call stack \
     (so ", .code "currentFrame", .plain " returns directly) \

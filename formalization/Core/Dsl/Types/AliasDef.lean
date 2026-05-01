@@ -48,8 +48,11 @@ def formalDefLatex (a : AliasDef)
   let lhs : LatexMath :=
     .seq [a.setDoc.toLatexMath, typeParamsLM]
   let rhs : LatexMath := a.aliased.toLatexMath knownTypes
+  -- Both anchors so cross-references via either `#X` (which the
+  -- `doc!` macro resolves to `fn:X`) or an explicit `type:X`
+  -- target reach the same definition.
   let typeTarget : Latex :=
-    .raw s!"\\hypertarget\{type:{a.name}}\{}"
+    .raw s!"\\hypertarget\{type:{a.name}}\{}\\hypertarget\{fn:{a.name}}\{}"
   .seq [
     a.doc.toLatex, .newline,
     .envOpts "definition" (.text a.docParam) (.seq [

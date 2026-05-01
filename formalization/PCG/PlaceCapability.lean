@@ -12,7 +12,7 @@ import PCG.PcgData
 defFn getAlloc (.plain "getAlloc")
   (.seq [.plain "Look up the owned allocation for a local in \
     an owned state. Returns the ",
-    .code "InitTree", .plain " when the local is in bounds \
+    Doc.refLinkOf @InitTree "InitTree", .plain " when the local is in bounds \
     and has been allocated, and ", .code "None",
     .plain " when it is out of bounds or still unallocated."])
   (os "The owned state." : OwnedState)
@@ -148,7 +148,7 @@ defFn isPrefixOfTransientReadPlace
     (.plain "isPrefixOfTransientReadPlace")
   (.seq [.plain "Whether a place is a prefix of some place in \
     the transient read set carried by the optional ",
-    .code "TransientState",
+    Doc.refLinkOf @TransientState "TransientState",
     .plain ". Returns ", .code "false",
     .plain " when the transient place is absent or carries a \
     write-borrowed place rather than a read-place set."])

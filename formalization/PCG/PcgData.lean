@@ -18,7 +18,7 @@ defStruct PcgData {P}
       (.text "PcgData") ["P"],
     .plain " bundles the per-program-point state tracked by \
      the PCG: the borrows graph, the owned state, the current \
-     basic block, and an optional ", .code "TransientState",
+     basic block, and an optional ", Doc.refLinkOf @TransientState "TransientState",
     .plain " carrying either the set of places read at this \
      point or a single write-borrowed place."])
 where

@@ -11,7 +11,7 @@ defStruct DomainData {T}
       (.text "DomainData") ["T"],
     .plain " bundles the per-program-point dataflow state of \
      a single basic block: the value on entry, plus an ",
-    .code "EvalStmtData",
+    Doc.refLinkOf @EvalStmtData "EvalStmtData",
     .plain " carrying the four per-phase values produced as \
      the analysis steps through each statement of the block."])
 where

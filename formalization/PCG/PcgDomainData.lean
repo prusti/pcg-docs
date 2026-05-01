@@ -13,7 +13,7 @@ defAlias PcgDomainData
       (.text "PcgDomainData"),
     .plain " is the dataflow record carried by the PCG \
      analysis at each basic block: a ",
-    .code "DomainData",
+    Doc.refLinkOf @DomainData "DomainData",
     .plain " whose payload at every program point is a ",
-    .code "PcgData", .plain " over MIR places."])
+    Doc.refLinkOf @PcgData "PcgData", .plain " over MIR places."])
   := DomainData (PcgData Place)

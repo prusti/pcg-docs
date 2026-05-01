@@ -133,8 +133,11 @@ private def ruleLatex
     several. -/
 def formalDefLatex
     (p : InductivePropertyDef) (ctx : RenderCtx) : Latex :=
+  -- Both anchors so `#X` (which the `doc!` macro resolves to
+  -- `fn:X`) and an explicit `type:X` target reach the same
+  -- inductive predicate definition.
   let typeTarget : Latex :=
-    .raw s!"\\hypertarget\{type:{p.name}}\{}"
+    .raw s!"\\hypertarget\{type:{p.name}}\{}\\hypertarget\{fn:{p.name}}\{}"
   -- Route the name through `fnNameDisplay` so trailing
   -- prime apostrophes (e.g. `Reachable'`) become Unicode
   -- primes, which `escapeLatex` maps to math-mode
