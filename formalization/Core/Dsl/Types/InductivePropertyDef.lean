@@ -176,7 +176,7 @@ def formalDefLatex
       let paramRows := p.params.map fun f =>
         [ paramName f
         , .seq [.raw " \\in ",
-                f.ty.toLatexMath (fun _ => false)]
+                f.ty.toLatexMath ctx.knownTypes]
         , -- Wrap the description in a `\parbox` so long
           -- param descriptions wrap onto multiple lines
           -- instead of overflowing the array row, mirroring

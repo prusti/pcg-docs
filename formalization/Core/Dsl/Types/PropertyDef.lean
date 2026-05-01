@@ -69,14 +69,16 @@ private def lhsMath (p : PropertyDef) : LatexMath :=
 /-- Build the `where`-block listing each parameter on its own
     row (binding, type, description) — mirrors `defStruct`'s
     field block. Returns an empty `Latex` for a nullary
-    property. -/
-private def whereBlock (p : PropertyDef) : Latex :=
+    property. `ctx.knownTypes` is threaded into the per-row
+    type rendering so each `\in T` clause hyperlinks `T` to
+    its `\hypertarget{type:T}` anchor when registered. -/
+private def whereBlock (p : PropertyDef) (ctx : RenderCtx) : Latex :=
   if p.fnDef.params.isEmpty then .seq []
   else
     let paramRows := p.fnDef.params.map fun f =>
       [ .escaped f.name
       , .seq [.raw " \\in ",
-              f.ty.toLatexMath (fun _ => false)]
+              f.ty.toLatexMath ctx.knownTypes]
       , -- Wrap the description in a `\parbox` so long param
         -- descriptions wrap onto multiple lines instead of
         -- overflowing the array row, mirroring the
@@ -170,7 +172,7 @@ def formalDefLatex
     propertyAnchor, fnAnchor, .newline,
     p.defaultDoc.toLatex, .newline,
     .displayMath equation, .newline,
-    whereBlock p
+    whereBlock p ctx
   ])
 
 end PropertyDef
