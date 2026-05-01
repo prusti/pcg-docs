@@ -91,6 +91,99 @@ run_cmd do
     throwError s!"TestInductiveProp: range collapsed to line {line} \
       (expected the line of `defInductiveProperty TestInductiveProp ...`)"
 
+-- Call-site gotoDef regression test. `flushIdentRefs` should
+-- attach a `TermInfo` leaf to each user-source identifier in
+-- a `defFn` body whose name resolves to a global constant,
+-- so LSP gotoDef from the call site lands on the callee's
+-- `defFn`. We verify by elaborating a synthesised `defFn`
+-- caller under our own `withInfoTreeContext`, capturing the
+-- resulting info trees, and walking them for a `TermInfo`
+-- whose expression is a `const` reference to the expected
+-- callee.
+namespace Wrap
+
+defFn testCallee (.plain "testCallee")
+  (.plain "Callee for the call-site goto-def regression test.")
+  : Nat := 1
+
+defFn testGuard (.plain "testGuard")
+  (.plain "Guard predicate for the call-site goto-def \
+    regression test.")
+  (n "Test param." : Nat)
+  : Prop := n < 10
+
+end Wrap
+
+open Lean Elab Command in
+/-- Run `defFn`-style command `src` and check that an
+    elaborated `TermInfo` pointing at `target` appears
+    somewhere in the resulting info trees — i.e. that
+    `flushIdentRefs` attached a goto-def leaf for it. -/
+private def checkCallSiteGotoDef
+    (src : String) (target : Name) : CommandElabM Unit := do
+  let env ← getEnv
+  let stx ← match Parser.runParserCategory env `command src with
+    | .ok stx => pure stx
+    | .error e => throwError s!"parse error in synthesised \
+        defFn:\n---\n{src}\n---\n{e}"
+  let pred : Lean.Elab.Info → Bool := fun info =>
+    match info with
+    | .ofTermInfo ti =>
+      match ti.expr with
+      | .const n _ => n == target
+      | _ => false
+    | _ => false
+  let foundRef ← IO.mkRef false
+  withInfoTreeContext (mkInfoTree := fun trees => do
+      if trees.any (fun t => (t.findInfo? pred).isSome) then
+        foundRef.set true
+      return InfoTree.node
+        (Info.ofCommandInfo
+          { elaborator := `checkCallSiteGotoDef, stx })
+        trees) do
+    elabCommand stx
+  let found ← foundRef.get
+  if !found then
+    throwError s!"call-site gotoDef regression: no TermInfo \
+      pointing at {target} found in the info trees produced \
+      by\n---\n{src}\n---\n\
+      `flushIdentRefs` is not attaching the callee's resolved \
+      const to the user-source token."
+
+elab "checkCallSiteGotoDef" : command => do
+  -- Direct expression body: `testCaller := testCallee ‹›`.
+  checkCallSiteGotoDef
+    "defFn testCallerSimple (.plain \"testCallerSimple\") \
+       (.plain \"Simple direct caller.\") \
+       : Nat := testCallee ‹›"
+    `Tests.DslGotoDef.Wrap.testCallee
+  -- Body uses a `let`-chain ending in the call site, mirroring
+  -- `initialMachine`'s structure. Exercises the let-binding
+  -- traversal in `parseExpr`.
+  checkCallSiteGotoDef
+    "defFn testCallerLet (.plain \"testCallerLet\") \
+       (.plain \"Caller using a let-chain ending in a call.\") \
+       : Nat := \
+         let x := 1 ; \
+         let y := 2 ; \
+         testCallee ‹›"
+    `Tests.DslGotoDef.Wrap.testCallee
+  -- Body uses `requires` precondition and a let-chain ending
+  -- in the call, fully mirroring `initialMachine`'s shape.
+  checkCallSiteGotoDef
+    "defFn testCallerReq (.plain \"testCallerReq\") \
+       (.plain \"Caller with a precondition + let-chain.\") \
+       (n \"Test param.\" : Nat) \
+       requires testGuard(n) \
+       : Nat := \
+         let x := 1 ; \
+         testCallee ‹›"
+    `Tests.DslGotoDef.Wrap.testCallee
+
+namespace Wrap
+checkCallSiteGotoDef
+end Wrap
+
 -- Field-projection gotoDef relies on `resolveStructField`:
 -- given a field name like `"functions"`, it consults the
 -- `defStruct` registry and returns the qualified Lean name
