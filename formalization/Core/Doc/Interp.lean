@@ -26,10 +26,22 @@ doc! "the framing instance for {prDoc}, {parDoc}, places {pDoc} and {p'Doc}"
 holes splice in any `Doc` value (or any `String`-typed value, which
 the same `Coe` instance promotes for free).
 
-For the small handful of cases where a `.code` / `.math` interruption
-is needed inside an interpolation, the abbreviations `Doc.c` and
-`Doc.m` give a one-token spelling: `{Doc.c "validProgram"}`,
-`{Doc.m (.bold (.raw "W"))}`.
+For inline code, backticks inside a literal chunk render as
+`Doc.code`:
+
+```lean
+doc! "the concatenation of `edgeTargets` over every edge"
+```
+
+— produces `Doc.seq [.plain "...", .code "edgeTargets",
+.plain "..."]`. A lone backtick with no closing match is left
+in the prose as a literal `` ` ``.
+
+For a `.math` interruption (no shorthand syntax), the
+abbreviation `Doc.m` gives a one-token spelling:
+`{Doc.m (.bold (.raw "W"))}`. The `Doc.c` alias remains
+available for cases where a runtime `String` value is being
+spliced as code rather than a literal string.
 
 ## Cross-reference syntax
 
@@ -93,11 +105,13 @@ open Lean
 
 namespace Doc.Interp
 
-/-- A segment of a `doc!` literal chunk: either a run of plain
-    text or a `#identifier` cross-reference. -/
+/-- A segment of a `doc!` literal chunk: a run of plain text,
+    a `#identifier` cross-reference, or a backtick-delimited
+    inline code span. -/
 inductive ChunkSeg where
   | literal (s : String)
   | ref (parts : List String)
+  | code (s : String)
   deriving Inhabited
 
 private def isIdentStart (c : Char) : Bool :=
@@ -147,6 +161,18 @@ private def consLitChar (c : Char) : List ChunkSeg → List ChunkSeg
   | .literal p :: rest => .literal (String.mk [c] ++ p) :: rest
   | rest => .literal (String.mk [c]) :: rest
 
+/-- Consume characters up to (but not including) the next
+    backtick. Returns the consumed prefix and the remainder
+    starting at the closing backtick, or `none` if no closing
+    backtick is found. -/
+private partial def consumeUntilBacktick :
+    List Char → Option (String × List Char)
+  | [] => none
+  | '`' :: rest => some ("", '`' :: rest)
+  | c :: rest =>
+    (consumeUntilBacktick rest).map fun (more, after) =>
+      (String.mk [c] ++ more, after)
+
 private partial def parseSegsAux : List Char → List ChunkSeg
   | [] => []
   | '#' :: rest =>
@@ -155,6 +181,12 @@ private partial def parseSegsAux : List Char → List ChunkSeg
       consLitChar '#' (parseSegsAux rest)
     else
       .ref (ident.splitOn ".") :: parseSegsAux rest'
+  | '`' :: rest =>
+    match consumeUntilBacktick rest with
+    | some (codeStr, '`' :: after) =>
+      .code codeStr :: parseSegsAux after
+    | _ =>
+      consLitChar '`' (parseSegsAux rest)
   | c :: rest => consLitChar c (parseSegsAux rest)
 
 /-- Split a literal `doc!` chunk into segments: `.literal` runs of
@@ -169,10 +201,11 @@ end Doc.Interp
 
     Each literal text chunk is split into segments at macro-
     expansion time: runs of plain text become `Doc.plain "..."`,
-    and `#identifier` (or `#identifier.path`) references become
+    `#identifier` (or `#identifier.path`) references become
     `Doc.refLinkOf @<ident> "<name>"` — where `@<ident>` is a real
     Lean identifier reference, so the elaborator validates that
-    the name resolves. Each `{expr}` hole becomes `(expr : Doc)`,
+    the name resolves — and `` `text` `` spans become
+    `Doc.code "text"`. Each `{expr}` hole becomes `(expr : Doc)`,
     so a `String`-valued hole coerces (via `Coe String Doc`) and a
     `Doc`-valued hole passes through unchanged. The whole thing is
     wrapped in a single `Doc.seq [...]`. -/
@@ -203,6 +236,10 @@ def expandDocInterp : Macro := fun stx => do
             let strLit := Syntax.mkStrLit nameStr
             parts := parts.push
               (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
+          | .code s =>
+            if s.isEmpty then continue
+            let lit := Syntax.mkStrLit s
+            parts := parts.push (← `((Doc.code $lit : Doc)))
       | none =>
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))

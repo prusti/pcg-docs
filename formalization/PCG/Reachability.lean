@@ -89,8 +89,8 @@ defFn edgeTargets (.plain "edgeTargets")
 
 defFn nodeNeighbors (.plain "nodeNeighbors")
   (doc! "All nodes that {a} directly reaches in {pd}: \
-         the concatenation of {Doc.c "edgeTargets"} over every \
-         edge in {Doc.c "edges"}.")
+         the concatenation of `edgeTargets` over every \
+         edge in `edges`.")
   (pd "The PCG data." : PcgData Place)
   (a "The candidate source node." : PcgNode Place)
   : List (PcgNode Place) :=
