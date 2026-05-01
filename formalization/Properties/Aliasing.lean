@@ -67,21 +67,25 @@ defProperty FramingInvariant' (.plain "FramingInvariant'")
            program counter")
   long
     (doc! "Specialises #FramingInvariant by resolving the PCG \
-           argument from program-wide analysis results: it \
-           holds when the framing invariant holds between {m} \
-           and the entry-state PCG that {par} records for \
-           {m}'s currently-executing body and program \
-           counter.")
+           argument from program-wide analysis results: when \
+           {par} records analysis results for {m}'s \
+           currently-executing body and program counter, the \
+           framing invariant holds between {m} and the \
+           entry-state PCG {par} stores there.")
   (m "The machine state." : Machine)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
-  := FramingInvariant
-       ‹m,
-        pcgEntryStateAt
-          ‹par,
-           currBody ‹m, lean_proof("sorry")›,
-           currPC ‹m, lean_proof("sorry")›,
-           lean_proof("sorry")››
+  := ‹break› programContains
+       ‹par,
+        currBody ‹m, lean_proof("sorry")›,
+        currPC ‹m, lean_proof("sorry")››
+     → ‹break› FramingInvariant
+         ‹m,
+          pcgEntryStateAt
+            ‹par,
+             currBody ‹m, lean_proof("sorry")›,
+             currPC ‹m, lean_proof("sorry")›,
+             lean_proof("h_programContains")››
 
 defProperty Framing (.plain "Framing")
   short
@@ -89,10 +93,9 @@ defProperty Framing (.plain "Framing")
             exclusive places")
   long
     (.plain "If analysis results describe a program, then \
-            at any reachable runnable machine state tracked \
-            by the analysis, the framing invariant holds \
-            between the machine and the entry-state PCG at \
-            its program counter.")
+            at any reachable runnable machine state, the \
+            framing invariant holds between the machine and \
+            the entry-state PCG at its program counter.")
   := ∀∀ pr ∈ Program, par ∈ ProgAnalysisResults,
         m ∈ Machine .
        ‹break› validProgram ‹pr› ∧
@@ -100,11 +103,7 @@ defProperty Framing (.plain "Framing")
        ‹break› Reachable
          ‹initialMachine
             ‹pr, lean_proof("h_validProgram")›, m› ∧
-       ‹break› Runnable ‹m› ∧
-       ‹break› programContains
-         ‹par,
-          currBody ‹m, lean_proof("h_Runnable")›,
-          currPC ‹m, lean_proof("h_Runnable")››
+       ‹break› Runnable ‹m›
        → ‹break› FramingInvariant' ‹m, par›
 
 defProperty NoAliasInvariant (.plain "NoAliasInvariant")
