@@ -97,14 +97,16 @@ defProperty Framing (.plain "Framing")
             at any reachable runnable machine state, the \
             framing invariant holds between the machine and \
             the entry-state PCG at its program counter.")
-  := ∀∀ pr ∈ Program, par ∈ ProgAnalysisResults,
-        m ∈ Machine .
-       ‹break› validProgram ‹pr› ∧
-       ‹break› describes ‹par, pr› ∧
+  := ∀∀ par ∈ ProgAnalysisResults, m ∈ Machine .
+       ‹break› Runnable ‹m› ∧
+       ‹break› describes ‹par, prog ‹m›› ∧
+       -- `validProgram (prog m)` is the second conjunct of
+       -- `Runnable`'s body; project it directly with
+       -- `h_Runnable.2.1` to discharge `initialMachine`'s
+       -- precondition without a separate antecedent.
        ‹break› Reachable
          ‹initialMachine
-            ‹pr, lean_proof("h_validProgram")›, m› ∧
-       ‹break› Runnable ‹m›
+            ‹prog ‹m›, lean_proof("h_Runnable.2.1")›, m›
        → ‹break› FramingInvariant' ‹m, par›
 
 defProperty NoAliasInvariant (.plain "NoAliasInvariant")
@@ -146,14 +148,14 @@ defProperty NoAlias (.plain "NoAlias")
             by the analysis, the no-alias invariant holds \
             between the machine and the entry-state PCG at \
             its program counter.")
-  := ∀∀ pr ∈ Program, par ∈ ProgAnalysisResults,
-        m ∈ Machine .
-       ‹break› validProgram ‹pr› ∧
-       ‹break› describes ‹par, pr› ∧
+  := ∀∀ par ∈ ProgAnalysisResults, m ∈ Machine .
+       ‹break› Runnable ‹m› ∧
+       ‹break› describes ‹par, prog ‹m›› ∧
+       -- See Framing for why `h_Runnable.2.1` discharges
+       -- `initialMachine`'s `validProgram` precondition.
        ‹break› Reachable
          ‹initialMachine
-            ‹pr, lean_proof("h_validProgram")›, m› ∧
-       ‹break› Runnable ‹m› ∧
+            ‹prog ‹m›, lean_proof("h_Runnable.2.1")›, m› ∧
        ‹break› programContains
          ‹par,
           currBody ‹m, lean_proof("h_Runnable")›,

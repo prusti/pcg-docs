@@ -50,6 +50,20 @@ defProperty Runnable (.plain "Runnable")
 private instance : Inhabited StackFrame :=
   ⟨⟨⟨[], 0, []⟩, ⟨⟨0⟩, 0⟩, ∅⟩⟩
 
+defFn prog (.plain "prog")
+  (.seq [.plain "The program a machine state is executing. \
+    Shorthand for the ", .code "program",
+    .plain " field — used by top-level properties (",
+    Doc.refLinkByName "Framing", .plain ", ",
+    Doc.refLinkByName "NoAlias", .plain ", ",
+    Doc.refLinkByName "Soundness",
+    .plain ") to refer to the program implicitly carried by \
+    the machine without a separate ", .code "pr",
+    .plain " quantifier."])
+  (m "The machine state." : Machine)
+  : Program :=
+    Program⟨m↦program↦functions, m↦program↦start⟩
+
 defFn currentFrame (.plain "currentFrame")
   (doc! "The currently executing stack frame, i.e. the head \
     of the thread's call stack. Safe because the \
