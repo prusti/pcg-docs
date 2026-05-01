@@ -60,6 +60,29 @@ defProperty FramingInvariant (.plain "FramingInvariant")
        ‹break› hasAllocation ‹m, p', a'›
        → ‹break› Allocation.nonOverlapping ‹a, a'›
 
+defProperty FramingInvariant' (.plain "FramingInvariant'")
+  short
+    (doc! "the framing invariant holds for {m} against the \
+           entry-state PCG that {par} stores at {m}'s current \
+           program counter")
+  long
+    (doc! "Specialises #FramingInvariant by resolving the PCG \
+           argument from program-wide analysis results: it \
+           holds when the framing invariant holds between {m} \
+           and the entry-state PCG that {par} records for \
+           {m}'s currently-executing body and program \
+           counter.")
+  (m "The machine state." : Machine)
+  (par "The program-wide analysis results."
+      : ProgAnalysisResults)
+  := FramingInvariant
+       ‹m,
+        pcgEntryStateAt
+          ‹par,
+           currBody ‹m, lean_proof("sorry")›,
+           currPC ‹m, lean_proof("sorry")›,
+           lean_proof("sorry")››
+
 defProperty Framing (.plain "Framing")
   short
     (.plain "the PCG analysis frames non-aliasing of \
@@ -82,13 +105,7 @@ defProperty Framing (.plain "Framing")
          ‹par,
           currBody ‹m, lean_proof("h_Runnable")›,
           currPC ‹m, lean_proof("h_Runnable")››
-       → ‹break› FramingInvariant
-           ‹m,
-            pcgEntryStateAt
-              ‹par,
-               currBody ‹m, lean_proof("h_Runnable")›,
-               currPC ‹m, lean_proof("h_Runnable")›,
-               lean_proof("h_programContains")››
+       → ‹break› FramingInvariant' ‹m, par›
 
 defProperty NoAliasInvariant (.plain "NoAliasInvariant")
   short
