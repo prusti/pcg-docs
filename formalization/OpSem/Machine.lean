@@ -51,7 +51,7 @@ private instance : Inhabited StackFrame :=
   ⟨⟨⟨[], 0, []⟩, ⟨⟨0⟩, 0⟩, ∅⟩⟩
 
 defFn currentFrame (.plain "currentFrame")
-  (.plain "The currently executing stack frame, i.e. the head \
+  (doc! "The currently executing stack frame, i.e. the head \
     of the thread's call stack. Safe because the \
     `Runnable` precondition guarantees the stack is \
     non-empty.")

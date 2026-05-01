@@ -775,6 +775,7 @@ elab_rules : command
        : $retTy:term where
        $arms:fnArm*) => do
     let isImplicit := impl?.isSome
+    DslLint.lintDocTerm doc
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
@@ -884,6 +885,7 @@ elab_rules : command
        $[ensures $ens:fnPrecond,*]?
        : $retTy:term := $rhs:fnExpr) => do
     let isImplicit := impl?.isSome
+    DslLint.lintDocTerm doc
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
@@ -988,6 +990,7 @@ private def parseMutualEntry
           $[ensures $ens:fnPrecond,*]?
           : $retTy:term where
           $arms:fnArm*) => do
+    DslLint.lintDocTerm doc
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy

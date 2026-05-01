@@ -59,7 +59,7 @@ defFn evalProjs (.plain "evalProjs")
     pointer's address (the new type is the pointee). ",
     .code ".index",
     .plain " loads the index local's value and advances the \
-    address by `index * elemSize`."])
+     address by ", .code "index * elemSize", .plain "."])
   (m "The machine state." : Machine)
   (place "The current place pointer." : PlacePtr)
   (ty "The current type." : Ty)

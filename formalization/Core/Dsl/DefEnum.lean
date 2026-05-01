@@ -1,5 +1,6 @@
 import Core.Doc.Interp
 import Core.Registry
+import Core.Dsl.Lint
 import Lean
 
 open Lean in
@@ -458,23 +459,27 @@ elab_rules : command
        ($symDoc:term, $setDoc:term)
        $defnName:str ($doc:term) where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    DslLint.lintDocTerm doc
     elabDefEnum name tps symDoc setDoc defnName doc
       false false vs derivs
   | `(defEnum $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
        $defnName:str ($doc:term) long where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    DslLint.lintDocTerm doc
     elabDefEnum name tps symDoc setDoc defnName doc
       true false vs derivs
   | `(defEnum $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
        $defnName:str ($doc:term) subscript where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    DslLint.lintDocTerm doc
     elabDefEnum name tps symDoc setDoc defnName doc
       false true vs derivs
   | `(defEnum $name:ident $[{ $tps:ident* }]?
        ($symDoc:term, $setDoc:term)
        $defnName:str ($doc:term) long subscript where
        $vs:enumVariant* $[deriving $derivs:ident,*]?) => do
+    DslLint.lintDocTerm doc
     elabDefEnum name tps symDoc setDoc defnName doc
       true true vs derivs

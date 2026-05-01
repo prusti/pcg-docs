@@ -75,10 +75,15 @@ where
 namespace Program
 
 defFn insertAnalyzedBody (.plain "insertAnalyzedBody")
-  (.plain "Fold step for `analyzeProgram`: analyse a single \
-    body and insert the result into the accumulating \
-    `ProgAnalysisResults`. Short-circuits to `None` when \
-    `analyzeBody` fails on the body.")
+  (.seq [
+    .plain "Fold step for ",
+    Doc.refLinkByName "analyzeProgram",
+    .plain ": analyse a single body and insert the result \
+     into the accumulating ",
+    Doc.refLinkOf @ProgAnalysisResults "ProgAnalysisResults",
+    .plain ". Short-circuits to ", .code "None",
+    .plain " when ", Doc.refLinkOf @analyzeBody "analyzeBody",
+    .plain " fails on the body."])
   (acc "The accumulating per-body analysis results."
       : ProgAnalysisResults)
   (b "The body to analyse." : Body)

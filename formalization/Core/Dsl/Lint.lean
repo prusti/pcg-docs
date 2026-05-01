@@ -1,5 +1,6 @@
 import Core.Dsl.Types.DslExpr
 import Core.Dsl.Types.FnDef
+import Lean
 
 /-! # DSL linter
 
@@ -129,5 +130,54 @@ def lintFnBody : FnBody → List Diagnostic
 /-- Lint diagnostics for a complete function definition. -/
 def lintFnDef (f : FnDef) : List Diagnostic :=
   lintFnBody f.body
+
+/-- True iff `s` contains a backtick-delimited code span — that
+    is, at least two backticks. Used to flag string literals
+    inside a `Doc`-typed description term: backticks are
+    significant in `doc! "..."` (where they expand to
+    `Doc.code`), but inside an ordinary `Doc.plain "..."` they
+    render as literal backticks (LaTeX `'…'` apostrophes) rather
+    than as monospace styling — almost always a mistake. -/
+def stringHasBacktickPair (s : String) : Bool := Id.run do
+  let mut sawOne := false
+  for c in s.toList do
+    if c == '`' then
+      if sawOne then return true
+      else sawOne := true
+  return false
+
+/-- Walk a `Doc`-typed description term and return any string
+    literals whose value contains a backtick-delimited span.
+    Such literals almost always belong inside a `doc!`
+    interpolation (where backticks expand to `Doc.code`) rather
+    than a `Doc.plain`. -/
+partial def findBacktickStrLitsInDocTerm
+    (stx : Lean.Syntax) : Array Lean.Syntax := Id.run do
+  let mut acc : Array Lean.Syntax := #[]
+  if let some s := stx.isStrLit? then
+    if stringHasBacktickPair s then
+      acc := acc.push stx
+  else
+    for child in stx.getArgs do
+      acc := acc ++ findBacktickStrLitsInDocTerm child
+  return acc
+
+/-- Diagnostic message for `findBacktickStrLitsInDocTerm`. -/
+def backticksInDocPlainMessage : String :=
+  "this string literal contains a backtick-delimited span, but \
+   `Doc.plain` renders backticks as literal characters rather \
+   than as monospace code styling. Use `doc! \"...\"` (whose \
+   backtick syntax expands to `Doc.code`) instead, or replace \
+   the backticked span with an explicit `Doc.code` value."
+
+/-- Lint a `Doc`-typed description term for backticked
+    string-literal spans. Logs an error at every offender so
+    that all problems in a single declaration surface together
+    rather than one per build cycle. -/
+def lintDocTerm {m : Type → Type}
+    [Monad m] [Lean.MonadLog m] [Lean.AddMessageContext m]
+    [Lean.MonadOptions m] (stx : Lean.Syntax) : m Unit := do
+  for offender in findBacktickStrLitsInDocTerm stx do
+    Lean.logErrorAt offender backticksInDocPlainMessage
 
 end DslLint

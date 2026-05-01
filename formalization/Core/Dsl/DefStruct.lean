@@ -1,5 +1,6 @@
 import Core.Registry
 import Core.Dsl.DefEnum
+import Core.Dsl.Lint
 import Lean
 
 open Lean in
@@ -329,6 +330,7 @@ elab_rules : command
        $[display ( $dps:displayPart,* )]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
+    DslLint.lintDocTerm doc
     let dpsArr : Option (Array (TSyntax `displayPart)) :=
       dps.map (·.getElems)
     elabDefStruct name tps symDoc setDoc docParam doc
@@ -341,6 +343,7 @@ elab_rules : command
        $[display ( $dps:displayPart,* )]? where
        $fs:structField* $[deriving $derivs:ident,*]?)
     => do
+    DslLint.lintDocTerm doc
     let dpsArr : Option (Array (TSyntax `displayPart)) :=
       dps.map (·.getElems)
     elabDefStruct name tps symDoc setDoc docParam doc

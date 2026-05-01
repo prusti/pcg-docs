@@ -27,7 +27,7 @@ where
     "Pointer-sized."
 
 defFn sizeBytes (.plain "size_bytes")
-  (.plain "Number of bytes occupied by an integer of \
+  (doc! "Number of bytes occupied by an integer of \
     this size. `ptrSize` is hardcoded to 8 bytes \
     (64-bit target).")
   (sz "The integer size." : Size)
@@ -146,7 +146,7 @@ abbrev ParamEnv := List Constraint
 namespace Ty
 
 defFn bytes (.plain "bytes")
-  (.plain "The size of a type in bytes, if known. \
+  (doc! "The size of a type in bytes, if known. \
     References and `Box` pointers occupy 8 bytes (the size \
     of an address). Arrays multiply the element size by \
     the length, propagating `None` when the element has \

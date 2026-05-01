@@ -12,7 +12,7 @@ import PCG.PcgDomainData
 -- ══════════════════════════════════════════════
 
 defFn termSuccessors (.plain "termSuccessors")
-  (.plain "List the basic-block successors of a terminator. \
+  (doc! "List the basic-block successors of a terminator. \
     `goto`, `drop`, and `call` each have a single successor; \
     `switchInt` lists every block referenced by its `cases` \
     map together with its `fallback`; `return` and \
@@ -32,7 +32,7 @@ defFn termSuccessors (.plain "termSuccessors")
 -- ══════════════════════════════════════════════
 
 defFn bbContains (.plain "bbContains")
-  (.plain "Whether a basic-block index appears in a list, \
+  (doc! "Whether a basic-block index appears in a list, \
     compared by `index`.")
   (xs "The list to search." : List BasicBlockIdx)
   (b "The block index to look for." : BasicBlockIdx)
@@ -117,8 +117,8 @@ defFn pushOne (.plain "pushOne")
     state[entryStates => entries1]
 
 defFn pushToSuccessors (.plain "pushToSuccessors")
-  (.plain "Fold an exit state into every successor's pending \
-    entry state via `pushOne`.")
+  (doc! "Fold an exit state into every successor's pending \
+    entry state via #pushOne.")
   (state "The current analysis state." : AnalysisState)
   (exit "The exit state of the just-processed predecessor."
       : PcgData Place)

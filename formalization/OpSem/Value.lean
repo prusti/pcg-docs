@@ -31,7 +31,7 @@ where
   deriving Repr, BEq, Hashable
 
 defFn valueToPtr (.plain "valueToPtr")
-  (.plain "Extract the `ThinPointer` from a `Value.ptr`. \
+  (doc! "Extract the #ThinPointer from a #Value.ptr. \
     Returns `None` for any other variant.")
   (v "The value." : Value)
   : Option ThinPointer where
@@ -39,7 +39,7 @@ defFn valueToPtr (.plain "valueToPtr")
   | _ => None
 
 defFn valueToInt (.plain "valueToInt")
-  (.plain "Extract the `IntValue` from a `Value.int`. \
+  (doc! "Extract the #IntValue from a #Value.int. \
     Returns `None` for any other variant.")
   (v "The value." : Value)
   : Option IntValue where

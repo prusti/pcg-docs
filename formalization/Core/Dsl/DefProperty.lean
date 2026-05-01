@@ -157,6 +157,8 @@ elab_rules : command
        $ps:fnParam*
        $[displayed ( $dps:displayPart,* )]?
        where $arms:fnArm*) => do
+    DslLint.lintDocTerm shortExpr
+    DslLint.lintDocTerm docExpr
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
@@ -257,6 +259,8 @@ elab_rules : command
        $ps:fnParam*
        $[displayed ( $dps:displayPart,* )]?
        $body:propertyBody) => do
+    DslLint.lintDocTerm shortExpr
+    DslLint.lintDocTerm docExpr
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty

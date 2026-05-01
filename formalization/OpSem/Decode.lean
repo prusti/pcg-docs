@@ -76,8 +76,7 @@ defFn intValueToNat (.plain "int_value_to_nat")
   | .usize x => x · toNat
 
 defFn intValueBytes (.plain "int_value_bytes")
-  (.plain "Number of bytes in an `IntValue`'s \
-    representation.")
+  (doc! "Number of bytes in an #IntValue's representation.")
   (iv "The integer value." : IntValue)
   : Nat where
   | .u8 _ => 1
@@ -120,12 +119,10 @@ defFn decodePtr (.plain "decode_ptr")
   | _ => None
 
 defFn decode (.plain "decode")
-  (.seq [.plain "Decode a byte sequence as a runtime \
-    value of the given type. Returns ", .code "None",
-    .plain " if the type is not decodable or the bytes \
-    cannot be decoded. References and `Box` pointers \
-    decode through ", Doc.refLinkOf @decodePtr "decodePtr",
-    .plain " into ", Doc.refLinkOf @Value.ptr "Value.ptr", .plain "."])
+  (doc! "Decode a byte sequence as a runtime value of the \
+    given type. Returns `None` if the type is not decodable \
+    or the bytes cannot be decoded. References and `Box` \
+    pointers decode through #decodePtr into #Value.ptr.")
   (ty "The type to decode as." : Ty)
   (bs "The bytes to decode." : List AbstractByte)
   : Option Value where
@@ -178,11 +175,11 @@ defFn encodePtr (.plain "encode_ptr")
      AbstractByte.ptrFragment‹provIdx, addr, 7›]
 
 defFn encode (.plain "encode")
-  (.plain "Encode a runtime value as a byte sequence. \
+  (doc! "Encode a runtime value as a byte sequence. \
    Returns the empty list for tuples, arrays, and function \
    pointers (compound values aren't laid out as flat bytes in \
    this model; function-pointer encoding is not modelled). \
-   Pointers go through `encodePtr`.")
+   Pointers go through #encodePtr.")
   (v "The value to encode." : Value)
   : List AbstractByte where
   | .bool b => encodeBool ‹b›

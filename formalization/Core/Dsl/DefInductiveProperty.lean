@@ -137,6 +137,7 @@ elab_rules : command
         $[displayed ( $dps:displayPart,* )]?
         where
         $rs:inductivePropRule*) => do
+    DslLint.lintDocTerm doc
     identRefBuffer.set #[]
     let parsedRules ← rs.mapM
       (parseInductivePropRule ∘ TSyntax.raw)

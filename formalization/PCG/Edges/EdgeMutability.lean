@@ -12,8 +12,9 @@ defEnum EdgeMutability (.raw "em", .raw "EdgeMutability")
     .math (.doc (.code "Imm")),
     .plain ") borrow. It mirrors the ",
     Doc.refLinkOf @Mutability "Mutability",
-    .plain " enum used on MIR reference types, named \
-     `Mut`/`Imm` to match the terminology used throughout \
+    .plain " enum used on MIR reference types, named ",
+    .code "Mut", .plain "/", .code "Imm",
+    .plain " to match the terminology used throughout \
      the borrow PCG."])
 where
   | mutable

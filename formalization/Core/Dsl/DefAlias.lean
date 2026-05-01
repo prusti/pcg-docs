@@ -1,6 +1,7 @@
 import Core.Doc.Interp
 import Core.Registry
 import Core.Dsl.IdentRefs
+import Core.Dsl.Lint
 import Lean
 
 open Core.Dsl.IdentRefs
@@ -33,6 +34,7 @@ elab_rules : command
        ($symDoc:term, $setDoc:term)
        $docParam:str ($doc:term) := $body:term)
     => do
+    DslLint.lintDocTerm doc
     let typeParamNames : List String := match tps with
       | some ids => ids.toList.map (toString ·.getId)
       | none => []

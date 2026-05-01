@@ -142,6 +142,16 @@ def lintTests : TestSeq :=
         [([.ctor "Some" [.var "y"]], .var "y"),
          ([.wild], .none_)]
        (DslLint.lintExpr m).isEmpty) $
+    test "no backticks → not flagged"
+      (DslLint.stringHasBacktickPair "plain text" == false) $
+    test "single backtick → not flagged"
+      (DslLint.stringHasBacktickPair "use `escape" == false) $
+    test "closed backtick pair → flagged"
+      (DslLint.stringHasBacktickPair "the `body` field"
+        == true) $
+    test "two backticks far apart → flagged"
+      (DslLint.stringHasBacktickPair "open ` close ` ok"
+        == true) $
     .done
 
 def main (args : List String) : IO UInt32 :=
