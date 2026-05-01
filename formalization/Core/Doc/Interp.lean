@@ -128,7 +128,7 @@ private partial def consumePart :
   | c :: rest =>
     if isIdentCont c then
       let (more, rest') := consumePart rest
-      (String.mk [c] ++ more, rest')
+      (String.ofList [c] ++ more, rest')
     else ("", c :: rest)
 
 /-- After an identifier head has been consumed, fold any
@@ -158,8 +158,8 @@ private def consumeRef (cs : List Char) : String × List Char :=
       consumeDottedTail (first, after1)
 
 private def consLitChar (c : Char) : List ChunkSeg → List ChunkSeg
-  | .literal p :: rest => .literal (String.mk [c] ++ p) :: rest
-  | rest => .literal (String.mk [c]) :: rest
+  | .literal p :: rest => .literal (String.ofList [c] ++ p) :: rest
+  | rest => .literal (String.ofList [c]) :: rest
 
 /-- Consume characters up to (but not including) the next
     backtick. Returns the consumed prefix and the remainder
@@ -171,7 +171,7 @@ private partial def consumeUntilBacktick :
   | '`' :: rest => some ("", '`' :: rest)
   | c :: rest =>
     (consumeUntilBacktick rest).map fun (more, after) =>
-      (String.mk [c] ++ more, after)
+      (String.ofList [c] ++ more, after)
 
 private partial def parseSegsAux : List Char → List ChunkSeg
   | [] => []

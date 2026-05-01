@@ -322,7 +322,7 @@ partial def toDoc
   -- do not.
   let displayPartLeftDelimits : DisplayPart → Bool
     | .lit m => match m with
-      | .raw s => !s.trim.isEmpty
+      | .raw s => !s.trimAscii.isEmpty
       | .sym .space => false
       | _ => true
     | .arg _ _ => false
@@ -337,7 +337,7 @@ partial def toDoc
   let displayPartLeftAttaches : DisplayPart → Bool
     | .lit m => match m with
       | .raw s =>
-        let t := s.trim
+        let t := s.trimAscii
         t.startsWith "[" || t.startsWith "("
       | .sym .lbracket | .sym .lparen => true
       | _ => false
