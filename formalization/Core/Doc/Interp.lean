@@ -252,8 +252,8 @@ end Doc.Interp
 
 /-- Interpolated-string literal that desugars to a `Doc` value.
 
-    Each literal text chunk is split into segments at macro-
-    expansion time: runs of plain text become `Doc.plain "..."`,
+    Each literal text chunk is split into segments at
+    elaboration time: runs of plain text become `Doc.plain "..."`,
     `#identifier` (or `#identifier.path`) references become
     `Doc.refLinkOf @<ident> "<name>"` — where `@<ident>` is a real
     Lean identifier reference, so the elaborator validates that
@@ -261,11 +261,23 @@ end Doc.Interp
     `Doc.code "text"`. Each `{expr}` hole becomes `(expr : Doc)`,
     so a `String`-valued hole coerces (via `Coe String Doc`) and a
     `Doc`-valued hole passes through unchanged. The whole thing is
-    wrapped in a single `Doc.seq [...]`. -/
+    wrapped in a single `Doc.seq [...]`.
+
+    Implemented as a `term_elab` rather than a `macro` so the
+    `#identifier` substrings can have explicit `TermInfo` nodes
+    pushed into the elaboration `InfoTree` at their absolute
+    source ranges. The Lean language server's
+    `collectInfoBasedSemanticTokens` walks the `InfoTree` and
+    emits a semantic-highlight token for each `TermInfo` whose
+    `Syntax` carries `SourceInfo.original` — pushing those
+    leaves manually is what makes `#refs` render as identifier
+    tokens (rather than plain string text) in VS Code, and is
+    what enables hover / goto-def to fire on the substring. -/
 syntax (name := docInterp) "doc! " interpolatedStr(term) : term
 
-@[macro docInterp]
-def expandDocInterp : Macro := fun stx => do
+open Lean Elab Term in
+@[term_elab docInterp]
+def elabDocInterp : Term.TermElab := fun stx expectedType? => do
   match stx with
   | `(doc! $i:interpolatedStr) =>
     let chunks := i.raw.getArgs
@@ -293,10 +305,10 @@ def expandDocInterp : Macro := fun stx => do
             -- Build the synthesised `Syntax.ident` with
             -- `SourceInfo.original` pointing at the
             -- `#identifier` substring's absolute file
-            -- position. The IDE then treats this as a real
-            -- identifier reference (goto-def, hover,
-            -- semantic highlighting), exactly as if the user
-            -- had written the identifier outside the literal.
+            -- position. With this info the LSP can resolve
+            -- the substring back to a known identifier for
+            -- goto-def, hover, and (after the explicit
+            -- `addConstInfo` below) semantic highlighting.
             -- Falls back to `SourceInfo.none` for chunks
             -- without source positions (e.g. macro-generated
             -- callsites).
@@ -321,6 +333,20 @@ def expandDocInterp : Macro := fun stx => do
               | none => SourceInfo.none
             let ident : Ident := ⟨Syntax.ident info
               nameStr.toRawSubstring leanName []⟩
+            -- Push an explicit `TermInfo` at the ident's
+            -- substring range so `collectInfoBasedSemanticTokens`
+            -- emits a highlight token there. The elaborator
+            -- below also calls `addTermInfo` for the surrounding
+            -- `@<ident>` node, but its range covers the wider
+            -- expression rather than just the substring;
+            -- pushing this leaf ensures the highlight lands on
+            -- exactly the `#identifier` characters. Wrapped in
+            -- `try ... catch` so a typo still surfaces from the
+            -- elaboration of `@<ident>` below (with the same
+            -- error message as before this rewrite) instead of
+            -- being eaten here.
+            try addConstInfo ident leanName
+            catch _ => pure ()
             let strLit := Syntax.mkStrLit nameStr
             parts := parts.push
               (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
@@ -331,5 +357,6 @@ def expandDocInterp : Macro := fun stx => do
       | none =>
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))
-    `(Doc.seq [$parts,*])
-  | _ => Macro.throwUnsupported
+    let body ← `(Doc.seq [$parts,*])
+    Lean.Elab.Term.elabTerm body expectedType?
+  | _ => Lean.Elab.throwUnsupportedSyntax
