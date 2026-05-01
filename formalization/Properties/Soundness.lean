@@ -1,3 +1,4 @@
+import Core.Doc.Interp
 import Properties.Definitions
 
 -- See `Properties.Definitions` for the rationale on `open
@@ -16,10 +17,10 @@ defProperty Soundness (.plain "Soundness")
   short
     (.plain "the PCG analysis is sound")
   long
-    (.plain "If the PCG analysis succeeds for a valid \
-            program, every machine state reachable from \
-            its \\texttt{initialMachine} is non-stuck — \
-            \\texttt{step} never produces an error result.")
+    (doc! "If the PCG analysis succeeds for a valid \
+           program, every machine state reachable from \
+           its #initialMachine is non-stuck — \
+           #step never produces an error result.")
   := ∀∀ pr ∈ Program, m ∈ Machine .
        ‹break› validProgram ‹pr› ∧
        ‹break› pcgAnalysisSucceeds ‹pr› ∧
