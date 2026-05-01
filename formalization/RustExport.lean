@@ -272,6 +272,12 @@ pub fn map_remove<K: Eq + std::hash::Hash + Clone, V: Clone>(
     out.remove(k);
     out
 }
+
+pub fn map_values<K: Eq + std::hash::Hash, V: Clone>(
+    m: &std::collections::HashMap<K, V>,
+) -> Vec<V> {
+    m.values().cloned().collect()
+}
 ")
   , ("OpSem", "program", .raw
 "use formal_mir::body::Body;

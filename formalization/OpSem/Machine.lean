@@ -32,14 +32,14 @@ defProperty Runnable (.plain "Runnable")
   long
     (.seq [.plain "the call stack of ", m,
            .plain " is non-empty, the program of ", m,
-           .plain " is valid, and every stack frame on the \
-           call stack of ", m, .plain " is valid"])
+           .plain " is valid, and the call stack of ", m,
+           .plain " is a valid stack against the memory of ",
+           m])
   (m "The machine state." : Machine)
   :=
     m↦thread↦stack ≠ [] ∧
     validProgram ‹m↦program› ∧
-    m↦thread↦stack·forAll fun frame =>
-      validStackFrame ‹frame›
+    validStack ‹m↦thread↦stack, m↦mem›
 
 -- Source-only `Inhabited StackFrame` so `head!` inside
 -- `currentFrame` (which relies on the precondition for

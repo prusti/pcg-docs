@@ -111,3 +111,42 @@ defProperty validStackFrame (.plain "validStackFrame")
   :=
     validBody ‹frame↦body› ∧
     validLocation ‹frame↦body, frame↦pc›
+
+defFn ptrAllocations (.plain "ptrAllocations")
+  (.plain "The singleton list containing the allocation \
+    backing a pointer, or the empty list when the pointer has \
+    no provenance and so cannot be resolved to an allocation.")
+  (ptr "The pointer." : ThinPointer)
+  (mem "The memory." : Memory)
+  : List Allocation where
+  | ⟨_, .some prov⟩ ; mem => [mem↦allocs ! prov↦id↦index]
+  | _ ; _ => []
+
+defFn localAllocations (.plain "localAllocations")
+  (.plain "All allocations backing the locals across every \
+    frame in a call stack. Pointers without provenance are \
+    skipped — they cannot be resolved to an allocation.")
+  (stack "The call stack." : List StackFrame)
+  (mem "The memory." : Memory)
+  : List Allocation :=
+    stack·flatMap fun frame =>
+      mapValues ‹frame↦locals›·flatMap fun ptr =>
+        ptrAllocations ‹ptr, mem›
+
+defProperty validStack (.plain "validStack")
+  short
+    (.seq [stack, .plain " is a valid stack against ", mem])
+  long
+    (.seq [.plain "every frame in ", stack,
+           .plain " is a valid stack frame, and the \
+           allocations backing the locals across all frames \
+           in ", stack,
+           .plain " are pairwise non-overlapping in ", mem])
+  (stack "The call stack." : List StackFrame)
+  (mem "The memory." : Memory)
+  :=
+    let allocs := localAllocations ‹stack, mem› ;
+    (stack·forAll fun frame => validStackFrame ‹frame›) ∧
+    (∀∀ i, j .
+      i < j < allocs·length →
+      Allocation.nonOverlapping ‹allocs ! i, allocs ! j›)
