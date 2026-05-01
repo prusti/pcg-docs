@@ -314,6 +314,34 @@ partial def toDoc
   -- a non-breaking space after the word.
   let keyword (s : String) : MathDoc :=
     .seq [MathDoc.text s, .sym .space]
+  -- Whether the part to the LEFT of an `.arg` slot bounds the
+  -- argument on the left — i.e. blocks juxtaposition with the
+  -- preceding context. Any non-whitespace lit or sym (brackets,
+  -- commas, operators) bounds; bare space, `none` (handled by
+  -- the caller as the start-of-template), and another `.arg`
+  -- do not.
+  let displayPartLeftDelimits : DisplayPart → Bool
+    | .lit m => match m with
+      | .raw s => !s.trim.isEmpty
+      | .sym .space => false
+      | _ => true
+    | .arg _ _ => false
+  -- Whether the part to the RIGHT of an `.arg` slot would
+  -- "left-attach" to the argument and grab it as a sub-expression
+  -- (like a subscript `[…]` or a function-call paren `(…)`). Such
+  -- a part forces protective parens around a compound argument
+  -- so e.g. `(programEntryStateAt par … m)[p, b]` doesn't
+  -- collapse to `programEntryStateAt par … m[p, b]`. Other
+  -- delimiters (`,`, `]`, `)`, infix operators, …) bound the
+  -- argument cleanly and don't trigger the wrap.
+  let displayPartLeftAttaches : DisplayPart → Bool
+    | .lit m => match m with
+      | .raw s =>
+        let t := s.trim
+        t.startsWith "[" || t.startsWith "("
+      | .sym .lbracket | .sym .lparen => true
+      | _ => false
+    | .arg _ _ => true
   -- Whether an expression needs parentheses when placed in a
   -- juxtaposition position (e.g. as the argument of `Some`, a
   -- unary defEnum constructor, or a fn-display template).
@@ -339,6 +367,44 @@ partial def toDoc
     | .cons .. => false
     | .sorryProof | .leanProof _ => false
     | _ => true
+  -- Render a list of display-template parts, substituting each
+  -- `.arg` via `resolveArg`. Protective parens are dropped around
+  -- a compound substituted argument when the slot is bounded on
+  -- both sides: the preceding part bounds the argument on the
+  -- left (any non-whitespace lit) and the following part doesn't
+  -- left-attach (no `[`, `(`, …). The start-of-template
+  -- boundary is treated as bounded since outer contexts
+  -- (implication chains, surrounding operators, …) typically
+  -- supply a delimiter; the end-of-template boundary likewise.
+  -- Net effect: `par[(currBody m)]` renders as `par[currBody m]`
+  -- and `(currPC m) ∈ ar` renders as `currPC m ∈ ar`, while
+  -- `(programEntryStateAt par b pc)[p, b] ≐ E` keeps its outer
+  -- parens because `[` would otherwise grab the trailing arg.
+  let renderDisplayParts
+      (parts : List DisplayPart)
+      (resolveArg : String → Option (DslExpr × MathDoc))
+      : MathDoc :=
+    let arr := parts.toArray
+    let renderedParts : List MathDoc :=
+      arr.zipIdx.toList.map fun (p, i) =>
+        match p with
+        | .lit d => d
+        | .arg name _ =>
+          match resolveArg name with
+          | some (e, d) =>
+            let prev := if i == 0 then none else arr[i - 1]?
+            let next := arr[i + 1]?
+            let leftBounded := match prev with
+              | none => true
+              | some part => displayPartLeftDelimits part
+            let rightBounded := match next with
+              | none => true
+              | some part => !displayPartLeftAttaches part
+            if needsParen e && !(leftBounded && rightBounded)
+            then MathDoc.paren d
+            else d
+          | none => MathDoc.text name
+    MathDoc.seq renderedParts
   -- Resolve a variable reference to a variant's display when it
   -- names a qualified constructor — e.g. `Capability.none`
   -- should render as `∅` rather than the literal text
@@ -418,14 +484,11 @@ partial def toDoc
             let argMap : List (String × DslExpr × MathDoc) :=
               (fields.zip args).zip argDocs |>.map
                 fun ((f, e), d) => (f, e, d)
-            let rendered : List MathDoc := parts.map fun
-              | .lit d => d
-              | .arg fname _ =>
-                match argMap.find? (·.1 == fname) with
-                | some (_, e, d) =>
-                  if needsParen e then MathDoc.paren d else d
-                | none => MathDoc.text fname
-            some (MathDoc.seq rendered)
+            let resolveArg (fname : String) :
+                Option (DslExpr × MathDoc) :=
+              argMap.find? (·.1 == fname) |>.map
+                fun (_, e, d) => (e, d)
+            some (renderDisplayParts parts resolveArg)
           else none
       match templated with
       | some md => md
@@ -575,13 +638,11 @@ partial def toDoc
           if v.args.length == visibleArgs.length then
             let argMap : List (String × DslExpr) :=
               (v.args.map (·.name)).zip visibleArgs
-            let parts : List MathDoc := v.display.map fun
-              | .lit d => d
-              | .arg name _ =>
-                match argMap.find? (·.1 == name) with
-                | some (_, e) => renderArg e
-                | none => MathDoc.text name
-            some (MathDoc.seq parts)
+            let resolveArg (name : String) :
+                Option (DslExpr × MathDoc) :=
+              argMap.find? (·.1 == name) |>.map
+                fun (_, e) => (e, go e)
+            some (renderDisplayParts v.display resolveArg)
           else none
         | none => none
       | _ => none
@@ -598,13 +659,11 @@ partial def toDoc
           if paramNames.length == visibleArgs.length then
             let argMap : List (String × DslExpr) :=
               paramNames.zip visibleArgs
-            let rendered : List MathDoc := parts.map fun
-              | .lit d => d
-              | .arg name _ =>
-                match argMap.find? (·.1 == name) with
-                | some (_, e) => renderArg e
-                | none => MathDoc.text name
-            some (MathDoc.seq rendered)
+            let resolveArg (name : String) :
+                Option (DslExpr × MathDoc) :=
+              argMap.find? (·.1 == name) |>.map
+                fun (_, e) => (e, go e)
+            some (renderDisplayParts parts resolveArg)
           else none
         | none => none
       | _ => none
