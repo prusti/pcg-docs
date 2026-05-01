@@ -63,7 +63,7 @@ end BorrowsGraph
 -- Converting owned init trees to unpack edges
 -- ══════════════════════════════════════════════
 
-defFn placeNode (.plain "placeNode")
+defFn implicit placeNode (.plain "placeNode")
   (.plain "Wrap a MIR place as a PCG node: inject it as a \
     current (unlabelled) maybe-labelled place nested inside a \
     PCG place and then a PCG node.")

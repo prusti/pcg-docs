@@ -199,10 +199,17 @@ private def moduleBodyLatex
   -- enclosing module.
   let ctxFor : Lean.Name → RenderCtx := fun mod =>
     { ctx with currentFnModule := some (moduleLastSeg mod) }
-  let fnParts := reg.fns.map fun f =>
-    Latex.seq [f.fnDef.formalDefLatex (ctxFor f.leanModule) false
-                 (qualifiedLabelKey f.leanModule f.fnDef.name),
-               .newline, .newline]
+  -- `defFn`s marked `implicit` are hidden from the LaTeX
+  -- presentation: their definition block is omitted, and call
+  -- sites render as their lone argument (handled in
+  -- `DslExpr.toDoc`).
+  let fnParts := reg.fns.filterMap fun f =>
+    if f.fnDef.isImplicit then none
+    else
+      some (Latex.seq
+        [f.fnDef.formalDefLatex (ctxFor f.leanModule) false
+           (qualifiedLabelKey f.leanModule f.fnDef.name),
+         .newline, .newline])
   let propParts := reg.properties.map fun p =>
     Latex.seq [p.propertyDef.formalDefLatex (ctxFor p.leanModule)
                  (qualifiedLabelKey p.leanModule
@@ -250,6 +257,9 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
   let fnNameSet : List String :=
     reg.fns.map (·.fnDef.name)
       ++ reg.properties.map (·.propertyDef.fnDef.name)
+  let fnImplicitSet : List String :=
+    reg.fns.filterMap fun f =>
+      if f.fnDef.isImplicit then some f.fnDef.name else none
   -- Short names shared by two or more registered functions or
   -- properties. These cannot resolve unambiguously to a single
   -- `\\hypertarget{fn:...}`, so `formalDefLatex` qualifies the
@@ -351,7 +361,8 @@ private def mkRenderCtx (reg : Registry) : RenderCtx :=
       let fromProps := fun () =>
         (reg.properties.find? (·.propertyDef.fnDef.name == n)).map
           fun p => p.propertyDef.fnDef.preconditions.length
-      (fromFns.orElse fromProps).getD 0 }
+      (fromFns.orElse fromProps).getD 0
+    implicitFns := fun n => fnImplicitSet.contains n }
 
 /-- Build the full presentation LaTeX body. -/
 def buildPresentationLatex (reg : Registry) : Latex :=

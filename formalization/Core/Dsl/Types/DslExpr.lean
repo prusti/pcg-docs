@@ -349,7 +349,7 @@ partial def toDoc
   -- (infix operators, calls, control flow, lambdas, …) gets
   -- wrapped so that `Some (sz + off)` does not collapse to the
   -- ambiguous `Some sz + off`.
-  let needsParen : DslExpr → Bool
+  let rec needsParen : DslExpr → Bool
     | .var _ | .natLit _ | .true_ | .false_ | .none_ => false
     | .emptyList | .emptySet => false
     | .setSingleton _ => false
@@ -366,6 +366,11 @@ partial def toDoc
     | .mkStruct "" _ => false
     | .cons .. => false
     | .sorryProof | .leanProof _ => false
+    -- A call to an `implicit` defFn renders as just its lone
+    -- argument, so its paren-need is whatever the argument's is.
+    | .call (.var n) [a] =>
+      let short := (n.splitOn ".").getLast?.getD n
+      if ctx.implicitFns short then needsParen a else true
     | _ => true
   -- Render a list of display-template parts, substituting each
   -- `.arg` via `resolveArg`. Protective parens are dropped around
@@ -603,6 +608,17 @@ partial def toDoc
       | .sorryProof => false
       | .leanProof _ => false
       | _ => true
+    -- A call whose head names an `implicit` defFn renders as
+    -- its lone argument alone — the function head is dropped
+    -- from the LaTeX presentation. Implicit defFns are
+    -- constrained to a single explicit parameter at
+    -- elaboration time, so we can safely unwrap the first
+    -- visible argument.
+    let implicitFnDoc : Option MathDoc := match fn, visibleArgs with
+      | .var n, [a] =>
+        let short := (n.splitOn ".").getLast?.getD n
+        if ctx.implicitFns short then some (go a) else none
+      | _, _ => none
     -- A call whose head names a known enum variant renders
     -- using the variant's display template, with each arg
     -- reference replaced by the rendered argument. This
@@ -690,11 +706,12 @@ partial def toDoc
           some (.seq [renderArg a, .sym .cap, renderArg b])
         else none
       | _, _ => none
-    match ctorCallDoc, fnDisplayDoc, latticeOpDoc with
-    | some md, _, _ => md
-    | _, some md, _ => md
-    | _, _, some md => md
-    | none, none, none =>
+    match implicitFnDoc, ctorCallDoc, fnDisplayDoc, latticeOpDoc with
+    | some md, _, _, _ => md
+    | _, some md, _, _ => md
+    | _, _, some md, _ => md
+    | _, _, _, some md => md
+    | none, none, none, none =>
       let fnDoc := match fn with
         | .var n => fnRef n
         | _ => go fn

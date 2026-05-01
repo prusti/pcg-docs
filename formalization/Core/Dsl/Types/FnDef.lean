@@ -119,6 +119,15 @@ structure FnDef where
       in the type's namespace even though its first parameter is
       a different type. -/
   sourceNamespace : Option String := none
+  /-- When `true`, the LaTeX presentation hides this function:
+      its definition is not emitted as an algorithm/definition
+      block, and call sites render as their lone argument
+      directly (the function head is dropped). Implicit
+      functions are restricted to a single explicit parameter
+      so the "render as the argument" rule is unambiguous.
+      The Lean and Rust outputs are unaffected — implicit
+      defFns generate normal real definitions. -/
+  isImplicit : Bool := false
   deriving Repr
 
 namespace FnDef

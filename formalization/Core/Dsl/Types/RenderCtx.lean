@@ -74,3 +74,9 @@ structure RenderCtx where
       renderer falls back to rendering the wrapped body
       without the surrounding break. -/
   allowBreak : Bool := true
+  /-- Whether a short function name refers to a `defFn`
+      marked `implicit`. Such calls render as their lone
+      argument alone — the function head is dropped from the
+      LaTeX presentation. (The Lean and Rust outputs are
+      unaffected; this flag only controls LaTeX rendering.) -/
+  implicitFns : String → Bool := fun _ => false

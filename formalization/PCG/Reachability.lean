@@ -37,7 +37,7 @@ that thread through unmodelled lifetime-projection nodes. -/
 -- Endpoint → PcgNode lifters
 -- ══════════════════════════════════════════════
 
-defFn mlpNode (.plain "mlpNode")
+defFn implicit mlpNode (.plain "mlpNode")
   (doc! "Lift a maybe-labelled place to a PCG node by \
     wrapping it in a #PcgPlace.maybeLabelled and then a \
     #PcgNode.place.")

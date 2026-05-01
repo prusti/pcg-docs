@@ -237,15 +237,20 @@ syntax fnExpr : fnPrecond
     ```
     renders the algorithm caption as `os[idx ↦ ol] → OwnedState`
     instead of `setOwnedLocalAt(os, idx, newOl) → OwnedState`. -/
-syntax "defFn " ident "(" term ")" "(" term ")"
+syntax "defFn " ("implicit ")? ident "(" term ")" "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")?
     ("requires " fnPrecond,+)?
     ("ensures " fnPrecond,+)?
     ":" term " where" fnArm* : command
 
 /-- Direct expression function (no pattern match). See the
-    pattern-matching form for the optional `displayed` clause. -/
-syntax "defFn " ident "(" term ")" "(" term ")"
+    pattern-matching form for the optional `displayed` clause.
+    The optional `implicit` modifier hides the function from
+    the LaTeX presentation entirely: the algorithm block is
+    suppressed and call sites render as their argument alone.
+    `implicit` is only accepted when the function takes
+    exactly one explicit parameter. -/
+syntax "defFn " ("implicit ")? ident "(" term ")" "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")?
     ("requires " fnPrecond,+)?
     ("ensures " fnPrecond,+)?
@@ -607,10 +612,16 @@ def buildFnDef
     (postconds : List Postcondition := [])
     (mutualGroup : Option String := none)
     (display : Option (TSyntax `term) := none)
+    (isImplicit : Bool := false)
     : CommandElabM Unit := do
   let name := hdr.name
   let symDoc := hdr.symDoc
   let doc := hdr.doc
+  if isImplicit && paramData.size != 1 then
+    Lean.throwErrorAt name
+      m!"an `implicit` defFn must take exactly one explicit \
+        argument (so call sites can render as that argument \
+        alone); got {paramData.size}"
   let paramDefs ← paramData.mapM
     fun (pn, pd, pt) => do
       let ns : TSyntax `term :=
@@ -635,6 +646,7 @@ def buildFnDef
   let displayTerm : TSyntax `term ← match display with
     | some dpList => `((some $dpList : Option (List DisplayPart)))
     | none => `((none : Option (List DisplayPart)))
+  let isImplicitTerm : TSyntax `term := quote isImplicit
   -- Capture the last component of the source-level `namespace`
   -- enclosing this `defFn` so the Lean export can prefer it over
   -- the first-parameter-type heuristic for placing the function.
@@ -656,7 +668,8 @@ def buildFnDef
         body := $body,
         mutualGroup := $mutualGroupTerm,
         display := $displayTerm,
-        sourceNamespace := $sourceNsTerm }))
+        sourceNamespace := $sourceNsTerm,
+        isImplicit := $isImplicitTerm }))
   let mod ← getMainModule
   let modName : TSyntax `term := quote mod
   elabCommand (← `(command|
@@ -726,12 +739,13 @@ private def precondProof : Precondition → String
 
 open Lean Elab Command Term in
 elab_rules : command
-  | `(defFn $name:ident ($symDoc:term) ($doc:term)
+  | `(defFn $[implicit%$impl?]? $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
        $[requires $reqs:fnPrecond,*]?
        $[ensures $ens:fnPrecond,*]?
        : $retTy:term where
        $arms:fnArm*) => do
+    let isImplicit := impl?.isSome
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
@@ -826,6 +840,7 @@ elab_rules : command
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds postconds (display := displayTerm)
+      (isImplicit := isImplicit)
     flushIdentRefs
 
 -- ══════════════════════════════════════════════
@@ -834,11 +849,12 @@ elab_rules : command
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defFn $name:ident ($symDoc:term) ($doc:term)
+  | `(defFn $[implicit%$impl?]? $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
        $[requires $reqs:fnPrecond,*]?
        $[ensures $ens:fnPrecond,*]?
        : $retTy:term := $rhs:fnExpr) => do
+    let isImplicit := impl?.isSome
     identRefBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
@@ -891,6 +907,7 @@ elab_rules : command
       `(FnBody.expr $(quote rhsAst))
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
       bodyTerm preconds postconds (display := displayTerm)
+      (isImplicit := isImplicit)
     flushIdentRefs
 
 -- ══════════════════════════════════════════════
