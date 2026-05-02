@@ -2,21 +2,11 @@ import Core.Dsl.DefEnum
 
 defEnum Capability (.raw "c", .raw "C")
   "Capabilities"
-  (.seq [
-    .plain "A capability ",
-    Doc.defMath (.raw "c") (.raw "C"),
-    .plain " describes the actions permitted on a place at a \
-     particular program point: either no capability (",
-    .math (.sym .emptySet),
-    .plain "), exclusive (",
-    .math (.bold (.raw "E")),
-    .plain "), read (",
-    .math (.bold (.raw "R")),
-    .plain "), write (",
-    .math (.bold (.raw "W")),
-    .plain "), or shallow exclusive (",
-    .math (.bold (.raw "e")),
-    .plain ")."])
+  (doc! "A capability {Doc.defMath (.raw "c") (.raw "C")} \
+    describes the actions permitted on a place at a particular \
+    program point: either no capability ({Doc.m (.sym .emptySet)}), \
+    exclusive ($__E__$), read ($__R__$), write ($__W__$), or \
+    shallow exclusive ($__e__$).")
 where
   | none
     "No capability."

@@ -54,10 +54,10 @@ defFn meet (.plain "meet")
 defFn initial (.plain "initial")
   (doc! "The initial owned state at the entry of a MIR body. \
          Local 0 (the return place) starts allocated and \
-         uninitialised ({Doc.m (.bold (.raw "U"))}); each argument \
-         local (locals 1 through `numArgs`) starts allocated \
-         and fully initialised ({Doc.m (.bold (.raw "D"))}); \
-         every other local starts unallocated.")
+         uninitialised ($__U__$); each argument local (locals \
+         1 through `numArgs`) starts allocated and fully \
+         initialised ($__D__$); every other local starts \
+         unallocated.")
   (body "The MIR function body." : Body)
   : OwnedState :=
     OwnedState⟨body↦decls·zipIdx·map fun ⟨_, i⟩ =>

@@ -1,6 +1,7 @@
 import LSpec
 import Core.Dsl.DslType
 import Core.Doc
+import Core.Doc.Interp
 import Core.Export.Latex
 import Core.Dsl.Lint
 import Tests.DslGotoDef
@@ -153,10 +154,53 @@ def lintTests : TestSeq :=
         (·.rule == "mergeableBinders")) $
     .done
 
+private def boldShorthandSimple : Doc :=
+  doc! "value $__W__$ here"
+
+private def boldShorthandSpelled : Doc :=
+  .seq [.plain "value ", .math (.bold (.raw "W")),
+        .plain " here"]
+
+private def boldShorthandMixed : Doc :=
+  doc! "before $__n+1__$ then $X$ after"
+
+private def boldShorthandMixedSpelled : Doc :=
+  .seq [.plain "before ", .math (.bold (.raw "n+1")),
+        .plain " then ", .math (.seq [.raw "X"]),
+        .plain " after"]
+
+private def boldShorthandUnclosed : Doc :=
+  doc! "open $__abc and no close"
+
+private def boldTextShorthand : Doc :=
+  doc! "the __invariant__ holds"
+
+private def boldTextSpelled : Doc :=
+  .seq [.plain "the ", .bold (.plain "invariant"),
+        .plain " holds"]
+
+def docInterpTests : TestSeq :=
+  group "Doc.Interp" $
+    test "$__W__$ shorthand renders the same LaTeX as the \
+          spelled-out form"
+      (boldShorthandSimple.toLatex.render ==
+         boldShorthandSpelled.toLatex.render) $
+    test "$__n+1__$ accepts non-identifier inner content"
+      (boldShorthandMixed.toLatex.render ==
+         boldShorthandMixedSpelled.toLatex.render) $
+    test "Unmatched $__ falls back to literal characters"
+      (boldShorthandUnclosed.toPlainText ==
+        "open $__abc and no close") $
+    test "__X__ outside $...$ becomes Doc.bold (Doc.plain X)"
+      (boldTextShorthand.toLatex.render ==
+         boldTextSpelled.toLatex.render) $
+    .done
+
 def main (args : List String) : IO UInt32 :=
   lspecIO
     (.ofList [
       ("DSLType", [dslTypeParseTests]),
       ("Doc", [docLinkTests]),
+      ("DocInterp", [docInterpTests]),
       ("DslLint", [lintTests])])
     args

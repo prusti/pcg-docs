@@ -5,15 +5,10 @@ import PCG.Analyze.PlaceTriple
 import PCG.Capability
 
 defFn operandTriple (.plain "operandTriple")
-  (.seq [
-    .plain "The set of place triples implied by a single \
-     operand: a ", .code "copy", .plain " yields a ",
-    .math (.bold (.raw "R")),
-    .plain " triple with no post-condition; a ",
-    .code "move", .plain " yields an ",
-    .math (.bold (.raw "E")), .plain " triple with post ",
-    .math (.bold (.raw "W")),
-    .plain "; a constant contributes nothing."])
+  (doc! "The set of place triples implied by a single \
+    operand: a `copy` yields a $__R__$ triple with no \
+    post-condition; a `move` yields an $__E__$ triple with \
+    post $__W__$; a constant contributes nothing.")
   (o "The operand." : Operand)
   : Set PlaceTriple where
   | .copy p =>
@@ -23,13 +18,10 @@ defFn operandTriple (.plain "operandTriple")
   | .const _ => ∅
 
 defFn borrowTriple (.plain "borrowTriple")
-  (.seq [
-    .plain "The place triple implied by a borrow of \
-     a place at the given mutability: shared yields a ",
-    .math (.bold (.raw "R")),
-    .plain " triple with no post-condition, mutable yields \
-     an ", .math (.bold (.raw "E")), .plain " triple with \
-     post ", .math (.sym .emptySet), .plain "."])
+  (doc! "The place triple implied by a borrow of a place at \
+    the given mutability: shared yields a $__R__$ triple with \
+    no post-condition, mutable yields an $__E__$ triple with \
+    post {Doc.m (.sym .emptySet)}.")
   (m "The borrow's mutability." : Mutability)
   (p "The borrowed place." : Place)
   : PlaceTriple where
@@ -72,42 +64,27 @@ defFn terminatorTriples (.plain "terminatorTriples")
         (args·setFlatMap fun a => operandTriple ‹a›)
 
 defFn operandTriples (.plain "operandTriples")
-  (.seq [
-    .plain "The set of place triples implied by the operand \
-     and borrow uses of places in an analysis object. A ",
-    .code "copy", .plain " operand or shared borrow yields a ",
-    .math (.bold (.raw "R")),
-    .plain " triple with no post-condition; a ", .code "move",
-    .plain " operand yields an ", .math (.bold (.raw "E")),
-    .plain " triple with post ", .math (.bold (.raw "W")),
-    .plain "; a mutable borrow yields an ",
-    .math (.bold (.raw "E")), .plain " triple with post ",
-    .math (.sym .emptySet), .plain "."])
+  (doc! "The set of place triples implied by the operand and \
+    borrow uses of places in an analysis object. A `copy` \
+    operand or shared borrow yields a $__R__$ triple with no \
+    post-condition; a `move` operand yields an $__E__$ triple \
+    with post $__W__$; a mutable borrow yields an $__E__$ \
+    triple with post {Doc.m (.sym .emptySet)}.")
   (ao "The analysis object." : AnalysisObject)
   : Set PlaceTriple where
   | .stmt s => statementTriples ‹s›
   | .terminator t => terminatorTriples ‹t›
 
 defFn mainTriples (.plain "mainTriples")
-  (.seq [
-    .plain "The set of place triples implied by the main \
-     effect of an analysis object. An assignment requires ",
-    .math (.bold (.raw "W")),
-    .plain " on its destination and establishes ",
-    .math (.bold (.raw "E")),
-    .plain "; ", .code "StorageLive",
-    .plain " transitions the local from ",
-    .math (.sym .emptySet), .plain " to ",
-    .math (.bold (.raw "E")), .plain "; ", .code "StorageDead",
-    .plain " transitions it from ", .math (.bold (.raw "E")),
-    .plain " back to ", .math (.sym .emptySet), .plain "; a ",
-    .code "drop", .plain " consumes ", .math (.bold (.raw "E")),
-    .plain " and leaves ", .math (.sym .emptySet),
-    .plain "; a ", .code "call",
-    .plain " requires ", .math (.bold (.raw "W")),
-    .plain " on its destination and establishes ",
-    .math (.bold (.raw "E")),
-    .plain "; other terminators contribute nothing."])
+  (doc! "The set of place triples implied by the main effect \
+    of an analysis object. An assignment requires $__W__$ on \
+    its destination and establishes $__E__$; `StorageLive` \
+    transitions the local from {Doc.m (.sym .emptySet)} to \
+    $__E__$; `StorageDead` transitions it from $__E__$ back \
+    to {Doc.m (.sym .emptySet)}; a `drop` consumes $__E__$ \
+    and leaves {Doc.m (.sym .emptySet)}; a `call` requires \
+    $__W__$ on its destination and establishes $__E__$; other \
+    terminators contribute nothing.")
   (ao "The analysis object." : AnalysisObject)
   : Set PlaceTriple where
   | .stmt (.assign lhs _) =>

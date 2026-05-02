@@ -117,16 +117,11 @@ defFn analyzeStmtsFrom (.plain "analyzeStmtsFrom")
     end
 
 defFn analyzeBlock (.plain "analyzeBlock")
-  (.seq [
-    .plain "Step the PCG state across an entire basic \
-     block: one ", .code "analyzeAt",
-    .plain " call per statement followed by one for the \
-     terminator. Returns the resulting list of ",
-    Doc.refLinkOf @PcgDomainData "PcgDomainData", .plain " values of length ",
-    .math (.bold (.raw "n+1")),
-    .plain ", where ", .math (.bold (.raw "n")),
-    .plain " is the statement count, or ", .code "None",
-    .plain " if any phase fails."])
+  (doc! "Step the PCG state across an entire basic block: \
+    one `analyzeAt` call per statement followed by one for \
+    the terminator. Returns the resulting list of \
+    #PcgDomainData values of length $__n+1__$, where $__n__$ \
+    is the statement count, or `None` if any phase fails.")
   (pd "The PCG data on entry to the basic block."
       : PcgData Place)
   (body "The function body." : Body)

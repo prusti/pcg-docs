@@ -140,16 +140,19 @@ namespace Doc.Interp
     `doc!` literal. `mathLit` carries already-translated LaTeX
     (Unicode math characters like `≐` are mapped to
     `\doteq` etc. at parse time); `mathRef` carries a
-    `#identifier` reference, rendered in math text mode. -/
+    `#identifier` reference, rendered in math text mode;
+    `mathBold` carries the body of a `__X__` span and renders
+    as `MathDoc.bold (MathDoc.raw "X")`. -/
 inductive MathChunkSeg where
   | mathLit (s : String)
   | mathRef (name : String)
+  | mathBold (s : String)
   deriving Inhabited
 
 /-- A segment of a `doc!` literal chunk: a run of plain text,
     a `#identifier` cross-reference, a `#{name}` braced
     cross-reference, a backtick-delimited inline code span,
-    or a `$...$` math block.
+    a `__X__` bold-text span, or a `$...$` math block.
 
     `ref` carries the byte offsets of its `#identifier`
     substring relative to the start of the (decoded) chunk
@@ -178,13 +181,28 @@ inductive MathChunkSeg where
     plain text inside math is Unicode-translated to LaTeX
     commands (e.g. `≐` → `\doteq`) at parse time, and
     `#identifier` / `#[name]` references inside math become
-    text-mode name renderings. -/
+    text-mode name renderings. A `__X__` span inside a
+    `$...$` block becomes a `MathChunkSeg.mathBold` segment
+    rendered as `MathDoc.bold (.raw "X")`.
+
+    `bold` is the same `__X__` form encountered *outside* a
+    math block; it carries the body verbatim and renders as
+    `Doc.bold (.plain "X")`. The body of either form must be
+    non-empty and contain neither `_` nor `$`, so the shorthand
+    stays a tight match for the single-token cases the codebase
+    actually uses (e.g. `D`, `E`, `R`, `S`, `U`, `W`, `e`, `n`,
+    `n+1`); anything else falls back to literal characters
+    (text mode) or the regular math segment list (math mode).
+    The same source spelling `__X__` therefore acts as
+    `MathDoc.bold` inside `$...$` and `Doc.bold` everywhere
+    else, so `$__X__$` is just `$...$` wrapping `__X__`. -/
 inductive ChunkSeg where
   | literal (s : String)
   | ref (parts : List String) (startOff endOff : Nat)
   | refByName (name : String)
   | code (s : String)
   | mathBlock (segs : List MathChunkSeg)
+  | bold (s : String)
   deriving Inhabited
 
 /-- Map a Unicode math character to its LaTeX command form.
@@ -298,6 +316,25 @@ private partial def consumeUntilRBracket :
     (consumeUntilRBracket rest).map fun (more, after) =>
       (String.ofList [c] ++ more, after)
 
+/-- Read the body of a `__X__` bold span whose opening `__`
+    has already been consumed. Accepts characters up to a
+    closing `__`, but rejects bodies that contain `_` or `$`
+    (so the shorthand stays a tight match for the cases the
+    codebase actually uses — single tokens like `U`, `E`, `n`,
+    `n+1`). Returns the consumed body and the remainder after
+    the closing `__`, or `none` to defer to the surrounding
+    parser (which then treats the leading `__` as literal). -/
+private partial def consumeBoldBody :
+    List Char → List Char →
+    Option (String × List Char)
+  | acc, '_' :: '_' :: rest =>
+    if acc.isEmpty then none
+    else some (String.ofList acc.reverse, rest)
+  | _, '_' :: _ => none
+  | _, '$' :: _ => none
+  | _, [] => none
+  | acc, c :: rest => consumeBoldBody (c :: acc) rest
+
 /-- Parse the body of a `$...$` math block. Returns the parsed
     segments, the remainder after the closing `$`, and whether
     a closing `$` was actually found. If unclosed, the caller
@@ -306,6 +343,18 @@ private partial def parseMathSegsAux :
     List Char → List MathChunkSeg × List Char × Bool
   | [] => ([], [], false)
   | '$' :: rest => ([], rest, true)
+  | '_' :: '_' :: rest =>
+    -- `__X__` inside a `$...$` math block: emit a `mathBold`
+    -- segment (rendered as `MathDoc.bold (.raw "X")`). Falls
+    -- back to literal underscores when the body is empty or
+    -- contains `_`/`$`.
+    match consumeBoldBody [] rest with
+    | some (name, after) =>
+      let (more, restFinal, closed) := parseMathSegsAux after
+      (.mathBold name :: more, restFinal, closed)
+    | none =>
+      let (more, restFinal, closed) := parseMathSegsAux rest
+      (consMathLitStr "__" more, restFinal, closed)
   | '#' :: '[' :: rest =>
     -- `#[name]` form: any chars up to the closing `]` form
     -- the name. Falls back to a literal `#` when no closing
@@ -352,6 +401,16 @@ private partial def consumeUntilBacktick :
 
 private partial def parseSegsAux : List Char → List ChunkSeg
   | [] => []
+  | '_' :: '_' :: rest =>
+    -- `__X__` outside a math block: emit a `bold` segment
+    -- (rendered as `Doc.bold (.plain "X")`). Falls back to
+    -- literal underscores when the body is empty or contains
+    -- `_`/`$`.
+    match consumeBoldBody [] rest with
+    | some (name, after) =>
+      .bold name :: parseSegsAux after
+    | none =>
+      consLitChar '_' (consLitChar '_' (parseSegsAux rest))
   | '$' :: rest =>
     let (segs, rest', closed) := parseMathSegsAux rest
     if closed then
@@ -425,6 +484,10 @@ private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
     .code t :: annotateOffsets rest (off + 2 + t.utf8ByteSize)
   | .mathBlock segs :: rest, off =>
     .mathBlock segs :: annotateOffsets rest (off + 2)
+  | .bold s :: rest, off =>
+    -- Source bytes consumed by the `__X__` form: leading
+    -- `__` (2) + body bytes + trailing `__` (2).
+    .bold s :: annotateOffsets rest (off + 4 + s.utf8ByteSize)
 
 /-- Split a literal `doc!` chunk into segments: `.literal` runs of
     plain text, `.ref parts startOff endOff` for each
@@ -560,7 +623,9 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
             -- becomes `MathDoc.text` (a math-mode text rendering
             -- of the identifier name; consumers like
             -- `defInductiveProperty`'s `displayed` repurpose
-            -- these as parameter slots).
+            -- these as parameter slots), each `mathBold` becomes
+            -- `MathDoc.bold (MathDoc.raw "X")` — the way `$__X__$`
+            -- gets its bold rendering.
             let mut mdParts : Array (TSyntax `term) := #[]
             for s in segs do
               match s with
@@ -571,8 +636,18 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
               | .mathRef name =>
                 let lit := Syntax.mkStrLit name
                 mdParts := mdParts.push (← `(MathDoc.text $lit))
+              | .mathBold t =>
+                let lit := Syntax.mkStrLit t
+                mdParts := mdParts.push
+                  (← `(MathDoc.bold (MathDoc.raw $lit)))
             parts := parts.push
               (← `((Doc.math (MathDoc.seq [$mdParts,*]) : Doc)))
+          | .bold s =>
+            -- `__X__` outside a math block: emit
+            -- `Doc.bold (Doc.plain "X")`.
+            let lit := Syntax.mkStrLit s
+            parts := parts.push
+              (← `((Doc.bold (Doc.plain $lit) : Doc)))
       | none =>
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))

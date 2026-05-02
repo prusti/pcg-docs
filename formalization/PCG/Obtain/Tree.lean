@@ -29,28 +29,22 @@ defFn expansionOfStep (.plain "expansionOfStep")
 
 defFnMutual
 defFn obtainWriteInTree (.plain "obtainWriteInTree")
-  (.seq [.plain "Restructure an initialisation tree so that \
-    the place reached by the given projection has write (",
-    .math (.bold (.raw "W")),
-    .plain ") capability, i.e. is marked as uninitialised. \
-    Three cases drive the recursion: (1) when the remaining \
-    projection is empty, the whole subtree collapses to a \
-    single uninitialised leaf — this covers both changing the \
-    target leaf to ", .math (.bold (.raw "U")),
-    .plain " and packing postfix places back up into a single \
-    uninitialised leaf; (2) when the tree is a fully \
-    initialised (", .math (.bold (.raw "D")),
-    .plain ") leaf and a projection step remains, unpack one \
-    level via ", Doc.refLinkOf @expansionOfStep "expansionOfStep",
-    .plain " and recurse on the single child carrying the \
-    same ", .math (.bold (.raw "D")),
-    .plain " leaf (the capability dominating the prefix \
-    place); (3) when the tree is already internal, descend \
-    into the matching child. Shallow (",
-    .math (.bold (.raw "S")),
-    .plain ") leaves and expansion shapes that do not match \
-    the projection step are not handled by the simple case \
-    and return ", .code "None", .plain "."])
+  (doc! "Restructure an initialisation tree so that the place \
+    reached by the given projection has write ($__W__$) \
+    capability, i.e. is marked as uninitialised. Three cases \
+    drive the recursion: (1) when the remaining projection is \
+    empty, the whole subtree collapses to a single \
+    uninitialised leaf — this covers both changing the target \
+    leaf to $__U__$ and packing postfix places back up into a \
+    single uninitialised leaf; (2) when the tree is a fully \
+    initialised ($__D__$) leaf and a projection step remains, \
+    unpack one level via #expansionOfStep and recurse on the \
+    single child carrying the same $__D__$ leaf (the \
+    capability dominating the prefix place); (3) when the \
+    tree is already internal, descend into the matching \
+    child. Shallow ($__S__$) leaves and expansion shapes that \
+    do not match the projection step are not handled by the \
+    simple case and return `None`.")
   (it "The current initialisation subtree." : InitTree)
   (projs "The remaining projection steps from the current \
     subtree down to the target place."

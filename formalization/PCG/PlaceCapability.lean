@@ -82,17 +82,13 @@ defFn treeIsInternal (.plain "treeIsInternal")
   | _ :: _ ; .internal _ => false
 
 defFn treeLeafCapability (.plain "treeLeafCapability")
-  (.seq [.plain "The capability implied by the initialisation \
-    state of the leaf reached by walking the given projection \
-    through an initialisation tree: ",
-    .math (.bold (.raw "W")),
-    .plain " for an uninitialised leaf, ",
-    .math (.bold (.raw "e")),
-    .plain " for a shallowly initialised leaf. Fully \
+  (doc! "The capability implied by the initialisation state of \
+    the leaf reached by walking the given projection through \
+    an initialisation tree: $__W__$ for an uninitialised leaf, \
+    $__e__$ for a shallowly initialised leaf. Fully \
     initialised leaves and walks that end at (or fall off) an \
-    internal node return ", .code "None",
-    .plain ", deferring to the rest of ", Doc.refLinkByName "getCapability",
-    .plain "'s cascade."])
+    internal node return `None`, deferring to the rest of \
+    #[getCapability]'s cascade.")
   (projs "The remaining projection elements."
       : List ProjElem)
   (t "The initialisation tree." : InitTree)
@@ -196,24 +192,17 @@ defFn projectsSharedRef (.plain "projectsSharedRef")
 
 open BorrowsGraph in
 defFn getCapability (.plain "getCapability")
-  (.seq [.plain "Compute the capability of a MIR place from \
-    the per-program-point PCG data. The cascade: (1) return ",
-    .code "None",
-    .plain " when the local is not allocated in the owned \
+  (doc! "Compute the capability of a MIR place from the \
+    per-program-point PCG data. The cascade: (1) return \
+    `None` when the local is not allocated in the owned \
     state, the place lands on an internal node of the init \
     tree, or it is the blocked side of a mutable deref edge, \
-    (2) return ",
-    .math (.bold (.raw "W")),
-    .plain " or ", .math (.bold (.raw "e")),
-    .plain " when it is an uninitialised or shallowly \
-    initialised leaf in the init tree, (3) return ",
-    .math (.bold (.raw "R")),
-    .plain " when it projects from a shared reference, (4) \
-    return ", .math (.bold (.raw "R")),
-    .plain " when it is a prefix of some place in the \
-    transient read-place set carried by ",
-    .code "transientState", .plain ", otherwise (5) ",
-    .math (.bold (.raw "E")), .plain "."])
+    (2) return $__W__$ or $__e__$ when it is an uninitialised \
+    or shallowly initialised leaf in the init tree, (3) \
+    return $__R__$ when it projects from a shared reference, \
+    (4) return $__R__$ when it is a prefix of some place in \
+    the transient read-place set carried by `transientState`, \
+    otherwise (5) $__E__$.")
   (pd "The PCG data." : PcgData Place)
   (body "The function body." : Body)
   (p "The place whose capability is requested." : Place)

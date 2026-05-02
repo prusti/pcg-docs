@@ -21,14 +21,11 @@ defFn setOwnedLocalAt (.plain "setOwnedLocalAt")
       if i == idx then newOl else ol⟩
 
 defFn obtainWriteOwned (.plain "obtainWriteOwned")
-  (.seq [.plain "Obtain write (",
-    .math (.bold (.raw "W")),
-    .plain ") capability on an owned place by restructuring \
-    its local's initialisation tree. Returns ",
-    .code "None",
-    .plain " when the local is unallocated or when the tree \
+  (doc! "Obtain write ($__W__$) capability on an owned place \
+    by restructuring its local's initialisation tree. Returns \
+    `None` when the local is unallocated or when the tree \
     restructuring fails (unsupported shape, shallow leaf on \
-    the path, etc.)."])
+    the path, etc.).")
   (os "The owned state." : OwnedState)
   (p "The place to obtain." : Place)
   : Option OwnedState :=

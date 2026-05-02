@@ -5,10 +5,9 @@ defEnum InitialisationState (.raw "i", .raw "I")
   "Initialisation States"
   (doc! "An initialisation state \
     {Doc.defMath (.raw "i") (.raw "I")} describes whether an \
-    owned place is uninitialised ({Doc.m (.bold (.raw "U"))}), \
-    shallowly initialised ({Doc.m (.bold (.raw "S"))}), or \
-    fully initialised ({Doc.m (.bold (.raw "D"))}) at a \
-    particular program point. Each leaf node in the \
+    owned place is uninitialised ($__U__$), shallowly \
+    initialised ($__S__$), or fully initialised ($__D__$) at \
+    a particular program point. Each leaf node in the \
     initialisation state tree carries one of these values.")
 where
   | uninit
@@ -33,11 +32,10 @@ defFn meet (.plain "meet")
     case of the initialisation-tree meet described in \
     `owned-state.md`: return the minimum of the two states \
     under the order {Doc.m (.seq [.bold (.raw "D"), .sym .gt, .bold (.raw "S"), .sym .gt, .bold (.raw "U")])}. \
-    In particular, the meet is {Doc.m (.bold (.raw "U"))} if \
-    either side is uninitialised, {Doc.m (.bold (.raw "S"))} \
-    if one side is shallow and the other is shallow or deep, \
-    and {Doc.m (.bold (.raw "D"))} only if both sides are \
-    deep.")
+    In particular, the meet is $__U__$ if either side is \
+    uninitialised, $__S__$ if one side is shallow and the \
+    other is shallow or deep, and $__D__$ only if both sides \
+    are deep.")
   (a "The first state." : InitialisationState)
   (b "The second state." : InitialisationState)
   : InitialisationState where

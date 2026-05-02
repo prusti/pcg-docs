@@ -18,11 +18,10 @@ defAlias InitTree
     initialisation state. By invariant, an internal node has \
     at least one descendant leaf that is not fully \
     initialised (otherwise the subtree collapses to a single \
-    {Doc.m (.bold (.raw "D"))} leaf), and every place \
-    reachable from the root of the tree is owned — so any \
-    {Doc.m (.doc (.code "*"))} step in the tree is a \
-    dereference of a `Box`-typed place rather than a \
-    reference.")
+    $__D__$ leaf), and every place reachable from the root of \
+    the tree is owned — so any {Doc.m (.doc (.code "*"))} \
+    step in the tree is a dereference of a `Box`-typed place \
+    rather than a reference.")
   := AbstractInitTree InitialisationState
 
 defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
@@ -153,8 +152,8 @@ defFn meet (.plain "meet")
     recurse on the child. Other internal/internal cases \
     (`fields` against `fields`, mismatched expansion shapes, \
     or `guided` expansions) conservatively collapse to \
-    {Doc.m (.bold (.raw "U"))}; a faithful pointwise handling \
-    of those cases is a follow-up.")
+    $__U__$; a faithful pointwise handling of those cases is \
+    a follow-up.")
   (a "The first tree." : InitTree)
   (b "The second tree." : InitTree)
   : InitTree where
