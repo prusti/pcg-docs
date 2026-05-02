@@ -11,7 +11,7 @@ open Machine
 
 Properties that bound how the PCG analysis controls aliasing of
 runtime allocations. `Framing` forbids two simultaneously-
-exclusive places from sharing an allocation; `NoAlias`
+exclusive places from sharing an allocation; `Connected`
 strengthens the conclusion to non-overlapping address ranges,
 under the weaker hypothesis that the two places' PCG nodes are
 disconnected.
@@ -25,13 +25,13 @@ describes program, reachability, runnability, program-contains)
 that ground the `pcgEntryStateAt` lookup, and applies
 `FramingInvariant`.
 
-`NoAlias` mirrors `Framing`'s split: `NoAliasInvariant` is a
+`Connected` mirrors `Framing`'s split: `ConnectedInvariant` is a
 stand-alone property over `(m, pcg)` that asserts the
 disconnected-implies-disjoint conclusion for any pair of valid
-places, and the unprimed `NoAlias` sets up the program-level
+places, and the unprimed `Connected` sets up the program-level
 antecedents (analysis describes program, reachability,
 runnability, program-contains) that ground the
-`pcgEntryStateAt` lookup, and applies `NoAliasInvariant`. -/
+`pcgEntryStateAt` lookup, and applies `ConnectedInvariant`. -/
 
 defProperty FramingInvariant (.plain "FramingInvariant")
   short
@@ -109,19 +109,26 @@ defProperty Framing (.plain "Framing")
             ‹prog ‹m›, lean_proof("h_Runnable.2.1")›, m›
        → ‹break› FramingInvariant' ‹m, par›
 
-defProperty NoAliasInvariant (.plain "NoAliasInvariant")
+defProperty ConnectedInvariant (.plain "ConnectedInvariant")
   short
-    (doc! "the no-alias invariant holds between {m} and {pcg}")
+    (doc! "the connected invariant holds between {m} and {pcg}")
   long
     (doc! "Holds when, for every pair of distinct valid \
-           places in {m}'s current body backed by allocations \
-           in {m}, either their corresponding PCG nodes are \
-           connected in {pcg} or the backing allocations have \
-           non-overlapping address ranges. The conclusion is \
-           phrased as a disjunction so its contrapositive \
-           reads as the disconnected-implies-disjoint \
-           statement without needing a negation operator in \
-           the DSL.")
+           places in {m}'s current body whose #placeNode's \
+           are tracked by {pcg} and which are backed by \
+           allocations in {m}, either their PCG nodes are \
+           connected in {pcg} or the backing allocations \
+           have non-overlapping address ranges. The \
+           conclusion is phrased as a disjunction so its \
+           contrapositive reads as the \
+           disconnected-implies-disjoint statement without \
+           needing a negation operator in the DSL.\n\nThe \
+           #inPcg antecedents constrain the property to \
+           places the PCG actually tracks: places with no \
+           corresponding node in {pcg} carry no analysis \
+           guarantee, and the invariant holds for them \
+           vacuously (the standard pattern when the PCG \
+           hasn't yet unpacked far enough to mention them).")
   (m "The machine state." : Machine)
   (pcg "The PCG data, interpreted in m's current body."
       : PcgData Place)
@@ -132,20 +139,22 @@ defProperty NoAliasInvariant (.plain "NoAliasInvariant")
          ‹currBody ‹m, lean_proof("h_Runnable")›, p› ∧
        ‹break› validPlace
          ‹currBody ‹m, lean_proof("h_Runnable")›, p'› ∧
+       ‹break› inPcg ‹pcg, placeNode ‹p›› ∧
+       ‹break› inPcg ‹pcg, placeNode ‹p'›› ∧
        ‹break› hasAllocation ‹m, p, a› ∧
        ‹break› hasAllocation ‹m, p', a'›
        → ‹break› connected
            ‹pcg, placeNode ‹p›, placeNode ‹p'›› ∨
          ‹break› Allocation.nonOverlapping ‹a, a'›
 
-defProperty NoAlias (.plain "NoAlias")
+defProperty Connected (.plain "Connected")
   short
     (.plain "the PCG analysis frames non-overlap of \
             disconnected places")
   long
     (.plain "If analysis results describe a program, then \
             at any reachable runnable machine state tracked \
-            by the analysis, the no-alias invariant holds \
+            by the analysis, the connected invariant holds \
             between the machine and the entry-state PCG at \
             its program counter.")
   := ∀∀ par ∈ ProgAnalysisResults, m ∈ Machine .
@@ -160,7 +169,7 @@ defProperty NoAlias (.plain "NoAlias")
          ‹par,
           currBody ‹m, lean_proof("h_Runnable")›,
           currPC ‹m, lean_proof("h_Runnable")››
-       → ‹break› NoAliasInvariant
+       → ‹break› ConnectedInvariant
            ‹m,
             pcgEntryStateAt
               ‹par,

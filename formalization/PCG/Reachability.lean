@@ -116,6 +116,56 @@ defFn candidateNodes (.plain "candidateNodes")
     start :: edges ‹pd›·flatMap fun e =>
       edgeAllTargets ‹e›
 
+defFn edgeAllSources (.plain "edgeAllSources")
+  (doc! "Every source node of a PCG edge, irrespective of any \
+    target. Mirrors #edgeAllTargets for the source side: \
+    unpack edges have a single base node; deref edges have \
+    the blocked place as their source; borrow edges have the \
+    blocked place as their source; borrow-flow and \
+    abstraction edges have lifetime-projection sources that \
+    don't lift into a `PcgNode Place` and so contribute none.")
+  (e "The PCG edge." : PcgEdge Place)
+  : List (PcgNode Place) where
+  | .unpack ue => [ue↦base]
+  | .deref de => [mlpNode ‹de↦blockedPlace›]
+  | .borrow be => [mlpNode ‹be↦blocked›]
+  | .borrowFlow _ => []
+  | .abstraction _ => []
+
+defFn ownedTreePlaceNodes (.plain "ownedTreePlaceNodes")
+  (doc! "All #placeNode's tracked by the owned state of {pd}: \
+    walks each allocated local's initialisation tree via \
+    #itPlaces and collects the corresponding nodes. Includes \
+    every internal and leaf node along each owned local's \
+    tree, so a place rooted at an allocated local appears \
+    here even when the analysis hasn't yet emitted an \
+    explicit unpack edge for it.")
+  (pd "The PCG data." : PcgData Place)
+  : List (PcgNode Place) :=
+    pd↦ownedState↦locals·zipIdx·flatMap fun ⟨ol, idx⟩ =>
+      match ol with
+      | .allocated t =>
+          itPlaces ‹t, Local⟨idx⟩, []›·toList·map fun p =>
+            placeNode ‹p›
+      | _ => []
+      end
+
+defFn inPcg (.plain "inPcg")
+  (doc! "Whether a node is tracked by the PCG {pd}: either \
+    it lies on some allocated local's initialisation tree \
+    (see #ownedTreePlaceNodes) or it appears as a source or \
+    target of some edge in {pd}. The #placeNode of an \
+    allocated local is therefore always in {pd}, even when \
+    the local's init tree is a `.leaf` (no unpack edges \
+    yet).")
+  (pd "The PCG data." : PcgData Place)
+  (n "The candidate node." : PcgNode Place)
+  : Bool :=
+    ownedTreePlaceNodes ‹pd›·any fun m => m == n ∨
+    edges ‹pd›·any fun e =>
+      edgeAllSources ‹e›·any fun s => s == n ∨
+      edgeAllTargets ‹e›·any fun t => t == n
+
 -- ══════════════════════════════════════════════
 -- Graph search with cycle detection
 -- ══════════════════════════════════════════════
