@@ -214,7 +214,7 @@ private partial def exprLines
              , .text (.raw "else") ])) ]
     let elseLines := recur e (depth + 1)
     ifLine :: thenLines ++ elseLine :: elseLines
-  | .match_ scrut matchArms =>
+  | .match_ scrut matchArms _ =>
     let headerLine : Latex :=
       .seq [ .raw "    "
            , Latex.state (.inlineMath (.seq [

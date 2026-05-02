@@ -105,9 +105,16 @@ inductive DslExpr where
   /-- Match expression:
       `match scrutinee with | pats => rhs | …`.
       Each arm is a list of patterns paired with a
-      right-hand side. -/
+      right-hand side. `eqName` is set when the source uses
+      the `match h : scrut with` form to bind the scrutinee
+      equation as `h` in every arm — the Lean export emits
+      that form so arm RHSs can name the equation in their
+      proofs; the LaTeX/Rust exports ignore the binding.
+      A `none` value means the source used the plain
+      `match scrut with` form. -/
   | match_ (scrutinee : DslExpr)
       (arms : List (List BodyPat × DslExpr))
+      (eqName : Option String := none)
   /-- `let pat := val ; body`. The binder is a `BodyPat` so
       that tuple destructuring (`let ⟨a, b⟩ := …`) is expressible
       in addition to the simple `let x := …` form. -/
@@ -224,8 +231,8 @@ def mapChildren (f : DslExpr → DslExpr)
   | .call fn args => .call (f fn) (args.map f)
   | .ineqChain ops es => .ineqChain ops (es.map f)
   -- Match (recurse into scrutinee and arm RHSs)
-  | .match_ s arms =>
-    .match_ (f s) (arms.map fun (p, rhs) => (p, f rhs))
+  | .match_ s arms eqName =>
+    .match_ (f s) (arms.map fun (p, rhs) => (p, f rhs)) eqName
   | .structUpdate r fld v => .structUpdate (f r) fld (f v)
 
 /-- Bottom-up rewrite: recurse into all children first,
@@ -820,11 +827,14 @@ partial def toDoc
           rawMath "~.~", go b]
   | .sorryProof => .seq []
   | .leanProof _ => .seq []
-  | .match_ scrut arms =>
-    -- Pass `ctx.ctorDisplay` so nullary variants in inner
-    -- `match` arms render with their display template
-    -- (e.g. `PreOperands`), matching how the same variant
-    -- renders in value position via `varToVariantDoc`.
+  | .match_ scrut arms _ =>
+    -- The scrutinee-equation binder (when present) is a
+    -- proof artefact for the Lean export; the LaTeX
+    -- presentation drops it. Pass `ctx.ctorDisplay` so
+    -- nullary variants in inner `match` arms render with
+    -- their display template (e.g. `PreOperands`), matching
+    -- how the same variant renders in value position via
+    -- `varToVariantDoc`.
     let rowsMath : List MathDoc :=
       arms.map fun (pats, rhs) =>
         let patMath := mathIntercalate (.sym .comma)

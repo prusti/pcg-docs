@@ -118,7 +118,7 @@ private def directChildren : DslExpr → List DslExpr
   | .mkStruct _ args => args
   | .call fn args => fn :: args
   | .ineqChain _ es => es
-  | .match_ s arms => s :: arms.map (·.2)
+  | .match_ s arms _ => s :: arms.map (·.2)
   | .structUpdate r _ v => [r, v]
   | .formatHint _ b => [b]
 
@@ -139,7 +139,7 @@ def mergeableBinders
 partial def lintExpr (e : DslExpr) : List Diagnostic :=
   let here : List Diagnostic :=
     match e with
-    | .match_ _ arms =>
+    | .match_ _ arms _ =>
       if matchIsIrrefutable arms then
         [{ rule := "irrefutableMatch",
            message := irrefutableMatchMessage }]

@@ -233,6 +233,13 @@ syntax "| " fnPat "; " fnPat "; " fnPat "; " fnPat
 
 -- Match expression: match expr with | pat => expr end
 syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
+-- Match with scrutinee equation bound as a hypothesis:
+-- `match h : expr with | pat => expr end`. Each arm's RHS
+-- has access to `h` recording the equality between the
+-- scrutinee and the matched pattern. The Lean export emits
+-- `match h : scrut with`; the LaTeX/Rust exports drop the
+-- binder.
+syntax "match " ident " : " fnExpr " with" fnArm+ " end" : fnExpr
 
 -- If-then-else expression: if cond then t else e
 syntax "if " fnExpr " then " fnExpr " else " fnExpr : fnExpr
@@ -594,6 +601,31 @@ partial def parseExpr
     if DslLint.matchIsIrrefutable armsList then
       Lean.throwErrorAt scrut DslLint.irrefutableMatchMessage
     pure (.match_ scrutAst armsList)
+  | `(fnExpr| match $h:ident : $scrut:fnExpr with
+        $arms:fnArm* end) => do
+    let scrutAst ← parseExpr scrut
+    let parsedArms ← arms.mapM fun arm =>
+      match arm with
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+            $p4:fnPat => $rhs:fnExpr) => do
+        pure ([← parsePat p1, ← parsePat p2,
+          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+            => $rhs:fnExpr) => do
+        pure ([← parsePat p1, ← parsePat p2,
+          ← parsePat p3], ← parseExpr rhs)
+      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
+            $rhs:fnExpr) => do
+        pure ([← parsePat p1, ← parsePat p2],
+          ← parseExpr rhs)
+      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
+        pure ([← parsePat p], ← parseExpr rhs)
+      | _ => Lean.Elab.throwUnsupportedSyntax
+    let armsList := parsedArms.toList
+    if DslLint.matchIsIrrefutable armsList then
+      Lean.throwErrorAt scrut DslLint.irrefutableMatchMessage
+    pure (.match_ scrutAst armsList
+      (some (toString h.getId)))
   | `(fnExpr| let $p:fnPat := $v:fnExpr ; $b:fnExpr) => do
     pure (.letIn (← parsePat p)
       (← parseExpr v) (← parseExpr b))

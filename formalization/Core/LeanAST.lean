@@ -194,8 +194,12 @@ inductive LeanExpr where
       `(x y : T)`. -/
   | forall_ (binders : List (List String × Option String))
             (body : LeanExpr)
-  /-- `match scrut with | … => …`. -/
+  /-- `match scrut with | … => …`. When `eqName` is `some h`,
+      the rendered form is `match h : scrut with | …` and each
+      arm's RHS has access to the `h` hypothesis recording the
+      scrutinee equation. -/
   | match_ (scrut : LeanExpr) (arms : List LeanMatchArm)
+      (eqName : Option String := none)
   /-- `let pat := v\nbody`. The binder is a `LeanPat` so that
       both simple identifiers (`let x := …`) and destructuring
       patterns (`let ⟨a, b⟩ := …`) are representable. -/
@@ -312,13 +316,16 @@ partial def LeanExpr.toString : LeanExpr → String
     let bindersStr :=
       " ".intercalate (binders.map fun ⟨vs, ty⟩ => groupStr vs ty)
     s!"∀ {bindersStr}, {body.toString}"
-  | .match_ scrut arms =>
+  | .match_ scrut arms eqName =>
     let armStrs := arms.map fun
       | .mk pats rhs =>
         let patStr := ", ".intercalate
           (pats.map LeanPat.toString)
         s!"  | {patStr} => {rhs.toString}"
-    s!"(match {scrut.toString} with\n\
+    let header := match eqName with
+      | none => s!"match {scrut.toString} with"
+      | some h => s!"match {h} : {scrut.toString} with"
+    s!"({header}\n\
        {"\n".intercalate armStrs})"
   | .letIn pat val body =>
     s!"let {pat.toString} := {val.toString}\n{body.toString}"

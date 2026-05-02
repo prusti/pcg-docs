@@ -144,16 +144,35 @@ structure RegisteredFn where
   fnDef : FnDef
   /-- The Lean module where this function was defined. -/
   leanModule : Lean.Name
+  /-- Global sequence number assigned at registration time.
+      Shared with `defRaw inFns` blocks so the export
+      pipeline can interleave the two kinds of declarations
+      in source-elaboration order within the function-defs
+      section of a module. -/
+  seqNum : Nat := 0
   deriving Repr
 
 /-- Global registry of all `defFn`-defined functions. -/
 initialize fnRegistry : IO.Ref (List RegisteredFn) ←
   IO.mkRef []
 
+/-- Shared counter feeding `seqNum` for both `defFn`-defined
+    functions and `defRaw inFns` raw-Lean blocks. The export
+    pipeline merges the two registries by `seqNum` so a
+    `defRaw inFns` block appearing between two `defFn`s in
+    source ends up between the corresponding declarations in
+    the generated module. -/
+initialize fnAndInFnsSeqRef : IO.Ref Nat ← IO.mkRef 0
+
+/-- Allocate the next shared sequence number. -/
+def nextFnAndInFnsSeq : IO Nat :=
+  fnAndInFnsSeqRef.modifyGet fun n => (n, n + 1)
+
 /-- Register a function definition. -/
 def registerFnDef
-    (f : FnDef) (mod : Lean.Name) : IO Unit :=
-  fnRegistry.modify (· ++ [⟨f, mod⟩])
+    (f : FnDef) (mod : Lean.Name) : IO Unit := do
+  let n ← nextFnAndInFnsSeq
+  fnRegistry.modify (· ++ [⟨f, mod, n⟩])
 
 /-- Retrieve all registered function definitions. -/
 def getRegisteredFns : IO (List RegisteredFn) :=

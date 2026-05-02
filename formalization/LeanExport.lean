@@ -480,6 +480,8 @@ private def renderModule
     (extrasMiddle : List String := [])
     (extrasBeforeProperties : List String := [])
     (extrasAfter : List String := [])
+    (inFnsBlocks : List (Nat × String) := [])
+    (fnSeqMap : List (String × Nat) := [])
     : String :=
   let toLeanAST :=
     LeanDefItem.toLeanAST allTypes aliasNames mapSetTypes
@@ -518,18 +520,53 @@ private def renderModule
   let render (defs : List LeanDefItem) : String :=
     (groupByMutual defs).map renderGroup
       |> "\n\n".intercalate
+  -- Render a list of fn items together with `inFns` raw
+  -- blocks, interleaved by sequence number. Within an fn run
+  -- with no intervening raw block, the existing
+  -- `groupByMutual + renderGroup` path handles mutual groups.
+  let fnNameOf (i : LeanDefItem) : Option String :=
+    i.fnDef?.map (·.name)
+  let seqOf (i : LeanDefItem) : Nat :=
+    match fnNameOf i with
+    | none => 0
+    | some n => (fnSeqMap.find? (·.1 == n)).map (·.2)
+                |>.getD 0
+  let renderFns (fns : List LeanDefItem) : String := Id.run do
+    if inFnsBlocks.isEmpty then
+      if fns.isEmpty then return "" else return render fns
+    let sortedBlocks :=
+      (inFnsBlocks.toArray.qsort (·.1 < ·.1)).toList
+    let mut blocks := sortedBlocks
+    let mut output : List String := []
+    let mut segment : List LeanDefItem := []
+    for fn in fns do
+      let s := seqOf fn
+      let (early, later) := blocks.partition (·.1 < s)
+      if !early.isEmpty then
+        if !segment.isEmpty then
+          output := output ++ [render segment]
+          segment := []
+        output := output ++ early.map (·.2)
+        blocks := later
+      segment := segment ++ [fn]
+    if !segment.isEmpty then
+      output := output ++ [render segment]
+    output := output ++ blocks.map (·.2)
+    return "\n\n".intercalate output
   let codeBlock :=
-    if extrasBeforeProperties.isEmpty then
+    if extrasBeforeProperties.isEmpty
+       && inFnsBlocks.isEmpty then
       if codeDefs.isEmpty then ""
       else s!"\n{render codeDefs}\n"
     else
       let (propDefs, fnDefs) :=
         codeDefs.partition isPropertyDef
       let beforePropertiesStr :=
-        "\n" ++ "\n".intercalate extrasBeforeProperties
-          ++ "\n"
+        if extrasBeforeProperties.isEmpty then ""
+        else "\n" ++ "\n".intercalate
+          extrasBeforeProperties ++ "\n"
       let fnBlock := if fnDefs.isEmpty then "" else
-        s!"\n{render fnDefs}\n"
+        s!"\n{renderFns fnDefs}\n"
       let propBlock := if propDefs.isEmpty then "" else
         s!"\n{render propDefs}\n"
       s!"{fnBlock}{beforePropertiesStr}{propBlock}"
@@ -636,12 +673,27 @@ def main (args : List String) : IO Unit := do
       match pos with
       | .before => importShim ++ registered
       | _ => registered
+    -- `inFns` raw blocks live alongside `defFn` declarations
+    -- via a shared sequence-number space; the renderer
+    -- merges them in, so we hand them over as a list of
+    -- `(seqNum, code)` pairs.
+    let inFnsBlocks : List (Nat × String) :=
+      rawBlocks.filterMap fun b =>
+        if b.leanModule == mod && b.pos == .inFns
+        then some (b.seqNum, b.code) else none
+    -- Per-fn sequence numbers, restricted to functions in
+    -- this module. The renderer uses them to interleave
+    -- `inFns` raw blocks with `defFn` declarations.
+    let fnSeqMap : List (String × Nat) :=
+      fns.filterMap fun rf =>
+        if rf.leanModule == mod
+        then some (rf.fnDef.name, rf.seqNum) else none
     let opens := computeOpens items nsMap
     let path := s!"{outDir}/{moduleToPath mod}"
     let contents := renderModule items imports allTypes
       aliasNames mapSetTypes opens (extrasFor .before)
       (extrasFor .middle) (extrasFor .beforeProperties)
-      (extrasFor .after)
+      (extrasFor .after) inFnsBlocks fnSeqMap
     writeFile path contents
   -- Write root files for each lean_lib
   for lib in uniqueLibs do

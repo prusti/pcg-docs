@@ -1,4 +1,5 @@
 import Lean
+import Core.Registry
 
 /-!
 # `defRaw`: single-source raw-Lean blocks for the Lean export
@@ -46,6 +47,10 @@ namespace Core.Dsl
       generated file, after `import` lines).
     * `.middle` — between the type definitions and the
       function definitions.
+    * `.inFns` — interleaved with `defFn` declarations in
+      source-elaboration order. Use this when a raw block
+      depends on a `defFn` declared earlier in the source
+      (or the other way round).
     * `.beforeProperties` — between the function definitions
       and the `defProperty` definitions; only meaningful for
       modules where every property follows every function.
@@ -53,6 +58,7 @@ namespace Core.Dsl
 inductive ExtraPos where
   | before
   | middle
+  | inFns
   | beforeProperties
   | after
   deriving BEq, Repr
@@ -71,6 +77,11 @@ structure RawBlock where
   pos : ExtraPos
   /-- Verbatim Lean source. -/
   code : String
+  /-- Shared `defFn`/`defRaw inFns` sequence number, used to
+      interleave the block with `defFn`-defined declarations
+      when `pos = .inFns`. Unused (and zero) for the other
+      positions. -/
+  seqNum : Nat := 0
   deriving Repr
 
 /-- Module-level registry of raw-Lean blocks declared via
@@ -98,24 +109,35 @@ def registerRawBlock (b : RawBlock) : IO Unit :=
 def getRegisteredRawBlocks : IO (List RawBlock) :=
   rawBlockRegistry.get
 
+/-- Register an `inFns` raw block, allocating its sequence
+    number from the shared `defFn`/`defRaw inFns` counter.
+    Wrapping the two IO actions here lets the `defRaw` macro
+    splice a single `initialize` call into the source, side-
+    stepping `do`-block / record-update macro-hygiene
+    interactions. -/
+def registerInFnsRawBlock (b : RawBlock) : IO Unit := do
+  let n ← nextFnAndInFnsSeq
+  registerRawBlock { b with seqNum := n }
+
 end Core.Dsl
 
 open Core.Dsl
 
-/-- Parse one of `before` / `middle` / `beforeProperties` /
-    `after` from a Lean identifier into the matching
-    `ExtraPos` constructor. -/
+/-- Parse one of `before` / `middle` / `inFns` /
+    `beforeProperties` / `after` from a Lean identifier into
+    the matching `ExtraPos` constructor. -/
 private def parseExtraPos (id : Lean.Ident) :
     Lean.Elab.Command.CommandElabM ExtraPos := do
   match id.getId with
   | `before => pure .before
   | `middle => pure .middle
+  | `inFns => pure .inFns
   | `beforeProperties => pure .beforeProperties
   | `after => pure .after
   | other =>
     Lean.throwErrorAt id
       s!"defRaw: unknown position '{other}'; expected one of \
-        before / middle / beforeProperties / after"
+        before / middle / inFns / beforeProperties / after"
 
 /-- Declare a raw-Lean block scoped to the current module and
     splice it into the matching slot of the generated module.
@@ -168,6 +190,7 @@ elab_rules : command
     let posTerm : TSyntax `term ← match posVal with
       | .before => `(ExtraPos.before)
       | .middle => `(ExtraPos.middle)
+      | .inFns => `(ExtraPos.inFns)
       | .beforeProperties =>
         `(ExtraPos.beforeProperties)
       | .after => `(ExtraPos.after)
@@ -183,5 +206,16 @@ elab_rules : command
       private def $blockId : RawBlock :=
         { leanModule := $modTerm, pos := $posTerm,
           code := $codeStr }))
+    -- For `inFns` blocks, register through the helper that
+    -- internally allocates a shared `defFn`/`defRaw inFns`
+    -- sequence number so the export can interleave the two
+    -- kinds of declarations. Other positions register
+    -- directly with `seqNum := 0` (the `RawBlock` default).
+    let registerName :=
+      if posVal == .inFns then
+        ``Core.Dsl.registerInFnsRawBlock
+      else
+        ``Core.Dsl.registerRawBlock
+    let registerIdent := mkIdent registerName
     elabCommand (← `(command|
-      initialize registerRawBlock $blockId))
+      initialize ($registerIdent $blockId)))

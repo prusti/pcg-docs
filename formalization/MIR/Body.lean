@@ -4,6 +4,7 @@ import MIR.ConstValue
 import MIR.Statements
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
 
 defStruct BasicBlockIdx (.text "bb",
     .text "BasicBlockIdx")
@@ -11,6 +12,26 @@ defStruct BasicBlockIdx (.text "bb",
   (.plain "An index into the list of basic blocks.")
 where
   | index "The basic block index." : Nat
+
+-- `BasicBlockIdx` is the key type for the entry-state map
+-- threaded through the dataflow analysis (`Map BasicBlockIdx
+-- _`). Map-membership lemmas
+-- (`Std.HashMap.getElem?_eq_some_iff_…`) require `EquivBEq`
+-- and `LawfulHashable` on the key, which `LawfulBEq` provides
+-- (transitively). The DSL exporter only emits `BEq, Hashable`
+-- on the generated struct, so we add a structural-`BEq`
+-- derive and a follow-on `LawfulBEq` derive here. They are
+-- shipped to the generated module verbatim by `defRaw`; the
+-- source build sees two `BEq` instances (the
+-- `DecidableEq`-driven one from the DSL default plus this
+-- one) but Lean picks consistently and lawfulness goes
+-- through the explicit derive.
+defRaw after =>
+deriving instance BEq for BasicBlockIdx
+defRaw after =>
+deriving instance ReflBEq for BasicBlockIdx
+defRaw after =>
+deriving instance LawfulBEq for BasicBlockIdx
 
 defStruct Location (.raw "\\ell", .text "Location")
   "Locations"

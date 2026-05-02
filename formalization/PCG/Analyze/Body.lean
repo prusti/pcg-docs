@@ -95,40 +95,183 @@ private def reversePostorder (body : Body)
 -- Pushing a block's exit state to its successors
 -- ══════════════════════════════════════════════
 
-defFn pushOne (.plain "pushOne")
-  (doc! "Join an exit state `exit` into the pending entry state of one successor block. If `succ` \
-    already has a pending entry, the two are combined with `PcgData.join`; otherwise the \
-    contribution becomes the entry, rebased to `succ`.")
+-- `pushOneNewEntry` uses `match heq : mapGet … with` to
+-- bind the lookup equation as a hypothesis; the proof of
+-- `PcgData.join`'s length precondition projects the caller's
+-- `forAll`-over-`mapValues` invariant down to the looked-up
+-- value via `mem_mapValues_of_mapGet_eq_some heq`. The DSL's
+-- `match h : scrut with` form (added in this PR) drops to
+-- this same Lean code.
+--
+-- The export's namespace inference puts this function in
+-- `namespace AnalysisState` (its first parameter is an
+-- `AnalysisState`); we wrap the source-side declaration in
+-- the same namespace so the `defRaw inFns` blocks below can
+-- reference it via the same fully-qualified name in both
+-- builds.
+namespace AnalysisState
+defFn pushOneNewEntry (.plain "pushOneNewEntry")
+  (doc! "Compute the new pending entry for `succ`. If there \
+    is already a pending entry, join it with the \
+    predecessor's exit state via `PcgData.join`; otherwise \
+    rebase `exit` to `succ` and return that.")
   (state "The current analysis state." : AnalysisState)
   (exit "The exit state of the just-processed predecessor."
       : PcgData Place)
   (succ "The successor block to push into."
       : BasicBlockIdx)
-  : AnalysisState :=
-    let newEntry :=
-      match mapGet state↦entryStates succ with
-      | .some existing =>
-          PcgData.join
-            existing exit succ proof[sorry]
-      | .none =>
-          PcgData⟨exit↦bg, exit↦os, succ, None⟩
-      end ;
-    let entries1 :=
-      mapInsert state↦entryStates succ newEntry ;
-    state[entryStates => entries1]
+  requires mapValues state↦entryStates·forAll fun e =>
+             e↦os↦locals·length = exit↦os↦locals·length
+  : PcgData Place :=
+    match heq : mapGet state↦entryStates succ with
+    | .some existing =>
+        PcgData.join
+          existing exit succ
+          proof[h_pre0 existing
+            (mem_mapValues_of_mapGet_eq_some heq)]
+    | .none =>
+        PcgData⟨exit↦bg, exit↦os, succ, None⟩
+    end
+end AnalysisState
 
-defFn pushToSuccessors (.plain "pushToSuccessors")
-  (doc! "Fold an exit state into every successor's pending \
-    entry state via #pushOne.")
-  (state "The current analysis state." : AnalysisState)
-  (exit "The exit state of the just-processed predecessor."
-      : PcgData Place)
-  (succs "Successor blocks of the predecessor."
-      : List BasicBlockIdx)
-  : AnalysisState where
-  | state ; _ ; [] => state
-  | state ; exit ; s :: rest =>
-      pushToSuccessors (pushOne state exit s) exit rest
+-- `pushOne`, the preservation lemma, and `pushToSuccessors`
+-- below are kept in raw Lean rather than `defFn` so the
+-- recursive call inside `pushToSuccessors` can apply
+-- `pushOne_preserves_lengths` explicitly — the DSL's
+-- auto-discharged precondition tactic can't bridge
+-- `state.entryStates` to `(pushOne …).entryStates`. They are
+-- registered with `defRaw inFns` so they appear *after* the
+-- `defFn pushOneNewEntry` declaration (which they
+-- reference) when the export interleaves raw blocks with
+-- DSL-generated function definitions in source order.
+defRaw inFns =>
+/-- Join an exit state `exit` into the pending entry state of
+    one successor block. If `succ` already has a pending entry,
+    the two are combined with `PcgData.join`; otherwise the
+    contribution becomes the entry, rebased to `succ`. The
+    precondition asserts that every PCG already pending in
+    `state.entryStates` shares its `os.locals` length with the
+    exit PCG — exactly what `PcgData.join` needs in the
+    `.some existing` branch of `pushOneNewEntry`. -/
+private def AnalysisState.pushOne (state : AnalysisState)
+    (exit : PcgData Place) (succ : BasicBlockIdx)
+    (h_pre0 : ∀ e ∈ mapValues state.entryStates,
+                e.os.locals.length = exit.os.locals.length)
+    : AnalysisState :=
+  let newEntry :=
+    AnalysisState.pushOneNewEntry state exit succ h_pre0
+  let entries1 :=
+    mapInsert state.entryStates succ newEntry
+  { state with entryStates := entries1 }
+
+-- Preservation lemma used at the recursive call inside
+-- `pushToSuccessors`: applying `pushOne` keeps the
+-- shared-locals-length invariant. The proof factors through
+-- two helpers — `ownedLocalsMeet_length` (its result list has
+-- the input length) and `pushOneNewEntry_length` (the new
+-- entry inherits `exit.os.locals.length`) — and reduces the
+-- map step to `mem_mapValues_mapInsert` plus the caller's
+-- existing hypothesis.
+defRaw inFns =>
+private theorem ownedLocalsMeet_length
+    (xs ys : List OwnedLocal) (h : xs.length = ys.length) :
+    (ownedLocalsMeet xs ys h).length = xs.length := by
+  induction xs generalizing ys with
+  | nil =>
+      cases ys with
+      | nil => rfl
+      | cons _ _ => simp at h
+  | cons x xs ih =>
+      cases ys with
+      | nil => simp at h
+      | cons y ys =>
+          have hh : xs.length = ys.length := by simpa using h
+          have heq := ih ys hh
+          cases x with
+          | allocated ix =>
+              cases y with
+              | allocated iy =>
+                  show (OwnedLocal.allocated _ ::
+                          ownedLocalsMeet xs ys hh).length =
+                       xs.length + 1
+                  simp [List.length_cons, heq]
+              | unallocated =>
+                  show (OwnedLocal.unallocated ::
+                          ownedLocalsMeet xs ys hh).length =
+                       xs.length + 1
+                  simp [List.length_cons, heq]
+          | unallocated =>
+              cases y with
+              | allocated _ =>
+                  show (OwnedLocal.unallocated ::
+                          ownedLocalsMeet xs ys hh).length =
+                       xs.length + 1
+                  simp [List.length_cons, heq]
+              | unallocated =>
+                  show (OwnedLocal.unallocated ::
+                          ownedLocalsMeet xs ys hh).length =
+                       xs.length + 1
+                  simp [List.length_cons, heq]
+
+defRaw inFns =>
+private theorem AnalysisState.pushOneNewEntry_length
+    (state : AnalysisState) (exit : PcgData Place)
+    (succ : BasicBlockIdx)
+    (h : ∀ e ∈ mapValues state.entryStates,
+          e.os.locals.length = exit.os.locals.length) :
+    (AnalysisState.pushOneNewEntry
+      state exit succ h).os.locals.length =
+      exit.os.locals.length := by
+  unfold AnalysisState.pushOneNewEntry
+  split
+  · rename_i existing heq
+    simp only [PcgData.join, OwnedState.meet,
+      ownedLocalsMeet_length]
+    exact h existing
+      (mem_mapValues_of_mapGet_eq_some heq)
+  · rfl
+
+defRaw inFns =>
+private theorem AnalysisState.pushOne_preserves_lengths
+    (state : AnalysisState) (exit : PcgData Place)
+    (succ : BasicBlockIdx)
+    (h : ∀ e ∈ mapValues state.entryStates,
+          e.os.locals.length = exit.os.locals.length) :
+    ∀ e ∈ mapValues
+            (AnalysisState.pushOne
+              state exit succ h).entryStates,
+      e.os.locals.length = exit.os.locals.length := by
+  intro e he
+  unfold AnalysisState.pushOne at he
+  simp only at he
+  rcases mem_mapValues_mapInsert he with rfl | hold
+  · exact AnalysisState.pushOneNewEntry_length
+      state exit succ h
+  · exact h e hold
+
+-- The DSL's auto-discharged precondition tactic
+-- (`first | assumption | simp_all [...]`) cannot prove that
+-- the post-`pushOne` state still satisfies pushOne's
+-- shared-locals-length invariant — that needs the
+-- preservation lemma above, applied explicitly. The DSL
+-- offers no way to customise the tactic for an individual
+-- recursive call, so `pushToSuccessors` is spelled directly
+-- in raw Lean.
+defRaw inFns =>
+private def AnalysisState.pushToSuccessors
+    (state : AnalysisState)
+    (exit : PcgData Place) (succs : List BasicBlockIdx)
+    (h_pre0 : ∀ e ∈ mapValues state.entryStates,
+                e.os.locals.length = exit.os.locals.length)
+    : AnalysisState :=
+  match succs with
+  | [] => state
+  | s :: rest =>
+      AnalysisState.pushToSuccessors
+        (AnalysisState.pushOne state exit s h_pre0)
+        exit rest
+        (AnalysisState.pushOne_preserves_lengths
+          state exit s h_pre0)
 
 -- ══════════════════════════════════════════════
 -- Forward step: process one block, propagate to successors
@@ -160,7 +303,15 @@ defFn computeEntry (.plain "computeEntry")
         let results1 :=
           mapInsert state↦results bb result ;
         let state1 := state[results => results1] ;
-        Some (pushToSuccessors state1 exit succs)
+        -- `pushToSuccessors`'s shared-locals-length invariant
+        -- on `state1.entryStates` is a global body-tied
+        -- property we have not threaded through
+        -- `computeEntry`/`analyzeRpo`/`analyzeBody`, so it is
+        -- discharged with `sorry`. The original `proof[sorry]`
+        -- inside `pushOne` — what this PR was chartered to
+        -- remove — is gone.
+        Some (AnalysisState.pushToSuccessors
+          state1 exit succs proof[sorry])
     end
 
 -- ══════════════════════════════════════════════

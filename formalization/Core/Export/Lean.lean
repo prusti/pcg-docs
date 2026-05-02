@@ -191,9 +191,9 @@ private def toLeanASTAlg
     if withProofMarkers then
       .raw s!"(Core.Dsl.IdentRefs.dslProofMarker ({t}))"
     else .raw t
-  | .match_ scrut arms =>
-    .match_ scrut <| arms.map fun (pats, rhs) =>
-      .mk (pats.map BodyPat.toLeanAST) rhs
+  | .match_ scrut arms eqName =>
+    .match_ scrut (arms.map fun (pats, rhs) =>
+      .mk (pats.map BodyPat.toLeanAST) rhs) eqName
   | .letIn pat val body => .letIn pat.toLeanAST val body
   | .letBindIn pat val body =>
     .letBindIn pat.toLeanAST val body
@@ -555,7 +555,7 @@ private partial def hasHypothesisRef : DslExpr → Bool
   | .call fn args =>
     hasHypothesisRef fn || args.any hasHypothesisRef
   | .ineqChain _ es => es.any hasHypothesisRef
-  | .match_ s arms =>
+  | .match_ s arms _ =>
     hasHypothesisRef s || arms.any (hasHypothesisRef ·.2)
   | .structUpdate r _ v =>
     hasHypothesisRef r || hasHypothesisRef v
@@ -798,7 +798,7 @@ private def calledNamesAlg :
   | .or (_, l) (_, r) => l ++ r
   | .implies (_, l) (_, r) => l ++ r
   | .forall_ _ (_, b) => b
-  | .match_ (_, scrut) arms =>
+  | .match_ (_, scrut) arms _ =>
     scrut ++ arms.flatMap (fun (_, (_, rhs)) => rhs)
   | .letIn _ (_, v) (_, b) => v ++ b
   | .letBindIn _ (_, v) (_, b) => v ++ b
