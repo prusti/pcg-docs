@@ -58,6 +58,28 @@ defProperty validAllocId (.plain "validAllocId")
   (id "The allocation identifier." : AllocId)
   := id↦index < m↦allocs·length
 
+defProperty validProvenance (.plain "validProvenance")
+  short
+    (doc! "{prov} is a valid provenance in {m}")
+  long
+    (doc! "the allocation id of {prov} is a valid \
+      allocation id in {m}")
+  (m "The memory." : Memory)
+  (prov "The provenance." : Provenance)
+  := validAllocId m prov↦id
+
+defProperty validPtr (.plain "validPtr")
+  short
+    (doc! "{ptr} is a valid pointer in {m}")
+  long
+    (doc! "if {ptr} carries a provenance, that provenance \
+      is valid in {m}")
+  (m "The memory." : Memory)
+  (ptr "The thin pointer." : ThinPointer)
+  where
+  | m ; ⟨_, .some prov⟩ => validProvenance m prov
+  | _ ; _ => true
+
 open Allocation in
 defFn deallocate (.plain "deallocate")
   (.plain "Mark an allocation as dead.")
