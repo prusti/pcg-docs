@@ -49,9 +49,7 @@ open Lean Elab Command Term in
 elab_rules : command
   | `(defTheorem $name:ident ($doc:term) :=
         $stmt:fnExpr proof $proofIdent:ident) => do
-    identRefBuffer.set #[]
-    proofSyntaxBuffer.set #[]
-    localBinderBuffer.set #[]
+    clearAllParseBuffers
     let stmtAst ← parseExpr stmt
     -- Lower the statement to a Lean type expression with
     -- antecedent binders rebound (so `proof[h_…]`
@@ -79,8 +77,7 @@ elab_rules : command
       let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
-      let _ ← takeProofSyntaxes
-      let _ ← takeLocalBinders
+      drainAllParseBuffers
       throwError s!"defTheorem: parse error: {e}\n\
         ---\n{cmdStr}\n---"
     setUserDeclRanges name (← getRef)

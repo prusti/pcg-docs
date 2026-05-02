@@ -477,14 +477,12 @@ partial def parseExpr
     pure (.mkStruct (toString n.getId) as_.toList)
   | `(fnExpr| $e:fnExpr ↦ $f:ident) => do
     let recv ← parseExpr e
-    for qualified in (← resolveStructField (toString f.getId)) do
-      recordIdentRef f qualified
+    recordStructFieldRef f
     pure (.field recv (toString f.getId))
   | `(fnExpr| $r:fnExpr [ $f:ident => $v:fnExpr ]) => do
     let recv ← parseExpr r
     let val ← parseExpr v
-    for qualified in (← resolveStructField (toString f.getId)) do
-      recordIdentRef f qualified
+    recordStructFieldRef f
     pure (.structUpdate recv
       (toString f.getId) val)
   | `(fnExpr| $e:fnExpr !! $i:fnExpr) =>
@@ -1001,17 +999,12 @@ elab_rules : command
         s!"@[{", ".intercalate names}]\n"
       | none => ""
     DslLint.lintDocTerm doc
-    identRefBuffer.set #[]
-    -- Reset the proof-syntax buffer so this `defFn`'s
-    -- `proof[…]` bodies are collected from a clean slate
-    -- and consumed in source order by `graftDslProofMarkers`
+    -- Reset every parse-time buffer so this `defFn`'s
+    -- `proof[…]` bodies, local binders, struct-field idents,
+    -- and global-ref candidates are collected from a clean
+    -- slate and consumed in source order by the graft passes
     -- below.
-    proofSyntaxBuffer.set #[]
-    -- Reset the local-binder buffer so this `defFn`'s param
-    -- and `let`-binding ident syntaxes are collected from a
-    -- clean slate and consumed in source order by
-    -- `graftLocalIdents` below.
-    localBinderBuffer.set #[]
+    clearAllParseBuffers
     let paramData ← ps.mapM parseFnParam
     -- Each parameter binder needs its user-source ident
     -- syntax recorded so the rendered defStr's binder
@@ -1118,10 +1111,9 @@ elab_rules : command
       let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
-      -- Drop any buffered proof syntaxes / local binders so a
-      -- later `defFn` doesn't inherit stale entries.
-      let _ ← takeProofSyntaxes
-      let _ ← takeLocalBinders
+      -- Drop any buffered parse-time entries so a later
+      -- `defFn` doesn't inherit stale ones.
+      drainAllParseBuffers
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
     setUserDeclRanges name (← getRef)
@@ -1158,9 +1150,7 @@ elab_rules : command
         s!"@[{", ".intercalate names}]\n"
       | none => ""
     DslLint.lintDocTerm doc
-    identRefBuffer.set #[]
-    proofSyntaxBuffer.set #[]
-    localBinderBuffer.set #[]
+    clearAllParseBuffers
     let paramData ← ps.mapM parseFnParam
     for (pn, _, _) in paramData do
       recordLocalBinder pn pn.getId
@@ -1213,8 +1203,7 @@ elab_rules : command
       let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
-      let _ ← takeProofSyntaxes
-      let _ ← takeLocalBinders
+      drainAllParseBuffers
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
     setUserDeclRanges name (← getRef)
@@ -1357,9 +1346,7 @@ private def parseMutualEntry
 open Lean Elab Command Term in
 elab_rules : command
   | `(defFnMutual $entries:mutualFnEntry* end) => do
-    identRefBuffer.set #[]
-    proofSyntaxBuffer.set #[]
-    localBinderBuffer.set #[]
+    clearAllParseBuffers
     if entries.isEmpty then
       throwError "defFnMutual: expected at least one entry"
     let results ← entries.mapM parseMutualEntry
@@ -1382,8 +1369,7 @@ elab_rules : command
       let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
-      let _ ← takeProofSyntaxes
-      let _ ← takeLocalBinders
+      drainAllParseBuffers
       throwError s!"defFnMutual: parse error: {e}\n\
         ---\n{mutualStr}\n---"
     -- Tag every entry with a shared group id derived from

@@ -96,8 +96,7 @@ private def elabPropertyDecl
     let stx ← graftLocalIdentsFromBuffers stx
     elabCommand stx
   | .error e =>
-    let _ ← takeProofSyntaxes
-    let _ ← takeLocalBinders
+    drainAllParseBuffers
     throwError
       s!"defProperty: parse error: {e}\n\
         ---\n{defStr}\n---"
@@ -173,9 +172,7 @@ elab_rules : command
        where $arms:fnArm*) => do
     DslLint.lintDocTerm shortExpr
     DslLint.lintDocTerm docExpr
-    identRefBuffer.set #[]
-    proofSyntaxBuffer.set #[]
-    localBinderBuffer.set #[]
+    clearAllParseBuffers
     let paramData ← ps.mapM parseFnParam
     for (pn, _, _) in paramData do
       recordLocalBinder pn pn.getId
@@ -292,9 +289,7 @@ elab_rules : command
        $body:propertyBody) => do
     DslLint.lintDocTerm shortExpr
     DslLint.lintDocTerm docExpr
-    identRefBuffer.set #[]
-    proofSyntaxBuffer.set #[]
-    localBinderBuffer.set #[]
+    clearAllParseBuffers
     let paramData ← ps.mapM parseFnParam
     for (pn, _, _) in paramData do
       recordLocalBinder pn pn.getId

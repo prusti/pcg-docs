@@ -123,6 +123,60 @@ def takeLocalBinders : IO (Array (Lean.Name × Lean.Syntax)) := do
   localBinderBuffer.set #[]
   return buf
 
+/-- Buffer of user-source field-ident syntaxes collected while
+    parsing a DSL body — one entry per `recv ↦ field` or
+    `recv [ field => v ]` occurrence. Each `defFn`/`defProperty`/...
+    elab-rule clears the buffer at entry; after the generated
+    Lean declaration is parsed back from a string,
+    `graftLocalIdentsFromBuffers` merges these entries into the
+    per-name FIFO queue alongside binders and usages, so the
+    parsed-from-string `field` token is replaced with the
+    user-source syntax. Lean's own `Term.proj` elaborator then
+    records a type-correct `TermInfo` at the user position,
+    making LSP gotoDef land on the field of the actual receiver
+    type rather than on every struct that happens to share the
+    field name. -/
+initialize structFieldRefBuffer :
+    IO.Ref (Array Lean.Syntax) ← IO.mkRef #[]
+
+/-- Append a struct-field user-source ident to
+    `structFieldRefBuffer`. Called from the `↦` and
+    `[ f => v ]` parser rules in place of per-candidate
+    `recordIdentRef`, since field resolution is best left to
+    Lean's `Term.proj` elaborator using the receiver's type. -/
+def recordStructFieldRef (stx : Lean.Syntax) : IO Unit :=
+  structFieldRefBuffer.modify (·.push stx)
+
+/-- Take the currently-buffered struct-field entries and
+    empty the buffer. -/
+def takeStructFieldRefs : IO (Array Lean.Syntax) := do
+  let buf ← structFieldRefBuffer.get
+  structFieldRefBuffer.set #[]
+  return buf
+
+/-- Reset every parse-time buffer (`identRefBuffer`,
+    `proofSyntaxBuffer`, `localBinderBuffer`,
+    `structFieldRefBuffer`) to an empty array. Each
+    `defFn`/`defProperty`/... elab-rule entry calls this so a
+    later DSL invocation cannot inherit stale entries from a
+    previous parse. -/
+def clearAllParseBuffers : IO Unit := do
+  identRefBuffer.set #[]
+  proofSyntaxBuffer.set #[]
+  localBinderBuffer.set #[]
+  structFieldRefBuffer.set #[]
+
+/-- Drain `proofSyntaxBuffer`, `localBinderBuffer`, and
+    `structFieldRefBuffer` and discard the contents. Used in
+    elab-rule error paths so a later parse does not inherit
+    stale entries from a failed parse. `identRefBuffer` is
+    re-cleared at the next entry via `clearAllParseBuffers`,
+    so it is not drained here. -/
+def drainAllParseBuffers : IO Unit := do
+  let _ ← takeProofSyntaxes
+  let _ ← takeLocalBinders
+  let _ ← takeStructFieldRefs
+
 /-- Record an identifier reference for later `TermInfo`
     emission. Called from the parser whenever an `ident` token
     syntactically denotes a potential global reference
@@ -137,17 +191,19 @@ def recordIdentRef (stx : Lean.Syntax)
     (e.g. `"functions" → [`Program.functions]`) for every
     registered struct that exposes that field.
 
-    Used by the `↦` parser rule to record gotoDef targets for
-    field accesses like `program↦functions`: the synthesised
-    Lean rendering `program.functions` carries no user-source
-    position, so we attach a `TermInfo` leaf at the user's
-    `functions` token pointing at every matching field
-    constant. The LSP merges multiple `TermInfo` leaves at
-    the same source position into a single multi-target
-    gotoDef list, so a field name claimed by more than one
-    struct (e.g. `locals` on both `OwnedState` and
-    `StackFrame`) still navigates to candidate definitions
-    rather than dead-ending at the parser. -/
+    No longer used by the production `↦` parser rule: field
+    gotoDef now goes through `recordStructFieldRef` +
+    `graftLocalIdentsFromBuffers`, which splices the user's
+    field token over the parsed-from-string copy so Lean's
+    own `Term.proj` elaborator records a single type-correct
+    `TermInfo` at the user position. That avoids the
+    over-emission that this name-only lookup would cause for
+    a field claimed by more than one struct (e.g. `id` on
+    both `Provenance` and `RegionVid`).
+
+    Retained because the registry-lookup behavior is still
+    exercised directly from `Tests/DslGotoDef.lean` as a
+    smoke test of the struct-field registry. -/
 def resolveStructField (fieldName : String) :
     IO (List Lean.Name) := do
   let structs ← getRegisteredStructs
@@ -408,26 +464,34 @@ partial def graftLocalIdents
     push order) with the current `identRefBuffer` snapshot
     (usages, in push order, *not* drained because
     `flushIdentRefs` consumes it later for global-ref
-    `addConstInfo` emission), build a per-name FIFO queue,
-    and graft the queued user-source syntaxes over `stx`.
+    `addConstInfo` emission) and the current
+    `structFieldRefBuffer` (struct-field idents from `↦`
+    and `[ f => v ]`, keyed by `s.getId`), build a per-name
+    FIFO queue, and graft the queued user-source syntaxes
+    over `stx`.
 
     The combined order matches the rendered defStr's
     traversal order: parameter binders are rendered first
     (in `(p1 : T1) (p2 : T2) …`), then the body's local
-    binders and usages appear in the same depth-first /
-    left-to-right sequence the parser visited them in. Each
-    name's queue is drained in order, so the first rendered
-    `n` ident binds to the user's first `n` syntax (the
-    binder), the second to the next (a usage), and so on.
+    binders, usages, and field tokens appear in the same
+    depth-first / left-to-right sequence the parser visited
+    them in. Each name's queue is drained in order, so the
+    first rendered `n` ident binds to the user's first `n`
+    syntax (the binder), the second to the next (a usage or
+    a `(recv).n` field token), and so on.
 
-    The local-binder buffer is drained; the ident-ref buffer
-    is left intact for the subsequent `flushIdentRefs` call. -/
+    The local-binder and struct-field buffers are drained;
+    the ident-ref buffer is left intact for the subsequent
+    `flushIdentRefs` call. -/
 def graftLocalIdentsFromBuffers
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM Lean.Syntax := do
   let binders ← takeLocalBinders
   let usages ← identRefBuffer.get
-  let entries := binders ++ usages.map (fun (s, n) => (n, s))
+  let fields ← takeStructFieldRefs
+  let entries := binders
+    ++ usages.map (fun (s, n) => (n, s))
+    ++ fields.map (fun s => (s.getId, s))
   let queue := buildLocalIdentQueue entries
   let (stx', _) := graftLocalIdents queue stx
   return stx'

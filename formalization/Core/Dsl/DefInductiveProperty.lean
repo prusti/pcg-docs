@@ -138,7 +138,7 @@ elab_rules : command
         where
         $rs:inductivePropRule*) => do
     DslLint.lintDocTerm doc
-    identRefBuffer.set #[]
+    clearAllParseBuffers
     let parsedRules ← rs.mapM
       (parseInductivePropRule ∘ TSyntax.raw)
     let typeParamNames : List String := match tps with

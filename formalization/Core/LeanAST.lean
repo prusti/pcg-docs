@@ -275,9 +275,7 @@ partial def LeanExpr.toString : LeanExpr → String
     s!"{recv.toAtom}.{method} {argStr}"
   | .field recv name =>
     let n := escapeLeanIdent name
-    match recv with
-    | .app _ _ => s!"({recv.toString}).{n}"
-    | _ => s!"{recv.toString}.{n}"
+    s!"({recv.toString}).{n}"
   | .index l i =>
     s!"{l.toString}[{i.toString}]?"
   | .indexBang l i =>
