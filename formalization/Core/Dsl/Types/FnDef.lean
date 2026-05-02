@@ -62,26 +62,6 @@ inductive Postcondition where
 
 namespace Precondition
 
-/-- Property name when the precondition is a named-call form;
-    `none` for general expressions. Used for dependency
-    tracking and `simp_all` lemma selection at recursive call
-    sites. -/
-def calledName? : Precondition → Option String
-  | .named n .. => some n
-  | .expr_ .. => none
-
-end Precondition
-
-namespace Postcondition
-
-def calledName? : Postcondition → Option String
-  | .named n _ => some n
-  | .expr_ _ => none
-
-end Postcondition
-
-namespace Precondition
-
 /-- Reinterpret a parsed precondition as a postcondition.
     Both inductive types have the same shape; this is just
     the identity on the constructors so the same parser can
@@ -146,13 +126,6 @@ structure FnDef where
   deriving Repr
 
 namespace FnDef
-
-def shortSig (f : FnDef) : Doc :=
-  let paramDocs := f.params.map fun p =>
-    .seq [.plain s!"{p.name} : ", p.ty.toDoc .normal]
-  .seq [ f.symbolDoc, .plain "(",
-    Doc.intercalate (.plain ", ") paramDocs,
-    .plain ") → ", f.returnType.toDoc .normal ]
 
 /-- Render the function's custom display template to
     `LatexMath`, or `none` if no template was supplied. -/
@@ -533,23 +506,5 @@ def formalDefLatex
       (.seq [Latex.lines allLines, .newline]),
     .newline
   ])
-
-/-- Render for non-LaTeX (Doc-based). -/
-def algorithmDoc (f : FnDef) : Doc :=
-  let noDisplay : String → Option MathDoc :=
-    fun _ => none
-  let header := Doc.seq
-    [ f.doc, .plain " ", f.shortSig ]
-  let cases := match f.body with
-    | .matchArms arms => arms.map fun arm =>
-      let patStr := ", ".intercalate
-        (arm.pat.map fun p =>
-          (p.toDoc noDisplay).toLatexMath.render)
-      let rhsStr := (arm.rhs.toDoc f.name (varDisplay := noDisplay)).toLatexMath.render
-      Doc.plain s!"case {patStr}: return {rhsStr}"
-    | .expr body =>
-      let rhsStr := (body.toDoc f.name (varDisplay := noDisplay)).toLatexMath.render
-      [Doc.plain s!"return {rhsStr}"]
-  .seq [header, .line, .itemize cases]
 
 end FnDef

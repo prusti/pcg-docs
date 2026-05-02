@@ -106,6 +106,28 @@ jobs:
         lake exe check_banned_patterns \
           Core MIR OpSem PCG Presentation Properties Runtime Tests
 
+    - name: Check Core has no unused exports
+      # Fails the build if any non-private declaration in the
+      # `Core` package is not referenced by any decl in the
+      # other libraries or executable roots. The exe roots
+      # (`RustExport`, `LeanExport`, `PresentationExport`,
+      # `ExportAll`) have to be pre-built so their `.olean`
+      # files exist on the search path; their default
+      # build pulls in every transitive `Core` decl needed by
+      # `main`. Exempt cases (e.g. syntactic placeholders,
+      # derive-base-functor combinators) live in
+      # `scripts/unused_exports_allowlist.json` with a rationale
+      # per entry.
+      working-directory: formalization
+      run: |
+        lake build rust_export lean_export presentation_export \
+          export_all
+        lake exe check_unused_exports \
+          --allowlist scripts/unused_exports_allowlist.json \
+          Core MIR OpSem PCG Properties Presentation Runtime \
+          Tests \
+          -- RustExport LeanExport PresentationExport ExportAll
+
     - name: Export and build generated Lean project
       working-directory: formalization
       run: lake exe lean_export

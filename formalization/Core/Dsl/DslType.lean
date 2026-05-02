@@ -250,11 +250,6 @@ where
       .seq [.raw "(", toLatexMath kt t, .raw ")"]
     | _ => toLatexMath kt t
 
-/-- Strip `Option` wrapper if present. -/
-def stripOption : DSLType → DSLType
-  | .option t => t
-  | t => t
-
 /-- Whether this type's named references are all drawn from
     the given list of type-parameter names (plus primitives
     and type-parameter-headed applications). Used e.g. by the

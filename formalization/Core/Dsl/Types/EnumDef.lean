@@ -97,15 +97,6 @@ structure EnumDef where
   variants : List VariantDef
   deriving Repr
 
-namespace DisplayPart
-
-/-- Render a display part as a `Doc` (wraps in math). -/
-def toDoc : DisplayPart → Doc
-  | .lit d => .math d
-  | .arg _ sym => .math sym
-
-end DisplayPart
-
 mutual
 
 /-- Convert a `Doc` (typically produced by `doc! "$...$"`)
@@ -158,26 +149,6 @@ def displayDoc (v : VariantDef) : Doc :=
   .math v.displayMathDoc
 
 end VariantDef
-
-namespace EnumDef
-
-/-- Short formal definition: `c ::= E | W | R | e` -/
-def shortDef (d : EnumDef) : Doc :=
-  let lhs := Doc.math d.symbolDoc
-  let rhs := Doc.intercalate (.plain " | ")
-    (d.variants.map fun v => v.displayDoc)
-  .seq [lhs, .plain " ::= ", rhs]
-
-/-- Long formal definition with descriptions. -/
-def longDef (d : EnumDef) : Doc :=
-  let header := Doc.seq
-    [d.doc, .plain " ", .math d.symbolDoc,
-     .plain " is one of:"]
-  let items := d.variants.map fun v =>
-    Doc.seq [v.displayDoc, .plain ": ", v.doc]
-  .seq [header, .line, .itemize items]
-
-end EnumDef
 
 -- ══════════════════════════════════════════════
 -- LaTeX rendering

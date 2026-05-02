@@ -39,9 +39,7 @@ in the prose as a literal `` ` ``.
 
 For a `.math` interruption (no shorthand syntax), the
 abbreviation `Doc.m` gives a one-token spelling:
-`{Doc.m (.bold (.raw "W"))}`. The `Doc.c` alias remains
-available for cases where a runtime `String` value is being
-spliced as code rather than a literal string.
+`{Doc.m (.bold (.raw "W"))}`.
 
 ## Cross-reference syntax
 
@@ -108,10 +106,6 @@ two italic spans, not as a bold span). The bold case is matched
 hypothetical `_(_X_)_`. -/
 
 namespace Doc
-
-/-- Short alias for `Doc.code`, intended for use inside `doc!`
-    interpolation holes (e.g. `{c "validProgram"}`). -/
-abbrev c (s : String) : Doc := .code s
 
 /-- Short alias for `Doc.math`, intended for use inside `doc!`
     interpolation holes (e.g. `{m (.bold (.raw "W"))}`). -/

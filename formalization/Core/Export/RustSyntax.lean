@@ -400,17 +400,9 @@ def emptyVec : RustExpr := .raw "vec![]"
 def clone (e : RustExpr) : RustExpr :=
   .methodCall e ⟨"clone"⟩ []
 
-/-- `*expr`. -/
-def deref (e : RustExpr) : RustExpr :=
-  .unaryOp .deref e
-
 /-- `&expr`. -/
 def borrow (e : RustExpr) : RustExpr :=
   .ref_ false e
-
-/-- `&mut expr`. -/
-def borrowMut (e : RustExpr) : RustExpr :=
-  .ref_ true e
 
 /-- `todo!()`. -/
 def todo : RustExpr := .raw "todo!()"

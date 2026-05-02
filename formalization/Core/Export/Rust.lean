@@ -27,9 +27,6 @@ def toRust : DSLPrimTy → RustBuiltinTy
   | .u64 => .u64
   | .usize => .usize
 
-/-- Render a primitive to a Rust type string. -/
-def toRustStr (p : DSLPrimTy) : String := p.toRust.render
-
 end DSLPrimTy
 
 namespace DSLType
@@ -82,9 +79,6 @@ def toRustParam : DSLType → RustTy
   | .arrow a b =>
     let (argStrs, retStr) := arrowFlatten (.arrow a b)
     .named s!"Box<dyn Fn({", ".intercalate argStrs}) -> {retStr}>"
-
-/-- Render a type to a Rust type string. -/
-def toRustStr (t : DSLType) : String := t.toRust.render
 
 /-- Whether this type contains an arrow (function) type.
     Structs with arrow-typed fields cannot derive standard
@@ -674,10 +668,6 @@ def toRustItem (structFields : String → Option (List String)
       if docStr.isEmpty then "" else s!"/// {docStr}\n"
     .raw s!"{docComment}pub const {a.name}: {tyStr} = {valStr};"
 
-/-- Render an alias to Rust source. -/
-def toRust (a : AliasDef) : String :=
-  (a.toRustItem (fun _ => none)).render
-
 end AliasDef
 
 namespace EnumDef
@@ -723,15 +713,6 @@ def toRustItemWith (d : EnumDef)
         name := ⟨capitalise v.name.name⟩
         fields := v.args.map
           (argToRustTy (.named d.name)) } }
-
-/-- Convert an `EnumDef` to a `RustItem.enum` without
-    cross-type propagation of `Map`/`Set` usage. -/
-def toRustItem (d : EnumDef) : RustItem :=
-  d.toRustItemWith []
-
-/-- Generate Rust source code for this enum. -/
-def toRust (d : EnumDef) : String :=
-  d.toRustItem.render
 
 end EnumDef
 
@@ -780,14 +761,6 @@ def fresh : FreshM RustIdent := do
   let n ← get
   set (n + 1)
   pure ⟨s!"_v{n}"⟩
-
-/-- Generate a fresh `RustExpr.ident`. -/
-def freshIdent : FreshM RustExpr := do
-  return .ident (← fresh)
-
-/-- Generate a fresh `RustPat.ident`. -/
-def freshPat : FreshM RustPat := do
-  return .ident (← fresh)
 
 namespace BodyPat
 
@@ -1187,10 +1160,6 @@ partial def toRustExprWith
     (toRustAlg (toRustExprWith variantToEnum varStructName)
       variantToEnum varStructName) e
 
-/-- Run `toRustExpr` with a fresh counter starting at 0. -/
-def toRust (e : DslExpr) : RustExpr :=
-  e.toRustExpr.run' 0
-
 /-- Run `toRustExprWith` with a fresh counter starting at 0. -/
 def toRustWith
     (variantToEnum : String → Option String)
@@ -1372,11 +1341,6 @@ def toRustItemsWith (s : StructDef)
     else fromBoxImpls fieldTys
   .struct_ rs :: newImplItems ++ boxImpls
 
-/-- Backward-compatible wrapper for callers that don't
-    supply a transitive `Map`/`Set` user list. -/
-def toRustItems (s : StructDef) : List RustItem :=
-  s.toRustItemsWith []
-
 end StructDef
 
 /-- Derive the Rust crate name from a Lean module prefix
@@ -1426,34 +1390,6 @@ def buildRustExprCtxt
       rp.leanModule)
     knownFns
   { knownFns }
-
-/-- Group registered enums by Lean module prefix. -/
-def groupEnumsByCrate
-    (enums : List RegisteredEnum)
-    : List (String × List RegisteredEnum) :=
-  let prefixes := enums.map
-    fun e => (e.leanModule.getRoot.toString, e)
-  let groups := prefixes.foldl (init := [])
-    fun acc (p, e) =>
-      match acc.find? (·.1 == p) with
-      | some _ => acc.map fun (k, vs) =>
-          if k == p then (k, vs ++ [e]) else (k, vs)
-      | none => acc ++ [(p, [e])]
-  groups
-
-/-- Group registered structs by Lean module prefix. -/
-def groupStructsByCrate
-    (structs : List RegisteredStruct)
-    : List (String × List RegisteredStruct) :=
-  let prefixes := structs.map
-    fun s => (s.leanModule.getRoot.toString, s)
-  let groups := prefixes.foldl (init := [])
-    fun acc (p, s) =>
-      match acc.find? (·.1 == p) with
-      | some _ => acc.map fun (k, vs) =>
-          if k == p then (k, vs ++ [s]) else (k, vs)
-      | none => acc ++ [(p, [s])]
-  groups
 
 /-- Build Rust modules from registered enums, structs,
     functions, and properties sharing a crate prefix.

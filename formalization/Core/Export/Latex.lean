@@ -498,14 +498,3 @@ mutual
       .seq [.raw (prefix_ ++ " "), body.toLatexMath]
 end
 
-namespace Doc
-
-/-- Render a type name to math-mode `LatexMath`. -/
-def typeToLatexMathAst (s : String) : LatexMath :=
-  let s := s.trimAscii.toString
-  match s with
-  | "Nat" => .mathbb (.raw "N")
-  | "String" => .text (.raw "String")
-  | other => .text (.text other)
-
-end Doc

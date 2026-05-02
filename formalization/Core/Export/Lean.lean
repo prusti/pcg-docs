@@ -27,10 +27,6 @@ def toLeanAST : DSLPrimTy → LeanTy
   | .u64 => .const "UInt64"
   | .usize => .const "USize"
 
-/-- Render a primitive to Lean syntax. -/
-def toLean (p : DSLPrimTy) : String :=
-  toString p.toLeanAST
-
 end DSLPrimTy
 
 namespace DSLType
@@ -247,27 +243,7 @@ partial def toLeanWith
 partial def toLean (e : DslExpr) : String :=
   toString e.toLeanAST
 
-partial def toLeanArg (e : DslExpr) : String :=
-  LeanExpr.toAtom e.toLeanAST
-
 end DslExpr
-
--- ══════════════════════════════════════════════
--- FnBody (rendered standalone, e.g. in DefFn)
--- ══════════════════════════════════════════════
-
-namespace FnBody
-
-def toLean : FnBody → String
-  | .matchArms arms => arms.foldl
-    (fun acc arm =>
-      let patStr := ", ".intercalate
-        (arm.pat.map BodyPat.toLean)
-      let rhsStr := arm.rhs.toLean
-      acc ++ s!"  | {patStr} => {rhsStr}\n") ""
-  | .expr body => s!"  {body.toLean}\n"
-
-end FnBody
 
 -- ══════════════════════════════════════════════
 -- StructDef / EnumDef → LeanDecl
@@ -289,14 +265,6 @@ def toLeanASTWith (s : StructDef)
     { name := f.name, type := f.ty.toLeanAST,
       usesMapSet := fieldUsesMapSet }
 
-/-- Lower a struct definition to a `LeanDecl`. -/
-def toLeanAST (s : StructDef) : LeanDecl :=
-  s.toLeanASTWith []
-
-/-- Render a struct definition to Lean syntax. -/
-def toLean (s : StructDef) : String :=
-  toString s.toLeanAST
-
 end StructDef
 
 namespace AliasDef
@@ -314,10 +282,6 @@ def toLeanAST (a : AliasDef) : LeanDecl :=
       precondBinds := [],
       retType := a.aliased.toLeanAST,
       body := .expr e.toLeanAST }
-
-/-- Render an alias to Lean source. -/
-def toLean (a : AliasDef) : String :=
-  toString a.toLeanAST
 
 end AliasDef
 
@@ -340,14 +304,6 @@ def toLeanASTWith (e : EnumDef)
         args := v.args.map fun a =>
           { name := a.name, type := a.type.toLeanAST }
         usesMapSet := argUsesMapSet }
-
-/-- Lower an enum definition to a `LeanDecl`. -/
-def toLeanAST (e : EnumDef) : LeanDecl :=
-  e.toLeanASTWith []
-
-/-- Render an enum definition to a Lean `inductive`. -/
-def toLean (e : EnumDef) : String :=
-  toString e.toLeanAST
 
 end EnumDef
 
@@ -505,11 +461,6 @@ def toLeanAST
     body
     doRequiresProof := !f.preconditions.isEmpty
   }
-
-/-- Render a function definition to Lean syntax. -/
-def toLean
-    (f : FnDef) (isProperty : Bool := false) : String :=
-  toString (f.toLeanAST isProperty)
 
 end FnDef
 
@@ -704,10 +655,6 @@ def toLeanAST (p : PropertyDef) : LeanDecl :=
   let curried := { p.fnDef with body := curriedBody }
   curried.toLeanAST (isProperty := true)
 
-/-- Render a property definition to Lean syntax. -/
-def toLean (p : PropertyDef) : String :=
-  toString p.toLeanAST
-
 end PropertyDef
 
 namespace InductivePropertyDef
@@ -731,11 +678,6 @@ def usesSet (p : InductivePropertyDef) : Bool :=
     declaration. -/
 def toLeanAST (p : InductivePropertyDef) : LeanDecl :=
   .raw_ p.leanSource
-
-/-- Render an inductive-property definition to Lean source
-    (just the precomputed declaration). -/
-def toLean (p : InductivePropertyDef) : String :=
-  toString p.toLeanAST
 
 end InductivePropertyDef
 

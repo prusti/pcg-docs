@@ -151,15 +151,6 @@ partial def lintExpr (e : DslExpr) : List Diagnostic :=
     | _ => []
   here ++ (directChildren e).flatMap lintExpr
 
-/-- Lint diagnostics for a function body. -/
-def lintFnBody : FnBody → List Diagnostic
-  | .matchArms arms => arms.flatMap fun a => lintExpr a.rhs
-  | .expr e => lintExpr e
-
-/-- Lint diagnostics for a complete function definition. -/
-def lintFnDef (f : FnDef) : List Diagnostic :=
-  lintFnBody f.body
-
 /-- True iff `s` contains a backtick-delimited code span — that
     is, at least two backticks. Used to flag string literals
     inside a `Doc`-typed description term: backticks are

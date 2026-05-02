@@ -18,7 +18,10 @@ formalization/
 ├── MIR/                   -- MIR-level definitions
 ├── OpSem/                 -- Operational semantics
 ├── PCG/                   -- Place Capability Graph
-├── scripts/runLinter.lean -- Custom lint driver
+├── scripts/runLinter.lean              -- Custom lint driver
+├── scripts/CheckBannedPatterns.lean    -- Banned-pattern AST audit
+├── scripts/CheckUnusedExports.lean     -- Unused-export CI check
+├── scripts/unused_exports_allowlist.json -- Exemptions for the above
 ├── Core.lean              -- Root import for Core lib
 ├── Runtime.lean           -- Root import for Runtime lib
 ├── MIR.lean               -- Root import for MIR lib
@@ -271,6 +274,42 @@ future command that reuses the same parser. When the rule fires,
 elaboration aborts with `irrefutableMatch` so the user sees the
 problem during `lake build`.
 
-`DslLint.lintExpr` and `DslLint.lintFnDef` are also exposed as
-pure functions for unit tests (see `Tests.lean`) and for any
-out-of-band lint runner that wants to walk a `FnDef` post-hoc.
+`DslLint.lintExpr` is also exposed as a pure function for unit
+tests (see `Tests.lean`) and for any out-of-band lint runner.
+
+## Unused-export CI check (`scripts/CheckUnusedExports.lean`)
+
+`scripts/CheckUnusedExports.lean` is a separate lake exe
+(`lake exe check_unused_exports`) that audits `Core` for
+non-private declarations no other module references. It is
+wired into the `lean` job in `.github/workflows/ci.yml` as the
+"Check Core has no unused exports" step, so any new dead
+`Core` export fails CI.
+
+The check is structural rather than name-pattern-based: it
+imports every user package (`Core`, `MIR`, `OpSem`, `PCG`,
+`Properties`, `Presentation`, `Runtime`, `Tests`) into a single
+environment, and the four executable roots
+(`RustExport`, `LeanExport`, `PresentationExport`,
+`ExportAll`) into per-exe environments — each defines its own
+`def main`, so they cannot share an environment. Their
+referenced-constant sets are merged into a global "is anyone
+referencing this" set; every non-private `def` defined in a
+`Core.*` module that is missing from the set is reported.
+
+Compiler-generated decls (recursors, match equations,
+`derive Repr` / `Inhabited` instances, parser-extension
+infrastructure, `_aux_*` elab helpers, French-bracketed syntax
+rule names, decls whose declared type's head is
+`Lean.ParserDescr` / `Lean.PrettyPrinter.Formatter` /
+`Lean.Elab.Term.TermElab` / `Lean.Elab.Command.CommandElab`) are
+exempt from the audit.
+
+Exports that legitimately have no compile-time referrer (e.g.
+`Core.Dsl.IdentRefs.dslProofMarker`, which is used as a
+syntactic placeholder in DSL-rendered Lean source rather than as
+a Lean constant) are listed in
+`scripts/unused_exports_allowlist.json` together with a
+rationale; the check fails loud if a listed name is missing
+from the loaded environment, so the file cannot go stale
+silently.

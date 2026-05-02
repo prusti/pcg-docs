@@ -79,3 +79,8 @@ lean_exe check_banned_patterns where
   srcDir := "scripts"
   root := `CheckBannedPatterns
   supportInterpreter := true
+
+lean_exe check_unused_exports where
+  srcDir := "scripts"
+  root := `CheckUnusedExports
+  supportInterpreter := true
