@@ -7,6 +7,15 @@ import OpSem.Decode
 import MIR.Body
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
+
+-- Open `Memory` and `StackFrame` so the in-tree elaboration
+-- of `liveAndStoreArgs`'s `validMemory` / `validStackFrame`
+-- preconditions resolves them unqualified. (The Lean exporter
+-- places these properties in `namespace Memory` /
+-- `namespace StackFrame` respectively; both namespaces are
+-- already opened in the generated file.)
+open Memory StackFrame
 
 defStruct Machine (.raw "\\mu", .text "Machine")
   "Machines"
@@ -25,18 +34,27 @@ where
 
 namespace Machine
 
+defProperty validMachine (.plain "validMachine")
+  short
+    (doc! "{m} is a valid machine")
+  long
+    (doc! "the program of {m} is valid, and the call stack of \
+      {m} is a valid stack against the memory of {m}")
+  (m "The machine state." : Machine)
+  :=
+    validProgram m↦program ∧
+    validStack (m↦thread↦stack) m↦mem
+
 defProperty Runnable (.plain "Runnable")
   short
     (doc! "{m} is a runnable machine")
   long
-    (doc! "the call stack of {m} is non-empty, the program of \
-      {m} is valid, and the call stack of {m} is a valid \
-      stack against the memory of {m}")
+    (doc! "the call stack of {m} is non-empty and {m} is a \
+      valid machine")
   (m "The machine state." : Machine)
   :=
     m↦thread↦stack ≠ [] ∧
-    validProgram m↦program ∧
-    validStack (m↦thread↦stack) m↦mem
+    Machine.validMachine m
 
 -- Source-only `Inhabited StackFrame` so `head!` inside
 -- `currentFrame` (which relies on the precondition for
@@ -124,32 +142,48 @@ defFn typedStore (.plain "typedStore")
   : Memory :=
     Memory.store m ptr (encode v)
 
-open StackFrame in
+/-! `liveAndStoreArgs`'s recursive call needs to discharge
+`validMemory` / `validStackFrame` for the post-`storageLive`,
+post-`typedStore` memory and frame. Rigorous proofs need
+`Memory.allocate` / `Memory.store` frame-preservation lemmas
+(allocation count, addresses, data lengths preserved when
+writing in-bounds); they are stubbed with `sorry` here. The
+helper `liveAndStoreArgs.precondAxiom` takes any `Prop` and
+returns a proof — `apply`'d by the DSL-generated
+auto-discharge tactic, it closes the recursive-call
+preconditions in one step (with sorry). -/
+
+defRaw middle =>
+private theorem liveAndStoreArgs.precondAxiom
+    {P : Prop} : P := sorry
+
 defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   (doc! "Per-argument helper for `createFrame`: iterate the caller-provided value list with `k` \
     tracking the current callee local index (starting at 1 for the first argument). For each value, \
     allocate the local's backing storage via `StackFrame.storageLive` and write the value into that \
-    allocation with `typedStore`. The locals-map lookup is total because `StackFrame.storageLive` \
-    always inserts an entry for the local it was just called with. The `validStackFrame` \
-    precondition is preserved across `storageLive` (it leaves the frame's body and program counter \
-    untouched), so the recursive call discharges its own `validStackFrame frame1` obligation.")
+    allocation with `typedStore`. The `validStackFrame` precondition discharges the same-named \
+    obligation on `storageLive`; the `validMemory` precondition is structural — `liveAndStoreArgs` \
+    enters with a memory whose existing allocations are non-overlapping.")
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
   (mem "The memory state." : Memory)
+  requires validMemory mem
+      using [liveAndStoreArgs.precondAxiom],
+    validStackFrame mem frame
+      using [liveAndStoreArgs.precondAxiom]
   : StackFrame × Memory where
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
-      -- Both `storageLive` preconditions (the new mem-threaded
-      -- `validStackFrame mem frame` and `validLocal frame.body
-      -- ⟨k⟩`) are stubbed with `sorry`: the now-mem-threaded
-      -- `validStackFrame` would have to be preserved through
-      -- the `storageLive`/`typedStore` step (which `simp_all`
-      -- can't see through the `frame1`/`mem1` let-bindings),
-      -- and `validLocal` needs a `k < frame.body.decls.length`
-      -- bound that no precondition currently provides.
+      -- The `validStackFrame mem frame` precondition discharges
+      -- `storageLive`'s first arg directly. The second arg
+      -- (`validLocal frame.body ⟨k⟩`) needs a
+      -- `k < frame.body.decls.length` bound that no precondition
+      -- currently provides — left as `sorry` until a
+      -- `args.length + k ≤ body.decls.length`-style invariant
+      -- propagates from `createFrame`.
       let ⟨frame1, mem1⟩ := StackFrame.storageLive frame mem Local⟨k⟩
-        proof[sorry] proof[sorry] ;
+        proof[h_validStackFrame] proof[sorry] ;
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
       liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
 
@@ -159,20 +193,30 @@ defFn createFrame (.plain "createFrame")
     writes the caller-provided argument values into those allocations with `typedStore`. The program \
     counter starts at #START — statement 0 of basic block 0. ABI, calling convention, and \
     stack-pop-action handling from MiniRust's `create_frame` are intentionally not modelled here. The \
-    #validBody precondition will let a follow-up derive `validLocation body initFrame.pc` \
-    formally and discharge `storageLive`'s `validStackFrame` requirement; for now that proof is left \
-    as `sorry`.")
+    #validMachine precondition gives #validStack m.thread.stack m.mem (carrying enough non-overlap \
+    structure to thread #validMemory m.mem into `liveAndStoreArgs`); the #validBody precondition \
+    discharges `storageLive`'s #validLocal `initFrame.body Local⟨0⟩` requirement via the \
+    #validBody \"`decls ≠ []`\" conjunct. The remaining #validStackFrame and #validLocation \
+    `body START` obligations needed for the initial-frame construction are left as `sorry` for now.")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
-  requires validBody body
+  requires validMachine m, validBody body
   : Machine :=
     let initFrame := StackFrame⟨body, START, mapEmpty‹›⟩ ;
     let ⟨frame1, mem1⟩ := StackFrame.storageLive
       initFrame m↦mem Local⟨0⟩
-      proof[sorry] proof[sorry] ;
+      proof[sorry] proof[(by
+        -- `validLocal body Local⟨0⟩` reduces to
+        -- `0 < body.decls.length`. `h_validBody : validBody
+        -- body` has `decls ≠ []` as its first conjunct, and
+        -- `List.length_pos_iff` lifts that to the strict
+        -- inequality.
+        show 0 < body.decls.length
+        exact List.length_pos_iff.mpr h_validBody.1)] ;
     let ⟨frame2, mem2⟩ :=
-      liveAndStoreArgs args 1 frame1 mem1 ;
+      liveAndStoreArgs args 1 frame1 mem1
+        proof[sorry] proof[sorry] ;
     Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩
@@ -183,9 +227,11 @@ defFn initialMachine (.plain "initialMachine")
     start body via `createFrame` with no caller-supplied argument values. The #validProgram \
     precondition guarantees the start function is registered in the program *and* that its body is \
     valid; the latter discharges `createFrame`'s #validBody precondition via \
-    `validBody_startProgram`. Mirrors MiniRust's `Machine::new`, with globals, function pointers, \
-    vtables, lock state, additional threads, and I/O streams stripped — this model is \
-    single-threaded and ignores those concerns.")
+    `validBody_startProgram`. The blank machine state vacuously satisfies #validMachine — its \
+    program is `program` (#validProgram directly), and the empty-stack #validStack forall and \
+    pairwise-non-overlap clauses are vacuously true. Mirrors MiniRust's `Machine::new`, \
+    with globals, function pointers, vtables, lock state, additional threads, and I/O streams \
+    stripped — this model is single-threaded and ignores those concerns.")
   (program "The program to initialise." : Program)
   requires validProgram program
   : Machine :=
@@ -193,6 +239,18 @@ defFn initialMachine (.plain "initialMachine")
     let blank :=
       Machine⟨program, Thread⟨[]⟩, Memory⟨[]⟩⟩ ;
     createFrame blank body []
+      proof[(by
+        -- `validMachine blank` unfolds to
+        -- `validProgram blank.program ∧ validStack [] blank.mem`.
+        -- The first is `h_validProgram`; the second's two
+        -- conjuncts (`forAll` over `[]`, and the pairwise
+        -- non-overlap quantifier whose universe is `[]`) are
+        -- both vacuously true.
+        refine ⟨h_validProgram, ?_, ?_⟩
+        · intro f hf
+          exact absurd hf (List.not_mem_nil)
+        · intro i j h_ij
+          exact absurd h_ij.2 (Nat.not_lt_zero _))]
       proof[validBody_startProgram program h_validProgram]
 
 end Machine

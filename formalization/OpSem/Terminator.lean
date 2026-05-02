@@ -294,6 +294,7 @@ defFn evalTerminator (.plain "evalTerminator")
               | .some argVals =>
                   StepResult.ok (createFrame
                     m calleeBody argVals
+                    proof[h_Runnable.2]
                     proof[validBody_of_fnFromPtr_eq_some
                       m h_Runnable calleeVal calleeBody
                       h_fnFrom])
