@@ -259,6 +259,18 @@ defProperty validLocation (.plain "validLocation")
     loc↦stmtIdx ≤
       (body↦blocks ! loc↦block↦index)↦statements·length
 
+defProperty validLocal (.plain "validLocal")
+  short
+    (doc! "{l} is a valid local in body {body}")
+  long
+    (doc! "the index of {l} is in range of {body}'s local \
+      declarations, so #[Body.decls] indexed at {l} returns the \
+      declared type rather than a default fallback")
+  (body "The function body." : Body)
+  (l "The local." : Local)
+  :=
+    l↦index < body↦decls·length
+
 defProperty validBody (.plain "validBody")
   short
     (doc! "{body} is a valid body")

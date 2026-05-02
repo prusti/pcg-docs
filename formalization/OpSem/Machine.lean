@@ -141,7 +141,7 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   | v :: rest ; k ; frame ; mem =>
       let ⟨frame1, mem1⟩ :=
         StackFrame.storageLive frame mem Local⟨k⟩
-          proof[sorry] ;
+          proof[sorry] proof[sorry] ;
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
       liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
 
@@ -161,7 +161,7 @@ defFn createFrame (.plain "createFrame")
       Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
     let ⟨frame1, mem1⟩ := StackFrame.storageLive
       initFrame m↦mem Local⟨0⟩
-      proof[sorry] ;
+      proof[sorry] proof[sorry] ;
     let ⟨frame2, mem2⟩ :=
       liveAndStoreArgs args 1 frame1 mem1 ;
     Machine⟨m↦program,

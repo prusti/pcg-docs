@@ -50,7 +50,15 @@ defFn evalStatement (.plain "evalStatement")
               h_Runnable.2.2.1
             rw [hcase] at hall
             show StackFrame.validStackFrame ((hd :: tl).head!)
-            exact hall hd List.mem_cons_self)] ;
+            exact hall hd List.mem_cons_self)]
+        -- The `.storageLive lcl` case carries no syntactic
+        -- guarantee that `lcl` is in range of the current
+        -- body's `decls` — `validStatement` only constrains
+        -- the statement's `places`, and `StorageLive` has
+        -- none. Discharging this would need either a
+        -- `validLocal`-flavoured `validStatement` or a frame-
+        -- level invariant about declared locals.
+        proof[sorry] ;
       let rest := stackTail
         m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
@@ -58,7 +66,9 @@ defFn evalStatement (.plain "evalStatement")
       let frame := currentFrame
         m proof[h_Runnable] ;
       let ⟨frame', mem'⟩ := StackFrame.storageDead
-        frame m↦mem lcl ;
+        frame m↦mem lcl
+        -- Same caveat as the `storageLive` arm above.
+        proof[sorry] ;
       let rest := stackTail
         m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
