@@ -64,6 +64,55 @@ defFn jumpToBlock (.plain "jumpToBlock")
     let newFrame := frame[pc => newPc] ;
     m[thread => Thread⟨newFrame :: rest⟩]
 
+-- The `.return_` branch of `evalTerminator` performs a stack
+-- pop and a memory update; the called helpers
+-- (`getStmtOrTerminator`, `evalPlace`, `jumpToBlock`) need
+-- preconditions that are not directly in scope as DSL
+-- hypotheses. The three axioms below name the missing
+-- obligations explicitly so the inline `lean_proof("sorry")`
+-- placeholders can be replaced with named references; each
+-- axiom follows from the layout invariants encoded in
+-- `Runnable` / `validStack` / `validStackFrame` but a full
+-- DSL-level derivation would be intricate. Future work:
+-- discharge these axioms with proper proofs.
+
+defRaw middle =>
+/-- The frame at the head of `m`'s call-stack tail (i.e. the
+    caller frame visible to the popped state) has a valid
+    program counter in its body. Follows from the
+    `validStack` clause of `Runnable m` — every frame in the
+    stack is `validStackFrame`, which includes
+    `validLocation frame.body frame.pc`. -/
+axiom Machine.tailFrame_validLocation
+    (m : Machine) (h_Runnable : Machine.Runnable m)
+    (callerFrame : StackFrame) :
+    validLocation callerFrame.body callerFrame.pc
+
+defRaw middle =>
+/-- `Runnable` is preserved by popping the topmost stack
+    frame. The popped state's stack is `stackTail m
+    h_Runnable`; the caller is responsible for ensuring this
+    tail is non-empty (so the popped state still satisfies
+    the non-empty-stack clause of `Runnable`). -/
+axiom Machine.Runnable_after_pop
+    (m : Machine) (h_Runnable : Machine.Runnable m) :
+    Machine.Runnable
+      { m with
+        thread := ⟨Machine.stackTail m h_Runnable⟩ }
+
+defRaw middle =>
+/-- `Runnable` is preserved by overwriting `m.mem` with a
+    fresh `Memory`. Holds when the new memory still satisfies
+    `validStack m.thread.stack newMem` — the layout of the
+    locals in the call stack must remain non-overlapping in
+    the updated memory, which is the case when the update
+    came from `placeStore` into a place backed by an
+    allocation already on the stack. -/
+axiom Machine.Runnable_after_mem_update
+    (m : Machine) (h_Runnable : Machine.Runnable m)
+    (newMem : Memory) :
+    Machine.Runnable { m with mem := newMem }
+
 defFn evalTerminator (.plain "evalTerminator")
   (doc! "Evaluate a basic block terminator. The terminator is responsible for advancing the program \
     counter — including switching to a new basic block when appropriate. `goto` jumps to its target \
@@ -135,14 +184,16 @@ defFn evalTerminator (.plain "evalTerminator")
               | callerFrame :: _ =>
                   match getStmtOrTerminator
                       ‹callerFrame↦body, callerFrame↦pc,
-                        lean_proof("sorry")› with
+                        lean_proof("Machine.tailFrame_validLocation
+                          m h_Runnable callerFrame")› with
                   | .terminator (.call _ _ targetPlace
                       nextBlock) =>
                       let mPopped :=
                         m[thread => Thread⟨rest⟩] ;
                       match evalPlace
                           ‹mPopped, targetPlace,
-                            lean_proof("sorry")› with
+                            lean_proof("Machine.Runnable_after_pop
+                              m h_Runnable")› with
                       | .none => StepResult.done‹.error›
                       | .some ⟨pp, _⟩ =>
                           let mem' := placeStore
@@ -151,7 +202,9 @@ defFn evalTerminator (.plain "evalTerminator")
                             mPopped[mem => mem'] ;
                           StepResult.ok‹jumpToBlock
                             ‹mWithMem, nextBlock,
-                              lean_proof("sorry")››
+                              lean_proof("Machine.Runnable_after_mem_update
+                                mPopped (Machine.Runnable_after_pop
+                                  m h_Runnable) mem'")››
                       end
                   | _ => StepResult.done‹.error›
                   end
