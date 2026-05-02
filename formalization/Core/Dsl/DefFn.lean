@@ -341,9 +341,21 @@ partial def parseExpr
       recordIdentRef n n.getId
       pure (.var name)
   | `(fnExpr| ($e:fnExpr)) => parseExpr e
-  | `(fnExpr| $r:fnExpr · $m:ident) =>
-    pure (.dot (← parseExpr r)
-      (toString m.getId))
+  | `(fnExpr| $r:fnExpr · $m:ident) => do
+    let recv ← parseExpr r
+    -- Record a goto-def target for the method token by
+    -- looking up `m` in the global fn registry, augmented
+    -- with constants newly added to the env in this same
+    -- module (where the registry's `initialize` block hasn't
+    -- run yet). The synthesised Lean rendering `recv.m`
+    -- carries no user-source position for `m`, so without
+    -- this leaf gotoDef on `m` (e.g. `bodyPlaces` in
+    -- `body·bodyPlaces`) lands nowhere.
+    let env ← Lean.MonadEnv.getEnv
+    let qualifieds ← resolveFnByShortName env (toString m.getId)
+    for qualified in qualifieds do
+      recordIdentRef m qualified
+    pure (.dot recv (toString m.getId))
   | `(fnExpr| $r:fnExpr ·flatMap fun $p:fnPat =>
         $b:fnExpr) => do
     let paramStr := BodyPat.toLean (← parsePat p)

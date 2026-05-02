@@ -89,6 +89,64 @@ def resolveStructField (fieldName : String) :
         (Lean.Name.mkSimple fieldName)
     else none
 
+/-- Look up a `defFn` short name and return the qualified
+    Lean constant names (e.g.
+    `"bodyPlaces" → [`Body.bodyPlaces]`) for every fn in
+    scope that exposes that short name.
+
+    Two sources are merged. (1) The runtime fn registry —
+    populated by each `defFn`'s `initialize` block — covers
+    cross-module references; the `initialize` blocks of an
+    imported module have already executed by the time we
+    elaborate code that imports it. (2) The current
+    environment — fed in by the caller — covers same-module
+    references: when `defFn bodyPlaces` is elaborated, it
+    immediately adds the Lean constant `Body.bodyPlaces` and
+    its `Body.bodyPlaces.fnDef` metadata sibling to `env`,
+    but its `initialize` block won't run until the
+    importing module loads. Walking env constants whose
+    `fnDef`-suffixed sibling exists recovers those entries.
+
+    Used by the `·` (method-call) parser rule to record
+    gotoDef targets for method calls like `body·bodyPlaces`:
+    the synthesised Lean rendering `body.bodyPlaces` carries
+    no user-source position for the method token, so we
+    attach a `TermInfo` leaf at the user's `bodyPlaces`
+    token pointing at every matching fn constant. As with
+    `resolveStructField`, multiple matches are returned so
+    the LSP can offer a multi-target gotoDef when a short
+    name is claimed by several `defFn`s. -/
+def resolveFnByShortName (env : Lean.Environment)
+    (fnName : String) : IO (List Lean.Name) := do
+  let fns ← getRegisteredFns
+  let fromRegistry := fns.filterMap fun f =>
+    if f.fnDef.name == fnName then
+      let baseName : Lean.Name := match f.fnDef.sourceNamespace with
+        | some ns => Lean.Name.mkSimple ns
+        | none => Lean.Name.anonymous
+      some (baseName.append (Lean.Name.mkSimple fnName))
+    else none
+  -- Walk the env for `<X>.<fnName>.fnDef` constants the
+  -- current module added but whose `initialize` registration
+  -- hasn't run yet. Each match yields the parent
+  -- `<X>.<fnName>` constant.
+  let fromEnv : List Lean.Name :=
+    env.constants.toList.filterMap fun (n, _) =>
+      match n with
+      | .str parent suffix =>
+        if suffix == "fnDef" then
+          match parent with
+          | .str _ shortName =>
+            if shortName == fnName then some parent else none
+          | _ => none
+        else none
+      | _ => none
+  -- De-duplicate (a fn that's in the registry might also be
+  -- in env), preserving the registry order so cross-module
+  -- entries appear first.
+  let merged := fromRegistry ++ fromEnv.filter (fun n => !fromRegistry.contains n)
+  pure merged
+
 /-- Walk a type-position `Syntax` tree and record every
     identifier inside it via `recordIdentRef`, so the LSP can
     jump from a type name in a parameter or return type

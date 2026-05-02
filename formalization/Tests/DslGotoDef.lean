@@ -252,4 +252,19 @@ run_cmd do
       {resolved}; expected both {ownedStateLocals} and \
       {stackFrameLocals} in the list"
 
+-- Method-call gotoDef relies on `resolveFnByShortName`:
+-- given a method name like `"bodyPlaces"`, it consults the
+-- `defFn` registry merged with the current environment's
+-- `<X>.<name>.fnDef` constants and returns the qualified
+-- Lean name(s) of every defFn that exposes that short
+-- name, so the parser can attach a `TermInfo` leaf at the
+-- user's `body·bodyPlaces` token.
+run_cmd do
+  let env ← Lean.MonadEnv.getEnv
+  let resolved ← resolveFnByShortName env "bodyPlaces"
+  let expected : Lean.Name := `Body ++ `bodyPlaces
+  unless resolved.contains expected do
+    throwError s!"resolveFnByShortName on `bodyPlaces` \
+      returned {resolved}; expected to include {expected}"
+
 end Tests.DslGotoDef
