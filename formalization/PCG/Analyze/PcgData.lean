@@ -24,13 +24,12 @@ defFn obtainTriples (.plain "obtainTriples")
   (body "The function body." : Body)
   (triples "The triples whose pre-conditions to obtain."
       : List PlaceTriple)
-  requires triples·forAll fun t => validPlace ‹body, t↦place›
+  requires triples·forAll fun t => validPlace body t↦place
   : Option (PcgData Place) where
   | pd ; _ ; [] => Some pd
   | pd ; body ; t :: rest =>
-      let pd' ← obtain ‹pd, body, t↦place, t↦pre,
-        proof[h_pre0 t (List.mem_cons_self ..)]› ;
-      obtainTriples ‹pd', body, rest›
+      let pd' ← obtain pd body t↦place t↦pre proof[h_pre0 t (List.mem_cons_self ..)] ;
+      obtainTriples pd' body rest
 
 defFn analyze (.plain "analyze")
   (doc! "Step the PCG state across a single statement evaluation phase. First looks up the analysis \
@@ -42,14 +41,13 @@ defFn analyze (.plain "analyze")
   (loc "The program point at which the phase is evaluated."
       : Location)
   (phase "The evaluation phase." : EvalStmtPhase)
-  requires validBody(body)
+  requires validBody body
   : Option (PcgData Place) :=
-    let ao := getAnalysisObject ‹body, loc,
-      proof[h_validBody]› ·val ;
+    let ao := getAnalysisObject body loc proof[h_validBody] ·val ;
     let triples :=
       match phase with
-        | .preOperands => operandTriples ‹ao›
-        | .preMain => mainTriples ‹ao›
+        | .preOperands => operandTriples ao
+        | .preMain => mainTriples ao
         | .postOperands => ∅
         | .postMain => ∅
       end ;
@@ -60,8 +58,7 @@ defFn analyze (.plain "analyze")
     -- point `validBody`'s first conjunct closes the gap. That
     -- structural inclusion proof is out of scope here; the
     -- explicit `sorry` documents the gap locally.
-    obtainTriples ‹pd, body, triples·toList,
-      proof[sorry]›
+    obtainTriples pd body (triples·toList) proof[sorry]
 
 defFn analyzeAt (.plain "analyzeAt")
   (doc! "Step the PCG state across all four evaluation phases at a single location, threading each \
@@ -73,16 +70,12 @@ defFn analyzeAt (.plain "analyzeAt")
   (body "The function body." : Body)
   (loc "The location at which to step (statement or \
        terminator)." : Location)
-  requires validBody(body)
+  requires validBody body
   : Option PcgDomainData :=
-    let preOp ← analyze ‹pd, body, loc, .preOperands,
-      proof[h_validBody]› ;
-    let postOp ← analyze ‹preOp, body, loc, .postOperands,
-      proof[h_validBody]› ;
-    let preM ← analyze ‹postOp, body, loc, .preMain,
-      proof[h_validBody]› ;
-    let postM ← analyze ‹preM, body, loc, .postMain,
-      proof[h_validBody]› ;
+    let preOp ← analyze pd body loc .preOperands proof[h_validBody] ;
+    let postOp ← analyze preOp body loc .postOperands proof[h_validBody] ;
+    let preM ← analyze postOp body loc .preMain proof[h_validBody] ;
+    let postM ← analyze preM body loc .postMain proof[h_validBody] ;
     Some DomainData⟨pd,
       EvalStmtData⟨preOp, postOp, preM, postM⟩⟩
 
@@ -100,21 +93,19 @@ defFn analyzeStmtsFrom (.plain "analyzeStmtsFrom")
       : Nat)
   (remaining "The statements that still need to be \
        processed, in order." : List Statement)
-  requires validBody(body)
+  requires validBody body
   : Option (List PcgDomainData) :=
     match remaining with
       | [] =>
-          let dd ← analyzeAt ‹pd, body, Location⟨bb, idx⟩,
-            proof[h_validBody]› ;
+          let dd ← analyzeAt pd body Location⟨bb, idx⟩ proof[h_validBody] ;
           Some [dd]
       | _ :: rest =>
-          let dd ← analyzeAt ‹pd, body, Location⟨bb, idx⟩,
-            proof[h_validBody]› ;
+          let dd ← analyzeAt pd body Location⟨bb, idx⟩ proof[h_validBody] ;
           -- Recursive call: the DSL auto-discharges
           -- `validBody` for recursive invocations, so no
           -- explicit proof argument here.
           let restDDs ← analyzeStmtsFrom
-            ‹dd↦states↦postMain, body, bb, idx + 1, rest› ;
+            (dd↦states↦postMain) body bb (idx + 1) rest ;
           Some (dd :: restDDs)
     end
 
@@ -128,10 +119,9 @@ defFn analyzeBlock (.plain "analyzeBlock")
       : PcgData Place)
   (body "The function body." : Body)
   (bb "The basic block to analyze." : BasicBlockIdx)
-  requires validBody(body)
+  requires validBody body
   : Option (List PcgDomainData) :=
     let block := body↦blocks ! bb↦index ;
-    analyzeStmtsFrom ‹pd, body, bb, 0, block↦statements,
-      proof[h_validBody]›
+    analyzeStmtsFrom pd body bb 0 block↦statements proof[h_validBody]
 
 end PcgData

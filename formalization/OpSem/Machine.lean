@@ -35,8 +35,8 @@ defProperty Runnable (.plain "Runnable")
   (m "The machine state." : Machine)
   :=
     m↦thread↦stack ≠ [] ∧
-    validProgram ‹m↦program› ∧
-    validStack ‹m↦thread↦stack, m↦mem›
+    validProgram m↦program ∧
+    validStack (m↦thread↦stack) m↦mem
 
 -- Source-only `Inhabited StackFrame` so `head!` inside
 -- `currentFrame` (which relies on the precondition for
@@ -63,7 +63,7 @@ defFn currentFrame (.plain "currentFrame")
     `Runnable` precondition guarantees the stack is \
     non-empty.")
   (m "The machine state." : Machine)
-  requires Runnable(m)
+  requires Runnable m
   : StackFrame :=
     m↦thread↦stack·head!
 
@@ -71,24 +71,24 @@ defFn currBody (.plain "currBody")
   (doc! "The body of the currently executing stack frame. Shorthand for `currentFrame`'s `body` \
     field; safe under the same `Runnable` precondition.")
   (m "The machine state." : Machine)
-  requires Runnable(m)
+  requires Runnable m
   : Body :=
-    (currentFrame ‹m, proof[h_Runnable]›)↦body
+    (currentFrame m proof[h_Runnable])↦body
 
 defFn currPC (.plain "currPC")
   (doc! "The program counter of the currently executing stack frame. Shorthand for `currentFrame`'s \
     `pc` field; safe under the same `Runnable` precondition.")
   (m "The machine state." : Machine)
-  requires Runnable(m)
+  requires Runnable m
   : Location :=
-    (currentFrame ‹m, proof[h_Runnable]›)↦pc
+    (currentFrame m proof[h_Runnable])↦pc
 
 defFn stackTail (.plain "stackTail")
   (doc! "The tail of the call stack — every frame except the currently executing one (which \
     `currentFrame` returns). Safe because the `Runnable` precondition guarantees the stack is \
     non-empty.")
   (m "The machine state." : Machine)
-  requires Runnable(m)
+  requires Runnable m
   : List StackFrame :=
     m↦thread↦stack·tail!
 
@@ -96,13 +96,13 @@ defFn evalConstant (.plain "evalConstant")
   (.plain "Convert a compile-time constant to a runtime value.")
   (cv "The constant value." : ConstValue)
   : Value where
-  | .bool b => Value.bool‹b›
-  | .int iv => Value.int‹iv›
+  | .bool b => Value.bool b
+  | .int iv => Value.int iv
   | .tuple es =>
-      Value.tuple‹es ·map evalConstant›
+      Value.tuple (es ·map evalConstant)
   | .array es =>
-      Value.array‹es ·map evalConstant›
-  | .fnPtr name => Value.fnPtr‹name›
+      Value.array (es ·map evalConstant)
+  | .fnPtr name => Value.fnPtr name
 
 defFn typedLoad (.plain "typedLoad")
   (doc! "Load a value of the given type from memory at the given pointer. Returns `None` if the \
@@ -111,9 +111,9 @@ defFn typedLoad (.plain "typedLoad")
   (ptr "The pointer." : ThinPointer)
   (ty "The type to load." : Ty)
   : Option Value :=
-    let sz ← Ty.bytes ‹ty› ;
-    let rawBytes := Memory.load ‹m, ptr, sz› ;
-    decode ‹ty, rawBytes›
+    let sz ← Ty.bytes ty ;
+    let rawBytes := Memory.load m ptr sz ;
+    decode ty rawBytes
 
 defFn typedStore (.plain "typedStore")
   (.plain "Store a value into memory at the given pointer. \
@@ -122,7 +122,7 @@ defFn typedStore (.plain "typedStore")
   (ptr "The pointer." : ThinPointer)
   (v "The value to store." : Value)
   : Memory :=
-    Memory.store ‹m, ptr, encode ‹v››
+    Memory.store m ptr (encode v)
 
 defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   (doc! "Per-argument helper for `createFrame`: iterate the caller-provided value list with `k` \
@@ -138,10 +138,9 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
       let ⟨frame1, mem1⟩ :=
-        StackFrame.storageLive ‹frame, mem, Local⟨k⟩› ;
-      let ptr := mapAt ‹frame1↦locals, Local⟨k⟩› ;
-      liveAndStoreArgs ‹rest, k + 1, frame1,
-        typedStore ‹mem1, ptr, v››
+        StackFrame.storageLive frame mem Local⟨k⟩ ;
+      let ptr := mapAt frame1↦locals Local⟨k⟩ ;
+      liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
 
 defFn createFrame (.plain "createFrame")
   (doc! "Build a fresh stack frame for a call into `body` and push it onto the thread's call stack. \
@@ -156,9 +155,9 @@ defFn createFrame (.plain "createFrame")
     let initFrame := StackFrame⟨body,
       Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
     let ⟨frame1, mem1⟩ := StackFrame.storageLive
-      ‹initFrame, m↦mem, Local⟨0⟩› ;
+      initFrame m↦mem Local⟨0⟩ ;
     let ⟨frame2, mem2⟩ :=
-      liveAndStoreArgs ‹args, 1, frame1, mem1› ;
+      liveAndStoreArgs args 1 frame1 mem1 ;
     Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩
@@ -171,11 +170,11 @@ defFn initialMachine (.plain "initialMachine")
     `Machine::new`, with globals, function pointers, vtables, lock state, additional threads, and \
     I/O streams stripped — this model is single-threaded and ignores those concerns.")
   (program "The program to initialise." : Program)
-  requires validProgram(program)
+  requires validProgram program
   : Machine :=
-    let body := Program.startProgram ‹program, proof[h_validProgram]› ;
+    let body := Program.startProgram program proof[h_validProgram] ;
     let blank :=
       Machine⟨program, Thread⟨[]⟩, Memory⟨[]⟩⟩ ;
-    createFrame ‹blank, body, []›
+    createFrame blank body []
 
 end Machine

@@ -32,7 +32,6 @@ defFn join (.plain "join")
   (bg1 "First borrows graph." : BorrowsGraph Place)
   (bg2 "Second borrows graph." : BorrowsGraph Place)
   : BorrowsGraph Place :=
-    BorrowsGraph⟨mapMergeWith ‹ValidityConditions.join,
-      bg1↦edges, bg2↦edges›⟩
+    BorrowsGraph⟨mapMergeWith ValidityConditions.join bg1↦edges bg2↦edges⟩
 
 end BorrowsGraph

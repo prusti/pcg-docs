@@ -27,6 +27,6 @@ defProperty validAnalysisObject (.plain "validAnalysisObject")
   (ao "The analysis object." : AnalysisObject)
   :=
     match ao with
-    | .stmt s => validStatement ‹body, s›
-    | .terminator t => validTerminator ‹body, t›
+    | .stmt s => validStatement body s
+    | .terminator t => validTerminator body t
     end

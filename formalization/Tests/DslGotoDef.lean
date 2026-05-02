@@ -81,7 +81,7 @@ defInductiveProperty TestInductiveProp
   (.plain "Sample inductive property for the goto-def regression test.")
   (n "Test param." : Nat)
 where
-  | refl {x : Nat} ⊢ TestInductiveProp ‹x›
+  | refl {x : Nat} ⊢ TestInductiveProp x
 
 run_cmd do
   let some ranges ← Lean.findDeclarationRanges?
@@ -153,11 +153,11 @@ private def checkCallSiteGotoDef
       const to the user-source token."
 
 elab "checkCallSiteGotoDef" : command => do
-  -- Direct expression body: `testCaller := testCallee ‹›`.
+  -- Direct expression body: `testCaller := testCallee`.
   checkCallSiteGotoDef
     "defFn testCallerSimple (.plain \"testCallerSimple\") \
        (.plain \"Simple direct caller.\") \
-       : Nat := testCallee ‹›"
+       : Nat := testCallee"
     `Tests.DslGotoDef.Wrap.testCallee
   -- Body uses a `let`-chain ending in the call site, mirroring
   -- `initialMachine`'s structure. Exercises the let-binding
@@ -168,7 +168,7 @@ elab "checkCallSiteGotoDef" : command => do
        : Nat := \
          let x := 1 ; \
          let y := 2 ; \
-         testCallee ‹›"
+         testCallee"
     `Tests.DslGotoDef.Wrap.testCallee
   -- Body uses `requires` precondition and a let-chain ending
   -- in the call, fully mirroring `initialMachine`'s shape.
@@ -176,10 +176,10 @@ elab "checkCallSiteGotoDef" : command => do
     "defFn testCallerReq (.plain \"testCallerReq\") \
        (.plain \"Caller with a precondition + let-chain.\") \
        (n \"Test param.\" : Nat) \
-       requires testGuard(n) \
+       requires testGuard n \
        : Nat := \
          let x := 1 ; \
-         testCallee ‹›"
+         testCallee"
     `Tests.DslGotoDef.Wrap.testCallee
   -- defProperty body referencing a callee. Mirrors the way
   -- `FramingInvariant`'s body references `hasAllocation`,
@@ -190,7 +190,7 @@ elab "checkCallSiteGotoDef" : command => do
        short (.seq [.plain \"short\"]) \
        long (.seq [.plain \"long\"]) \
        (n \"Test param.\" : Nat) \
-       := testGuard ‹n›"
+       := testGuard n"
     `Tests.DslGotoDef.Wrap.testGuard
   -- defProperty body using a forall + chained conjunctions
   -- ending with the call, the shape used by `FramingInvariant`.
@@ -201,7 +201,7 @@ elab "checkCallSiteGotoDef" : command => do
        long (.seq [.plain \"long\"]) \
        := ∀∀ n ∈ Nat . \
             ‹break› n < 10 ∧ \
-            ‹break› testGuard ‹n›"
+            ‹break› testGuard n"
     `Tests.DslGotoDef.Wrap.testGuard
   -- Same shape, but with the `‹break›` placed *before* the
   -- operator rather than the next conjunct. Exercises the
@@ -213,8 +213,8 @@ elab "checkCallSiteGotoDef" : command => do
        long (.seq [.plain \"long\"]) \
        := ∀∀ n ∈ Nat . \
             n < 10 ‹break›∧ \
-            testGuard ‹n› \
-            ‹break›→ testGuard ‹n + 1›"
+            testGuard n \
+            ‹break›→ testGuard (n + 1)"
     `Tests.DslGotoDef.Wrap.testGuard
 
 namespace Wrap
@@ -246,7 +246,7 @@ end Wrap
 --      `TermInfo` leaves at the user-source ranges.
 --
 -- This test elaborates a synthetic `defFn` whose body is
--- `Wrap.testReqCallee ‹n, proof[h_testGuard]›` and verifies
+-- `Wrap.testReqCallee n proof[h_testGuard]` and verifies
 -- that after elaboration there is a `TermInfo` whose
 -- `stx.getPos?` falls inside the source range of the
 -- `h_testGuard` identifier in the synthesized source.
@@ -256,7 +256,7 @@ defFn testReqCallee (.plain "testReqCallee")
   (.plain "Callee with a precondition for the proof[…] \
     InfoView regression test.")
   (n "Test param." : Nat)
-  requires testGuard(n)
+  requires testGuard n
   : Nat := 0
 
 end Wrap
@@ -335,7 +335,7 @@ private def checkProofInfoViewPosition
       cursor."
 
 elab "checkProofInfoViewPosition" : command => do
-  -- Caller defFn: `n : Nat` in scope, `requires testGuard(n)`
+  -- Caller defFn: `n : Nat` in scope, `requires testGuard n`
   -- introduces `h_testGuard : testGuard n` as a precondition
   -- binder, and the body calls `Wrap.testReqCallee` whose own
   -- `requires testGuard(body's n)` slot consumes the proof.
@@ -347,9 +347,9 @@ elab "checkProofInfoViewPosition" : command => do
     "defFn testProofCaller (.plain \"testProofCaller\") \
        (.plain \"Caller exercising proof[…] graft.\") \
        (n \"Test param.\" : Nat) \
-       requires testGuard(n) \
+       requires testGuard n \
        : Nat := \
-         Wrap.testReqCallee ‹n, proof[h_testGuard]›"
+         Wrap.testReqCallee n proof[h_testGuard]"
     `h_testGuard
   -- defProperty body case: an implication chain whose
   -- bindAntecedentNames pass introduces an `h_testGuard`
@@ -365,8 +365,8 @@ elab "checkProofInfoViewPosition" : command => do
        short (.seq [.plain \"short\"]) \
        long (.seq [.plain \"long\"]) \
        (n \"Test param.\" : Nat) \
-       := testGuard ‹n› → \
-            Wrap.testReqCallee ‹n, proof[h_testGuard]› = 0"
+       := testGuard n → \
+            Wrap.testReqCallee n proof[h_testGuard] = 0"
     `h_testGuard
 
 namespace Wrap

@@ -15,7 +15,7 @@ defFn placeStore (.plain "placeStore")
   (place "The place to store into." : PlacePtr)
   (v "The value to store." : Value)
   : Memory :=
-    typedStore ‹m, place↦ptr, v›
+    typedStore m place↦ptr v
 
 defFn placeLoad (.plain "placeLoad")
   (doc! "Load a value from the location designated by a place pointer. Alignment and atomicity are \
@@ -24,7 +24,7 @@ defFn placeLoad (.plain "placeLoad")
   (place "The place to load from." : PlacePtr)
   (ty "The type to load." : Ty)
   : Option Value :=
-    typedLoad ‹m, place↦ptr, ty›
+    typedLoad m place↦ptr ty
 
 defFn evalOperand (.plain "evalOperand")
   (doc! "Evaluate a MIR operand to a runtime value. `copy` and `move` resolve the operand's place \
@@ -33,17 +33,17 @@ defFn evalOperand (.plain "evalOperand")
     modelled — both `copy` and `move` currently just load.")
   (m "The machine state." : Machine)
   (o "The operand." : Operand)
-  requires Runnable(m)
+  requires Runnable m
   : Option Value where
   | m ; .copy p =>
       let ⟨pp, ty⟩ ←
-        evalPlace ‹m, p, proof[h_Runnable]› ;
-      placeLoad ‹m↦mem, pp, ty›
+        evalPlace m p proof[h_Runnable] ;
+      placeLoad m↦mem pp ty
   | m ; .move p =>
       let ⟨pp, ty⟩ ←
-        evalPlace ‹m, p, proof[h_Runnable]› ;
-      placeLoad ‹m↦mem, pp, ty›
-  | _ ; .const cv => Some (evalConstant ‹cv›)
+        evalPlace m p proof[h_Runnable] ;
+      placeLoad m↦mem pp ty
+  | _ ; .const cv => Some (evalConstant cv)
 
 defFn evalRvalue (.plain "evalRvalue")
   (doc! "Evaluate an rvalue to a runtime value. `use` forwards to `evalOperand`. The \
@@ -53,13 +53,13 @@ defFn evalRvalue (.plain "evalRvalue")
     runtime metadata. Returns `None` when the referenced place cannot be resolved.")
   (m "The machine state." : Machine)
   (rv "The rvalue." : Rvalue)
-  requires Runnable(m)
+  requires Runnable m
   : Option Value where
   | m ; .use o =>
-      evalOperand ‹m, o, proof[h_Runnable]›
+      evalOperand m o proof[h_Runnable]
   | m ; .ref _ _ p =>
       let ⟨pp, _⟩ ←
-        evalPlace ‹m, p, proof[h_Runnable]› ;
-      Some Value.ptr‹pp↦ptr›
+        evalPlace m p proof[h_Runnable] ;
+      Some Value.ptr pp↦ptr
 
 end Machine

@@ -139,15 +139,15 @@ defProperty validProjTy (.plain "validProjTy")
   where
   | _ ; [] => true
   | .ref _ _ pointee ; .deref :: π =>
-      validProjTy ‹pointee, π›
+      validProjTy pointee π
   | .box inner ; .deref :: π =>
-      validProjTy ‹inner, π›
+      validProjTy inner π
   | _ ; (.field _ τ) :: π =>
-      validProjTy ‹τ, π›
+      validProjTy τ π
   | .array elem _ ; (.index _) :: π =>
-      validProjTy ‹elem, π›
+      validProjTy elem π
   | τ ; (.downcast _) :: π =>
-      validProjTy ‹τ, π›
+      validProjTy τ π
 
 defFn isOwned' (.plain "isOwned'")
   (doc! "Check whether a place is owned by walking its projection list. Returns `false` as soon as \
@@ -155,18 +155,18 @@ defFn isOwned' (.plain "isOwned'")
     dereferencing a reference.")
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
-  requires validProjTy(τ, projs)
+  requires validProjTy τ projs
   : Bool where
   | _ ; [] => true
   | .ref _ _ _ ; .deref :: _ => false
   | .box inner ; .deref :: π =>
-      isOwned' ‹inner, π›
+      isOwned' inner π
   | _ ; (.field _ τ) :: π =>
-      isOwned' ‹τ, π›
+      isOwned' τ π
   | .array elem _ ; (.index _) :: π =>
-      isOwned' ‹elem, π›
+      isOwned' elem π
   | τ ; (.downcast _) :: π =>
-      isOwned' ‹τ, π›
+      isOwned' τ π
 
 defFn placeTy' (.plain "placeTy'")
   (doc! "Project a type through a list of projection elements. Returns the final #PlaceTy after all \
@@ -174,19 +174,19 @@ defFn placeTy' (.plain "placeTy'")
   (τ "The current type." : Ty)
   (v "The variant index." : Option VariantIdx)
   (projs "The projection elements." : List ProjElem)
-  requires validProjTy(τ, projs)
+  requires validProjTy τ projs
   : PlaceTy where
   | τ ; v ; [] => PlaceTy⟨τ, v⟩
   | .ref _ _ pointee ; _ ; .deref :: π =>
-      placeTy' ‹pointee, None, π›
+      placeTy' pointee None π
   | .box inner ; _ ; .deref :: π =>
-      placeTy' ‹inner, None, π›
+      placeTy' inner None π
   | _ ; _ ; (.field _ τ) :: π =>
-      placeTy' ‹τ, None, π›
+      placeTy' τ None π
   | .array elem _ ; _ ; (.index _) :: π =>
-      placeTy' ‹elem, None, π›
+      placeTy' elem None π
   | τ ; _ ; (.downcast v) :: π =>
-      placeTy' ‹τ, Some v, π›
+      placeTy' τ (Some v) π
 
 defProperty validPlace (.plain "valid")
   short
@@ -199,7 +199,7 @@ defProperty validPlace (.plain "valid")
   (p "The place." : Place)
   :=
     p↦«local»↦index < body↦decls·length ∧
-    validProjTy ‹body↦decls ! p↦«local»↦index, p↦projection›
+    validProjTy (body↦decls ! p↦«local»↦index) p↦projection
 
 defProperty validStatement (.plain "validStatement")
   short
@@ -210,7 +210,7 @@ defProperty validStatement (.plain "validStatement")
   (body "The function body." : Body)
   (s "The statement." : Statement)
   :=
-    s·statementPlaces·forAll fun p => validPlace ‹body, p›
+    s·statementPlaces·forAll fun p => validPlace body p
 
 defProperty validTerminator (.plain "validTerminator")
   short
@@ -221,7 +221,7 @@ defProperty validTerminator (.plain "validTerminator")
   (body "The function body." : Body)
   (t "The terminator." : Terminator)
   :=
-    t·terminatorPlaces·forAll fun p => validPlace ‹body, p›
+    t·terminatorPlaces·forAll fun p => validPlace body p
 
 defProperty validLocation (.plain "validLocation")
   short
@@ -248,24 +248,24 @@ defProperty validBody (.plain "validBody")
   (body "The function body." : Body)
   :=
     (body↦blocks·forAll fun bb =>
-      (bb↦statements·forAll fun s => validStatement ‹body, s›) ∧
-      validTerminator ‹body, bb↦terminator›) ∧
-    (body↦decls·forAll fun t => IsSized ‹t›)
+      (bb↦statements·forAll fun s => validStatement body s) ∧
+      validTerminator body bb↦terminator) ∧
+    (body↦decls·forAll fun t => IsSized t)
 
 defFn placeTy (.plain "ty")
   (doc! "Compute the type of a place: look up the base local \
     in $\\Delta$, then project through projections.")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
-  requires validPlace(body, place)
+  requires validPlace body place
   : PlaceTy :=
-    placeTy' ‹body↦decls ! place↦«local»↦index, None, place↦projection, proof[h_validPlace.2]›
+    placeTy' (body↦decls ! place↦«local»↦index) None place↦projection proof[h_validPlace.2]
 
 defFn isOwned (.plain "isOwned")
   (doc! "Returns `true` iff a place is owned, i.e. it does not project from the dereference of a \
     reference-typed place. See `definitions/places.md`.")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
-  requires validPlace(body, place)
+  requires validPlace body place
   : Bool :=
-    isOwned' ‹body↦decls ! place↦«local»↦index, place↦projection, proof[h_validPlace.2]›
+    isOwned' (body↦decls ! place↦«local»↦index) place↦projection proof[h_validPlace.2]

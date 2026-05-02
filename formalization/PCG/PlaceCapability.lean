@@ -56,7 +56,7 @@ defFn placeIsMutablyBorrowed (.plain "placeIsMutablyBorrowed")
   (p "The target place." : Place)
   : Bool :=
   bg·derefEdges·any fun de =>
-    if currentPlace ‹de↦blockedPlace› == Some p then
+    if currentPlace de↦blockedPlace == Some p then
       de↦blockedLifetimeProjection↦label·isSome
     else false
 
@@ -77,7 +77,7 @@ defFn treeIsInternal (.plain "treeIsInternal")
   | _ ; .leaf _ => false
   | [] ; .internal _ => true
   | .deref :: rest ; .internal (.deref sub) =>
-      treeIsInternal ‹rest, sub›
+      treeIsInternal rest sub
   | _ :: _ ; .internal _ => false
 
 defFn treeLeafCapability (.plain "treeLeafCapability")
@@ -97,7 +97,7 @@ defFn treeLeafCapability (.plain "treeLeafCapability")
   | _ ; .leaf (.deep) => None
   | [] ; .internal _ => None
   | .deref :: rest ; .internal (.deref sub) =>
-      treeLeafCapability ‹rest, sub›
+      treeLeafCapability rest sub
   | _ :: _ ; .internal _ => None
 
 -- ══════════════════════════════════════════════
@@ -112,7 +112,7 @@ defFn isPrefixOf (.plain "isPrefixOf")
   | [] ; _ => true
   | _ :: _ ; [] => false
   | a :: as ; b :: bs =>
-      if a == b then isPrefixOf ‹as, bs› else false
+      if a == b then isPrefixOf as bs else false
 
 defFn isPrefixOfPlace (.plain "isPrefixOfPlace")
   (.plain "Whether one place is a prefix of another: same \
@@ -122,7 +122,7 @@ defFn isPrefixOfPlace (.plain "isPrefixOfPlace")
   (q "The full place." : Place)
   : Bool :=
   if p↦«local» == q↦«local» then
-    isPrefixOf ‹p↦projection, q↦projection›
+    isPrefixOf p↦projection q↦projection
   else false
 
 defFn isPrefixOfReadPlace (.plain "isPrefixOfReadPlace")
@@ -132,7 +132,7 @@ defFn isPrefixOfReadPlace (.plain "isPrefixOfReadPlace")
       : Set Place)
   (p "The candidate prefix." : Place)
   : Bool :=
-  reads·toList·any fun q => isPrefixOfPlace ‹p, q›
+  reads·toList·any fun q => isPrefixOfPlace p q
 
 defFn isPrefixOfTransientReadPlace
     (.plain "isPrefixOfTransientReadPlace")
@@ -144,7 +144,7 @@ defFn isPrefixOfTransientReadPlace
   (p "The candidate prefix." : Place)
   : Bool where
   | .some (.readPlaces reads) ; p =>
-      isPrefixOfReadPlace ‹reads, p›
+      isPrefixOfReadPlace reads p
   | _ ; _ => false
 
 -- ══════════════════════════════════════════════
@@ -159,31 +159,30 @@ defFn projectsSharedRef' (.plain "projectsSharedRef'")
   (τ "The current type." : Ty)
   (projs "The remaining projection elements."
       : List ProjElem)
-  requires validProjTy(τ, projs)
+  requires validProjTy τ projs
   : Bool where
   | _ ; [] => false
   | .ref _ (.shared) _ ; .deref :: _ => true
   | .ref _ _ pointee ; .deref :: π =>
-      projectsSharedRef' ‹pointee, π›
+      projectsSharedRef' pointee π
   | .box inner ; .deref :: π =>
-      projectsSharedRef' ‹inner, π›
+      projectsSharedRef' inner π
   | _ ; (.field _ τ) :: π =>
-      projectsSharedRef' ‹τ, π›
+      projectsSharedRef' τ π
   | .array elem _ ; (.index _) :: π =>
-      projectsSharedRef' ‹elem, π›
+      projectsSharedRef' elem π
   | τ ; (.downcast _) :: π =>
-      projectsSharedRef' ‹τ, π›
+      projectsSharedRef' τ π
 
 defFn projectsSharedRef (.plain "projectsSharedRef")
   (doc! "Whether the place's projection ever dereferences a shared-reference-typed place: walks the \
     projection from the base local's declared type and reports the first such dereference.")
   (body "The function body." : Body)
   (p "The place." : Place)
-  requires validPlace(body, p)
+  requires validPlace body p
   : Bool :=
     projectsSharedRef'
-      ‹body↦decls ! p↦«local»↦index, p↦projection,
-        proof[h_validPlace.2]›
+      (body↦decls ! p↦«local»↦index) p↦projection proof[h_validPlace.2]
 
 -- ══════════════════════════════════════════════
 -- Top-level capability lookup
@@ -205,19 +204,19 @@ defFn getCapability (.plain "getCapability")
   (pd "The PCG data." : PcgData Place)
   (body "The function body." : Body)
   (p "The place whose capability is requested." : Place)
-  requires validPlace(body, p)
+  requires validPlace body p
   : Option Capability :=
-    let tree ← getAlloc ‹pd↦os, p↦«local»› ;
+    let tree ← getAlloc pd↦os (p↦«local») ;
     let projs := p↦projection ;
-    if treeIsInternal ‹projs, tree›
-        ∨ placeIsMutablyBorrowed ‹pd↦bg, p›
+    if treeIsInternal projs tree
+        ∨ placeIsMutablyBorrowed pd↦bg p
       then None
     else
-      match treeLeafCapability ‹projs, tree› with
+      match treeLeafCapability projs tree with
       | .some c => Some c
       | .none =>
-          if projectsSharedRef ‹body, p, proof[h_validPlace]›
-              ∨ isPrefixOfTransientReadPlace ‹pd↦transientState, p›
+          if projectsSharedRef body p proof[h_validPlace]
+              ∨ isPrefixOfTransientReadPlace pd↦transientState p
             then Some Capability.read
           else Some Capability.exclusive
       end

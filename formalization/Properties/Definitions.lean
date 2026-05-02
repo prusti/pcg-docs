@@ -22,13 +22,13 @@ open Machine
 -- declarations are real Lean (the IDE keeps full
 -- highlighting / hover / gotoDef on them) and the export
 -- pipeline picks the verbatim source up via the registry.
--- The `requires contains(ar, l)` precondition on
+-- The `requires contains ar l` precondition on
 -- `entryStateAt` guarantees the indexed element is always in
 -- bounds, so the default is never actually reached.
 defRaw middle =>
 /-- A concrete `PcgData Place` inhabitant used as the default
     for `Inhabited (PcgData Place)`. It's never reached at
-    runtime — the `requires contains(ar, l)` precondition on
+    runtime — the `requires contains ar l` precondition on
     `entryStateAt` rules out the out-of-bounds branch — but
     the default still has to be definable for `pdds[…]!` to
     elaborate. -/
@@ -64,8 +64,8 @@ defInductiveProperty Step
   displayed doc! "$#m \\rightsquigarrow #m'$"
 where
   | takeStep {m, m' : Machine} {h : Runnable m}
-      from (step ‹m, h› = StepResult.ok ‹m'›)
-      ⊢ Step ‹m, m'›
+      from (step m h = StepResult.ok m')
+      ⊢ Step m m'
 
 defInductiveProperty Reachable
   "Reachable Machines"
@@ -76,11 +76,11 @@ defInductiveProperty Reachable
   displayed doc! "$#m \\rightsquigarrow^* #m'$"
 where
   | refl {m : Machine}
-      ⊢ Reachable ‹m, m›
+      ⊢ Reachable m m
   | stepOk {m, m', m'' : Machine}
-      from (Reachable ‹m, m''›,
-            Step ‹m'', m'›)
-      ⊢ Reachable ‹m, m'›
+      from (Reachable m m'',
+            Step m'' m')
+      ⊢ Reachable m m'
 
 namespace Program
 
@@ -91,25 +91,24 @@ defFn analyzeBodies (.plain "analyzeBodies")
   (acc "The accumulating per-body analysis results."
       : ProgAnalysisResults)
   (bodies "The bodies still to analyse." : List Body)
-  requires bodies·forAll fun b => validBody ‹b›
+  requires bodies·forAll fun b => validBody b
   : Option ProgAnalysisResults where
   | acc ; [] => Some acc
   | acc ; b :: rest =>
       let ar ← analyzeBody
-        ‹b, proof[h_pre0 b (List.mem_cons_self ..)]› ;
-      analyzeBodies ‹mapInsert ‹acc, b, ar›, rest›
+        b proof[h_pre0 b (List.mem_cons_self ..)] ;
+      analyzeBodies (mapInsert acc b ar) rest
 
 defFn analyzeProgram (.plain "analyzeProgram")
   (doc! "Run #analyzeBody on every function body in the program, accumulating the per-body results \
     into a #ProgAnalysisResults. Returns `None` when #analyzeBody fails on any body.")
   (program "The program to analyse." : Program)
-  requires validProgram(program)
+  requires validProgram program
   : Option ProgAnalysisResults :=
     -- `validProgram` guarantees both clauses of `analyzeBodies`'s
     -- precondition: the second conjunct of `validProgram` is
     -- exactly `forAll b ∈ mapValues program.functions, validBody b`.
-    analyzeBodies ‹mapEmpty‹›, mapValues ‹program↦functions›,
-      proof[h_validProgram.2]›
+    analyzeBodies mapEmpty‹› (mapValues program↦functions) proof[h_validProgram.2]
 
 end Program
 
@@ -125,8 +124,8 @@ where
   | analyzeOk {par : ProgAnalysisResults} {p : Program}
         {h_validProgram : validProgram p}
       from (Program.analyzeProgram
-              ‹p, proof[h_validProgram]› = Some par)
-      ⊢ describes ‹par, p›
+              p proof[h_validProgram] = Some par)
+      ⊢ describes par p
 
 defProperty pcgAnalysisSucceeds
     (.plain "pcgAnalysisSucceeds")
@@ -144,9 +143,9 @@ defProperty pcgAnalysisSucceeds
     -- `h_<head>`, so `h_validProgram : validProgram program`
     -- is in scope on the goal side and discharges
     -- `analyzeProgram`'s precondition without a `sorry`.
-    validProgram ‹program›
+    validProgram program
     → match Program.analyzeProgram
-              ‹program, proof[h_validProgram]› with
+              program proof[h_validProgram] with
       | .some _ => true
       | .none => false
       end
@@ -157,9 +156,9 @@ defFn entryStateAt (.plain "entryStateAt")
     #contains precondition guarantees both lookups succeed.")
   (ar "The analysis results." : AnalysisResults)
   (l "The location to look up." : Location)
-  requires contains(ar, l)
+  requires contains ar l
   : PcgData Place :=
-    let pdds := mapAt ‹ar, l↦block› ;
+    let pdds := mapAt ar l↦block ;
     let pdd := pdds ! l↦stmtIdx ;
     pdd↦entryState
 
@@ -173,10 +172,10 @@ defFn pcgEntryStateAt (.plain "pcgEntryStateAt")
       : ProgAnalysisResults)
   (b "The function body." : Body)
   (l "The location to look up." : Location)
-  requires programContains(par, b, l)
+  requires programContains par b l
   : PcgData Place :=
-    let ar := mapAt ‹par, b› ;
-    entryStateAt ‹ar, l, proof[h_programContains.2]›
+    let ar := mapAt par b ;
+    entryStateAt ar l proof[h_programContains.2]
 
 namespace Machine
 
@@ -186,10 +185,10 @@ defFn placeAllocation (.plain "placeAllocation")
     the place cannot be evaluated or the resulting pointer has no provenance.")
   (m "The machine state." : Machine)
   (p "The place." : Place)
-  requires Runnable(m)
+  requires Runnable m
   : Option Allocation :=
     let ⟨pp, _⟩ ← evalPlace
-      ‹m, p, proof[h_Runnable]› ;
+      m p proof[h_Runnable] ;
     let prov ← pp↦ptr↦provenance ;
     Some (m↦mem↦allocs ! prov↦id↦index)
 
@@ -214,9 +213,9 @@ where
   | fromGet {pcg : PcgData Place} {b : Body}
         {p : Place} {c : Capability}
         {h_validPlace : validPlace b p}
-      from (getCapability ‹pcg, b, p, proof[h_validPlace]›
+      from (getCapability pcg b p proof[h_validPlace]
               = Some c)
-      ⊢ hasCapability ‹pcg, b, p, c›
+      ⊢ hasCapability pcg b p c
 
 defInductiveProperty hasAllocation
   "Machine Place Allocation"
@@ -229,6 +228,6 @@ where
   | fromGet {m : Machine} {p : Place} {a : Allocation}
         {h_Runnable : Runnable m}
       from (Machine.placeAllocation
-              ‹m, p, proof[h_Runnable]›
+              m p proof[h_Runnable]
               = Some a)
-      ⊢ hasAllocation ‹m, p, a›
+      ⊢ hasAllocation m p a

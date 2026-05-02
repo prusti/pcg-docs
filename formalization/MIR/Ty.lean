@@ -154,11 +154,11 @@ defFn bytes (.plain "bytes")
   (τ "The type." : Ty)
   : Option Nat where
   | .bool => Some 1
-  | .int it => Some (sizeBytes ‹it↦size›)
+  | .int it => Some (sizeBytes it↦size)
   | .ref _ _ _ => Some 8
   | .box _ => Some 8
   | .array elem n =>
-      let sz ← bytes ‹elem› ;
+      let sz ← bytes elem ;
       Some (sz * n)
   | _ => None
 

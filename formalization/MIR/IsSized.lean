@@ -13,5 +13,5 @@ defProperty IsSized (.plain "IsSized")
   | .int _ => true
   | .ref _ _ _ => true
   | .box _ => true
-  | .array elem _ => IsSized ‹elem›
+  | .array elem _ => IsSized elem
   | _ => false

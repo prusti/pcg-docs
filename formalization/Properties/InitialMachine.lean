@@ -286,12 +286,11 @@ defTheorem framingInvariantInitial
   (.plain "the framing invariant holds for the initial \
           machine of every valid program")
   := ∀∀ pr ∈ Program .
-       validProgram ‹pr›
+       validProgram pr
        → FramingInvariant
-           ‹initialMachine ‹pr, proof[h_validProgram]›,
-            initialPcg
-              ‹Program.startProgram
-                 ‹pr, proof[h_validProgram]›››
+           (initialMachine pr proof[h_validProgram]) (initialPcg
+              (Program.startProgram
+                 pr proof[h_validProgram]))
   proof framingInvariant_initialMachine
 
 /-! ## Connected-invariant base case
@@ -394,12 +393,11 @@ defTheorem connectedInvariantInitial
   (.plain "the connected invariant holds for the initial \
           machine of every valid program")
   := ∀∀ pr ∈ Program .
-       validProgram ‹pr›
+       validProgram pr
        → ConnectedInvariant
-           ‹initialMachine ‹pr, proof[h_validProgram]›,
-            initialPcg
-              ‹Program.startProgram
-                 ‹pr, proof[h_validProgram]›››
+           (initialMachine pr proof[h_validProgram]) (initialPcg
+              (Program.startProgram
+                 pr proof[h_validProgram]))
   proof connectedInvariant_initialMachine
 
 end Properties

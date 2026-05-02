@@ -32,7 +32,7 @@ defFn obtainWriteOwned (.plain "obtainWriteOwned")
     let ol ← os↦locals !! p↦«local»↦index ;
     match ol with
     | .allocated it =>
-        let newIt ← obtainWriteInTree ‹it, p↦projection› ;
-        Some (setOwnedLocalAt ‹os, p↦«local»↦index, .allocated ‹newIt››)
+        let newIt ← obtainWriteInTree it p↦projection ;
+        Some (setOwnedLocalAt os (p↦«local»↦index) (.allocated newIt))
     | .unallocated => None
     end

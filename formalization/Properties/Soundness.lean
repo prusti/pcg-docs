@@ -27,17 +27,17 @@ defProperty Soundness (.plain "Soundness")
        -- binders (see `DslExpr.bindAntecedentNames`), so
        -- each conjunct's proof is in scope downstream by
        -- the auto-derived name `h_<head>`.
-       ‹break› Runnable ‹m› ∧
-       ‹break› pcgAnalysisSucceeds ‹prog ‹m›› ∧
+       ‹break› Runnable m ∧
+       ‹break› pcgAnalysisSucceeds (prog m) ∧
        -- `Runnable` already implies `validProgram (prog m)`
        -- (its second conjunct), so we project it as
        -- `h_Runnable.2.1` to discharge `initialMachine`'s
        -- precondition rather than asserting `validProgram`
        -- as a separate antecedent.
        ‹break› Reachable
-         ‹initialMachine
-            ‹prog ‹m›, proof[h_Runnable.2.1]›, m›
+         (initialMachine
+            (prog m) proof[h_Runnable.2.1]) m
        -- `h_Runnable` is also in scope for `step`'s
        -- precondition on the goal side.
-       → ‹break› step ‹m, proof[h_Runnable]›
-           ≠ StepResult.done‹.error›
+       → ‹break› step m proof[h_Runnable]
+           ≠ StepResult.done .error

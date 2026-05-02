@@ -37,7 +37,7 @@ defFn overlaps (.plain "overlaps")
   (.plain "Whether an address falls within the allocation.")
   (alloc "The allocation." : Allocation)
   (a "The address." : Address)
-  : Bool := alloc↦address < a ≤ endAddr ‹alloc›
+  : Bool := alloc↦address < a ≤ endAddr alloc
 
 defFn nonOverlapping (.plain "nonOverlapping")
   (doc! "Whether two allocations occupy disjoint address ranges: one's end address is at or before \
@@ -47,7 +47,7 @@ defFn nonOverlapping (.plain "nonOverlapping")
   (a "The first allocation." : Allocation)
   (b "The second allocation." : Allocation)
   : Bool :=
-    endAddr ‹a› ≤ b↦address ∨ endAddr ‹b› ≤ a↦address
+    endAddr a ≤ b↦address ∨ endAddr b ≤ a↦address
 
 end Allocation
 

@@ -34,11 +34,11 @@ defFn getStmtOrTerminator (.plain "getStmtOrTerminator")
     terminator.")
   (body "The function body." : Body)
   (loc "The location to look up." : Location)
-  requires validLocation(body, loc)
+  requires validLocation body loc
   : StmtOrTerminator :=
     let block := body↦blocks ! loc↦block↦index ;
     if loc↦stmtIdx < block↦statements·length
     then
       let stmt := block↦statements ! loc↦stmtIdx ;
-      StmtOrTerminator.stmt ‹stmt›
-    else StmtOrTerminator.terminator ‹block↦terminator›
+      StmtOrTerminator.stmt stmt
+    else StmtOrTerminator.terminator block↦terminator

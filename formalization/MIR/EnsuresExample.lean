@@ -24,5 +24,5 @@ defFn alwaysTrue (.plain "alwaysTrue")
   (.plain "Returns true unconditionally; the ensures clause \
     states that the result holds.")
   (b "An ignored boolean input." : Bool)
-  ensures IsTrue(result)
+  ensures IsTrue result
   : Bool := true

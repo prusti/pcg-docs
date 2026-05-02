@@ -40,7 +40,7 @@ defFn bbContains (.plain "bbContains")
   | [] ; _ => false
   | x :: rest ; b =>
       if x↦index == b↦index then true
-      else bbContains ‹rest, b›
+      else bbContains rest b
 
 -- ══════════════════════════════════════════════
 -- DFS helpers — `dfsVisit`'s `visited` list grows
@@ -106,15 +106,15 @@ defFn pushOne (.plain "pushOne")
       : BasicBlockIdx)
   : AnalysisState :=
     let newEntry :=
-      match mapGet ‹state↦entryStates, succ› with
+      match mapGet state↦entryStates succ with
       | .some existing =>
           PcgData.join
-            ‹existing, exit, succ, proof[sorry]›
+            existing exit succ proof[sorry]
       | .none =>
           PcgData⟨exit↦bg, exit↦os, succ, None⟩
       end ;
     let entries1 :=
-      mapInsert ‹state↦entryStates, succ, newEntry› ;
+      mapInsert state↦entryStates succ newEntry ;
     state[entryStates => entries1]
 
 defFn pushToSuccessors (.plain "pushToSuccessors")
@@ -128,7 +128,7 @@ defFn pushToSuccessors (.plain "pushToSuccessors")
   : AnalysisState where
   | state ; _ ; [] => state
   | state ; exit ; s :: rest =>
-      pushToSuccessors ‹pushOne ‹state, exit, s›, exit, rest›
+      pushToSuccessors (pushOne state exit s) exit rest
 
 -- ══════════════════════════════════════════════
 -- Forward step: process one block, propagate to successors
@@ -143,24 +143,24 @@ defFn computeEntry (.plain "computeEntry")
   (body "The function body." : Body)
   (state "The current analysis state." : AnalysisState)
   (bb "The block to step over." : BasicBlockIdx)
-  requires validBody(body)
+  requires validBody body
   : Option AnalysisState :=
-    match mapGet ‹state↦entryStates, bb› with
+    match mapGet state↦entryStates bb with
     | .none => Some state
     | .some entry =>
         let result ← PcgData.analyzeBlock
-          ‹entry, body, bb, proof[h_validBody]› ;
+          entry body bb proof[h_validBody] ;
         let exit :=
           match result·getLast? with
           | .some last => last↦states↦postMain
           | .none => entry
           end ;
         let succs := termSuccessors
-          ‹(body↦blocks ! bb↦index)↦terminator› ;
+          ((body↦blocks ! bb↦index)↦terminator) ;
         let results1 :=
-          mapInsert ‹state↦results, bb, result› ;
+          mapInsert state↦results bb result ;
         let state1 := state[results => results1] ;
-        Some (pushToSuccessors ‹state1, exit, succs›)
+        Some (pushToSuccessors state1 exit succs)
     end
 
 -- ══════════════════════════════════════════════
@@ -175,16 +175,16 @@ defFn analyzeRpo (.plain "analyzeRpo")
   (state "The current analysis state." : AnalysisState)
   (rpo "Remaining blocks to process, in reverse postorder."
       : List BasicBlockIdx)
-  requires validBody(body)
+  requires validBody body
   : Option AnalysisState :=
     match rpo with
     | [] => Some state
     | bb :: rest =>
         let state1 ← computeEntry
-          ‹body, state, bb, proof[h_validBody]› ;
+          body state bb proof[h_validBody] ;
         -- Recursive: DSL auto-discharges `validBody` via
         -- the `precondProof` `assumption` fallback.
-        analyzeRpo ‹body, state1, rest›
+        analyzeRpo body state1 rest
     end
 
 -- ══════════════════════════════════════════════
@@ -204,13 +204,13 @@ defFn analyzeBody (.plain "analyzeBody")
     once per block. Returns `None` if \
     `PcgData.analyzeBlock` fails on any block.")
   (body "The function body." : Body)
-  requires validBody(body)
+  requires validBody body
   : Option AnalysisResults :=
-    let init := PcgData.init ‹body› ;
-    let rpo := reversePostorder ‹body› ;
+    let init := PcgData.init body ;
+    let rpo := reversePostorder body ;
     let entryStates0 :=
-      mapSingleton ‹BasicBlockIdx⟨0⟩, init› ;
+      mapSingleton BasicBlockIdx⟨0⟩ init ;
     let state0 := AnalysisState⟨mapEmpty‹›, entryStates0⟩ ;
     let final ← analyzeRpo
-      ‹body, state0, rpo, proof[h_validBody]› ;
+      body state0 rpo proof[h_validBody] ;
     Some final↦results

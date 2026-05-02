@@ -26,8 +26,8 @@ defProperty validProgram (.plain "validProgram")
   (program "The program." : Program)
   :=
     program↦start ∈ program↦functions ∧
-    mapValues ‹program↦functions›·forAll fun b =>
-      validBody ‹b›
+    mapValues program↦functions·forAll fun b =>
+      validBody b
 
 namespace Program
 
@@ -35,8 +35,8 @@ defFn startProgram (.plain "startProgram")
   (doc! "Look up the body of the program's start function. Safe because the #validProgram \
     precondition guarantees the start name is registered in the function map.")
   (program "The program." : Program)
-  requires validProgram(program)
+  requires validProgram program
   : Body :=
-    mapAt ‹program↦functions, program↦start›
+    mapAt program↦functions program↦start
 
 end Program

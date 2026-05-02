@@ -50,14 +50,14 @@ defFn choicesOfBlocks (.plain "choicesOfBlocks")
   | [_] => []
   | b0 :: b1 :: rest =>
       BranchChoice⟨b0, b1⟩ ::
-        choicesOfBlocks ‹b1 :: rest›
+        choicesOfBlocks (b1 :: rest)
 
 defFn choices (.plain "choices")
   (.plain "The sequence of branch choices induced by adjacent \
     block pairs in the execution path.")
   (path "The execution path." : ExecutionPath)
   : List BranchChoice :=
-    choicesOfBlocks ‹path↦blocks›
+    choicesOfBlocks path↦blocks
 
 end ExecutionPath
 
@@ -89,7 +89,7 @@ defFn singleton (.plain "singleton")
   (d "The branch choice." : BranchChoice)
   : ValidityConditions :=
     ValidityConditions⟨
-      mapSingleton ‹d↦source, ⦃d↦target⦄›⟩
+      mapSingleton d↦source ⦃d↦target⦄⟩
 
 defFn join (.plain "join")
   (.plain "Pointwise join of two validity conditions: for \
@@ -99,6 +99,6 @@ defFn join (.plain "join")
   (pc2 "Second validity conditions." : ValidityConditions)
   : ValidityConditions :=
     ValidityConditions⟨
-      mapUnionSets ‹pc1↦allowed, pc2↦allowed›⟩
+      mapUnionSets pc1↦allowed pc2↦allowed⟩
 
 end ValidityConditions

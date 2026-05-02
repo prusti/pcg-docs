@@ -28,7 +28,7 @@ defProperty contains (.plain "contains")
   displayed (#l, .sym .setContains, #ar)
   :=
     l↦block ∈ ar ∧
-    l↦stmtIdx < (mapAt ‹ar, l↦block›)·length
+    l↦stmtIdx < (mapAt ar l↦block)·length
 
 defAlias ProgAnalysisResults
     (.text "par",
@@ -59,4 +59,4 @@ defProperty programContains (.plain "programContains")
              .raw "]")
   :=
     b ∈ par ∧
-    contains ‹mapAt ‹par, b›, l›
+    contains (mapAt par b) l

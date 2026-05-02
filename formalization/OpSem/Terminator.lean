@@ -19,7 +19,7 @@ defFn caseTarget (.plain "caseTarget")
   | [] ; _ ; fallback => fallback
   | ⟨v, bb⟩ :: rest ; iv ; fallback =>
       if v == iv then bb
-      else caseTarget ‹rest, iv, fallback›
+      else caseTarget rest iv fallback
 
 namespace Machine
 
@@ -31,7 +31,7 @@ defFn fnFromPtr (.plain "fnFromPtr")
   (m "The machine state." : Machine)
   (v "The value to interpret as a function pointer." : Value)
   : Option Body where
-  | m ; .fnPtr name => mapGet ‹m↦program↦functions, name›
+  | m ; .fnPtr name => mapGet (m↦program↦functions) name
   | _ ; _ => None
 
 defFn evalArgs (.plain "evalArgs")
@@ -40,13 +40,13 @@ defFn evalArgs (.plain "evalArgs")
     `call` terminator to gather the values to pass to a callee.")
   (m "The machine state." : Machine)
   (args "The argument operands." : List Operand)
-  requires Runnable(m)
+  requires Runnable m
   : Option (List Value) where
   | _ ; [] => Some []
   | m ; a :: rest =>
       let v ← evalOperand
-        ‹m, a, proof[h_Runnable]› ;
-      let vs ← evalArgs ‹m, rest› ;
+        m a proof[h_Runnable] ;
+      let vs ← evalArgs m rest ;
       Some (v :: vs)
 
 defFn jumpToBlock (.plain "jumpToBlock")
@@ -54,12 +54,12 @@ defFn jumpToBlock (.plain "jumpToBlock")
     the call stack and memory unchanged. Mirrors MiniRust's `jump_to_block`.")
   (m "The machine state." : Machine)
   (target "The basic block to jump to." : BasicBlockIdx)
-  requires Runnable(m)
+  requires Runnable m
   : Machine :=
     let frame := currentFrame
-      ‹m, proof[h_Runnable]› ;
+      m proof[h_Runnable] ;
     let rest := stackTail
-      ‹m, proof[h_Runnable]› ;
+      m proof[h_Runnable] ;
     let newPc := Location⟨target, 0⟩ ;
     let newFrame := frame[pc => newPc] ;
     m[thread => Thread⟨newFrame :: rest⟩]
@@ -132,81 +132,78 @@ defFn evalTerminator (.plain "evalTerminator")
     stack, the program halts with `success`.")
   (m "The machine state." : Machine)
   (t "The terminator to evaluate." : Terminator)
-  requires Runnable(m)
+  requires Runnable m
   : StepResult where
   | m ; .goto target =>
-      StepResult.ok‹jumpToBlock
-        ‹m, target, proof[h_Runnable]››
-  | _ ; .unreachable => StepResult.done‹.error›
+      StepResult.ok (jumpToBlock
+        m target proof[h_Runnable])
+  | _ ; .unreachable => StepResult.done .error
   | m ; .drop _ target =>
-      StepResult.ok‹jumpToBlock
-        ‹m, target, proof[h_Runnable]››
+      StepResult.ok (jumpToBlock
+        m target proof[h_Runnable])
   | m ; .switchInt op cases fallback =>
       match evalOperand
-          ‹m, op, proof[h_Runnable]› with
+          m op proof[h_Runnable] with
       | .some (.int iv) =>
-          let target := caseTarget ‹cases, iv, fallback› ;
-          StepResult.ok‹jumpToBlock
-            ‹m, target, proof[h_Runnable]››
-      | _ => StepResult.done‹.error›
+          let target := caseTarget cases iv fallback ;
+          StepResult.ok (jumpToBlock
+            m target proof[h_Runnable])
+      | _ => StepResult.done .error
       end
   | m ; .call calleeOp args _ _ =>
       match evalOperand
-          ‹m, calleeOp, proof[h_Runnable]› with
-      | .none => StepResult.done‹.error›
+          m calleeOp proof[h_Runnable] with
+      | .none => StepResult.done .error
       | .some calleeVal =>
-          match fnFromPtr ‹m, calleeVal› with
-          | .none => StepResult.done‹.error›
+          match fnFromPtr m calleeVal with
+          | .none => StepResult.done .error
           | .some calleeBody =>
               match evalArgs
-                  ‹m, args, proof[h_Runnable]› with
-              | .none => StepResult.done‹.error›
+                  m args proof[h_Runnable] with
+              | .none => StepResult.done .error
               | .some argVals =>
-                  StepResult.ok‹createFrame
-                    ‹m, calleeBody, argVals››
+                  StepResult.ok (createFrame
+                    m calleeBody argVals)
               end
           end
       end
   | m ; .return_ =>
       let frame := currentFrame
-        ‹m, proof[h_Runnable]› ;
+        m proof[h_Runnable] ;
       let retTy := frame↦body↦decls ! 0 ;
-      match mapGet ‹frame↦locals, Local⟨0⟩› with
-      | .none => StepResult.done‹.error›
+      match mapGet frame↦locals Local⟨0⟩ with
+      | .none => StepResult.done .error
       | .some retPtr =>
-          match typedLoad ‹m↦mem, retPtr, retTy› with
-          | .none => StepResult.done‹.error›
+          match typedLoad m↦mem retPtr retTy with
+          | .none => StepResult.done .error
           | .some retVal =>
               let rest := stackTail
-                ‹m, proof[h_Runnable]› ;
+                m proof[h_Runnable] ;
               match rest with
-              | [] => StepResult.done‹.success›
+              | [] => StepResult.done .success
               | callerFrame :: _ =>
                   match getStmtOrTerminator
-                      ‹callerFrame↦body, callerFrame↦pc,
-                        proof[Machine.tailFrame_validLocation
-                          m h_Runnable callerFrame]› with
+                      callerFrame↦body callerFrame↦pc (proof[Machine.tailFrame_validLocation
+                          m h_Runnable callerFrame]) with
                   | .terminator (.call _ _ targetPlace
                       nextBlock) =>
                       let mPopped :=
                         m[thread => Thread⟨rest⟩] ;
                       match evalPlace
-                          ‹mPopped, targetPlace,
-                            proof[Machine.Runnable_after_pop
-                              m h_Runnable]› with
-                      | .none => StepResult.done‹.error›
+                          mPopped targetPlace (proof[Machine.Runnable_after_pop
+                              m h_Runnable]) with
+                      | .none => StepResult.done .error
                       | .some ⟨pp, _⟩ =>
                           let mem' := placeStore
-                            ‹mPopped↦mem, pp, retVal› ;
+                            mPopped↦mem pp retVal ;
                           let mWithMem :=
                             mPopped[mem => mem'] ;
-                          StepResult.ok‹jumpToBlock
-                            ‹mWithMem, nextBlock,
-                              proof[Machine.Runnable_after_mem_update
+                          StepResult.ok (jumpToBlock
+                            mWithMem nextBlock (proof[Machine.Runnable_after_mem_update
                                 mPopped (Machine.Runnable_after_pop
-                                  m h_Runnable) mem']››
+                                  m h_Runnable) mem']))
                       end
-                  | _ => StepResult.done‹.error›
+                  | _ => StepResult.done .error
                   end
               end
           end

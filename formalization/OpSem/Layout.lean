@@ -12,22 +12,22 @@ defFn sizeOf (.plain "sizeOf")
     cannot be determined without further context) and rules out array elements that are themselves \
     not sized.")
   (τ "The MIR type." : Ty)
-  requires IsSized(τ)
+  requires IsSized τ
   : Nat where
   | .bool => 1
-  | .int it => sizeBytes ‹it↦size›
+  | .int it => sizeBytes it↦size
   | .ref _ _ _ => 8
   | .box _ => 8
-  | .array elem n => sizeOf ‹elem› * n
+  | .array elem n => sizeOf elem * n
 
 defFn layout (.plain "layout")
   (doc! "Compute the layout strategy of a sized MIR type, following MiniRust's `Type::layout` \
     stripped of alignment and trait-object handling: every sized type lays out as a single \
     #LayoutStrategy.sized bucket whose width is given by `sizeOf`.")
   (τ "The MIR type." : Ty)
-  requires IsSized(τ)
+  requires IsSized τ
   : LayoutStrategy :=
     LayoutStrategy.sized
-      ‹sizeOf ‹τ, proof[h_IsSized]››
+      (sizeOf τ proof[h_IsSized])
 
 end Ty

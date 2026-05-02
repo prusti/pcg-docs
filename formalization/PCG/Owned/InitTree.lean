@@ -37,17 +37,17 @@ defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
      | .leaf cap => cap ≠ .deep
      | .internal (.fields []) => false
      | .internal (.fields (⟨_, _, sub⟩ :: rest)) =>
-         HasNonDeepLeaf ‹sub› ∨
-         HasNonDeepLeaf ‹.internal ‹.fields ‹rest›››
-     | .internal (.deref d) => HasNonDeepLeaf ‹d›
+         HasNonDeepLeaf sub ∨
+         HasNonDeepLeaf (.internal (.fields rest))
+     | .internal (.deref d) => HasNonDeepLeaf d
      | .internal (.guided (.downcast _ d)) =>
-         HasNonDeepLeaf ‹d›
+         HasNonDeepLeaf d
      | .internal (.guided (.constantIndex _ d)) =>
-         HasNonDeepLeaf ‹d›
+         HasNonDeepLeaf d
      | .internal (.guided (.index _ d)) =>
-         HasNonDeepLeaf ‹d›
+         HasNonDeepLeaf d
      | .internal (.guided (.subslice _ _ _ d)) =>
-         HasNonDeepLeaf ‹d›
+         HasNonDeepLeaf d
      end
 
 defFnMutual
@@ -64,19 +64,17 @@ defFn itPlaces (.plain "itPlaces")
   | .leaf _ ; base ; projAcc =>
       ⦃ Place⟨base, projAcc⟩ ⦄
   | .internal (.fields fs) ; base ; projAcc =>
-      placesFromFields ‹fs, base, projAcc›
+      placesFromFields fs base projAcc
   | .internal (.deref d) ; base ; projAcc =>
-      itPlaces ‹d, base, projAcc ++ [ProjElem.deref]›
+      itPlaces d base (projAcc ++ [ProjElem.deref])
   | .internal (.guided (.downcast v d)) ; base ; projAcc =>
-      itPlaces ‹d, base,
-        projAcc ++ [ProjElem.downcast ‹v›]›
+      itPlaces d base (projAcc ++ [ProjElem.downcast v])
   | .internal (.guided (.constantIndex _ d)) ; base ; projAcc =>
-      itPlaces ‹d, base, projAcc›
+      itPlaces d base projAcc
   | .internal (.guided (.index l d)) ; base ; projAcc =>
-      itPlaces ‹d, base,
-        projAcc ++ [ProjElem.index ‹l›]›
+      itPlaces d base (projAcc ++ [ProjElem.index l])
   | .internal (.guided (.subslice _ _ _ d)) ; base ; projAcc =>
-      itPlaces ‹d, base, projAcc›
+      itPlaces d base projAcc
 defFn placesFromFields (.plain "placesFromFields")
   (doc! "Helper for #itPlaces: collect places from every child of a `fields` expansion, prefixing \
     each child's path with its field step.")
@@ -88,8 +86,8 @@ defFn placesFromFields (.plain "placesFromFields")
   : Set Place where
   | [] ; _ ; _ => ∅
   | ⟨fi, ty, sub⟩ :: rest ; base ; projAcc =>
-      let fldPlaces := itPlaces ‹sub, base, projAcc ++ [ProjElem.field ‹fi, ty›]›;
-      placesFromFields ‹rest, base, projAcc›
+      let fldPlaces := itPlaces sub base (projAcc ++ [ProjElem.field fi ty]);
+      placesFromFields rest base projAcc
 end
 
 
@@ -114,8 +112,8 @@ defProperty AllPlacesOwned (.plain "AllPlacesOwned")
   (base "The base local the tree is rooted at." : Local)
   (it "The initialisation tree." : InitTree)
   :=
-    itPlaces ‹it, base, []›·forAll fun p =>
-      placeIsOwnedIn ‹body, p›
+    (itPlaces it base [])·forAll fun p =>
+      placeIsOwnedIn body p
 
 defProperty ValidInitTree (.plain "ValidInitTree")
   short
@@ -129,7 +127,7 @@ defProperty ValidInitTree (.plain "ValidInitTree")
   (base "The base local the tree is rooted at." : Local)
   (it "The initialisation tree." : InitTree)
   :=
-    HasNonDeepLeaf ‹it› ∧ AllPlacesOwned ‹body, base, it›
+    HasNonDeepLeaf it ∧ AllPlacesOwned body base it
 
 namespace InitTree
 
@@ -152,21 +150,21 @@ defFn meet (.plain "meet")
   : InitTree where
   -- Leaf + Leaf: take the minimum initialisation state.
   | .leaf x ; .leaf y =>
-      .leaf ‹InitialisationState.meet ‹x, y››
+      .leaf (InitialisationState.meet x y)
   -- Leaf U vs Internal (either side): U dominates.
-  | .leaf (.uninit) ; .internal _ => .leaf ‹.uninit›
-  | .internal _ ; .leaf (.uninit) => .leaf ‹.uninit›
+  | .leaf (.uninit) ; .internal _ => .leaf .uninit
+  | .internal _ ; .leaf (.uninit) => .leaf .uninit
   -- Leaf S vs Internal (either side): S dominates.
-  | .leaf (.shallow) ; .internal _ => .leaf ‹.shallow›
-  | .internal _ ; .leaf (.shallow) => .leaf ‹.shallow›
+  | .leaf (.shallow) ; .internal _ => .leaf .shallow
+  | .internal _ ; .leaf (.shallow) => .leaf .shallow
   -- Leaf D vs Internal: the internal expansion wins.
-  | .leaf (.deep) ; .internal xp => .internal ‹xp›
-  | .internal xp ; .leaf (.deep) => .internal ‹xp›
+  | .leaf (.deep) ; .internal xp => .internal xp
+  | .internal xp ; .leaf (.deep) => .internal xp
   -- Matching `.deref` internals: recurse on the child.
   | .internal (.deref a) ; .internal (.deref b) =>
-      .internal ‹.deref ‹meet ‹a, b›››
+      .internal (.deref (meet a b))
   -- Other internal / internal combinations: conservative.
-  | .internal _ ; .internal _ => .leaf ‹.uninit›
+  | .internal _ ; .internal _ => .leaf .uninit
 
 /-- The initialisation-tree meet is commutative:
     `meet a b = meet b a`. Case analysis reduces nearly every

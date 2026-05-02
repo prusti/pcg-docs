@@ -8,11 +8,11 @@ defFn evalLocal (.plain "evalLocal")
     dead.")
   (machine "The machine state." : Machine)
   (lcl "The local variable." : Local)
-  requires Runnable(machine)
+  requires Runnable machine
   : Option PlacePtr :=
     let frame := currentFrame
-      ‹machine, proof[h_Runnable]› ;
-    let ptr ← mapGet ‹frame↦locals, lcl› ;
+      machine proof[h_Runnable] ;
+    let ptr ← mapGet frame↦locals lcl ;
     Some PlacePtr⟨ptr⟩
 
 defFn fieldOffset (.plain "fieldOffset")
@@ -24,8 +24,8 @@ defFn fieldOffset (.plain "fieldOffset")
   | [] ; _ => None
   | (_ :: _) ; 0 => Some 0
   | (ty :: rest) ; idx =>
-      let sz ← Ty.bytes ‹ty› ;
-      let off ← fieldOffset ‹rest, idx - 1› ;
+      let sz ← Ty.bytes ty ;
+      let off ← fieldOffset rest (idx - 1) ;
       Some (sz + off)
 
 defFn evalField (.plain "evalField")
@@ -39,7 +39,7 @@ defFn evalField (.plain "evalField")
   : Option (PlacePtr × Ty) where
   | place ; field ; .ctor _ args =>
       let fieldTy := args ! field↦index ;
-      let offset ← fieldOffset ‹args, field↦index› ;
+      let offset ← fieldOffset args field↦index ;
       Some ⟨PlacePtr⟨ThinPointer⟨place↦ptr↦addr + offset, place↦ptr↦provenance⟩⟩, fieldTy⟩
   | _ ; _ ; _ => None
 
@@ -59,33 +59,33 @@ defFn evalProjs (.plain "evalProjs")
   (place "The current place pointer." : PlacePtr)
   (ty "The current type." : Ty)
   (projs "The remaining projections." : List ProjElem)
-  requires Runnable(m)
+  requires Runnable m
   : Option (PlacePtr × Ty) where
   | _ ; place ; ty ; [] => Some ⟨place, ty⟩
   | m ; place ; ty ; (.field idx _) :: rest =>
-      let ⟨fp, ft⟩ ← evalField ‹place, idx, ty› ;
-      evalProjs ‹m, fp, ft, rest›
+      let ⟨fp, ft⟩ ← evalField place idx ty ;
+      evalProjs m fp ft rest
   | m ; place ; ty ; (.downcast _) :: rest =>
-      evalProjs ‹m, place, ty, rest›
+      evalProjs m place ty rest
   | m ; place ; .ref _ _ pointee ; .deref :: rest =>
-      let bytes := Memory.load ‹m↦mem, place↦ptr, 8› ;
-      let ptr ← decodePtr ‹bytes› ;
-      evalProjs ‹m, PlacePtr⟨ptr⟩, pointee, rest›
+      let bytes := Memory.load m↦mem place↦ptr 8 ;
+      let ptr ← decodePtr bytes ;
+      evalProjs m PlacePtr⟨ptr⟩ pointee rest
   | m ; place ; .box pointee ; .deref :: rest =>
-      let bytes := Memory.load ‹m↦mem, place↦ptr, 8› ;
-      let ptr ← decodePtr ‹bytes› ;
-      evalProjs ‹m, PlacePtr⟨ptr⟩, pointee, rest›
+      let bytes := Memory.load m↦mem place↦ptr 8 ;
+      let ptr ← decodePtr bytes ;
+      evalProjs m PlacePtr⟨ptr⟩ pointee rest
   | m ; place ; .array elem _ ; (.index lcl) :: rest =>
-      let elemSz ← Ty.bytes ‹elem› ;
+      let elemSz ← Ty.bytes elem ;
       let idxPp ← evalLocal
-        ‹m, lcl, proof[h_Runnable]› ;
-      let idxBytes := Memory.load ‹m↦mem, idxPp↦ptr, 8› ;
-      let idxRaw ← data ‹idxBytes› ;
-      let off := decodeLeUnsigned ‹idxRaw› * elemSz ;
+        m lcl proof[h_Runnable] ;
+      let idxBytes := Memory.load m↦mem idxPp↦ptr 8 ;
+      let idxRaw ← data idxBytes ;
+      let off := decodeLeUnsigned idxRaw * elemSz ;
       let newPtr := ThinPointer⟨
         Address⟨place↦ptr↦addr↦addr + off⟩,
         place↦ptr↦provenance⟩ ;
-      evalProjs ‹m, PlacePtr⟨newPtr⟩, elem, rest›
+      evalProjs m PlacePtr⟨newPtr⟩ elem rest
   | _ ; _ ; _ ; _ :: _ => None
 
 defFn evalPlace (.plain "evalPlace")
@@ -93,14 +93,13 @@ defFn evalPlace (.plain "evalPlace")
     `evalLocal`, then applies each projection element with `evalProjs`.")
   (machine "The machine state." : Machine)
   (place "The place to evaluate." : Place)
-  requires Runnable(machine)
+  requires Runnable machine
   : Option (PlacePtr × Ty) :=
     let frame := currentFrame
-      ‹machine, proof[h_Runnable]› ;
+      machine proof[h_Runnable] ;
     let rootPlace ← evalLocal
-      ‹machine, place↦«local», proof[h_Runnable]› ;
+      machine (place↦«local») proof[h_Runnable] ;
     let rootTy := frame↦body↦decls ! place↦«local»↦index ;
-    evalProjs ‹machine, rootPlace, rootTy, place↦projection,
-               proof[h_Runnable]›
+    evalProjs machine rootPlace rootTy place↦projection proof[h_Runnable]
 
 end Machine

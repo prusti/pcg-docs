@@ -38,8 +38,8 @@ defFn storageDeadPtr (.plain "storageDeadPtr")
   | frame ; mem ; l ; ⟨_, .some prov⟩ =>
       let newMem :=
         Memory.deallocate
-          ‹mem, prov↦id, proof[sorry]› ;
-      let newLocals := mapRemove ‹frame↦locals, l› ;
+          mem prov↦id proof[sorry] ;
+      let newLocals := mapRemove frame↦locals l ;
       let newFrame :=
         StackFrame⟨frame↦body, frame↦pc, newLocals⟩ ;
       ⟨newFrame, newMem⟩
@@ -54,9 +54,9 @@ defFn storageDead (.plain "storageDead")
   (mem "The memory." : Memory)
   (l "The local whose storage should be torn down." : Local)
   : StackFrame × Memory :=
-    match mapGet ‹frame↦locals, l› with
+    match mapGet frame↦locals l with
     | .none => ⟨frame, mem⟩
-    | .some ptr => storageDeadPtr ‹frame, mem, l, ptr›
+    | .some ptr => storageDeadPtr frame mem l ptr
     end
 
 defFn storageLive (.plain "storageLive")
@@ -68,15 +68,15 @@ defFn storageLive (.plain "storageLive")
   (mem "The memory." : Memory)
   (l "The local whose storage should be brought live." : Local)
   : StackFrame × Memory :=
-    let ⟨frame1, mem1⟩ := storageDead ‹frame, mem, l› ;
+    let ⟨frame1, mem1⟩ := storageDead frame mem l ;
     let ty := frame1↦body↦decls ! l↦index ;
-    let sz := Ty.sizeOf ‹ty, proof[sorry]› ;
-    let addr := Memory.top ‹mem1› ;
-    let ⟨mem2, aid⟩ := Memory.allocate ‹mem1, sz› ;
+    let sz := Ty.sizeOf ty proof[sorry] ;
+    let addr := Memory.top mem1 ;
+    let ⟨mem2, aid⟩ := Memory.allocate mem1 sz ;
     let ptr :=
       ThinPointer⟨addr, Some Provenance⟨aid⟩⟩ ;
     let newLocals :=
-      mapInsert ‹frame1↦locals, l, ptr› ;
+      mapInsert frame1↦locals l ptr ;
     let newFrame :=
       StackFrame⟨frame1↦body, frame1↦pc, newLocals⟩ ;
     ⟨newFrame, mem2⟩
@@ -92,8 +92,8 @@ defProperty validStackFrame (.plain "validStackFrame")
       body")
   (frame "The stack frame." : StackFrame)
   :=
-    validBody ‹frame↦body› ∧
-    validLocation ‹frame↦body, frame↦pc›
+    validBody frame↦body ∧
+    validLocation frame↦body frame↦pc
 
 defFn ptrAllocations (.plain "ptrAllocations")
   (.plain "The singleton list containing the allocation \
@@ -113,8 +113,8 @@ defFn localAllocations (.plain "localAllocations")
   (mem "The memory." : Memory)
   : List Allocation :=
     stack·flatMap fun frame =>
-      mapValues ‹frame↦locals›·flatMap fun ptr =>
-        ptrAllocations ‹ptr, mem›
+      mapValues frame↦locals·flatMap fun ptr =>
+        ptrAllocations ptr mem
 
 defProperty validStack (.plain "validStack")
   short
@@ -126,8 +126,8 @@ defProperty validStack (.plain "validStack")
   (stack "The call stack." : List StackFrame)
   (mem "The memory." : Memory)
   :=
-    let allocs := localAllocations ‹stack, mem› ;
-    (stack·forAll fun frame => validStackFrame ‹frame›) ∧
+    let allocs := localAllocations stack mem ;
+    (stack·forAll fun frame => validStackFrame frame) ∧
     (∀∀ i, j .
       i < j < allocs·length →
-      Allocation.nonOverlapping ‹allocs ! i, allocs ! j›)
+      Allocation.nonOverlapping (allocs ! i) (allocs ! j))

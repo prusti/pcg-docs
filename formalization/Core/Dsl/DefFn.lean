@@ -36,11 +36,17 @@ syntax "[" fnPat,+ "]" : fnPat
 syntax fnPat " :: " fnPat : fnPat
 
 declare_syntax_cat fnExpr
-syntax "[" "]" : fnExpr
-syntax "[" fnExpr,+ "]" : fnExpr
-syntax num : fnExpr
-syntax ident : fnExpr
-syntax "(" fnExpr ")" : fnExpr
+-- Atom-precedence forms (`:max`) qualify as arguments
+-- to the Haskell-style juxtaposition application parser
+-- `fnExprApp` registered below.
+syntax:max "[" "]" : fnExpr
+syntax:max "[" fnExpr,+ "]" : fnExpr
+syntax:max num : fnExpr
+syntax:max ident : fnExpr
+syntax:max "(" fnExpr ")" : fnExpr
+-- Method call: `expr·name`. Default precedence so `·name`
+-- can extend a leadPrec juxtaposition like `(f a b)·field`
+-- without protective parens.
 syntax fnExpr "·" ident : fnExpr
 syntax fnExpr "·flatMap" "fun" fnPat "=>" fnExpr
     : fnExpr
@@ -51,24 +57,41 @@ syntax fnExpr " :: " fnExpr : fnExpr
 syntax fnExpr " ++ " fnExpr : fnExpr
 syntax "Some" fnExpr : fnExpr
 syntax "None" : fnExpr
-syntax "⟨" fnExpr,+ "⟩" : fnExpr
--- Named struct constructor: Name⟨a, b⟩
-syntax ident "⟨" fnExpr,+ "⟩" : fnExpr
--- Field access chain: expr ↦ name
-syntax fnExpr "↦" ident : fnExpr
--- Functional struct update: expr[field => newValue].
--- Returns a copy of `expr` with `field` replaced.
-syntax fnExpr "[" ident " => " fnExpr "]" : fnExpr
--- Fallible indexing: expr !! expr (for list[idx]?)
-syntax fnExpr "!!" fnExpr : fnExpr
--- Infallible indexing: expr ! expr (for list[idx])
-syntax fnExpr "!" fnExpr : fnExpr
--- Function call: fn ‹ arg1, arg2 ›
-syntax ident "‹" fnExpr,* "›" : fnExpr
--- Dot-prefixed nullary variant: .leaf
-syntax "." ident : fnExpr
--- Dot-prefixed applied variant: .leaf ‹arg1, arg2›
-syntax "." ident "‹" fnExpr,* "›" : fnExpr
+-- Anonymous tuple/struct literal — `:max` so it qualifies
+-- as a juxtaposition argument.
+syntax:max "⟨" fnExpr,+ "⟩" : fnExpr
+-- Named struct constructor: Name⟨a, b⟩ — also `:max`.
+syntax:max ident "⟨" fnExpr,+ "⟩" : fnExpr
+-- Field access chain: `expr↦name`. `:max` because the
+-- `↦name` suffix is syntactically atomic and the whole form
+-- can be passed as a juxtaposition argument without parens
+-- (`f bb↦terminator` instead of `f (bb↦terminator)`).
+syntax:max fnExpr "↦" ident : fnExpr
+-- Functional struct update: `expr[field => newValue]`.
+-- `:max` — the closing `]` makes the whole form atomic.
+-- Wrapped in `atomic` so a `(args [])`-style expression
+-- (where the `[]` opens a list literal in the next argument)
+-- doesn't commit to this rule and then fail at the missing
+-- `=>`.
+syntax:max fnExpr (atomic("[" ident " => ") fnExpr "]") : fnExpr
+-- Fallible indexing: `expr !! expr` (for `list[idx]?`).
+-- The RHS is `:max` so the operator binds tightly:
+-- `xs !! i + 1` parses as `(xs !! i) + 1` (and you'd write
+-- `xs !! (i + 1)` for the other grouping). The whole form
+-- is `:max` so it's an atomic juxtaposition argument.
+syntax:max fnExpr "!!" fnExpr:max : fnExpr
+-- Infallible indexing: `expr ! expr` (for `list[idx]`).
+syntax:max fnExpr "!" fnExpr:max : fnExpr
+-- Zero-argument call: `fn‹›`. Kept as a distinct form
+-- (rather than collapsing to the bare `fn` variable)
+-- because the AST distinction matters for Rust: `.call _ []`
+-- exports as `fn()` while `.var "fn"` exports as `fn` (a
+-- function pointer). The Lean / LaTeX exporters render both
+-- as `fn`, so the rendered output is unchanged either way.
+syntax:max ident "‹" "›" : fnExpr
+-- Dot-prefixed nullary variant: .leaf — also `:max` so it
+-- qualifies as a juxtaposition argument.
+syntax:max "." ident : fnExpr
 -- FoldlM: expr "·foldlM" ident expr
 syntax fnExpr "·foldlM" ident fnExpr : fnExpr
 -- Less-than: expr < expr
@@ -165,7 +188,7 @@ syntax "sorry" : fnExpr
 -- between the brackets is a real Lean `term`, not a string —
 -- so a typo or unresolved name surfaces as a Lean elaboration
 -- error rather than slipping through as opaque text.
-syntax "proof[" term "]" : fnExpr
+syntax:max "proof[" term "]" : fnExpr
 -- Presentation-only formatting hint: a soft line break
 -- inserted before the next expression in the LaTeX
 -- rendering. The Lean and Rust exports pass the wrapped
@@ -175,6 +198,30 @@ syntax "proof[" term "]" : fnExpr
 -- operators (`→` at 25, `∧` at 35, …) stop at the marker and
 -- the chain right-associates as `a → ((‹break› b) → (‹break› c))`.
 syntax "‹break›" fnExpr:51 : fnExpr
+
+-- Haskell-style function-application juxtaposition. Mirrors
+-- Lean's own `Term.app := trailing_parser:leadPrec:maxPrec
+-- many1 argument` — declared via Lean parser combinators
+-- rather than the `syntax` macro because `syntax` can't
+-- express the trailing-parser shape needed for a
+-- left-recursive juxtaposition. The result lives at
+-- `:leadPrec` (lower than `:maxPrec`) so when this parser
+-- recursively asks for an argument at `:max`, the trailing
+-- parser doesn't fire again — that's what gives
+-- left-associative parsing (`f n 0` → `(f n) 0` rather than
+-- `f (n 0)`). Each argument is parsed at `:max` (atomic —
+-- bare ident, num, paren-wrapped, list/tuple/struct literal,
+-- …); compound arguments (top-level `↦`, `+`, `::`,
+-- `m[fld => v]`, …) need protective parens. Whitespace
+-- between head and arg isn't required: the DSL never uses
+-- the `f(x)` (no-space) shape — the prior `fnPrecond`
+-- property-call form `Name(args)` was migrated to the same
+-- bracketless `Name args` juxtaposition this parser handles
+-- — so `f(x)` and `f (x)` both parse as application.
+open Lean Parser in
+@[fnExpr_parser] def fnExprApp :=
+  trailing_parser:leadPrec:maxPrec
+    many1 (categoryParser `fnExpr maxPrec)
 
 declare_syntax_cat fnArm
 syntax "| " fnPat " => " fnExpr : fnArm
@@ -328,6 +375,19 @@ end
 partial def parseExpr
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM DslExpr := do
+  -- Haskell-style application `head arg₁ arg₂ …` — the
+  -- trailing parser `fnExprApp` produces a node of kind
+  -- `fnExprApp` whose first child is the LHS fnExpr and
+  -- whose second child is the `many1` array of arguments.
+  -- A `head` that's already a `.call` (e.g. produced by a
+  -- nested left-associative parse) gets its args list
+  -- extended; everything else becomes a fresh `.call`.
+  if stx.isOfKind ``fnExprApp then
+    let head ← parseExpr stx[0]
+    let args ← stx[1].getArgs.mapM parseExpr
+    match head with
+    | .call f existing => return .call f (existing ++ args.toList)
+    | _ => return .call head args.toList
   match stx with
   | `(fnExpr| [ ]) => pure .emptyList
   | `(fnExpr| [ $es:fnExpr,* ]) => do
@@ -403,15 +463,15 @@ partial def parseExpr
     pure (.index (← parseExpr e) (← parseExpr i))
   | `(fnExpr| $e:fnExpr ! $i:fnExpr) =>
     pure (.indexBang (← parseExpr e) (← parseExpr i))
-  | `(fnExpr| $fn:ident ‹ $args:fnExpr,* ›) => do
-    recordIdentRef fn fn.getId
-    let as_ ← args.getElems.mapM parseExpr
-    pure (.call (.var (toString fn.getId)) as_.toList)
-  | `(fnExpr| . $n:ident ‹ $args:fnExpr,* ›) => do
-    let as_ ← args.getElems.mapM parseExpr
-    pure (.call (.var s!".{n.getId}") as_.toList)
   | `(fnExpr| . $n:ident) =>
     pure (.var s!".{n.getId}")
+  | `(fnExpr| $fn:ident ‹ ›) => do
+    -- Zero-arg call. `mapEmpty‹›` produces `.call (.var
+    -- "mapEmpty") []`, which the Rust exporter renders as
+    -- `map_empty()`; the bare-variable form `mapEmpty`
+    -- would render as a function pointer.
+    recordIdentRef fn fn.getId
+    pure (.call (.var (toString fn.getId)) [])
   | `(fnExpr| $e:fnExpr ·foldlM $fn:ident
         $init:fnExpr) => do
     recordIdentRef fn fn.getId
@@ -591,7 +651,25 @@ def parsePrecond
     pure (.named (toString n.getId)
       (args.getElems.toList.map (toString ·.getId)))
   | `(fnPrecond| $e:fnExpr) =>
-    pure (.expr_ (← parseExpr e))
+    -- Bracketless property-call form `Name arg₁ arg₂ …`
+    -- (introduced when the `‹›` brackets were dropped from
+    -- function calls): `parseExpr` lowers it to a `.call`
+    -- whose head is `.var Name` and whose args are bare
+    -- `.var argᵢ`. Re-interpret that as a `.named`
+    -- precondition so the auto-generated proof binder
+    -- stays `h_<Name>` rather than the generic `h_pre<i>`.
+    let parsed ← parseExpr e
+    match parsed with
+    | .call (.var name) args =>
+      let bareArgs := args.foldr
+        (fun arg acc => match arg, acc with
+          | .var n, some xs => some (n :: xs)
+          | _, _ => none)
+        (some [])
+      match bareArgs with
+      | some xs => pure (.named name xs)
+      | none => pure (.expr_ parsed)
+    | _ => pure (.expr_ parsed)
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 -- ══════════════════════════════════════════════

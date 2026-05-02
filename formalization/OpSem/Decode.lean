@@ -26,7 +26,7 @@ defFn data (.plain "data")
   | .uninit :: _ => None
   | .ptrFragment _ _ _ :: _ => None
   | .init v :: rest =>
-      let vs ← data ‹rest› ;
+      let vs ← data rest ;
       Some (v :: vs)
 
 defFn decodeLeUnsigned (.plain "decode_le_unsigned")
@@ -35,7 +35,7 @@ defFn decodeLeUnsigned (.plain "decode_le_unsigned")
   (bs "The bytes to decode." : List UInt8)
   : Nat where
   | [] => 0
-  | b :: rest => b · toNat + (256 * decodeLeUnsigned ‹rest›)
+  | b :: rest => b · toNat + (256 * decodeLeUnsigned rest)
 
 -- The DSL doesn't model raw `def f : T₁ → T₂ → R | pat₁ => …`
 -- with structurally-recursive Nat patterns at top level, so
@@ -87,16 +87,16 @@ defFn decodeInt (.plain "decode_int")
   (it "The target integer type." : IntType)
   (bs "The bytes to decode." : List AbstractByte)
   : Option IntValue :=
-    if it↦signed ∨ bs·length ≠ sizeBytes ‹it↦size› then None
+    if it↦signed ∨ bs·length ≠ sizeBytes it↦size then None
     else
-      let raw ← data ‹bs› ;
-      intValueOfNat ‹sizeBytes ‹it↦size›, decodeLeUnsigned ‹raw››
+      let raw ← data bs ;
+      intValueOfNat (sizeBytes it↦size) (decodeLeUnsigned raw)
 
 defFn encodeInt (.plain "encode_int")
   (doc! "Encode an #IntValue as a little-endian byte sequence.")
   (iv "The integer value to encode." : IntValue)
   : List AbstractByte :=
-    encodeLeUnsigned ‹intValueToNat ‹iv›, intValueBytes ‹iv››
+    encodeLeUnsigned (intValueToNat iv) (intValueBytes iv)
 
 defFn decodePtr (.plain "decode_ptr")
   (doc! "Decode an 8-byte pointer encoding back into a #ThinPointer. Each input byte is expected to \
@@ -123,17 +123,17 @@ defFn decode (.plain "decode")
   (bs "The bytes to decode." : List AbstractByte)
   : Option Value where
   | .bool ; bs =>
-      let b ← decodeBool ‹bs› ;
-      Some (Value.bool‹b›)
+      let b ← decodeBool bs ;
+      Some (Value.bool b)
   | .int it ; bs =>
-      let iv ← decodeInt ‹it, bs› ;
-      Some (Value.int‹iv›)
+      let iv ← decodeInt it bs ;
+      Some (Value.int iv)
   | .ref _ _ _ ; bs =>
-      let ptr ← decodePtr ‹bs› ;
-      Some (Value.ptr‹ptr›)
+      let ptr ← decodePtr bs ;
+      Some (Value.ptr ptr)
   | .box _ ; bs =>
-      let ptr ← decodePtr ‹bs› ;
-      Some (Value.ptr‹ptr›)
+      let ptr ← decodePtr bs ;
+      Some (Value.ptr ptr)
   | _ ; _ => None
 
 open AbstractByte in
@@ -143,8 +143,8 @@ defFn encodeBool (.plain "encode_bool")
     {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"}.")
   (b "The boolean to encode." : Bool)
   : List AbstractByte where
-  | true => [AbstractByte.init‹1›]
-  | false => [AbstractByte.init‹0›]
+  | true => [AbstractByte.init 1]
+  | false => [AbstractByte.init 0]
 
 defFn encodePtr (.plain "encode_ptr")
   (doc! "Encode a #ThinPointer as eight `ptrFragment` bytes. Each fragment redundantly carries the \
@@ -159,14 +159,14 @@ defFn encodePtr (.plain "encode_ptr")
       | .none => None
       end ;
     let addr := ptr↦addr↦addr ;
-    [AbstractByte.ptrFragment‹provIdx, addr, 0›,
-     AbstractByte.ptrFragment‹provIdx, addr, 1›,
-     AbstractByte.ptrFragment‹provIdx, addr, 2›,
-     AbstractByte.ptrFragment‹provIdx, addr, 3›,
-     AbstractByte.ptrFragment‹provIdx, addr, 4›,
-     AbstractByte.ptrFragment‹provIdx, addr, 5›,
-     AbstractByte.ptrFragment‹provIdx, addr, 6›,
-     AbstractByte.ptrFragment‹provIdx, addr, 7›]
+    [AbstractByte.ptrFragment provIdx addr 0,
+     AbstractByte.ptrFragment provIdx addr 1,
+     AbstractByte.ptrFragment provIdx addr 2,
+     AbstractByte.ptrFragment provIdx addr 3,
+     AbstractByte.ptrFragment provIdx addr 4,
+     AbstractByte.ptrFragment provIdx addr 5,
+     AbstractByte.ptrFragment provIdx addr 6,
+     AbstractByte.ptrFragment provIdx addr 7]
 
 defFn encode (.plain "encode")
   (doc! "Encode a runtime value as a byte sequence. \
@@ -176,9 +176,9 @@ defFn encode (.plain "encode")
    Pointers go through #encodePtr.")
   (v "The value to encode." : Value)
   : List AbstractByte where
-  | .bool b => encodeBool ‹b›
-  | .int iv => encodeInt ‹iv›
+  | .bool b => encodeBool b
+  | .int iv => encodeInt iv
   | .tuple _ => []
   | .array _ => []
-  | .ptr p => encodePtr ‹p›
+  | .ptr p => encodePtr p
   | .fnPtr _ => []

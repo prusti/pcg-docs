@@ -19,13 +19,13 @@ defFn expansionOfStep (.plain "expansionOfStep")
       : InitTree)
   : Option (PlaceExpansion InitTree) where
   | .deref ; child =>
-      Some (.deref ‹child›)
+      Some (.deref child)
   | .field fi ty ; child =>
-      Some (.fields ‹[⟨fi, ty, child⟩]›)
+      Some (.fields [⟨fi, ty, child⟩])
   | .downcast v ; child =>
-      Some (.guided ‹.downcast ‹v, child››)
+      Some (.guided (.downcast v child))
   | .index l ; child =>
-      Some (.guided ‹.index ‹l, child››)
+      Some (.guided (.index l child))
 
 defFnMutual
 defFn obtainWriteInTree (.plain "obtainWriteInTree")
@@ -50,28 +50,28 @@ defFn obtainWriteInTree (.plain "obtainWriteInTree")
     subtree down to the target place."
       : List ProjElem)
   : Option InitTree where
-  | _ ; [] => Some (.leaf ‹.uninit›)
-  | .leaf (.uninit) ; _ :: _ => Some (.leaf ‹.uninit›)
+  | _ ; [] => Some (.leaf .uninit)
+  | .leaf (.uninit) ; _ :: _ => Some (.leaf .uninit)
   | .leaf (.deep) ; π :: rest =>
-      let child ← obtainWriteInTree ‹.leaf ‹.deep›, rest› ;
-      let xp ← expansionOfStep ‹π, child› ;
-      Some (.internal ‹xp›)
+      let child ← obtainWriteInTree (.leaf .deep) rest ;
+      let xp ← expansionOfStep π child ;
+      Some (.internal xp)
   | .leaf (.shallow) ; _ :: _ => None
   | .internal (.deref sub) ; .deref :: rest =>
-      let newSub ← obtainWriteInTree ‹sub, rest› ;
-      Some (.internal ‹.deref ‹newSub››)
+      let newSub ← obtainWriteInTree sub rest ;
+      Some (.internal (.deref newSub))
   | .internal (.fields fs) ; .field fi _ :: rest =>
-      let newFs ← obtainWriteInFields ‹fs, fi, rest› ;
-      Some (.internal ‹.fields ‹newFs››)
+      let newFs ← obtainWriteInFields fs fi rest ;
+      Some (.internal (.fields newFs))
   | .internal (.guided (.downcast v sub)) ; .downcast v' :: rest =>
       if v == v' then
-        let newSub ← obtainWriteInTree ‹sub, rest› ;
-        Some (.internal ‹.guided ‹.downcast ‹v, newSub›››)
+        let newSub ← obtainWriteInTree sub rest ;
+        Some (.internal (.guided (.downcast v newSub)))
       else None
   | .internal (.guided (.index l sub)) ; .index l' :: rest =>
       if l == l' then
-        let newSub ← obtainWriteInTree ‹sub, rest› ;
-        Some (.internal ‹.guided ‹.index ‹l, newSub›››)
+        let newSub ← obtainWriteInTree sub rest ;
+        Some (.internal (.guided (.index l newSub)))
       else None
   | .internal _ ; _ :: _ => None
 defFn obtainWriteInFields (.plain "obtainWriteInFields")
@@ -88,9 +88,9 @@ defFn obtainWriteInFields (.plain "obtainWriteInFields")
   | [] ; _ ; _ => None
   | ⟨f, t, sub⟩ :: tail ; fi ; rest =>
       if f == fi then
-        let newSub ← obtainWriteInTree ‹sub, rest› ;
+        let newSub ← obtainWriteInTree sub rest ;
         Some (⟨f, t, newSub⟩ :: tail)
       else
-        let newTail ← obtainWriteInFields ‹tail, fi, rest› ;
+        let newTail ← obtainWriteInFields tail fi rest ;
         Some (⟨f, t, sub⟩ :: newTail)
 end

@@ -44,7 +44,7 @@ defFn implicit mlpNode (.plain "mlpNode")
     #PcgNode.place.")
   (mlp "The maybe-labelled place." : MaybeLabelled Place)
   : PcgNode Place :=
-    PcgNode.place ‹PcgPlace.maybeLabelled ‹mlp››
+    PcgNode.place (PcgPlace.maybeLabelled mlp)
 
 defFn pcgLpNode (.plain "pcgLpNode")
   (doc! "Lift a PCG lifetime projection to a PCG node by \
@@ -52,7 +52,7 @@ defFn pcgLpNode (.plain "pcgLpNode")
   (lp "The PCG lifetime projection."
       : PcgLifetimeProjection Place)
   : PcgNode Place :=
-    PcgNode.lifetimeProjection ‹lp›
+    PcgNode.lifetimeProjection lp
 
 -- ══════════════════════════════════════════════
 -- Per-edge out-neighbours
@@ -71,12 +71,12 @@ defFn edgeTargets (.plain "edgeTargets")
   | .unpack ue ; a =>
       if a == ue↦base then ue↦expansion else []
   | .deref de ; a =>
-      if a == mlpNode ‹de↦blockedPlace› then
-        [mlpNode ‹de↦derefPlace›]
+      if a == mlpNode de↦blockedPlace then
+        [mlpNode de↦derefPlace]
       else []
   | .borrow be ; a =>
-      if a == mlpNode ‹be↦blocked› then
-        [mlpNode ‹be↦assignedRef›]
+      if a == mlpNode be↦blocked then
+        [mlpNode be↦assignedRef]
       else []
   | .borrowFlow _ ; _ => []
   | .abstraction _ ; _ => []
@@ -88,7 +88,7 @@ defFn nodeNeighbors (.plain "nodeNeighbors")
   (pd "The PCG data." : PcgData Place)
   (a "The candidate source node." : PcgNode Place)
   : List (PcgNode Place) :=
-    edges ‹pd›·flatMap fun e => edgeTargets ‹e, a›
+    edges pd·flatMap fun e => edgeTargets e a
 
 -- ══════════════════════════════════════════════
 -- Candidate node universe
@@ -101,8 +101,8 @@ defFn edgeAllTargets (.plain "edgeAllTargets")
   (e "The PCG edge." : PcgEdge Place)
   : List (PcgNode Place) where
   | .unpack ue => ue↦expansion
-  | .deref de => [mlpNode ‹de↦derefPlace›]
-  | .borrow be => [mlpNode ‹be↦assignedRef›]
+  | .deref de => [mlpNode de↦derefPlace]
+  | .borrow be => [mlpNode be↦assignedRef]
   | .borrowFlow _ => []
   | .abstraction _ => []
 
@@ -114,8 +114,8 @@ defFn candidateNodes (.plain "candidateNodes")
   (pd "The PCG data." : PcgData Place)
   (start "The starting node." : PcgNode Place)
   : List (PcgNode Place) :=
-    start :: edges ‹pd›·flatMap fun e =>
-      edgeAllTargets ‹e›
+    start :: edges pd·flatMap fun e =>
+      edgeAllTargets e
 
 open BorrowsGraph in
 defFn places (.plain "places")
@@ -137,17 +137,17 @@ defFn places (.plain "places")
   : Set Place :=
     let owned := pd↦os↦locals·zipIdx·setFlatMap fun ⟨ol, idx⟩ =>
       match ol with
-      | .allocated t => itPlaces ‹t, Local⟨idx⟩, []›
+      | .allocated t => itPlaces t Local⟨idx⟩ []
       | .unallocated => ∅
       end ;
-    let edgeP := edges ‹pd›·setFlatMap fun e =>
+    let edgeP := (edges pd)·setFlatMap fun e =>
       match e with
       | .deref de =>
-          (currentPlace ‹de↦blockedPlace›)·toSet ∪
-            (currentPlace ‹de↦derefPlace›)·toSet
+          (currentPlace de↦blockedPlace)·toSet ∪
+            (currentPlace de↦derefPlace)·toSet
       | .borrow be =>
-          (currentPlace ‹be↦blocked›)·toSet ∪
-            (currentPlace ‹be↦assignedRef›)·toSet
+          (currentPlace be↦blocked)·toSet ∪
+            (currentPlace be↦assignedRef)·toSet
       | _ => ∅
       end ;
     owned ∪ edgeP
@@ -216,7 +216,7 @@ defProperty reachableFrom (.plain "reachableFrom")
   (a "The starting node." : PcgNode Place)
   (b "The candidate target node." : PcgNode Place)
   := reachableSearch
-       ‹pd, b, [a], candidateNodes ‹pd, a››
+       pd b [a] (candidateNodes pd a)
 
 defProperty connected (.plain "connected")
   short
@@ -228,4 +228,4 @@ defProperty connected (.plain "connected")
   (pd "The PCG data." : PcgData Place)
   (a "The first node." : PcgNode Place)
   (b "The second node." : PcgNode Place)
-  := reachableFrom ‹pd, a, b› ∨ reachableFrom ‹pd, b, a›
+  := reachableFrom pd a b ∨ reachableFrom pd b a

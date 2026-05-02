@@ -66,8 +66,8 @@ defFn implicit placeNode (.plain "placeNode")
   (p "The place to wrap." : Place)
   : PcgNode Place :=
     PcgNode.place
-      ‹PcgPlace.maybeLabelled
-        ‹MaybeLabelled.current ‹p›››
+      (PcgPlace.maybeLabelled
+        (MaybeLabelled.current p))
 
 defFnMutual
 defFn itUnpackEdges (.plain "itUnpackEdges")
@@ -81,34 +81,34 @@ defFn itUnpackEdges (.plain "itUnpackEdges")
   : List (UnpackEdge (PcgNode Place)) where
   | .leaf _ ; _ ; _ => []
   | .internal (.fields fs) ; base ; projAcc =>
-      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
+      let basePlace := placeNode Place⟨base, projAcc⟩ ;
       let children := fs·map fun ⟨fi, ty, _⟩ =>
-        let step := ProjElem.field ‹fi, ty› ;
-        placeNode ‹Place⟨base, projAcc ++ [step]⟩› ;
+        let step := ProjElem.field fi ty ;
+        placeNode Place⟨base, projAcc ++ [step]⟩ ;
       let self := UnpackEdge⟨basePlace, children⟩ ;
-      self :: fieldsSubedges ‹fs, base, projAcc›
+      self :: fieldsSubedges fs base projAcc
   | .internal (.deref d) ; base ; projAcc =>
       let proj := projAcc ++ [ProjElem.deref] ;
-      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
-      let childPlace := placeNode ‹Place⟨base, proj⟩› ;
+      let basePlace := placeNode Place⟨base, projAcc⟩ ;
+      let childPlace := placeNode Place⟨base, proj⟩ ;
       let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
-      self :: itUnpackEdges ‹d, base, proj›
+      self :: itUnpackEdges d base proj
   | .internal (.guided (.downcast v d)) ; base ; projAcc =>
-      let proj := projAcc ++ [ProjElem.downcast ‹v›] ;
-      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
-      let childPlace := placeNode ‹Place⟨base, proj⟩› ;
+      let proj := projAcc ++ [ProjElem.downcast v] ;
+      let basePlace := placeNode Place⟨base, projAcc⟩ ;
+      let childPlace := placeNode Place⟨base, proj⟩ ;
       let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
-      self :: itUnpackEdges ‹d, base, proj›
+      self :: itUnpackEdges d base proj
   | .internal (.guided (.constantIndex _ d)) ; base ; projAcc =>
-      itUnpackEdges ‹d, base, projAcc›
+      itUnpackEdges d base projAcc
   | .internal (.guided (.index l d)) ; base ; projAcc =>
-      let proj := projAcc ++ [ProjElem.index ‹l›] ;
-      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
-      let childPlace := placeNode ‹Place⟨base, proj⟩› ;
+      let proj := projAcc ++ [ProjElem.index l] ;
+      let basePlace := placeNode Place⟨base, projAcc⟩ ;
+      let childPlace := placeNode Place⟨base, proj⟩ ;
       let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
-      self :: itUnpackEdges ‹d, base, proj›
+      self :: itUnpackEdges d base proj
   | .internal (.guided (.subslice _ _ _ d)) ; base ; projAcc =>
-      itUnpackEdges ‹d, base, projAcc›
+      itUnpackEdges d base projAcc
 defFn fieldsSubedges (.plain "fieldsSubedges")
   (doc! "Helper for #itUnpackEdges: accumulate unpack edges from every child of a fields expansion, \
     prefixing each child's path with its field step.")
@@ -120,9 +120,9 @@ defFn fieldsSubedges (.plain "fieldsSubedges")
   : List (UnpackEdge (PcgNode Place)) where
   | [] ; _ ; _ => []
   | ⟨fi, ty, sub⟩ :: rest ; base ; projAcc =>
-      let step := ProjElem.field ‹fi, ty› ;
-      let subEdges := itUnpackEdges ‹sub, base, projAcc ++ [step]› ;
-      subEdges ++ fieldsSubedges ‹rest, base, projAcc›
+      let step := ProjElem.field fi ty ;
+      let subEdges := itUnpackEdges sub base (projAcc ++ [step]) ;
+      subEdges ++ fieldsSubedges rest base projAcc
 end
 
 -- ══════════════════════════════════════════════
@@ -143,10 +143,10 @@ defFn projUnpackChain (.plain "projUnpackChain")
   | _ ; _ ; [] => []
   | base ; projAcc ; π :: rest =>
       let projExt := projAcc ++ [π] ;
-      let basePlace := placeNode ‹Place⟨base, projAcc⟩› ;
-      let childPlace := placeNode ‹Place⟨base, projExt⟩› ;
+      let basePlace := placeNode Place⟨base, projAcc⟩ ;
+      let childPlace := placeNode Place⟨base, projExt⟩ ;
       let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
-      self :: projUnpackChain ‹base, projExt, rest›
+      self :: projUnpackChain base projExt rest
 
 defFn placeUnpackChain (.plain "placeUnpackChain")
   (.plain "Emit a chain of single-child unpack edges from a \
@@ -154,7 +154,7 @@ defFn placeUnpackChain (.plain "placeUnpackChain")
     projection step.")
   (p "The target place." : Place)
   : List (UnpackEdge (PcgNode Place)) :=
-  projUnpackChain ‹p↦«local», [], p↦projection›
+  projUnpackChain (p↦«local») [] p↦projection
 
 defFn localsUnpackEdges (.plain "localsUnpackEdges")
   (doc! "For every allocated local in an owned state, collect the unpack edges derived from that \
@@ -164,7 +164,7 @@ defFn localsUnpackEdges (.plain "localsUnpackEdges")
   : List (UnpackEdge (PcgNode Place)) :=
     locals·zipIdx·flatMap fun ⟨ol, idx⟩ =>
       match ol with
-      | .allocated it => itUnpackEdges ‹it, Local⟨idx⟩, []›
+      | .allocated it => itUnpackEdges it Local⟨idx⟩ []
       | .unallocated => []
       end
 
@@ -182,7 +182,7 @@ defFn init (.plain "init")
   (body "The function body." : Body)
   : PcgData Place :=
     PcgData⟨BorrowsGraph⟨mapEmpty‹›⟩,
-      OwnedState.initial ‹body›,
+      OwnedState.initial body,
       BasicBlockIdx⟨0⟩, None⟩
 
 defFn join (.plain "join")
@@ -199,10 +199,9 @@ defFn join (.plain "join")
              = pd2↦os↦locals·length
   : PcgData Place :=
     PcgData⟨
-      BorrowsGraph.join ‹pd1↦bg, pd2↦bg›,
+      BorrowsGraph.join pd1↦bg pd2↦bg,
       OwnedState.meet
-        ‹pd1↦os, pd2↦os,
-         proof[h_pre0]›,
+        pd1↦os pd2↦os proof[h_pre0],
       bb,
       None⟩
 
@@ -226,10 +225,10 @@ defFn edges (.plain "edges")
     blocked by a deref edge, and (3) every edge already recorded in the borrows graph.")
   (pd "The PCG data." : PcgData Place)
   : List (PcgEdge Place) :=
-    let treeEdges := localsUnpackEdges ‹pd↦os↦locals› ;
-    let targets := transientReadPlaces ‹pd↦transientState›
-      ++ BorrowsGraph.blockedCurrentPlaces ‹pd↦bg› ;
-    let matEdges := targets·flatMap fun p => placeUnpackChain ‹p› ;
+    let treeEdges := localsUnpackEdges (pd↦os↦locals) ;
+    let targets := transientReadPlaces pd↦transientState
+      ++ BorrowsGraph.blockedCurrentPlaces pd↦bg ;
+    let matEdges := targets·flatMap fun p => placeUnpackChain p ;
     let unpackEdges := (treeEdges ++ matEdges)
-      ·map fun ue => PcgEdge.unpack ‹ue› ;
+      ·map fun ue => PcgEdge.unpack ue ;
     unpackEdges ++ pd↦bg↦edges·toList·map fun ⟨e, _⟩ => e

@@ -36,8 +36,8 @@ defFn rvalueTriples (.plain "rvalueTriples")
    contributes the borrow's triple.")
   (rv "The rvalue." : Rvalue)
   : Set PlaceTriple where
-  | .use o => operandTriple ‹o›
-  | .ref _ m p => ⦃borrowTriple ‹m, p›⦄
+  | .use o => operandTriple o
+  | .ref _ m p => ⦃borrowTriple m p⦄
 
 defFn statementTriples (.plain "statementTriples")
   (.plain "The set of place triples implied by a statement: \
@@ -45,7 +45,7 @@ defFn statementTriples (.plain "statementTriples")
    markers contribute nothing.")
   (s "The statement." : Statement)
   : Set PlaceTriple where
-  | .assign _ rhs => rvalueTriples ‹rhs›
+  | .assign _ rhs => rvalueTriples rhs
   | .storageLive _ => ∅
   | .storageDead _ => ∅
 
@@ -55,13 +55,13 @@ defFn terminatorTriples (.plain "terminatorTriples")
   (t "The terminator." : Terminator)
   : Set PlaceTriple where
   | .goto _ => ∅
-  | .switchInt o _ _ => operandTriple ‹o›
+  | .switchInt o _ _ => operandTriple o
   | .return_ => ∅
   | .unreachable => ∅
   | .drop _ _ => ∅
   | .call callee args _ _ =>
-      operandTriple ‹callee› ∪
-        (args·setFlatMap fun a => operandTriple ‹a›)
+      operandTriple callee ∪
+        (args·setFlatMap fun a => operandTriple a)
 
 defFn operandTriples (.plain "operandTriples")
   (doc! "The set of place triples implied by the operand and \
@@ -72,8 +72,8 @@ defFn operandTriples (.plain "operandTriples")
     triple with post {Doc.m (.sym .emptySet)}.")
   (ao "The analysis object." : AnalysisObject)
   : Set PlaceTriple where
-  | .stmt s => statementTriples ‹s›
-  | .terminator t => terminatorTriples ‹t›
+  | .stmt s => statementTriples s
+  | .terminator t => terminatorTriples t
 
 defFn mainTriples (.plain "mainTriples")
   (doc! "The set of place triples implied by the main effect \
@@ -120,11 +120,11 @@ defFn getAnalysisObject (.plain "getAnalysisObject")
    position, otherwise the basic block's terminator.")
   (body "The function body." : Body)
   (loc "The location." : Location)
-  requires validBody(body)
+  requires validBody body
   ensures validAnalysisObject(body, result)
   : AnalysisObject :=
     let bb := body↦blocks ! loc↦block↦index ;
     if loc↦stmtIdx < bb↦statements·length then
-      .stmt ‹bb↦statements ! loc↦stmtIdx›
+      .stmt (bb↦statements ! loc↦stmtIdx)
     else
-      .terminator ‹bb↦terminator›
+      .terminator bb↦terminator

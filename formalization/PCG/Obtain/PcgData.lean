@@ -35,22 +35,22 @@ defFn obtain (.plain "obtain")
   (body "The function body." : Body)
   (p "The place to obtain." : Place)
   (c "The capability to obtain." : Capability)
-  requires validPlace(body, p)
+  requires validPlace body p
   : Option (PcgData Place) where
   | pd ; body ; p ; .write =>
-      if isOwned ‹body, p, proof[h_validPlace]› then
-        let newOs ← obtainWriteOwned ‹pd↦os, p› ;
+      if isOwned body p proof[h_validPlace] then
+        let newOs ← obtainWriteOwned pd↦os p ;
         Some pd[os => newOs]
       else
         Some pd[transientState =>
-          Some (.writeBorrowedPlace ‹p›)]
+          Some (.writeBorrowedPlace p)]
   | pd ; _ ; p ; .read =>
       match pd↦transientState with
       | .none =>
-          Some pd[transientState => Some (.readPlaces ‹⦃p⦄›)]
+          Some pd[transientState => Some (.readPlaces ⦃p⦄)]
       | .some (.readPlaces s) =>
           Some pd[transientState =>
-            Some (.readPlaces ‹s ∪ ⦃p⦄›)]
+            Some (.readPlaces (s ∪ ⦃p⦄))]
       | .some (.writeBorrowedPlace _) => None
       end
   | _ ; _ ; _ ; _ => None

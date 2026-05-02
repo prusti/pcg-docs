@@ -47,18 +47,14 @@ defProperty FramingInvariant (.plain "FramingInvariant")
       : PcgData Place)
   := ∀∀ p p' ∈ Place, a a' ∈ Allocation .
        ‹break› p ≠ p' ∧
-       ‹break› Runnable ‹m› ∧
+       ‹break› Runnable m ∧
        ‹break› hasCapability
-         ‹pcg,
-          currBody ‹m, proof[h_Runnable]›,
-          p, .exclusive› ∧
+         pcg (currBody m proof[h_Runnable]) p .exclusive ∧
        ‹break› hasCapability
-         ‹pcg,
-          currBody ‹m, proof[h_Runnable]›,
-          p', .exclusive› ∧
-       ‹break› hasAllocation ‹m, p, a› ∧
-       ‹break› hasAllocation ‹m, p', a'›
-       → ‹break› Allocation.nonOverlapping ‹a, a'›
+         pcg (currBody m proof[h_Runnable]) p' .exclusive ∧
+       ‹break› hasAllocation m p a ∧
+       ‹break› hasAllocation m p' a'
+       → ‹break› Allocation.nonOverlapping a a'
 
 defProperty FramingInvariant' (.plain "FramingInvariant'")
   short
@@ -75,18 +71,12 @@ defProperty FramingInvariant' (.plain "FramingInvariant'")
   (m "The machine state." : Machine)
   (par "The program-wide analysis results."
       : ProgAnalysisResults)
-  := ‹break› Runnable ‹m› ∧
+  := ‹break› Runnable m ∧
      ‹break› programContains
-       ‹par,
-        currBody ‹m, proof[h_Runnable]›,
-        currPC ‹m, proof[h_Runnable]›› ∧
+       par (currBody m proof[h_Runnable]) (currPC m proof[h_Runnable]) ∧
      ‹break› FramingInvariant
-       ‹m,
-        pcgEntryStateAt
-          ‹par,
-           currBody ‹m, proof[h_Runnable]›,
-           currPC ‹m, proof[h_Runnable]›,
-           proof[h_programContains]››
+       m (pcgEntryStateAt
+          par (currBody m proof[h_Runnable]) (currPC m proof[h_Runnable]) proof[h_programContains])
 
 defProperty Framing (.plain "Framing")
   short
@@ -98,16 +88,16 @@ defProperty Framing (.plain "Framing")
             framing invariant holds between the machine and \
             the entry-state PCG at its program counter.")
   := ∀∀ par ∈ ProgAnalysisResults, m ∈ Machine .
-       ‹break› Runnable ‹m› ∧
-       ‹break› describes ‹par, prog ‹m›› ∧
+       ‹break› Runnable m ∧
+       ‹break› describes par (prog m) ∧
        -- `validProgram (prog m)` is the second conjunct of
        -- `Runnable`'s body; project it directly with
        -- `h_Runnable.2.1` to discharge `initialMachine`'s
        -- precondition without a separate antecedent.
        ‹break› Reachable
-         ‹initialMachine
-            ‹prog ‹m›, proof[h_Runnable.2.1]›, m›
-       → ‹break› FramingInvariant' ‹m, par›
+         (initialMachine
+            (prog m) proof[h_Runnable.2.1]) m
+       → ‹break› FramingInvariant' m par
 
 defProperty FramingInd (.plain "FramingInd")
   short
@@ -126,11 +116,11 @@ defProperty FramingInd (.plain "FramingInd")
            closure of #[Step] gives the full #[Framing].")
   := ∀∀ par ∈ ProgAnalysisResults,
         m' m ∈ Machine .
-       ‹break› Runnable ‹m› ∧
-       ‹break› describes ‹par, prog ‹m›› ∧
-       ‹break› Step ‹m', m› ∧
-       ‹break› FramingInvariant' ‹m', par›
-       → ‹break› FramingInvariant' ‹m, par›
+       ‹break› Runnable m ∧
+       ‹break› describes par (prog m) ∧
+       ‹break› Step m' m ∧
+       ‹break› FramingInvariant' m' par
+       → ‹break› FramingInvariant' m par
 
 defProperty ConnectedInvariant (.plain "ConnectedInvariant")
   short
@@ -159,18 +149,18 @@ defProperty ConnectedInvariant (.plain "ConnectedInvariant")
       : PcgData Place)
   := ∀∀ p p' ∈ Place, a a' ∈ Allocation .
        ‹break› p ≠ p' ∧
-       ‹break› Runnable ‹m› ∧
+       ‹break› Runnable m ∧
        ‹break› validPlace
-         ‹currBody ‹m, proof[h_Runnable]›, p› ∧
+         (currBody m proof[h_Runnable]) p ∧
        ‹break› validPlace
-         ‹currBody ‹m, proof[h_Runnable]›, p'› ∧
-       ‹break› p ∈ places ‹pcg› ∧
-       ‹break› p' ∈ places ‹pcg› ∧
-       ‹break› hasAllocation ‹m, p, a› ∧
-       ‹break› hasAllocation ‹m, p', a'›
+         (currBody m proof[h_Runnable]) p' ∧
+       ‹break› p ∈ places pcg ∧
+       ‹break› p' ∈ places pcg ∧
+       ‹break› hasAllocation m p a ∧
+       ‹break› hasAllocation m p' a'
        → ‹break› connected
-           ‹pcg, placeNode ‹p›, placeNode ‹p'›› ∨
-         ‹break› Allocation.nonOverlapping ‹a, a'›
+           pcg (placeNode p) (placeNode p') ∨
+         ‹break› Allocation.nonOverlapping a a'
 
 defProperty Connected (.plain "Connected")
   short
@@ -183,21 +173,15 @@ defProperty Connected (.plain "Connected")
             between the machine and the entry-state PCG at \
             its program counter.")
   := ∀∀ par ∈ ProgAnalysisResults, m ∈ Machine .
-       ‹break› Runnable ‹m› ∧
-       ‹break› describes ‹par, prog ‹m›› ∧
+       ‹break› Runnable m ∧
+       ‹break› describes par (prog m) ∧
        -- See Framing for why `h_Runnable.2.1` discharges
        -- `initialMachine`'s `validProgram` precondition.
        ‹break› Reachable
-         ‹initialMachine
-            ‹prog ‹m›, proof[h_Runnable.2.1]›, m› ∧
+         (initialMachine
+            (prog m) proof[h_Runnable.2.1]) m ∧
        ‹break› programContains
-         ‹par,
-          currBody ‹m, proof[h_Runnable]›,
-          currPC ‹m, proof[h_Runnable]››
+         par (currBody m proof[h_Runnable]) (currPC m proof[h_Runnable])
        → ‹break› ConnectedInvariant
-           ‹m,
-            pcgEntryStateAt
-              ‹par,
-               currBody ‹m, proof[h_Runnable]›,
-               currPC ‹m, proof[h_Runnable]›,
-               proof[h_programContains]››
+           m (pcgEntryStateAt
+              par (currBody m proof[h_Runnable]) (currPC m proof[h_Runnable]) proof[h_programContains])

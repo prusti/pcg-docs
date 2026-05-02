@@ -19,29 +19,29 @@ defFn evalStatement (.plain "evalStatement")
     machine.")
   (m "The machine state." : Machine)
   (s "The statement to evaluate." : Statement)
-  requires Runnable(m)
+  requires Runnable m
   : Option Machine where
   | m ; .assign destination source =>
       let ⟨place, _⟩ ← evalPlace
-        ‹m, destination, proof[h_Runnable]› ;
+        m destination proof[h_Runnable] ;
       let val ← evalRvalue
-        ‹m, source, proof[h_Runnable]› ;
-      Some m[mem => placeStore ‹m↦mem, place, val›]
+        m source proof[h_Runnable] ;
+      Some m[mem => placeStore m↦mem place val]
   | m ; .storageLive lcl =>
       let frame := currentFrame
-        ‹m, proof[h_Runnable]› ;
+        m proof[h_Runnable] ;
       let ⟨frame', mem'⟩ := StackFrame.storageLive
-        ‹frame, m↦mem, lcl› ;
+        frame m↦mem lcl ;
       let rest := stackTail
-        ‹m, proof[h_Runnable]› ;
+        m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
   | m ; .storageDead lcl =>
       let frame := currentFrame
-        ‹m, proof[h_Runnable]› ;
+        m proof[h_Runnable] ;
       let ⟨frame', mem'⟩ := StackFrame.storageDead
-        ‹frame, m↦mem, lcl› ;
+        frame m↦mem lcl ;
       let rest := stackTail
-        ‹m, proof[h_Runnable]› ;
+        m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
 
 defFn step (.plain "step")
@@ -54,28 +54,28 @@ defFn step (.plain "step")
     applies). Mirrors MiniRust's `Machine::step`, minus thread scheduling, deadlock detection, and \
     data-race tracking — this model has only one thread.")
   (m "The machine state." : Machine)
-  requires Runnable(m)
+  requires Runnable m
   : StepResult :=
     let frame := currentFrame
-      ‹m, proof[h_Runnable]› ;
+      m proof[h_Runnable] ;
     match getStmtOrTerminator
-        ‹frame↦body, frame↦pc, proof[sorry]› with
+        frame↦body frame↦pc proof[sorry] with
     | .terminator t =>
-        evalTerminator ‹m, t, proof[h_Runnable]›
+        evalTerminator m t proof[h_Runnable]
     | .stmt s =>
         match evalStatement
-            ‹m, s, proof[h_Runnable]› with
-        | .none => StepResult.done‹.error›
+            m s proof[h_Runnable] with
+        | .none => StepResult.done .error
         | .some m' =>
             match m'↦thread↦stack with
-            | [] => StepResult.done‹.error›
+            | [] => StepResult.done .error
             | frame' :: rest =>
                 let newPc :=
                   Location⟨frame'↦pc↦block,
                     frame'↦pc↦stmtIdx + 1⟩ ;
-                StepResult.ok‹m'[thread =>
+                StepResult.ok (m'[thread =>
                   Thread⟨frame'[pc => newPc]
-                    :: rest⟩]›
+                    :: rest⟩])
             end
         end
     end

@@ -31,9 +31,9 @@ defFn top (.plain "top")
   (.plain "The next available address after all allocations.")
   (m "The memory." : Memory)
   : Address :=
-  match last ‹m↦allocs› with
+  match last m↦allocs with
   | .none => Address⟨0⟩
-  | .some alloc => Address⟨(endAddr ‹alloc›)↦addr + 1⟩
+  | .some alloc => Address⟨(endAddr alloc)↦addr + 1⟩
   end
 
 open Allocation AbstractByte in
@@ -43,9 +43,9 @@ defFn allocate (.plain "allocate")
   (m "The memory." : Memory)
   (size "The size in bytes." : Nat)
   : Memory × AllocId :=
-    let addr := top ‹m› ;
+    let addr := top m ;
     let id := AllocId⟨m↦allocs·length⟩ ;
-    let alloc := Allocation⟨id, replicate ‹size, uninit›, addr, true⟩ ;
+    let alloc := Allocation⟨id, replicate size uninit, addr, true⟩ ;
     ⟨Memory⟨m↦allocs ++ [alloc]⟩, id⟩
 
 defProperty validAllocId (.plain "validAllocId")
@@ -63,11 +63,11 @@ defFn deallocate (.plain "deallocate")
   (.plain "Mark an allocation as dead.")
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
-  requires validAllocId(m, id)
+  requires validAllocId m id
   : Memory :=
     let alloc := m↦allocs ! id↦index ;
     let dead := Allocation⟨alloc↦id, alloc↦data, alloc↦address, false⟩ ;
-    let newAllocs := listSet ‹m↦allocs, id↦index, dead› ;
+    let newAllocs := listSet m↦allocs id↦index dead ;
     Memory⟨newAllocs⟩
 
 open Allocation in
@@ -81,7 +81,7 @@ defProperty validMemory (.plain "validMemory")
       the end address of allocation i is strictly less than \
       the start address of allocation j")
   (m "The memory." : Memory)
-  := ∀∀ i, j . i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address
+  := ∀∀ i, j . i < j < m↦allocs·length → endAddr (m↦allocs ! i) < (m↦allocs ! j)↦address
 
 def sub := @Nat.sub
 
@@ -92,8 +92,8 @@ defFn writeBytesAt (.plain "write_bytes_at")
   (offset "The offset at which to write." : Nat)
   (bytes "The bytes to write." : List AbstractByte)
   : List AbstractByte :=
-    listTake ‹offset, data› ++ bytes ++
-      listDrop ‹offset + bytes·length, data›
+    listTake offset data ++ bytes ++
+      listDrop (offset + bytes·length) data
 
 defFn readBytesAt (.plain "read_bytes_at")
   (.plain "Read a byte sub-sequence of a given length from \
@@ -102,7 +102,7 @@ defFn readBytesAt (.plain "read_bytes_at")
   (offset "The offset from which to read." : Nat)
   (len "The number of bytes to read." : Nat)
   : List AbstractByte :=
-    listTake ‹len, listDrop ‹offset, data› ›
+    listTake len (listDrop offset data)
 
 open Allocation in
 defFn checkPtr (.plain "check_ptr")
@@ -116,7 +116,7 @@ defFn checkPtr (.plain "check_ptr")
     let prov ← ptr↦provenance ;
     let alloc := m↦allocs ! prov↦id↦index ;
     let offset := ptr↦addr - alloc↦address ;
-    match canAccess ‹alloc, ptr, len› with
+    match canAccess alloc ptr len with
     | true => Some ⟨prov↦id, offset⟩
     | false => None
     end
@@ -132,13 +132,13 @@ defFn store (.plain "store")
   (ptr "The pointer." : ThinPointer)
   (bytes "The bytes to store." : List AbstractByte)
   : Memory :=
-    match checkPtr ‹m, ptr, bytes·length› with
+    match checkPtr m ptr (bytes·length) with
     | .none => m
     | .some ⟨aid, offset⟩ =>
         let alloc := m↦allocs ! aid↦index ;
-        let newData := writeBytesAt ‹alloc↦data, offset, bytes› ;
+        let newData := writeBytesAt alloc↦data offset bytes ;
         let newAlloc := Allocation⟨alloc↦id, newData, alloc↦address, alloc↦live⟩ ;
-        let newAllocs := listSet ‹m↦allocs, aid↦index, newAlloc› ;
+        let newAllocs := listSet m↦allocs aid↦index newAlloc ;
         Memory⟨newAllocs⟩
     end
 
@@ -153,11 +153,11 @@ defFn load (.plain "load")
   (ptr "The pointer." : ThinPointer)
   (len "The number of bytes to load." : Nat)
   : List AbstractByte :=
-    match checkPtr ‹m, ptr, len› with
+    match checkPtr m ptr len with
     | .none => []
     | .some ⟨aid, offset⟩ =>
         let alloc := m↦allocs ! aid↦index ;
-        readBytesAt ‹alloc↦data, offset, len›
+        readBytesAt alloc↦data offset len
     end
 
 end Memory

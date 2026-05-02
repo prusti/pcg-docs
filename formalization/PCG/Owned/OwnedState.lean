@@ -35,9 +35,9 @@ defFn ownedLocalsMeet (.plain "ownedLocalsMeet")
   : List OwnedLocal where
   | [] ; [] => []
   | .allocated x :: xs ; .allocated y :: ys =>
-      .allocated ‹meet ‹x, y›› :: ownedLocalsMeet ‹xs, ys›
+      .allocated (meet x y) :: ownedLocalsMeet xs ys
   | _ :: xs ; _ :: ys =>
-      .unallocated :: ownedLocalsMeet ‹xs, ys›
+      .unallocated :: ownedLocalsMeet xs ys
 
 namespace OwnedState
 
@@ -48,8 +48,7 @@ defFn meet (.plain "meet")
   requires os1↦locals·length = os2↦locals·length
   : OwnedState :=
     OwnedState⟨ownedLocalsMeet
-      ‹os1↦locals, os2↦locals,
-       proof[h_pre0]›⟩
+      os1↦locals os2↦locals proof[h_pre0]⟩
 
 defFn initial (.plain "initial")
   (doc! "The initial owned state at the entry of a MIR body. \
@@ -61,9 +60,9 @@ defFn initial (.plain "initial")
   (body "The MIR function body." : Body)
   : OwnedState :=
     OwnedState⟨body↦decls·zipIdx·map fun ⟨_, i⟩ =>
-      if i == 0 then OwnedLocal.allocated ‹.leaf ‹.uninit››
+      if i == 0 then OwnedLocal.allocated (.leaf .uninit)
       else if i ≤ body↦numArgs then
-        OwnedLocal.allocated ‹.leaf ‹.deep››
+        OwnedLocal.allocated (.leaf .deep)
       else OwnedLocal.unallocated⟩
 
 end OwnedState
