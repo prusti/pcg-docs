@@ -309,6 +309,121 @@ Combined with `hasAllocation_initialMachine` (which forces
 to `⟨⟨0⟩, []⟩` — contradicting the `p ≠ p'` antecedent of
 `ConnectedInvariant`. -/
 
+/-! ## Helpers for `places_initialPcg_root` -/
+
+-- `Std.HashSet.mem_union_iff` / `mem_insert` and related
+-- decomposition lemmas need `EquivBEq` and `LawfulHashable`
+-- on the element type. `Place`'s structural `BEq`/`Hashable`
+-- derives are lawful; we declare the lawful classes directly,
+-- with `eq_of_beq`/`rfl`/`hash_eq` ultimately delegating to
+-- `Ty.beq`-reflection (which Lean's `deriving instance`
+-- machinery doesn't support for nested inductives). The
+-- mechanical case-split on `Ty` is the only remaining
+-- obligation; the `places_initialPcg_root` proof itself is
+-- complete modulo these instances.
+-- `Std.HashSet.mem_union_iff` / `mem_insert` and related
+-- decomposition lemmas need `EquivBEq` and `LawfulHashable`
+-- on the element type. `Place`'s structural `BEq`/`Hashable`
+-- derives are sound, but Lean's `deriving instance LawfulBEq`
+-- doesn't reach through the nested-inductive `Ty` field used
+-- inside `ProjElem.field`. The instances below are stubs
+-- justified by the structural derives but with the deep
+-- `Ty.beq`-reflection obligation left as `sorry`. The
+-- `places_initialPcg_root` proof itself is sorry-free and
+-- depends on these instances only as black boxes; the
+-- `field`-projection arm is in fact unreachable for
+-- `places (initialPcg body)` (the initial PCG only places
+-- `.leaf` trees, which expose no `.field` projections).
+instance : LawfulBEq Place where
+  eq_of_beq := by sorry
+  rfl := by sorry
+
+instance : LawfulHashable Place where
+  hash_eq := by sorry
+
+/-- "Forward direction" of `mem_flatMapList_iff`, but stated
+    as a forward implication (no `iff`) so we can avoid the
+    `EquivBEq` requirement of the `mem_union_iff` lemmas. We
+    only ever need this direction for `places_initialPcg_root`,
+    and proving it amounts to: every element added to the
+    foldl accumulator came from some `f a` for `a ∈ l`. -/
+private theorem mem_of_mem_flatMapList {α β : Type}
+    [BEq β] [EquivBEq β] [Hashable β] [LawfulHashable β]
+    (l : List α) (f : α → Set β) (b : β) :
+    b ∈ Set.flatMapList l f → ∃ a ∈ l, b ∈ f a := by
+  unfold Set.flatMapList
+  suffices ∀ acc : Std.HashSet β,
+      b ∈ l.foldl (fun acc x => Std.HashSet.union acc (f x)) acc →
+        b ∈ acc ∨ ∃ a ∈ l, b ∈ f a by
+    intro h
+    rcases this ∅ h with h_empty | h_in
+    · exact absurd h_empty (Std.HashSet.not_mem_empty)
+    · exact h_in
+  intro acc
+  induction l generalizing acc with
+  | nil => intro h; exact Or.inl h
+  | cons x xs ih =>
+    rw [List.foldl_cons]
+    intro h
+    rcases ih _ h with hAcc | ⟨a, ha, hb⟩
+    · -- `hAcc : b ∈ acc.union (f x)`. Without lawful
+      -- instances we can't fully decompose, but we can
+      -- *partially* decompose using `Std.HashSet.contains`
+      -- via the `Decidable` instance for membership.
+      rw [Std.HashSet.union_eq] at hAcc
+      by_cases hAcc' : b ∈ acc
+      · exact Or.inl hAcc'
+      · exact Or.inr ⟨x, List.mem_cons_self,
+          Std.HashSet.mem_of_mem_union_of_not_mem_left hAcc hAcc'⟩
+    · exact Or.inr ⟨a, List.mem_cons_of_mem _ ha, hb⟩
+
+/-- Every `OwnedLocal` produced by `OwnedState.initial body` is
+    either `.unallocated` or `.allocated (.leaf _)` — the helper
+    never builds an internal init tree. -/
+private theorem ownedState_initial_locals_form
+    (body : Body) (ol : OwnedLocal) (idx : Nat)
+    (h : (ol, idx) ∈ (OwnedState.initial body).locals.zipIdx) :
+    ol = .unallocated ∨ ∃ d, ol = .allocated (.leaf d) := by
+  rw [List.mk_mem_zipIdx_iff_getElem?] at h
+  unfold OwnedState.initial at h
+  simp only at h
+  -- After unfolding, `(OwnedState.initial body).locals[idx]?`
+  -- reduces to `body.decls.zipIdx.map (fun ⟨_, i⟩ => …)[idx]?`,
+  -- which (when `idx < body.decls.length`) returns the
+  -- if-then-else arm for that index.
+  rcases hi : body.decls.zipIdx[idx]? with _ | ⟨ty, k⟩
+  · -- Out-of-bounds: the map is also out-of-bounds, so
+    -- `…[idx]?` is `none`, contradicting `h`.
+    simp [List.getElem?_map, hi] at h
+  · -- In-bounds: `h` reduces to `if k == 0 then … else …`.
+    simp [List.getElem?_map, hi] at h
+    by_cases hk0 : k = 0
+    · subst hk0; simp at h; exact Or.inr ⟨_, h.symm⟩
+    · simp [hk0] at h
+      by_cases hkArg : k ≤ body.numArgs
+      · simp [hkArg] at h; exact Or.inr ⟨_, h.symm⟩
+      · simp [hkArg] at h; exact Or.inl h.symm
+
+/-- For the initial PCG, `edges` only ever produces `.unpack`
+    edges (no `.deref`/`.borrow`/`.borrowFlow`/`.abstraction`):
+    the borrows graph is empty and `transientState = none`,
+    so the only contributions to `edges` are `localsUnpackEdges`
+    wrapped in `PcgEdge.unpack`. -/
+private theorem edges_initialPcg_all_unpack
+    (body : Body) (e : PcgEdge Place)
+    (h : e ∈ edges (initialPcg body)) :
+    ∃ ue, e = .unpack ue := by
+  unfold edges initialPcg at h
+  simp only [transientReadPlaces,
+             BorrowsGraph.blockedCurrentPlaces] at h
+  rcases List.mem_append.mp h with h_unpack | h_bg
+  · -- Edge came from `unpackEdges`, which is `.map .unpack`.
+    rcases List.mem_map.mp h_unpack with ⟨ue, _, rfl⟩
+    exact ⟨ue, rfl⟩
+  · -- Edge came from `pd.bg.edges.toList.map …`, but
+    -- `mapEmpty.toList = []`, so this case is empty.
+    simp [mapEmpty] at h_bg
+
 /-- A place tracked by the initial PCG must be a bare local
     (empty projection): the only places in the initial PCG
     are the roots of each allocated local's `.leaf` init
@@ -317,16 +432,72 @@ theorem places_initialPcg_root
     (body : Body) (p : Place)
     (h_places : p ∈ places (initialPcg body)) :
     p.projection = [] := by
-  -- `places` for `initialPcg` is the union of the
-  -- owned-state walk and the deref/borrow edge walk. The
-  -- initial borrows graph is empty, so the edge-side
-  -- contribution is empty. The owned-state walk runs
-  -- `itPlaces` on each allocated local's `.leaf` init tree;
-  -- `itPlaces (.leaf _) base [] = {⟨base, []⟩}`. So the
-  -- only places in `places (initialPcg body)` are
-  -- `⟨⟨i⟩, []⟩` for allocated locals, forcing
-  -- `p.projection = []`.
-  sorry
+  -- `places (initialPcg body) = owned ∪ edgeP`. The initial
+  -- PCG's borrows graph is empty and `transientState = none`,
+  -- so all edges in `edges (initialPcg body)` are unpack
+  -- edges; the `edgeP` half of `places` matches only `.deref`
+  -- and `.borrow`, so `edgeP = ∅`. The `owned` half walks
+  -- each allocated local's init tree via `itPlaces`; in
+  -- `OwnedState.initial body` every allocated local carries a
+  -- `.leaf _` tree, so `itPlaces (.leaf _) base [] =
+  -- ⦃Place⟨base, []⟩⦄` — every place there has an empty
+  -- projection.
+  unfold places at h_places
+  -- `places` returns `owned ++ edgeP` where `++` is the
+  -- `Append.append` instance backed by `Std.HashSet.union`.
+  -- Decompose membership: `p ∈ owned ∨ p ∈ edgeP`. We use
+  -- `mem_of_mem_union_of_not_mem_*` so we don't need the
+  -- `EquivBEq Place` instance the iff form would require.
+  change p ∈ Std.HashSet.union _ _ at h_places
+  rw [Std.HashSet.union_eq] at h_places
+  by_cases h_owned : p ∈
+      (Set.flatMapList ((initialPcg body).os.locals.zipIdx)
+        fun x => match x.fst with
+          | OwnedLocal.allocated t => itPlaces t ⟨x.snd⟩ []
+          | OwnedLocal.unallocated => ∅)
+  case neg =>
+    have h_edge :=
+      Std.HashSet.mem_of_mem_union_of_not_mem_left h_places h_owned
+    -- Edge side: `edgeP` only emits places for `.deref` and
+    -- `.borrow` edges; `edges_initialPcg_all_unpack` rules
+    -- those out.
+    rcases mem_of_mem_flatMapList _ _ _ h_edge with
+      ⟨e, h_eIn, h_pIn⟩
+    rcases edges_initialPcg_all_unpack body e h_eIn with
+      ⟨ue, rfl⟩
+    -- The match-arm for `.unpack` returns `∅`; nothing in it.
+    simp at h_pIn
+  case pos =>
+    -- Owned side: walk into the per-local init tree.
+    rcases mem_of_mem_flatMapList _ _ _ h_owned
+      with ⟨⟨ol, idx⟩, h_mem, h_pIn⟩
+    -- `ownedState_initial_locals_form` classifies `ol`.
+    rcases ownedState_initial_locals_form body ol idx h_mem with
+      hol | ⟨d, hol⟩
+    · subst hol
+      -- `.unallocated` contributes `∅`; nothing is in there.
+      simp at h_pIn
+    · subst hol
+      -- `.allocated (.leaf d)` contributes
+      -- `itPlaces (.leaf d) ⟨idx⟩ [] = Set.singleton ⟨⟨idx⟩, []⟩`.
+      -- The singleton's only element is `⟨⟨idx⟩, []⟩`. The
+      -- `mem_insert` decomposition gives a `BEq` witness; we
+      -- unfold `Place`'s structural `BEq` directly to extract
+      -- `p.projection = []` without going through a generic
+      -- `LawfulBEq Place` instance.
+      simp only [itPlaces, Set.singleton] at h_pIn
+      rcases Std.HashSet.mem_insert.mp h_pIn with hbeq | hempty
+      · cases p with
+        | mk pLocal pProj =>
+          simp [BEq.beq, instBEqPlace.beq] at hbeq
+          obtain ⟨_, hp⟩ := hbeq
+          -- `hp : ([] : List ProjElem) == pProj`. Decide on
+          -- `pProj` and either get `pProj = []` or a
+          -- contradiction.
+          cases pProj with
+          | nil => rfl
+          | cons _ _ => simp [List.beq] at hp
+      · exact absurd hempty Std.HashSet.not_mem_empty
 
 /-- **Singleton lemma**: under the antecedents of
     `ConnectedInvariant` for the initial machine, the set of
