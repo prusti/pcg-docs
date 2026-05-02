@@ -23,25 +23,25 @@ defFn evalStatement (.plain "evalStatement")
   : Option Machine where
   | m ; .assign destination source =>
       let ⟨place, _⟩ ← evalPlace
-        ‹m, destination, lean_proof("h_Runnable")› ;
+        ‹m, destination, proof[h_Runnable]› ;
       let val ← evalRvalue
-        ‹m, source, lean_proof("h_Runnable")› ;
+        ‹m, source, proof[h_Runnable]› ;
       Some m[mem => placeStore ‹m↦mem, place, val›]
   | m ; .storageLive lcl =>
       let frame := currentFrame
-        ‹m, lean_proof("h_Runnable")› ;
+        ‹m, proof[h_Runnable]› ;
       let ⟨frame', mem'⟩ := StackFrame.storageLive
         ‹frame, m↦mem, lcl› ;
       let rest := stackTail
-        ‹m, lean_proof("h_Runnable")› ;
+        ‹m, proof[h_Runnable]› ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
   | m ; .storageDead lcl =>
       let frame := currentFrame
-        ‹m, lean_proof("h_Runnable")› ;
+        ‹m, proof[h_Runnable]› ;
       let ⟨frame', mem'⟩ := StackFrame.storageDead
         ‹frame, m↦mem, lcl› ;
       let rest := stackTail
-        ‹m, lean_proof("h_Runnable")› ;
+        ‹m, proof[h_Runnable]› ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
 
 defFn step (.plain "step")
@@ -57,14 +57,14 @@ defFn step (.plain "step")
   requires Runnable(m)
   : StepResult :=
     let frame := currentFrame
-      ‹m, lean_proof("h_Runnable")› ;
+      ‹m, proof[h_Runnable]› ;
     match getStmtOrTerminator
-        ‹frame↦body, frame↦pc, lean_proof("sorry")› with
+        ‹frame↦body, frame↦pc, proof[sorry]› with
     | .terminator t =>
-        evalTerminator ‹m, t, lean_proof("h_Runnable")›
+        evalTerminator ‹m, t, proof[h_Runnable]›
     | .stmt s =>
         match evalStatement
-            ‹m, s, lean_proof("h_Runnable")› with
+            ‹m, s, proof[h_Runnable]› with
         | .none => StepResult.done‹.error›
         | .some m' =>
             match m'↦thread↦stack with

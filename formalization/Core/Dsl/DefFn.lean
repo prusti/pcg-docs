@@ -161,8 +161,11 @@ syntax (name := fnForallGroupTyped) ident+ " ∈ " ident
 syntax "∀∀" sepBy1(fnForallGroup, ", ") " . " fnExpr : fnExpr
 -- Proof placeholder
 syntax "sorry" : fnExpr
--- Raw Lean proof term (invisible in Rust/LaTeX)
-syntax "lean_proof(" str ")" : fnExpr
+-- Raw Lean proof term (invisible in Rust/LaTeX). The body
+-- between the brackets is a real Lean `term`, not a string —
+-- so a typo or unresolved name surfaces as a Lean elaboration
+-- error rather than slipping through as opaque text.
+syntax "proof[" term "]" : fnExpr
 -- Presentation-only formatting hint: a soft line break
 -- inserted before the next expression in the LaTeX
 -- rendering. The Lean and Rust exports pass the wrapped
@@ -485,8 +488,18 @@ partial def parseExpr
         | _ => throwError s!"unexpected forall group"
     pure (.forall_ parsed (← parseExpr b))
   | `(fnExpr| sorry) => pure .sorryProof
-  | `(fnExpr| lean_proof($s:str)) =>
-    pure (.leanProof s.getString)
+  | `(fnExpr| proof[$t:term]) =>
+    -- Reprint the parsed Lean term back to source form so the
+    -- generated Lean export embeds it verbatim. The `term`
+    -- syntax is a real Lean parse, so e.g. typos in identifier
+    -- names surface as elaboration errors instead of slipping
+    -- through as opaque strings. `reprint` returns `none` only
+    -- for syntax that wasn't produced by the parser; in that
+    -- corner case fall back to `toString` to keep elaboration
+    -- moving (the resulting Lean source will still surface
+    -- whatever's wrong).
+    let s := t.raw.reprint.getD (toString t.raw)
+    pure (.leanProof s.trimAscii.toString)
   | `(fnExpr| ‹break› $e:fnExpr) =>
     pure (.formatHint .break_ (← parseExpr e))
   | `(fnExpr| match $scrut:fnExpr with

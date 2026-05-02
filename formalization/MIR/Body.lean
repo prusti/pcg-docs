@@ -257,7 +257,7 @@ defFn placeTy (.plain "ty")
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
   : PlaceTy :=
-    placeTy' ‹body↦decls ! place↦«local»↦index, None, place↦projection, lean_proof("h_validPlace.2")›
+    placeTy' ‹body↦decls ! place↦«local»↦index, None, place↦projection, proof[h_validPlace.2]›
 
 defFn isOwned (.plain "isOwned")
   (doc! "Returns `true` iff a place is owned, i.e. it does not project from the dereference of a \
@@ -266,4 +266,4 @@ defFn isOwned (.plain "isOwned")
   (place "The place to type-check." : Place)
   requires validPlace(body, place)
   : Bool :=
-    isOwned' ‹body↦decls ! place↦«local»↦index, place↦projection, lean_proof("h_validPlace.2")›
+    isOwned' ‹body↦decls ! place↦«local»↦index, place↦projection, proof[h_validPlace.2]›

@@ -78,7 +78,7 @@ defFn currBody (.plain "currBody")
   (m "The machine state." : Machine)
   requires Runnable(m)
   : Body :=
-    (currentFrame ‹m, lean_proof("h_Runnable")›)↦body
+    (currentFrame ‹m, proof[h_Runnable]›)↦body
 
 defFn currPC (.plain "currPC")
   (doc! "The program counter of the currently executing stack frame. Shorthand for `currentFrame`'s \
@@ -86,7 +86,7 @@ defFn currPC (.plain "currPC")
   (m "The machine state." : Machine)
   requires Runnable(m)
   : Location :=
-    (currentFrame ‹m, lean_proof("h_Runnable")›)↦pc
+    (currentFrame ‹m, proof[h_Runnable]›)↦pc
 
 defFn stackTail (.plain "stackTail")
   (doc! "The tail of the call stack — every frame except the currently executing one (which \
@@ -178,7 +178,7 @@ defFn initialMachine (.plain "initialMachine")
   (program "The program to initialise." : Program)
   requires validProgram(program)
   : Machine :=
-    let body := Program.startProgram ‹program, lean_proof("h_validProgram")› ;
+    let body := Program.startProgram ‹program, proof[h_validProgram]› ;
     let blank :=
       Machine⟨program, Thread⟨[]⟩, Memory⟨[]⟩⟩ ;
     createFrame ‹blank, body, []›

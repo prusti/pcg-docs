@@ -40,7 +40,7 @@ defFn storageDeadPtr (.plain "storageDeadPtr")
   | frame ; mem ; l ; ⟨_, .some prov⟩ =>
       let newMem :=
         Memory.deallocate
-          ‹mem, prov↦id, lean_proof("sorry")› ;
+          ‹mem, prov↦id, proof[sorry]› ;
       let newLocals := mapRemove ‹frame↦locals, l› ;
       let newFrame :=
         StackFrame⟨frame↦body, frame↦pc, newLocals⟩ ;
@@ -72,7 +72,7 @@ defFn storageLive (.plain "storageLive")
   : StackFrame × Memory :=
     let ⟨frame1, mem1⟩ := storageDead ‹frame, mem, l› ;
     let ty := frame1↦body↦decls ! l↦index ;
-    let sz := Ty.sizeOf ‹ty, lean_proof("sorry")› ;
+    let sz := Ty.sizeOf ‹ty, proof[sorry]› ;
     let addr := Memory.top ‹mem1› ;
     let ⟨mem2, aid⟩ := Memory.allocate ‹mem1, sz› ;
     let ptr :=

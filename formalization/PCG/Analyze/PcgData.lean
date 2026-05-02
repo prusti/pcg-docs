@@ -29,7 +29,7 @@ defFn obtainTriples (.plain "obtainTriples")
   | pd ; _ ; [] => Some pd
   | pd ; body ; t :: rest =>
       let pd' ← obtain ‹pd, body, t↦place, t↦pre,
-        lean_proof("h_pre0 t (List.mem_cons_self ..)")› ;
+        proof[h_pre0 t (List.mem_cons_self ..)]› ;
       obtainTriples ‹pd', body, rest›
 
 defFn analyze (.plain "analyze")
@@ -63,7 +63,7 @@ defFn analyze (.plain "analyze")
     -- documents the assumption locally rather than burying
     -- it inside `obtainTriples`.
     obtainTriples ‹pd, body, triples·toList,
-      lean_proof("sorry")›
+      proof[sorry]›
 
 defFn analyzeAt (.plain "analyzeAt")
   (doc! "Step the PCG state across all four evaluation phases at a single location, threading each \
@@ -77,13 +77,13 @@ defFn analyzeAt (.plain "analyzeAt")
        terminator)." : Location)
   : Option PcgDomainData :=
     let preOp ← analyze ‹pd, body, loc, .preOperands,
-      lean_proof("sorry")› ;
+      proof[sorry]› ;
     let postOp ← analyze ‹preOp, body, loc, .postOperands,
-      lean_proof("sorry")› ;
+      proof[sorry]› ;
     let preM ← analyze ‹postOp, body, loc, .preMain,
-      lean_proof("sorry")› ;
+      proof[sorry]› ;
     let postM ← analyze ‹preM, body, loc, .postMain,
-      lean_proof("sorry")› ;
+      proof[sorry]› ;
     Some DomainData⟨pd,
       EvalStmtData⟨preOp, postOp, preM, postM⟩⟩
 

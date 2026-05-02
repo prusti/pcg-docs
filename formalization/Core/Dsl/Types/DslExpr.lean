@@ -586,7 +586,7 @@ partial def toDoc
     -- Drop the trailing N args corresponding to a registered
     -- function's precondition proofs. The DSL surface form
     -- always supplies one argument per precondition (either
-    -- a `lean_proof("…")` placeholder or a regular variable
+    -- a `proof[…]` placeholder or a regular variable
     -- bound elsewhere), so trimming by count handles both
     -- cases uniformly. Without this, an inductive-property
     -- rule like `step ‹m'', h›` would render as `step m'' h`
@@ -601,7 +601,7 @@ partial def toDoc
     let nonProofArgs :=
       args.take (args.length - precondCount)
     -- Then drop any remaining proof-shaped expressions (e.g.
-    -- a stray `lean_proof("…")` in non-precondition position):
+    -- a stray `proof[…]` in non-precondition position):
     -- they would render as empty math and leave dangling
     -- commas.
     let visibleArgs := nonProofArgs.filter fun

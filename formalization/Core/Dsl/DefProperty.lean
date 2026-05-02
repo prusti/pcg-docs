@@ -229,7 +229,7 @@ open Lean Elab Command Term in
     `∀ vars, A₁ ∧ … ∧ Aₙ → G` body is rewritten into a chain
     of named `(hᵢ : Aᵢ)` Pi binders (see
     `DslExpr.bindAntecedentNames`) so each conjunct's proof is
-    in scope for any `lean_proof("hᵢ")` reference. The DSL
+    in scope for any `proof[hᵢ]` reference. The DSL
     registry entry retains the original AST so the LaTeX
     rendering still shows the conjunction. -/
 private def elabExprProperty

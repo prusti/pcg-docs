@@ -44,7 +44,7 @@ defFn obtain (.plain "obtain")
   requires validPlace(body, p)
   : Option (PcgData Place) where
   | pd ; body ; p ; .write =>
-      if isOwned ‹body, p, lean_proof("h_validPlace")› then
+      if isOwned ‹body, p, proof[h_validPlace]› then
         let newOs ← obtainWriteOwned ‹pd↦ownedState, p› ;
         Some pd[ownedState => newOs]
       else

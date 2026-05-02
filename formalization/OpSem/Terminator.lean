@@ -45,7 +45,7 @@ defFn evalArgs (.plain "evalArgs")
   | _ ; [] => Some []
   | m ; a :: rest =>
       let v ← evalOperand
-        ‹m, a, lean_proof("h_Runnable")› ;
+        ‹m, a, proof[h_Runnable]› ;
       let vs ← evalArgs ‹m, rest› ;
       Some (v :: vs)
 
@@ -57,9 +57,9 @@ defFn jumpToBlock (.plain "jumpToBlock")
   requires Runnable(m)
   : Machine :=
     let frame := currentFrame
-      ‹m, lean_proof("h_Runnable")› ;
+      ‹m, proof[h_Runnable]› ;
     let rest := stackTail
-      ‹m, lean_proof("h_Runnable")› ;
+      ‹m, proof[h_Runnable]› ;
     let newPc := Location⟨target, 0⟩ ;
     let newFrame := frame[pc => newPc] ;
     m[thread => Thread⟨newFrame :: rest⟩]
@@ -69,7 +69,7 @@ defFn jumpToBlock (.plain "jumpToBlock")
 -- (`getStmtOrTerminator`, `evalPlace`, `jumpToBlock`) need
 -- preconditions that are not directly in scope as DSL
 -- hypotheses. The three axioms below name the missing
--- obligations explicitly so the inline `lean_proof("sorry")`
+-- obligations explicitly so the inline `proof[sorry]`
 -- placeholders can be replaced with named references; each
 -- axiom follows from the layout invariants encoded in
 -- `Runnable` / `validStack` / `validStackFrame` but a full
@@ -136,30 +136,30 @@ defFn evalTerminator (.plain "evalTerminator")
   : StepResult where
   | m ; .goto target =>
       StepResult.ok‹jumpToBlock
-        ‹m, target, lean_proof("h_Runnable")››
+        ‹m, target, proof[h_Runnable]››
   | _ ; .unreachable => StepResult.done‹.error›
   | m ; .drop _ target =>
       StepResult.ok‹jumpToBlock
-        ‹m, target, lean_proof("h_Runnable")››
+        ‹m, target, proof[h_Runnable]››
   | m ; .switchInt op cases fallback =>
       match evalOperand
-          ‹m, op, lean_proof("h_Runnable")› with
+          ‹m, op, proof[h_Runnable]› with
       | .some (.int iv) =>
           let target := caseTarget ‹cases, iv, fallback› ;
           StepResult.ok‹jumpToBlock
-            ‹m, target, lean_proof("h_Runnable")››
+            ‹m, target, proof[h_Runnable]››
       | _ => StepResult.done‹.error›
       end
   | m ; .call calleeOp args _ _ =>
       match evalOperand
-          ‹m, calleeOp, lean_proof("h_Runnable")› with
+          ‹m, calleeOp, proof[h_Runnable]› with
       | .none => StepResult.done‹.error›
       | .some calleeVal =>
           match fnFromPtr ‹m, calleeVal› with
           | .none => StepResult.done‹.error›
           | .some calleeBody =>
               match evalArgs
-                  ‹m, args, lean_proof("h_Runnable")› with
+                  ‹m, args, proof[h_Runnable]› with
               | .none => StepResult.done‹.error›
               | .some argVals =>
                   StepResult.ok‹createFrame
@@ -169,7 +169,7 @@ defFn evalTerminator (.plain "evalTerminator")
       end
   | m ; .return_ =>
       let frame := currentFrame
-        ‹m, lean_proof("h_Runnable")› ;
+        ‹m, proof[h_Runnable]› ;
       let retTy := frame↦body↦decls ! 0 ;
       match mapGet ‹frame↦locals, Local⟨0⟩› with
       | .none => StepResult.done‹.error›
@@ -178,22 +178,22 @@ defFn evalTerminator (.plain "evalTerminator")
           | .none => StepResult.done‹.error›
           | .some retVal =>
               let rest := stackTail
-                ‹m, lean_proof("h_Runnable")› ;
+                ‹m, proof[h_Runnable]› ;
               match rest with
               | [] => StepResult.done‹.success›
               | callerFrame :: _ =>
                   match getStmtOrTerminator
                       ‹callerFrame↦body, callerFrame↦pc,
-                        lean_proof("Machine.tailFrame_validLocation
-                          m h_Runnable callerFrame")› with
+                        proof[Machine.tailFrame_validLocation
+                          m h_Runnable callerFrame]› with
                   | .terminator (.call _ _ targetPlace
                       nextBlock) =>
                       let mPopped :=
                         m[thread => Thread⟨rest⟩] ;
                       match evalPlace
                           ‹mPopped, targetPlace,
-                            lean_proof("Machine.Runnable_after_pop
-                              m h_Runnable")› with
+                            proof[Machine.Runnable_after_pop
+                              m h_Runnable]› with
                       | .none => StepResult.done‹.error›
                       | .some ⟨pp, _⟩ =>
                           let mem' := placeStore
@@ -202,9 +202,9 @@ defFn evalTerminator (.plain "evalTerminator")
                             mPopped[mem => mem'] ;
                           StepResult.ok‹jumpToBlock
                             ‹mWithMem, nextBlock,
-                              lean_proof("Machine.Runnable_after_mem_update
+                              proof[Machine.Runnable_after_mem_update
                                 mPopped (Machine.Runnable_after_pop
-                                  m h_Runnable) mem'")››
+                                  m h_Runnable) mem']››
                       end
                   | _ => StepResult.done‹.error›
                   end

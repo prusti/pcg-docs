@@ -188,7 +188,7 @@ defFn projectsSharedRef (.plain "projectsSharedRef")
   : Bool :=
     projectsSharedRef'
       ‹body↦decls ! p↦«local»↦index, p↦projection,
-        lean_proof("h_validPlace.2")›
+        proof[h_validPlace.2]›
 
 -- ══════════════════════════════════════════════
 -- Top-level capability lookup
@@ -228,7 +228,7 @@ defFn getCapability (.plain "getCapability")
       match treeLeafCapability ‹projs, tree› with
       | .some c => Some c
       | .none =>
-          if projectsSharedRef ‹body, p, lean_proof("h_validPlace")›
+          if projectsSharedRef ‹body, p, proof[h_validPlace]›
               ∨ isPrefixOfTransientReadPlace ‹pd↦transientState, p›
             then Some Capability.read
           else Some Capability.exclusive

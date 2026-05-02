@@ -50,11 +50,11 @@ defProperty FramingInvariant (.plain "FramingInvariant")
        ‹break› Runnable ‹m› ∧
        ‹break› hasCapability
          ‹pcg,
-          currBody ‹m, lean_proof("h_Runnable")›,
+          currBody ‹m, proof[h_Runnable]›,
           p, .exclusive› ∧
        ‹break› hasCapability
          ‹pcg,
-          currBody ‹m, lean_proof("h_Runnable")›,
+          currBody ‹m, proof[h_Runnable]›,
           p', .exclusive› ∧
        ‹break› hasAllocation ‹m, p, a› ∧
        ‹break› hasAllocation ‹m, p', a'›
@@ -78,15 +78,15 @@ defProperty FramingInvariant' (.plain "FramingInvariant'")
   := ‹break› Runnable ‹m› ∧
      ‹break› programContains
        ‹par,
-        currBody ‹m, lean_proof("h_Runnable")›,
-        currPC ‹m, lean_proof("h_Runnable")›› ∧
+        currBody ‹m, proof[h_Runnable]›,
+        currPC ‹m, proof[h_Runnable]›› ∧
      ‹break› FramingInvariant
        ‹m,
         pcgEntryStateAt
           ‹par,
-           currBody ‹m, lean_proof("h_Runnable")›,
-           currPC ‹m, lean_proof("h_Runnable")›,
-           lean_proof("h_programContains")››
+           currBody ‹m, proof[h_Runnable]›,
+           currPC ‹m, proof[h_Runnable]›,
+           proof[h_programContains]››
 
 defProperty Framing (.plain "Framing")
   short
@@ -106,7 +106,7 @@ defProperty Framing (.plain "Framing")
        -- precondition without a separate antecedent.
        ‹break› Reachable
          ‹initialMachine
-            ‹prog ‹m›, lean_proof("h_Runnable.2.1")›, m›
+            ‹prog ‹m›, proof[h_Runnable.2.1]›, m›
        → ‹break› FramingInvariant' ‹m, par›
 
 defProperty FramingInd (.plain "FramingInd")
@@ -159,9 +159,9 @@ defProperty ConnectedInvariant (.plain "ConnectedInvariant")
        ‹break› p ≠ p' ∧
        ‹break› Runnable ‹m› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("h_Runnable")›, p› ∧
+         ‹currBody ‹m, proof[h_Runnable]›, p› ∧
        ‹break› validPlace
-         ‹currBody ‹m, lean_proof("h_Runnable")›, p'› ∧
+         ‹currBody ‹m, proof[h_Runnable]›, p'› ∧
        ‹break› inPcg ‹pcg, placeNode ‹p›› ∧
        ‹break› inPcg ‹pcg, placeNode ‹p'›› ∧
        ‹break› hasAllocation ‹m, p, a› ∧
@@ -187,15 +187,15 @@ defProperty Connected (.plain "Connected")
        -- `initialMachine`'s `validProgram` precondition.
        ‹break› Reachable
          ‹initialMachine
-            ‹prog ‹m›, lean_proof("h_Runnable.2.1")›, m› ∧
+            ‹prog ‹m›, proof[h_Runnable.2.1]›, m› ∧
        ‹break› programContains
          ‹par,
-          currBody ‹m, lean_proof("h_Runnable")›,
-          currPC ‹m, lean_proof("h_Runnable")››
+          currBody ‹m, proof[h_Runnable]›,
+          currPC ‹m, proof[h_Runnable]››
        → ‹break› ConnectedInvariant
            ‹m,
             pcgEntryStateAt
               ‹par,
-               currBody ‹m, lean_proof("h_Runnable")›,
-               currPC ‹m, lean_proof("h_Runnable")›,
-               lean_proof("h_programContains")››
+               currBody ‹m, proof[h_Runnable]›,
+               currPC ‹m, proof[h_Runnable]›,
+               proof[h_programContains]››

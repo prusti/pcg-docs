@@ -36,8 +36,8 @@ defProperty Soundness (.plain "Soundness")
        -- as a separate antecedent.
        ‹break› Reachable
          ‹initialMachine
-            ‹prog ‹m›, lean_proof("h_Runnable.2.1")›, m›
+            ‹prog ‹m›, proof[h_Runnable.2.1]›, m›
        -- `h_Runnable` is also in scope for `step`'s
        -- precondition on the goal side.
-       → ‹break› step ‹m, lean_proof("h_Runnable")›
+       → ‹break› step ‹m, proof[h_Runnable]›
            ≠ StepResult.done‹.error›

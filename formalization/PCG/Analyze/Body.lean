@@ -109,7 +109,7 @@ defFn pushOne (.plain "pushOne")
       match mapGet ‹state↦entryStates, succ› with
       | .some existing =>
           PcgData.join
-            ‹existing, exit, succ, lean_proof("sorry")›
+            ‹existing, exit, succ, proof[sorry]›
       | .none =>
           PcgData⟨exit↦bg, exit↦ownedState, succ, None⟩
       end ;

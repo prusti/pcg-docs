@@ -40,11 +40,11 @@ defFn evalOperand (.plain "evalOperand")
   : Option Value where
   | m ; .copy p =>
       let ⟨pp, ty⟩ ←
-        evalPlace ‹m, p, lean_proof("h_Runnable")› ;
+        evalPlace ‹m, p, proof[h_Runnable]› ;
       placeLoad ‹m↦mem, pp, ty›
   | m ; .move p =>
       let ⟨pp, ty⟩ ←
-        evalPlace ‹m, p, lean_proof("h_Runnable")› ;
+        evalPlace ‹m, p, proof[h_Runnable]› ;
       placeLoad ‹m↦mem, pp, ty›
   | _ ; .const cv => Some (evalConstant ‹cv›)
 
@@ -59,10 +59,10 @@ defFn evalRvalue (.plain "evalRvalue")
   requires Runnable(m)
   : Option Value where
   | m ; .use o =>
-      evalOperand ‹m, o, lean_proof("h_Runnable")›
+      evalOperand ‹m, o, proof[h_Runnable]›
   | m ; .ref _ _ p =>
       let ⟨pp, _⟩ ←
-        evalPlace ‹m, p, lean_proof("h_Runnable")› ;
+        evalPlace ‹m, p, proof[h_Runnable]› ;
       Some Value.ptr‹pp↦ptr›
 
 end Machine

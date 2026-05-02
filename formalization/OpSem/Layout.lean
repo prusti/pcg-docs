@@ -28,6 +28,6 @@ defFn layout (.plain "layout")
   requires IsSized(τ)
   : LayoutStrategy :=
     LayoutStrategy.sized
-      ‹sizeOf ‹τ, lean_proof("h_IsSized")››
+      ‹sizeOf ‹τ, proof[h_IsSized]››
 
 end Ty

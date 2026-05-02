@@ -204,7 +204,7 @@ defFn join (.plain "join")
       BorrowsGraph.join ‹pd1↦bg, pd2↦bg›,
       OwnedState.meet
         ‹pd1↦ownedState, pd2↦ownedState,
-         lean_proof("h_pre0")›,
+         proof[h_pre0]›,
       bb,
       None⟩
 

@@ -11,7 +11,7 @@ defFn evalLocal (.plain "evalLocal")
   requires Runnable(machine)
   : Option PlacePtr :=
     let frame := currentFrame
-      ‹machine, lean_proof("h_Runnable")› ;
+      ‹machine, proof[h_Runnable]› ;
     let ptr ← mapGet ‹frame↦locals, lcl› ;
     Some PlacePtr⟨ptr⟩
 
@@ -83,7 +83,7 @@ defFn evalProjs (.plain "evalProjs")
   | m ; place ; .array elem _ ; (.index lcl) :: rest =>
       let elemSz ← Ty.bytes ‹elem› ;
       let idxPp ← evalLocal
-        ‹m, lcl, lean_proof("h_Runnable")› ;
+        ‹m, lcl, proof[h_Runnable]› ;
       let idxBytes := Memory.load ‹m↦mem, idxPp↦ptr, 8› ;
       let idxRaw ← data ‹idxBytes› ;
       let off := decodeLeUnsigned ‹idxRaw› * elemSz ;
@@ -101,11 +101,11 @@ defFn evalPlace (.plain "evalPlace")
   requires Runnable(machine)
   : Option (PlacePtr × Ty) :=
     let frame := currentFrame
-      ‹machine, lean_proof("h_Runnable")› ;
+      ‹machine, proof[h_Runnable]› ;
     let rootPlace ← evalLocal
-      ‹machine, place↦«local», lean_proof("h_Runnable")› ;
+      ‹machine, place↦«local», proof[h_Runnable]› ;
     let rootTy := frame↦body↦decls ! place↦«local»↦index ;
     evalProjs ‹machine, rootPlace, rootTy, place↦projection,
-               lean_proof("h_Runnable")›
+               proof[h_Runnable]›
 
 end Machine

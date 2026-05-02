@@ -503,7 +503,7 @@ private partial def flattenImplies
     (l :: rest, goal)
   | e => ([], e)
 
-/-- Whether `e` (or any subterm) contains a `lean_proof("h_…")`
+/-- Whether `e` (or any subterm) contains a `proof[h_…]`
     reference, indicating the user expects the surrounding
     property body to introduce named-Pi hypotheses (`h_<head>`
     binders) that the reference resolves against. Used by
@@ -557,7 +557,7 @@ private partial def hasHypothesisRef : DslExpr → Bool
     Each `hᵢ` is auto-named from `Aᵢ`'s head identifier (see
     `conjunctBinderName`); the antecedent's rendered Lean source
     becomes the binder's `typeName`, so a later occurrence of
-    `lean_proof("hᵢ")` in the goal or in a later antecedent
+    `proof[hᵢ]` in the goal or in a later antecedent
     resolves to a real hypothesis instead of `sorry`. The DSL
     `FnBody` registry entry is left untouched, so the LaTeX
     renderer continues to display the original `∧`/`→` shape.
@@ -596,7 +596,7 @@ partial def bindAntecedentNames : DslExpr → DslExpr :=
     if antecedents.isEmpty then e
     else nameAndBind antecedents (bindAntecedentNames goal)
   -- Bare top-level `A₁ ∧ A₂ ∧ … ∧ Aₙ` (no enclosing `→`): when
-  -- the body references some `lean_proof("h_…")` between
+  -- the body references some `proof[h_…]` between
   -- clauses, elect the rightmost conjunct as the implicit goal
   -- and the others as named-Pi antecedents. This lets a
   -- `defProperty` body written as a ∧-chain (e.g. `Framing'`,
@@ -626,7 +626,7 @@ namespace PropertyDef
     so that a top-level `A₁ ∧ … ∧ Aₙ → G` antecedent becomes
     a chain of named `(hᵢ : Aᵢ)` Pi binders — each
     precondition's proof is then in scope for any
-    `lean_proof("hᵢ")` reference inside `G` or in a later
+    `proof[hᵢ]` reference inside `G` or in a later
     antecedent. The DSL `FnBody` registry entry is left
     untouched, so the LaTeX renderer continues to display
     the original conjunction-style implication. -/

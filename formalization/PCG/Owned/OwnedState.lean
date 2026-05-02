@@ -51,7 +51,7 @@ defFn meet (.plain "meet")
   : OwnedState :=
     OwnedState⟨ownedLocalsMeet
       ‹os1↦locals, os2↦locals,
-       lean_proof("h_pre0")›⟩
+       proof[h_pre0]›⟩
 
 defFn initial (.plain "initial")
   (doc! "The initial owned state at the entry of a MIR body. \

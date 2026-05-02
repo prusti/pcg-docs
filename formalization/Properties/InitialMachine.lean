@@ -288,10 +288,10 @@ defTheorem framingInvariantInitial
   := ∀∀ pr ∈ Program .
        validProgram ‹pr›
        → FramingInvariant
-           ‹initialMachine ‹pr, lean_proof("h_validProgram")›,
+           ‹initialMachine ‹pr, proof[h_validProgram]›,
             initialPcg
               ‹Program.startProgram
-                 ‹pr, lean_proof("h_validProgram")›››
+                 ‹pr, proof[h_validProgram]›››
   proof framingInvariant_initialMachine
 
 /-! ## Connected-invariant base case
@@ -398,10 +398,10 @@ defTheorem connectedInvariantInitial
   := ∀∀ pr ∈ Program .
        validProgram ‹pr›
        → ConnectedInvariant
-           ‹initialMachine ‹pr, lean_proof("h_validProgram")›,
+           ‹initialMachine ‹pr, proof[h_validProgram]›,
             initialPcg
               ‹Program.startProgram
-                 ‹pr, lean_proof("h_validProgram")›››
+                 ‹pr, proof[h_validProgram]›››
   proof connectedInvariant_initialMachine
 
 end Properties

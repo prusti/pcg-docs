@@ -166,7 +166,7 @@ defFn pcgEntryStateAt (.plain "pcgEntryStateAt")
   requires programContains(par, b, l)
   : PcgData Place :=
     let ar := mapAt ‹par, b› ;
-    entryStateAt ‹ar, l, lean_proof("h_programContains.2")›
+    entryStateAt ‹ar, l, proof[h_programContains.2]›
 
 namespace Machine
 
@@ -179,7 +179,7 @@ defFn placeAllocation (.plain "placeAllocation")
   requires Runnable(m)
   : Option Allocation :=
     let ⟨pp, _⟩ ← evalPlace
-      ‹m, p, lean_proof("h_Runnable")› ;
+      ‹m, p, proof[h_Runnable]› ;
     let prov ← pp↦ptr↦provenance ;
     Some (m↦mem↦allocs ! prov↦id↦index)
 
@@ -204,7 +204,7 @@ where
   | fromGet {pcg : PcgData Place} {b : Body}
         {p : Place} {c : Capability}
         {h_validPlace : validPlace b p}
-      from (getCapability ‹pcg, b, p, lean_proof("h_validPlace")›
+      from (getCapability ‹pcg, b, p, proof[h_validPlace]›
               = Some c)
       ⊢ hasCapability ‹pcg, b, p, c›
 
@@ -219,6 +219,6 @@ where
   | fromGet {m : Machine} {p : Place} {a : Allocation}
         {h_Runnable : Runnable m}
       from (Machine.placeAllocation
-              ‹m, p, lean_proof("h_Runnable")›
+              ‹m, p, proof[h_Runnable]›
               = Some a)
       ⊢ hasAllocation ‹m, p, a›

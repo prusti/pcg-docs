@@ -52,7 +52,7 @@ elab_rules : command
     identRefBuffer.set #[]
     let stmtAst ← parseExpr stmt
     -- Lower the statement to a Lean type expression with
-    -- antecedent binders rebound (so `lean_proof("h_…")`
+    -- antecedent binders rebound (so `proof[h_…]`
     -- references inside the statement resolve to real
     -- hypotheses if the DSL expression contains them).
     let leanType :=
