@@ -498,6 +498,14 @@ partial def parseExpr
     -- corner case fall back to `toString` to keep elaboration
     -- moving (the resulting Lean source will still surface
     -- whatever's wrong).
+    --
+    -- Record the original term syntax so the in-tree DSL
+    -- elaborator can graft user-source positions over the
+    -- corresponding `dslProofMarker (…)` placeholder in the
+    -- parsed-from-string syntax tree, restoring the source
+    -- range Lean's `TermInfo` (and the InfoView) need to show
+    -- the proof goal at the user's cursor.
+    recordProofSyntax t.raw
     let s := t.raw.reprint.getD (toString t.raw)
     pure (.leanProof s.trimAscii.toString)
   | `(fnExpr| ‹break› $e:fnExpr) =>
@@ -825,6 +833,11 @@ elab_rules : command
     let isImplicit := impl?.isSome
     DslLint.lintDocTerm doc
     identRefBuffer.set #[]
+    -- Reset the proof-syntax buffer so this `defFn`'s
+    -- `proof[…]` bodies are collected from a clean slate
+    -- and consumed in source order by `graftDslProofMarkers`
+    -- below.
+    proofSyntaxBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
@@ -863,7 +876,13 @@ elab_rules : command
       parsed.toList.map fun (a, r) => (a.toList, r)
     if DslLint.matchIsIrrefutable armsList then
       Lean.throwErrorAt name DslLint.irrefutableWhereMessage
-    -- Generate Lean def via string parsing
+    -- Generate Lean def via string parsing.
+    -- `withProofMarkers := true` wraps each `proof[…]` body in
+    -- a `dslProofMarker` placeholder so `graftDslProofMarkers`
+    -- below can splice the user-source `proof[…]` syntax back
+    -- in over the parsed-from-string copy — that restores the
+    -- source positions Lean's `TermInfo` (and the InfoView)
+    -- need to surface the proof goal at the user's cursor.
     let fnNameStr := toString name.getId
     let precondProofs := preconds.map precondProof
     let armStrs := parsed.toList.map
@@ -871,7 +890,8 @@ elab_rules : command
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         let rhsStr := wrapBody
-          (rhsAst.toLeanWith fnNameStr precondProofs) postconds
+          (rhsAst.toLeanWith fnNameStr precondProofs
+            (withProofMarkers := true)) postconds
         s!"  | {patStr} => {rhsStr}"
     let defKw := "def"
     let paramNames := paramData.toList.map
@@ -905,8 +925,16 @@ elab_rules : command
       defStr with
     | .ok stx =>
       let stx := graftUserNameToken name.getId name.raw stx
+      -- Splice each user-source `proof[…]` body back in over
+      -- its `dslProofMarker (…)` placeholder so Lean's
+      -- elaborator records `TermInfo` at the user's positions.
+      let userProofs ← takeProofSyntaxes
+      let (stx, _) := graftDslProofMarkers userProofs stx
       elabCommand stx
     | .error e =>
+      -- Drop any buffered proof syntaxes so a later `defFn`
+      -- doesn't inherit stale entries.
+      let _ ← takeProofSyntaxes
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
     setUserDeclRanges name (← getRef)
@@ -937,6 +965,7 @@ elab_rules : command
     let isImplicit := impl?.isSome
     DslLint.lintDocTerm doc
     identRefBuffer.set #[]
+    proofSyntaxBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
@@ -959,7 +988,8 @@ elab_rules : command
     let fnNameStr := toString name.getId
     let precondProofs := preconds.map precondProof
     let rhsStr := wrapBody
-      (rhsAst.toLeanWith fnNameStr precondProofs) postconds
+      (rhsAst.toLeanWith fnNameStr precondProofs
+        (withProofMarkers := true)) postconds
     let paramBinds := " ".intercalate
       (paramData.toList.map fun (pn, _, pt) =>
         let tyStr :=
@@ -981,8 +1011,11 @@ elab_rules : command
       defStr with
     | .ok stx =>
       let stx := graftUserNameToken name.getId name.raw stx
+      let userProofs ← takeProofSyntaxes
+      let (stx, _) := graftDslProofMarkers userProofs stx
       elabCommand stx
     | .error e =>
+      let _ ← takeProofSyntaxes
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
     setUserDeclRanges name (← getRef)
@@ -1086,7 +1119,8 @@ private def parseMutualEntry
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         let rhsStr := wrapBody
-          (rhsAst.toLeanWith fnNameStr precondProofs) postconds
+          (rhsAst.toLeanWith fnNameStr precondProofs
+            (withProofMarkers := true)) postconds
         s!"  | {patStr} => {rhsStr}"
     let defStr ←
       if preconds.isEmpty && postconds.isEmpty then
@@ -1123,6 +1157,7 @@ open Lean Elab Command Term in
 elab_rules : command
   | `(defFnMutual $entries:mutualFnEntry* end) => do
     identRefBuffer.set #[]
+    proofSyntaxBuffer.set #[]
     if entries.isEmpty then
       throwError "defFnMutual: expected at least one entry"
     let results ← entries.mapM parseMutualEntry
@@ -1140,8 +1175,11 @@ elab_rules : command
       let stx := results.foldl
         (fun s r => graftUserNameToken r.name.getId r.name.raw s)
         stx
+      let userProofs ← takeProofSyntaxes
+      let (stx, _) := graftDslProofMarkers userProofs stx
       elabCommand stx
     | .error e =>
+      let _ ← takeProofSyntaxes
       throwError s!"defFnMutual: parse error: {e}\n\
         ---\n{mutualStr}\n---"
     -- Tag every entry with a shared group id derived from

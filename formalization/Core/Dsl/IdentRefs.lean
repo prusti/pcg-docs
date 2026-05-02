@@ -55,6 +55,42 @@ namespace Core.Dsl.IdentRefs
 initialize identRefBuffer :
     IO.Ref (Array (Lean.Syntax × Lean.Name)) ← IO.mkRef #[]
 
+/-- Buffer of original `proof[term]` body syntaxes collected
+    while parsing a DSL body, in depth-first / left-to-right
+    order. Each `defFn`/`defProperty`/... elab-rule clears the
+    buffer at entry; after the generated Lean declaration is
+    parsed back from a string, `graftDslProofMarkers` consumes
+    the buffer in order to substitute each user-source
+    `proof[…]` body in place of the corresponding
+    `dslProofMarker (…)` placeholder, restoring the original
+    source positions so the InfoView reports the proof goal at
+    the user's cursor. -/
+initialize proofSyntaxBuffer :
+    IO.Ref (Array Lean.Syntax) ← IO.mkRef #[]
+
+/-- Identity function used as a position-grafting placeholder
+    for in-tree DSL elaboration of `proof[…]` blocks. Rendered
+    around each proof term in the synthesized Lean source; after
+    parsing, `graftDslProofMarkers` replaces each marker's
+    argument with the user's original `proof[…]` body syntax.
+    The marker is `@[inline, reducible]` so it disappears from
+    elaborated terms — semantically a no-op identity. -/
+@[inline, reducible]
+def dslProofMarker {α : Sort _} (x : α) : α := x
+
+/-- Append a parsed `proof[…]` body's syntax to
+    `proofSyntaxBuffer`. Called from `parseExpr` whenever a
+    `proof[$t:term]` form is encountered. -/
+def recordProofSyntax (stx : Lean.Syntax) : IO Unit :=
+  proofSyntaxBuffer.modify (·.push stx)
+
+/-- Take the currently-buffered proof-syntax fragments and
+    empty the buffer. -/
+def takeProofSyntaxes : IO (Array Lean.Syntax) := do
+  let buf ← proofSyntaxBuffer.get
+  proofSyntaxBuffer.set #[]
+  return buf
+
 /-- Record an identifier reference for later `TermInfo`
     emission. Called from the parser whenever an `ident` token
     syntactically denotes a potential global reference
@@ -216,6 +252,65 @@ partial def graftUserNameToken
     .node info kind (args.map (graftUserNameToken targetName
       userNameStx))
   | _ => stx
+
+/-- Whether `n` resolves to the `dslProofMarker` identifier
+    used as a position-grafting placeholder in DSL-rendered
+    Lean source. Both the fully-qualified name and the bare
+    short name are accepted, mirroring the variants
+    `Lean.Name.resolveGlobalName` would emit depending on
+    whether `Core.Dsl.IdentRefs` is opened in scope. -/
+private def isDslProofMarkerName (n : Lean.Name) : Bool :=
+  n == ``dslProofMarker || n == `dslProofMarker
+
+/-- Whether `stx` is the parsed `Term.app` form of a
+    `dslProofMarker (…)` placeholder. Returns true exactly
+    when the head identifier (after stripping the leading
+    function-position child) is `dslProofMarker`. -/
+private def isDslProofMarkerApp (stx : Lean.Syntax) : Bool :=
+  if stx.getKind != ``Lean.Parser.Term.app then false
+  else
+    let args := stx.getArgs
+    if args.size == 0 then false
+    else match args[0]! with
+      | .ident _ _ n _ => isDslProofMarkerName n
+      | _ => false
+
+/-- Walk a parsed-from-string syntax tree and replace each
+    `dslProofMarker (…)` application — emitted by the DSL
+    renderer around every `proof[…]` body — with the next
+    buffered user-source syntax (in depth-first /
+    left-to-right order). Returns the rewritten syntax and the
+    unconsumed tail of `userProofs`.
+
+    Because `dslProofMarker` is a reducible identity
+    (`def dslProofMarker x := x`), splicing the user-source
+    proof body in place of the whole application is
+    semantics-preserving: Lean's elaborator sees the proof
+    term directly, against the same expected type the marker
+    would have inherited from its surrounding position, and
+    records `TermInfo` leaves at the user's source range — so
+    the InfoView reports the expected proof goal at the user's
+    `proof[…]` cursor.
+
+    The replacement subtree is not itself recursed into, so a
+    proof body that happens to contain its own
+    `dslProofMarker (…)` literal would not be re-grafted —
+    the DSL never emits nested markers, so this is safe. -/
+partial def graftDslProofMarkers
+    (userProofs : Array Lean.Syntax) (stx : Lean.Syntax)
+    : Lean.Syntax × Array Lean.Syntax :=
+  if isDslProofMarkerApp stx && userProofs.size > 0 then
+    (userProofs[0]!, userProofs.extract 1 userProofs.size)
+  else
+    match stx with
+    | .node info kind args =>
+      let (newArgs, rest) := args.foldl
+        (fun (acc, buf) child =>
+          let (newChild, buf') := graftDslProofMarkers buf child
+          (acc.push newChild, buf'))
+        ((#[] : Array Lean.Syntax), userProofs)
+      (.node info kind newArgs, rest)
+    | _ => (stx, userProofs)
 
 open Lean Elab Command in
 /-- After elaborating a DSL-synthesised declaration, override

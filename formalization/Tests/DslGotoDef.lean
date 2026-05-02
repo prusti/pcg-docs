@@ -221,6 +221,158 @@ namespace Wrap
 checkCallSiteGotoDef
 end Wrap
 
+-- ══════════════════════════════════════════════
+-- Build-time check: `proof[…]` InfoView positioning
+-- ══════════════════════════════════════════════
+--
+-- Each `defFn`/`defProperty`/`defTheorem` body that uses
+-- `proof[term]` must, after the in-tree DSL elaboration of
+-- the synthesized `def`, carry a `TermInfo` whose source
+-- range falls inside the *original user-source* `proof[…]`
+-- body, not at synthetic positions inside the parsed-from-
+-- string copy. Without this, the LSP InfoView is silent when
+-- the cursor sits inside `proof[…]`.
+--
+-- The pipeline that gives us this is:
+--   1. `parseExpr` on `proof[$t:term]` records `t.raw` into
+--      `proofSyntaxBuffer`.
+--   2. `toLeanASTAlg` with `withProofMarkers := true` wraps
+--      each `.leanProof` rendering in a
+--      `Core.Dsl.IdentRefs.dslProofMarker (…)` call.
+--   3. After parsing the synthesized Lean source,
+--      `graftDslProofMarkers` replaces each marker
+--      application with the buffered user-source syntax.
+--   4. The elaborator processes the grafted syntax and emits
+--      `TermInfo` leaves at the user-source ranges.
+--
+-- This test elaborates a synthetic `defFn` whose body is
+-- `Wrap.testReqCallee ‹n, proof[h_testGuard]›` and verifies
+-- that after elaboration there is a `TermInfo` whose
+-- `stx.getPos?` falls inside the source range of the
+-- `h_testGuard` identifier in the synthesized source.
+namespace Wrap
+
+defFn testReqCallee (.plain "testReqCallee")
+  (.plain "Callee with a precondition for the proof[…] \
+    InfoView regression test.")
+  (n "Test param." : Nat)
+  requires testGuard(n)
+  : Nat := 0
+
+end Wrap
+
+/-- Walk a parsed `defFn`/`defProperty` syntax tree and
+    return the first `Lean.Syntax.ident` whose name matches
+    `needle`. Used by `checkProofInfoViewPosition` to locate
+    the user-source position of a `proof[…]` body identifier
+    in the test fixture. -/
+private partial def findUserIdent
+    (needle : Lean.Name) (stx : Lean.Syntax) : Option Lean.Syntax :=
+  match stx with
+  | .ident _ _ n _ => if n == needle then some stx else none
+  | .node _ _ args =>
+    args.foldl
+      (fun acc child => acc.orElse (fun _ => findUserIdent needle child))
+      none
+  | _ => none
+
+open Lean Elab Command in
+/-- Run `defFn`-style command `src` whose body is expected to
+    contain a single `proof[…]` block, and check that after
+    elaboration there's a `TermInfo` whose `stx` is the bare
+    identifier `needleName` at the *exact* user-source
+    position the parser recorded for the `proof[…]` body.
+    Without the marker+graft pipeline, the `h_…` identifier
+    in the parsed-from-string copy of the rendered Lean
+    source carries a different (synthetic-relative-to-the-
+    rendered-string) byte offset, so the test fails. -/
+private def checkProofInfoViewPosition
+    (src : String) (needleName : Name) : CommandElabM Unit := do
+  let env ← getEnv
+  let stx ← match Parser.runParserCategory env `command src with
+    | .ok stx => pure stx
+    | .error e => throwError s!"parse error in synthesised \
+        defFn:\n---\n{src}\n---\n{e}"
+  let some userIdent := findUserIdent needleName stx
+    | throwError s!"checkProofInfoViewPosition: identifier \
+        '{needleName}' not found in parsed src"
+  let some userPos := userIdent.getPos?
+    | throwError s!"checkProofInfoViewPosition: parsed \
+        identifier '{needleName}' has no source position"
+  let foundRef ← IO.mkRef false
+  -- Walk every info-tree leaf produced during elaboration
+  -- and look for a `TermInfo` whose `stx` matches the user-
+  -- source identifier exactly (same position byte offset).
+  -- The marker+graft pipeline must produce TermInfos whose
+  -- positions echo the user's parse, so the LSP InfoView
+  -- fires at the cursor sitting inside `proof[…]`.
+  let pred : Lean.Elab.Info → Bool := fun info =>
+    match info with
+    | .ofTermInfo ti =>
+      ti.stx.getKind == Lean.identKind &&
+      ti.stx.getId == needleName &&
+      (match ti.stx.getPos? with
+        | some p => p.byteIdx == userPos.byteIdx
+        | none => false)
+    | _ => false
+  withInfoTreeContext (mkInfoTree := fun trees => do
+      if trees.any (fun t => (t.findInfo? pred).isSome) then
+        foundRef.set true
+      return InfoTree.node
+        (Info.ofCommandInfo
+          { elaborator := `checkProofInfoViewPosition, stx })
+        trees) do
+    elabCommand stx
+  let found ← foundRef.get
+  if !found then
+    throwError s!"proof[…] InfoView regression: no TermInfo \
+      with `original` source info found for identifier \
+      '{needleName}' in:\n---\n{src}\n---\n\
+      The marker+graft pipeline (parseExpr → \
+      toLeanASTAlg(withProofMarkers) → graftDslProofMarkers) \
+      is not preserving user-source positions for the proof \
+      body, so the LSP InfoView would be silent at the \
+      cursor."
+
+elab "checkProofInfoViewPosition" : command => do
+  -- Caller defFn: `n : Nat` in scope, `requires testGuard(n)`
+  -- introduces `h_testGuard : testGuard n` as a precondition
+  -- binder, and the body calls `Wrap.testReqCallee` whose own
+  -- `requires testGuard(body's n)` slot consumes the proof.
+  -- The user-source `h_testGuard` identifier inside
+  -- `proof[h_testGuard]` is what `graftDslProofMarkers` must
+  -- splice into the synthesized def, preserving its source
+  -- range so a `TermInfo` lands inside it.
+  checkProofInfoViewPosition
+    "defFn testProofCaller (.plain \"testProofCaller\") \
+       (.plain \"Caller exercising proof[…] graft.\") \
+       (n \"Test param.\" : Nat) \
+       requires testGuard(n) \
+       : Nat := \
+         Wrap.testReqCallee ‹n, proof[h_testGuard]›"
+    `h_testGuard
+  -- defProperty body case: an implication chain whose
+  -- bindAntecedentNames pass introduces an `h_testGuard`
+  -- hypothesis that the goal references via `proof[…]`. This
+  -- exercises the property path through `elabPropertyDecl`'s
+  -- `graftDslProofMarkers` call, including the
+  -- `bindAntecedentNames` interaction with marker rendering
+  -- (the antecedent's stringification must preserve marker
+  -- placeholders so the buffer ordering stays in sync).
+  checkProofInfoViewPosition
+    "defProperty testPropProofCaller \
+       (.plain \"testPropProofCaller\") \
+       short (.seq [.plain \"short\"]) \
+       long (.seq [.plain \"long\"]) \
+       (n \"Test param.\" : Nat) \
+       := testGuard ‹n› → \
+            Wrap.testReqCallee ‹n, proof[h_testGuard]› = 0"
+    `h_testGuard
+
+namespace Wrap
+checkProofInfoViewPosition
+end Wrap
+
 -- Field-projection gotoDef relies on `resolveStructField`:
 -- given a field name like `"functions"`, it consults the
 -- `defStruct` registry and returns the qualified Lean

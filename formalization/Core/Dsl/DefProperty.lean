@@ -84,8 +84,14 @@ private def elabPropertyDecl
     defStr with
   | .ok stx =>
     let stx := graftUserNameToken name.getId name.raw stx
+    -- Splice each user-source `proof[…]` body in over its
+    -- `dslProofMarker (…)` placeholder so the InfoView reports
+    -- the proof goal at the user's cursor.
+    let userProofs ← takeProofSyntaxes
+    let (stx, _) := graftDslProofMarkers userProofs stx
     elabCommand stx
   | .error e =>
+    let _ ← takeProofSyntaxes
     throwError
       s!"defProperty: parse error: {e}\n\
         ---\n{defStr}\n---"
@@ -162,6 +168,7 @@ elab_rules : command
     DslLint.lintDocTerm shortExpr
     DslLint.lintDocTerm docExpr
     identRefBuffer.set #[]
+    proofSyntaxBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := paramData.map (·.1)
@@ -190,10 +197,16 @@ elab_rules : command
     -- Rewrite each arm's RHS so a top-level
     -- `A₁ ∧ … ∧ Aₙ → G` becomes a named-binder Pi chain;
     -- mirrors `elabExprProperty`. No-op for atomic Prop arms.
+    -- `withProofMarkers := true` wraps each `proof[…]` body
+    -- in a `dslProofMarker` placeholder so the
+    -- `graftDslProofMarkers` pass in `elabPropertyDecl` can
+    -- splice the user-source syntax back in.
     let armASTs : List LeanMatchArm :=
       parsed.toList.map fun (patAst, rhsAst) =>
         .mk (patAst.toList.map BodyPat.toLeanAST)
-            rhsAst.bindAntecedentNames.toLeanAST
+            ((rhsAst.bindAntecedentNames
+                (withProofMarkers := true)).toLeanASTWith ""
+              [] [] (withProofMarkers := true))
     let lastIsCatchAll := match parsed.back? with
       | some (pats, _) => pats.all fun p =>
           match p with
@@ -244,8 +257,15 @@ private def elabExprProperty
     (display : Option (TSyntax `term) := none)
     : CommandElabM Unit := do
   let params := paramToLeanBinders paramData
+  -- `withProofMarkers := true` wraps each `proof[…]` body in
+  -- a `dslProofMarker` placeholder so `graftDslProofMarkers`
+  -- inside `elabPropertyDecl` can splice the user-source
+  -- syntax back in over the parsed-from-string copy.
   let body :=
-    LeanAST.LeanFnBody.expr rhsAst.bindAntecedentNames.toLeanAST
+    LeanAST.LeanFnBody.expr
+      ((rhsAst.bindAntecedentNames
+          (withProofMarkers := true)).toLeanASTWith ""
+        [] [] (withProofMarkers := true))
   elabPropertyDecl name params body
   let bodyTerm ←
     `(FnBody.expr $(quote rhsAst))
@@ -264,6 +284,7 @@ elab_rules : command
     DslLint.lintDocTerm shortExpr
     DslLint.lintDocTerm docExpr
     identRefBuffer.set #[]
+    proofSyntaxBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := paramData.map (·.1)

@@ -126,10 +126,19 @@ namespace DslExpr
     precondition proof arguments at recursive calls; `calleeProofNames`
     lists callees requiring `sorry` arguments. `proofArgs` is the precomputed
     list of precondition proof terms (rendered as `raw` to bypass the
-    atomic-arg re-parenthesisation logic in `LeanExpr.toAtom`). -/
+    atomic-arg re-parenthesisation logic in `LeanExpr.toAtom`).
+
+    `withProofMarkers` wraps each `.leanProof t` rendering in a
+    `Core.Dsl.IdentRefs.dslProofMarker (t)` placeholder so the
+    in-tree DSL elaborator can graft the user's original
+    `proof[…]` body syntax over the parsed-from-string copy
+    after the surrounding declaration has been parsed. The
+    export pipeline leaves this off (default) so generated
+    `.lean` files contain the proof terms verbatim. -/
 private def toLeanASTAlg
     (selfName : String)
-    (calleeProofNames : List String) (proofArgs : List LeanExpr) :
+    (calleeProofNames : List String) (proofArgs : List LeanExpr)
+    (withProofMarkers : Bool) :
     DslExprF LeanExpr → LeanExpr
   | .var n => .ident n
   | .natLit n => .natLit n
@@ -178,7 +187,10 @@ private def toLeanASTAlg
   | .implies l r => .binop "→" l r
   | .forall_ binders b => .forall_ binders b
   | .sorryProof => .raw "sorry"
-  | .leanProof t => .raw t
+  | .leanProof t =>
+    if withProofMarkers then
+      .raw s!"(Core.Dsl.IdentRefs.dslProofMarker ({t}))"
+    else .raw t
   | .match_ scrut arms =>
     .match_ scrut <| arms.map fun (pats, rhs) =>
       .mk (pats.map BodyPat.toLeanAST) rhs
@@ -213,11 +225,13 @@ def toLeanASTWith
     (selfName : String)
     (precondProofs : List String)
     (calleeProofNames : List String := [])
+    (withProofMarkers : Bool := false)
     (e : DslExpr) : LeanExpr :=
   let proofArgs : List LeanExpr :=
     precondProofs.map (LeanExpr.raw)
   DslExpr.cata
-    (toLeanASTAlg selfName calleeProofNames proofArgs) e
+    (toLeanASTAlg selfName calleeProofNames proofArgs
+      withProofMarkers) e
 
 partial def toLeanAST (e : DslExpr) : LeanExpr :=
   e.toLeanASTWith "" []
@@ -226,9 +240,10 @@ partial def toLeanWith
     (selfName : String)
     (precondProofs : List String)
     (calleeProofNames : List String := [])
+    (withProofMarkers : Bool := false)
     (e : DslExpr) : String :=
   toString (e.toLeanASTWith selfName precondProofs
-    calleeProofNames)
+    calleeProofNames withProofMarkers)
 
 partial def toLean (e : DslExpr) : String :=
   toString e.toLeanAST
@@ -569,8 +584,20 @@ private partial def hasHypothesisRef : DslExpr → Bool
     Walks through leading `forall_` binders so the rewrite
     reaches the eventual antecedent chain, and recursively
     descends into the goal so a `∧`-chain followed by a
-    `→`-chain (or vice-versa) is fully named. -/
-partial def bindAntecedentNames : DslExpr → DslExpr :=
+    `→`-chain (or vice-versa) is fully named.
+
+    `withProofMarkers` controls how each rewritten antecedent
+    is stringified into its `forall_` binder type: when `true`,
+    `proof[…]` bodies inside an antecedent are rendered with
+    `dslProofMarker (…)` placeholders so the in-tree DSL
+    elaborator's `graftDslProofMarkers` pass can splice the
+    user-source syntax back in. The export pipeline calls this
+    with the default `false` so generated `.lean` files stay
+    free of marker calls. -/
+partial def bindAntecedentNames
+    (withProofMarkers : Bool := false) : DslExpr → DslExpr :=
+  let antToString (ant : DslExpr) : String :=
+    ant.toLeanWith "" [] [] withProofMarkers
   let nameAndBind (antecedents : List DslExpr) (goal : DslExpr)
       : DslExpr :=
     let assignNames :
@@ -587,18 +614,20 @@ partial def bindAntecedentNames : DslExpr → DslExpr :=
     -- `(hᵢ : Aᵢ)` Lean binders.
     (names.zip antecedents).foldr
       (fun (name, ant) acc =>
-        .forall_ [([name], some ant.toLean)] acc)
+        .forall_ [([name], some (antToString ant))] acc)
       goal
   fun e => match e with
   | .forall_ binders body =>
-    .forall_ binders (bindAntecedentNames body)
+    .forall_ binders (bindAntecedentNames withProofMarkers body)
   | .implies (.and l r) goal =>
     let antecedents := flattenAnd (.and l r)
-    nameAndBind antecedents (bindAntecedentNames goal)
+    nameAndBind antecedents
+      (bindAntecedentNames withProofMarkers goal)
   | .implies _ _ =>
     let (antecedents, goal) := flattenImplies e
     if antecedents.isEmpty then e
-    else nameAndBind antecedents (bindAntecedentNames goal)
+    else nameAndBind antecedents
+      (bindAntecedentNames withProofMarkers goal)
   -- Bare top-level `A₁ ∧ A₂ ∧ … ∧ Aₙ` (no enclosing `→`): when
   -- the body references some `proof[h_…]` between
   -- clauses, elect the rightmost conjunct as the implicit goal
@@ -618,7 +647,8 @@ partial def bindAntecedentNames : DslExpr → DslExpr :=
       | _, none => e
       | [], _ => e
       | antecedents, some goal =>
-        nameAndBind antecedents (bindAntecedentNames goal)
+        nameAndBind antecedents
+          (bindAntecedentNames withProofMarkers goal)
     else e
   | _ => e
 

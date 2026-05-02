@@ -50,13 +50,20 @@ elab_rules : command
   | `(defTheorem $name:ident ($doc:term) :=
         $stmt:fnExpr proof $proofIdent:ident) => do
     identRefBuffer.set #[]
+    proofSyntaxBuffer.set #[]
     let stmtAst ← parseExpr stmt
     -- Lower the statement to a Lean type expression with
     -- antecedent binders rebound (so `proof[h_…]`
     -- references inside the statement resolve to real
     -- hypotheses if the DSL expression contains them).
-    let leanType :=
-      stmtAst.bindAntecedentNames.toLean
+    -- `withProofMarkers := true` wraps each `proof[…]` body
+    -- in a `dslProofMarker` placeholder so the in-tree
+    -- elaborator below can graft the user-source syntax back
+    -- in for InfoView positioning.
+    let leanType := toString
+      ((stmtAst.bindAntecedentNames
+          (withProofMarkers := true)).toLeanASTWith ""
+        [] [] (withProofMarkers := true))
     let proofName := toString proofIdent.getId
     let nameStr := toString name.getId
     -- Emit the in-tree Lean theorem so the source build
@@ -65,8 +72,12 @@ elab_rules : command
     let cmdStr := s!"theorem {nameStr} : {leanType} := \
       @{proofName}"
     match Parser.runParserCategory env `command cmdStr with
-    | .ok stx => elabCommand stx
+    | .ok stx =>
+      let userProofs ← takeProofSyntaxes
+      let (stx, _) := graftDslProofMarkers userProofs stx
+      elabCommand stx
     | .error e =>
+      let _ ← takeProofSyntaxes
       throwError s!"defTheorem: parse error: {e}\n\
         ---\n{cmdStr}\n---"
     setUserDeclRanges name (← getRef)
