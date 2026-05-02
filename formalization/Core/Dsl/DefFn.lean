@@ -310,7 +310,8 @@ syntax fnExpr : fnPrecond
     ```
     renders the algorithm caption as `os[idx ↦ ol] → OwnedState`
     instead of `setOwnedLocalAt(os, idx, newOl) → OwnedState`. -/
-syntax "defFn " ("implicit ")? ident "(" term ")" "(" term ")"
+syntax "defFn " ("implicit ")? ("@[" ident,+ "]")?
+    ident "(" term ")" "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")?
     ("requires " fnPrecond,+)?
     ("ensures " fnPrecond,+)?
@@ -322,8 +323,18 @@ syntax "defFn " ("implicit ")? ident "(" term ")" "(" term ")"
     the LaTeX presentation entirely: the algorithm block is
     suppressed and call sites render as their argument alone.
     `implicit` is only accepted when the function takes
-    exactly one explicit parameter. -/
-syntax "defFn " ("implicit ")? ident "(" term ")" "(" term ")"
+    exactly one explicit parameter.
+
+    An optional `@[attr₁, attr₂, …]` clause between `defFn`
+    (or `defFn implicit`) and the function name attaches those
+    attributes to the generated Lean definition — typically
+    `@[simp]` to make the function unfold inside `simp`
+    rewrites. The DSL just prepends `@[attr₁, attr₂, …]`
+    verbatim to the rendered `def` line; it does not validate
+    or restrict the attribute names, so any attribute Lean
+    accepts on a `def` is fair game. -/
+syntax "defFn " ("implicit ")? ("@[" ident,+ "]")?
+    ident "(" term ")" "(" term ")"
     fnParam* ("displayed " "(" displayPart,+ ")")?
     ("requires " fnPrecond,+)?
     ("ensures " fnPrecond,+)?
@@ -940,13 +951,20 @@ private def precondProof : Precondition → String
 
 open Lean Elab Command Term in
 elab_rules : command
-  | `(defFn $[implicit%$impl?]? $name:ident ($symDoc:term) ($doc:term)
+  | `(defFn $[implicit%$impl?]? $[@[ $attrs?:ident,* ]]?
+       $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
        $[requires $reqs:fnPrecond,*]?
        $[ensures $ens:fnPrecond,*]?
        : $retTy:term where
        $arms:fnArm*) => do
     let isImplicit := impl?.isSome
+    let attrPrefix := match attrs? with
+      | some xs =>
+        let names := xs.getElems.toList.map
+          (fun (a : Lean.TSyntax `ident) => toString a.getId)
+        s!"@[{", ".intercalate names}]\n"
+      | none => ""
     DslLint.lintDocTerm doc
     identRefBuffer.set #[]
     -- Reset the proof-syntax buffer so this `defFn`'s
@@ -1026,7 +1044,7 @@ elab_rules : command
     let defStr ←
       if preconds.isEmpty && postconds.isEmpty then
         let tyStr ← buildFnType paramData retTy
-        pure s!"{defKw} {name.getId} : {tyStr}\n\
+        pure s!"{attrPrefix}{defKw} {name.getId} : {tyStr}\n\
           {"\n".intercalate armStrs}"
       else do
         let paramBinds := " ".intercalate
@@ -1043,7 +1061,7 @@ elab_rules : command
         let retRepr := wrapRetType
           (normaliseLeanType retRaw) postconds
         let matchArgs := ", ".intercalate paramNames
-        pure s!"{defKw} {name.getId} \
+        pure s!"{attrPrefix}{defKw} {name.getId} \
           {paramBinds} {precBinds} : {retRepr} :=\n\
           match {matchArgs} with\n\
           {"\n".intercalate armStrs}"
@@ -1091,12 +1109,19 @@ elab_rules : command
 
 open Lean Elab Command in
 elab_rules : command
-  | `(defFn $[implicit%$impl?]? $name:ident ($symDoc:term) ($doc:term)
+  | `(defFn $[implicit%$impl?]? $[@[ $attrs?:ident,* ]]?
+       $name:ident ($symDoc:term) ($doc:term)
        $ps:fnParam* $[displayed ( $dps:displayPart,* )]?
        $[requires $reqs:fnPrecond,*]?
        $[ensures $ens:fnPrecond,*]?
        : $retTy:term := $rhs:fnExpr) => do
     let isImplicit := impl?.isSome
+    let attrPrefix := match attrs? with
+      | some xs =>
+        let names := xs.getElems.toList.map
+          (fun (a : Lean.TSyntax `ident) => toString a.getId)
+        s!"@[{", ".intercalate names}]\n"
+      | none => ""
     DslLint.lintDocTerm doc
     identRefBuffer.set #[]
     proofSyntaxBuffer.set #[]
@@ -1141,7 +1166,7 @@ elab_rules : command
     let retRepr := wrapRetType
       (normaliseLeanType retRaw) postconds
     let defStr :=
-      s!"def {name.getId} {paramBinds} \
+      s!"{attrPrefix}def {name.getId} {paramBinds} \
          {precBinds} : {retRepr} :=\n  {rhsStr}"
     let env ← getEnv
     match Parser.runParserCategory env `command
