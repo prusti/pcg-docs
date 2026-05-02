@@ -689,10 +689,22 @@ partial def toDoc
             -- returns `none` for non-inductive-property
             -- callees, so regular fn / property displays
             -- pass through unchanged.
+            --
+            -- Skip the wrap when an inner hyperlink is
+            -- already present (e.g. a `#initialMachine`
+            -- substituted into the `m` slot): nested PDF
+            -- link annotations cause readers to honour the
+            -- outer annotation, so wrapping would steal
+            -- clicks from the more-specific inner link.
+            -- Letting the smaller-span link win matches
+            -- typical reader expectation for nested refs.
             match ctx.inductivePropertyAnchor short with
             | some anchor =>
-              some (.doc
-                (.link (.math rendered) s!"#{anchor}"))
+              if rendered.containsLink then
+                some rendered
+              else
+                some (.doc
+                  (.link (.math rendered) s!"#{anchor}"))
             | none => some rendered
           else none
         | none => none

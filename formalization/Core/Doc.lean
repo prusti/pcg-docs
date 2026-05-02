@@ -282,6 +282,33 @@ partial def containsAutoSize : MathDoc → Bool
   | .break_ => true
   | .indent _ body => body.containsAutoSize
 
+/-- Whether a math doc contains a `Doc.link` anywhere within
+    its sub-tree. Used at hyperlink-wrapping sites (e.g. the
+    inductive-property `displayed` template in
+    `DslExpr.toDoc`) to avoid emitting a `\hyperlink{...}{...}`
+    whose body already contains another `\hyperlink` —
+    nested PDF link annotations cause readers to honour the
+    *outer* annotation, swallowing clicks on the inner one.
+    Skipping the outer wrap when an inner link is present
+    leaves the more-specific link clickable. -/
+partial def containsLink : MathDoc → Bool
+  | .doc d =>
+    let rec docHasLink : Doc → Bool
+      | .link _ _ => true
+      | .seq ds => ds.any docHasLink
+      | .bold d | .italic d => docHasLink d
+      | .underline _ d => docHasLink d
+      | .itemize ds => ds.any docHasLink
+      | .math m => m.containsLink
+      | .plain _ | .code _ | .line | .raw .. => false
+    docHasLink d
+  | .seq ds => ds.any containsLink
+  | .bb d | .bold d | .italic d | .cal d
+  | .widetilde d | .hat d => d.containsLink
+  | .sub b s => b.containsLink || s.containsLink
+  | .indent _ body => body.containsLink
+  | .raw _ | .sym _ | .space | .break_ => false
+
 /-- Wrap a math doc in parentheses. Switches to LaTeX
     `\left(`/`\right)` when the content contains a
     multi-line construct so the parens grow to match. -/
