@@ -5,6 +5,8 @@ import Core.Dsl.DefAlias
 import Core.Dsl.DefStruct
 import Core.Dsl.IdentRefs
 import OpSem.Program
+import OpSem.StackFrame
+import PCG.Owned.OwnedState
 import Lean
 
 open Core.Dsl.IdentRefs
@@ -221,19 +223,33 @@ end Wrap
 
 -- Field-projection gotoDef relies on `resolveStructField`:
 -- given a field name like `"functions"`, it consults the
--- `defStruct` registry and returns the qualified Lean name
--- `Program.functions` so the parser can attach a `TermInfo`
--- leaf at the user's `program↦functions` token.
+-- `defStruct` registry and returns the qualified Lean
+-- name(s) of every struct that exposes that field, so the
+-- parser can attach `TermInfo` leaves at the user's
+-- `program↦functions` token. For names claimed by exactly
+-- one struct (`functions` here), the list is a singleton;
+-- ambiguous field names like `locals` (claimed by both
+-- `OwnedState` and `StackFrame`) yield multiple candidates,
+-- which the LSP merges into a multi-target gotoDef list.
 run_cmd do
   let resolved ← resolveStructField "functions"
-  match resolved with
-  | none =>
-    throwError "resolveStructField returned none for \
-      `functions`; expected `Program.functions`"
-  | some n =>
-    let expected : Lean.Name := `Program ++ `functions
-    unless n == expected do
-      throwError s!"resolveStructField resolved to {n}, \
-        expected {expected}"
+  let expected : Lean.Name := `Program ++ `functions
+  unless resolved == [expected] do
+    throwError s!"resolveStructField resolved to {resolved}, \
+      expected [{expected}]"
+
+-- Smoke-test the ambiguous case: `locals` is claimed by at
+-- least two registered structs (`OwnedState` and
+-- `StackFrame`); the resolver should return both qualified
+-- names rather than dropping the lookup.
+run_cmd do
+  let resolved ← resolveStructField "locals"
+  let ownedStateLocals : Lean.Name := `OwnedState ++ `locals
+  let stackFrameLocals : Lean.Name := `StackFrame ++ `locals
+  unless resolved.contains ownedStateLocals
+      ∧ resolved.contains stackFrameLocals do
+    throwError s!"resolveStructField on `locals` returned \
+      {resolved}; expected both {ownedStateLocals} and \
+      {stackFrameLocals} in the list"
 
 end Tests.DslGotoDef

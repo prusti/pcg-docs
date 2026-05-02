@@ -65,32 +65,29 @@ def recordIdentRef (stx : Lean.Syntax)
   identRefBuffer.modify (·.push (stx, name))
 
 /-- Look up a `defStruct` field name in the global struct
-    registry and, when exactly one registered struct exposes a
-    field of that name, return the qualified Lean constant
-    name (e.g. `"functions" → some `Program.functions`).
+    registry and return the qualified Lean constant name
+    (e.g. `"functions" → [`Program.functions]`) for every
+    registered struct that exposes that field.
 
     Used by the `↦` parser rule to record gotoDef targets for
     field accesses like `program↦functions`: the synthesised
     Lean rendering `program.functions` carries no user-source
     position, so we attach a `TermInfo` leaf at the user's
-    `functions` token pointing at `Program.functions` instead.
-
-    Returns `none` if no struct or more than one struct claims
-    the name — ambiguous lookups would resolve to the wrong
-    declaration, so we conservatively skip them. -/
+    `functions` token pointing at every matching field
+    constant. The LSP merges multiple `TermInfo` leaves at
+    the same source position into a single multi-target
+    gotoDef list, so a field name claimed by more than one
+    struct (e.g. `locals` on both `OwnedState` and
+    `StackFrame`) still navigates to candidate definitions
+    rather than dead-ending at the parser. -/
 def resolveStructField (fieldName : String) :
-    IO (Option Lean.Name) := do
+    IO (List Lean.Name) := do
   let structs ← getRegisteredStructs
-  let owners := structs.filterMap fun s =>
+  pure <| structs.filterMap fun s =>
     if s.structDef.fields.any (·.name == fieldName) then
-      some s.structDef.name
+      some <| (Lean.Name.mkSimple s.structDef.name).append
+        (Lean.Name.mkSimple fieldName)
     else none
-  match owners with
-  | [structName] =>
-    pure (some <|
-      (Lean.Name.mkSimple structName).append
-        (Lean.Name.mkSimple fieldName))
-  | _ => pure none
 
 /-- Walk a type-position `Syntax` tree and record every
     identifier inside it via `recordIdentRef`, so the LSP can

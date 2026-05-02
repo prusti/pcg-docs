@@ -374,15 +374,13 @@ partial def parseExpr
     pure (.mkStruct (toString n.getId) as_.toList)
   | `(fnExpr| $e:fnExpr ↦ $f:ident) => do
     let recv ← parseExpr e
-    if let some qualified ←
-        resolveStructField (toString f.getId) then
+    for qualified in (← resolveStructField (toString f.getId)) do
       recordIdentRef f qualified
     pure (.field recv (toString f.getId))
   | `(fnExpr| $r:fnExpr [ $f:ident => $v:fnExpr ]) => do
     let recv ← parseExpr r
     let val ← parseExpr v
-    if let some qualified ←
-        resolveStructField (toString f.getId) then
+    for qualified in (← resolveStructField (toString f.getId)) do
       recordIdentRef f qualified
     pure (.structUpdate recv
       (toString f.getId) val)
