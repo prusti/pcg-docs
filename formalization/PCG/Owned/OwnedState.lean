@@ -47,9 +47,11 @@ defFn meet (.plain "meet")
   (doc! "Meet two owned states by pairwise meeting their owned locals.")
   (os1 "The first owned state." : OwnedState)
   (os2 "The second owned state." : OwnedState)
+  requires os1↦locals·length = os2↦locals·length
   : OwnedState :=
     OwnedState⟨ownedLocalsMeet
-      ‹os1↦locals, os2↦locals, lean_proof("sorry")›⟩
+      ‹os1↦locals, os2↦locals,
+       lean_proof("h_pre0")›⟩
 
 defFn initial (.plain "initial")
   (doc! "The initial owned state at the entry of a MIR body. \

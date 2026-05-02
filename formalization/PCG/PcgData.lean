@@ -197,10 +197,14 @@ defFn join (.plain "join")
   (pd2 "The second PCG data." : PcgData Place)
   (bb "The basic block of the joined program point."
       : BasicBlockIdx)
+  requires pd1↦ownedState↦locals·length
+             = pd2↦ownedState↦locals·length
   : PcgData Place :=
     PcgData⟨
       BorrowsGraph.join ‹pd1↦bg, pd2↦bg›,
-      OwnedState.meet ‹pd1↦ownedState, pd2↦ownedState›,
+      OwnedState.meet
+        ‹pd1↦ownedState, pd2↦ownedState,
+         lean_proof("h_pre0")›,
       bb,
       None⟩
 
