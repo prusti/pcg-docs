@@ -277,11 +277,17 @@ declare_syntax_cat fnPrecond
 -- a parameter name in scope. Tried first because the more
 -- specific syntax is unambiguous.
 syntax ident "(" ident,+ ")" : fnPrecond
+-- Property-call form with a `using [lemma, …]` clause: extra
+-- simp lemma names spliced into the auto-discharge tactic
+-- the Lean backend emits at recursive call sites.
+syntax ident "(" ident,+ ")" "using" "[" ident,+ "]" : fnPrecond
 -- General-expression form: any DSL expression that evaluates
 -- to `Prop` or `Bool`. Allows preconditions like
 -- `requires xs·length = ys·length` that are not a single
 -- property call.
 syntax fnExpr : fnPrecond
+-- General-expression form with a `using [lemma, …]` clause.
+syntax fnExpr "using" "[" ident,+ "]" : fnPrecond
 
 /-- Pattern-matching function.
 
@@ -699,6 +705,30 @@ def parsePrecond
   | `(fnPrecond| $n:ident ($args:ident,*)) =>
     pure (.named (toString n.getId)
       (args.getElems.toList.map (toString ·.getId)))
+  | `(fnPrecond| $n:ident ($args:ident,*)
+        using [ $lemmas:ident,* ]) =>
+    pure (.named (toString n.getId)
+      (args.getElems.toList.map (toString ·.getId))
+      (lemmas.getElems.toList.map (toString ·.getId)))
+  | `(fnPrecond| $e:fnExpr using [ $lemmas:ident,* ]) =>
+    let parsed ← parseExpr e
+    let lemmaNames :=
+      lemmas.getElems.toList.map (toString ·.getId)
+    -- Mirror the recovery the bare-`fnExpr` arm performs:
+    -- a property-call written as bracketless `Name args …`
+    -- still lowers to `.named` so the generated proof
+    -- binder stays `h_<Name>`.
+    match parsed with
+    | .call (.var name) args =>
+      let bareArgs := args.foldr
+        (fun arg acc => match arg, acc with
+          | .var n, some xs => some (n :: xs)
+          | _, _ => none)
+        (some [])
+      match bareArgs with
+      | some xs => pure (.named name xs lemmaNames)
+      | none => pure (.expr_ parsed lemmaNames)
+    | _ => pure (.expr_ parsed lemmaNames)
   | `(fnPrecond| $e:fnExpr) =>
     -- Bracketless property-call form `Name arg₁ arg₂ …`
     -- (introduced when the `‹›` brackets were dropped from
@@ -889,10 +919,10 @@ private def precondParamBinds
     : String :=
   " ".intercalate
     (preconds.zipIdx.map fun (pc, i) => match pc with
-      | .named n args =>
+      | .named n args _ =>
         let argStr := " ".intercalate args
         s!"(h_{n} : {n} {argStr})"
-      | .expr_ e =>
+      | .expr_ e _ =>
         s!"(h_pre{i} : {e.toLean})")
 
 /-- Render a postcondition as a Lean source-level expression,
@@ -934,16 +964,29 @@ private def wrapBody
   else s!"⟨{body}, by first | trivial | decide | sorry⟩"
 
 /-- Lean proof tactic for a self-recursive call's
-    precondition obligation. Tries `assumption` first
-    (covers the common case where the recursive call passes
-    the same argument as the enclosing function and so
-    inherits the named hypothesis verbatim), then falls back
-    to `simp_all [name]` for named preconditions or plain
-    `simp_all` for expression-form preconditions. -/
+    precondition obligation. Tries each `using [lemma, …]`
+    lemma via `apply` (after `assumption`) so forall-quantified
+    preservation lemmas — whose conclusion unifies with the
+    goal but whose premises need hypotheses outside the simp
+    set — succeed before falling back to `simp_all` with the
+    same lemmas spliced in. -/
 private def precondProof : Precondition → String
-  | .named n _ =>
-    s!"(by first | assumption | simp_all [{n}])"
-  | .expr_ _ => "(by first | assumption | simp_all)"
+  | .named n _ extras =>
+    let applyAlts :=
+      extras.map fun l => s!"apply {l}"
+    let simpAlt :=
+      let ls := String.intercalate ", " (n :: extras)
+      s!"simp_all [{ls}]"
+    let alts := "assumption" :: applyAlts ++ [simpAlt]
+    s!"(by first | {String.intercalate " | " alts})"
+  | .expr_ _ extras =>
+    let applyAlts :=
+      extras.map fun l => s!"apply {l}"
+    let simpAlt :=
+      if extras.isEmpty then "simp_all"
+      else s!"simp_all [{String.intercalate ", " extras}]"
+    let alts := "assumption" :: applyAlts ++ [simpAlt]
+    s!"(by first | {String.intercalate " | " alts})"
 
 -- ══════════════════════════════════════════════
 -- Pattern-matching form

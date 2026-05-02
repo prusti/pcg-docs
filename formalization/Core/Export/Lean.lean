@@ -363,11 +363,11 @@ end EnumDef
 private def precondBinders
     (preconds : List Precondition) : List LeanBinder :=
   preconds.zipIdx.map fun (pc, i) => match pc with
-    | .named n args =>
+    | .named n args _ =>
       let argStr := " ".intercalate args
       { name := s!"h_{n}"
         type := .const s!"{n} {argStr}" }
-    | .expr_ e =>
+    | .expr_ e _ =>
       { name := s!"h_pre{i}"
         type := .const e.toLean }
 
@@ -376,22 +376,45 @@ private def precondBinders
     or any other context where we need its propositional form
     (`prop a b` or the rendered DslExpr). -/
 private def precondLean : Precondition → String
-  | .named n args =>
+  | .named n args _ =>
     if args.isEmpty then n
     else s!"{n} {" ".intercalate args}"
-  | .expr_ e => e.toLean
+  | .expr_ e _ => e.toLean
 
 /-- The Lean proof-tactic string spliced as the proof argument
-    of a self-recursive call. Tries `assumption` first (so a
-    recursive call that passes the same argument as the
-    enclosing function inherits its named hypothesis directly
-    without forcing simp to unfold the property), and falls
-    back to `simp_all [name]` for named preconditions or plain
-    `simp_all` for expression-form preconditions. -/
+    of a self-recursive call. The strategies tried, in order:
+
+    1. `assumption` — covers the common case where the
+       recursive call passes the same argument as the
+       enclosing function, so the named hypothesis matches
+       the goal verbatim.
+    2. `apply <lemma>` for each lemma in the precondition's
+       `using [lemma, …]` clause — handles forall-quantified
+       preservation lemmas whose conclusion unifies with the
+       goal but whose premises require additional hypotheses
+       (e.g. `pushOne_preserves_lengths`).
+    3. `simp_all [name, extras…]` for named preconditions or
+       `simp_all [extras…]` (or plain `simp_all` when there
+       are none) for expression-form preconditions. Extras
+       are also added to the simp set so iff/eq-shaped
+       preservation lemmas can be picked up. -/
 private def precondProof : Precondition → String
-  | .named n _ =>
-    s!"(by first | assumption | simp_all [{n}])"
-  | .expr_ _ => "(by first | assumption | simp_all)"
+  | .named n _ extras =>
+    let applyAlts :=
+      extras.map fun l => s!"apply {l}"
+    let simpAlt :=
+      let ls := String.intercalate ", " (n :: extras)
+      s!"simp_all [{ls}]"
+    let alts := "assumption" :: applyAlts ++ [simpAlt]
+    s!"(by first | {String.intercalate " | " alts})"
+  | .expr_ _ extras =>
+    let applyAlts :=
+      extras.map fun l => s!"apply {l}"
+    let simpAlt :=
+      if extras.isEmpty then "simp_all"
+      else s!"simp_all [{String.intercalate ", " extras}]"
+    let alts := "assumption" :: applyAlts ++ [simpAlt]
+    s!"(by first | {String.intercalate " | " alts})"
 
 /-- Render a postcondition as a Lean source-level expression
     used inside the subtype return wrapper. -/
@@ -853,8 +876,8 @@ def referencedNames (f : FnDef) : List String :=
   f.body.calledNames
 where
   precondCalledNames : Precondition → List String
-    | .named n _ => [n]
-    | .expr_ e => e.calledNames
+    | .named n _ _ => [n]
+    | .expr_ e _ => e.calledNames
   postcondCalledNames : Postcondition → List String
     | .named n _ => [n]
     | .expr_ e => e.calledNames

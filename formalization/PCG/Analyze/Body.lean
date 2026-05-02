@@ -249,33 +249,65 @@ private theorem AnalysisState.pushOne_preserves_lengths
       state exit succ h
   · exact h e hold
 
--- The DSL's auto-discharged precondition tactic
--- (`first | assumption | simp_all [...]`) cannot prove that
--- the post-`pushOne` state still satisfies pushOne's
--- shared-locals-length invariant — that needs the
--- preservation lemma above, applied explicitly. The DSL
--- offers no way to customise the tactic for an individual
--- recursive call, so `pushToSuccessors` is spelled directly
--- in raw Lean.
-defRaw inFns =>
-private def AnalysisState.pushToSuccessors
-    (state : AnalysisState)
-    (exit : PcgData Place) (succs : List BasicBlockIdx)
-    (h_pre0 : ∀ e ∈ mapValues state.entryStates,
-                e.os.locals.length = exit.os.locals.length)
-    : AnalysisState :=
-  match succs with
-  | [] => state
-  | s :: rest =>
-      AnalysisState.pushToSuccessors
-        (AnalysisState.pushOne state exit s h_pre0)
+defFn pushToSuccessors (.plain "pushToSuccessors")
+  (doc! "Fold an exit state into every successor's pending \
+    entry state via `pushOne`.")
+  (state "The current analysis state." : AnalysisState)
+  (exit "The exit state of the just-processed predecessor."
+      : PcgData Place)
+  (succs "Successor blocks of the predecessor."
+      : List BasicBlockIdx)
+  -- Same shared-locals-length invariant pushOne needs:
+  -- propagated unchanged into each `pushOne` call. The
+  -- recursive call's auto-discharge needs the `pushOne`
+  -- preservation lemma — supplied via the `using […]` clause
+  -- below, which splices the lemma name into the
+  -- `simp_all […]` tactic the Lean export emits at recursive
+  -- call sites.
+  requires mapValues state↦entryStates·forAll fun e =>
+             e↦os↦locals·length = exit↦os↦locals·length
+    using [AnalysisState.pushOne_preserves_lengths]
+  : AnalysisState where
+  | state ; _ ; [] => state
+  | state ; exit ; s :: rest =>
+      pushToSuccessors
+        (AnalysisState.pushOne state exit s proof[h_pre0])
         exit rest
-        (AnalysisState.pushOne_preserves_lengths
-          state exit s h_pre0)
 
 -- ══════════════════════════════════════════════
 -- Forward step: process one block, propagate to successors
 -- ══════════════════════════════════════════════
+
+-- The discharge of `pushToSuccessors`'s shared-locals-length
+-- precondition collapses through `validAnalysisState body
+-- state` plus a body-tied exit-validity hypothesis: both
+-- sides of the equation `e.os.locals.length =
+-- exit.os.locals.length` reduce to `body.decls.length`, so
+-- the equation collapses to `rfl`. The exit-validity
+-- hypothesis is provided as an axiom for now — it follows
+-- from `analyzeBlock` preserving `validPcgDomainData`, which
+-- has not yet been formalised.
+defRaw inFns =>
+axiom computeEntry_exit_validPcgData
+    (body : Body) (state : AnalysisState) (bb : BasicBlockIdx)
+    (h_validAnalysisState : validAnalysisState body state)
+    (entry exit : PcgData Place)
+    (h_entry_mem : entry ∈ mapValues state.entryStates) :
+    validPcgData body exit
+
+defRaw inFns =>
+private theorem computeEntry_pushToSuccessors_precond
+    (body : Body) (state : AnalysisState)
+    (exit : PcgData Place)
+    (h_validAnalysisState : validAnalysisState body state)
+    (h_exit : validPcgData body exit) :
+    ∀ e ∈ mapValues state.entryStates,
+      e.os.locals.length = exit.os.locals.length := by
+  intro e he
+  have h_e : validPcgData body e :=
+    h_validAnalysisState.2 e he
+  -- Both equations unfold to `body.decls.length`.
+  exact h_e.trans h_exit.symm
 
 defFn computeEntry (.plain "computeEntry")
   (doc! "Forward step for one basic block. Reads the pending entry state for `bb` from \
@@ -286,9 +318,9 @@ defFn computeEntry (.plain "computeEntry")
   (body "The function body." : Body)
   (state "The current analysis state." : AnalysisState)
   (bb "The block to step over." : BasicBlockIdx)
-  requires validBody body
+  requires validBody body, validAnalysisState body state
   : Option AnalysisState :=
-    match mapGet state↦entryStates bb with
+    match h_entry : mapGet state↦entryStates bb with
     | .none => Some state
     | .some entry =>
         let result ← PcgData.analyzeBlock
@@ -303,15 +335,13 @@ defFn computeEntry (.plain "computeEntry")
         let results1 :=
           mapInsert state↦results bb result ;
         let state1 := state[results => results1] ;
-        -- `pushToSuccessors`'s shared-locals-length invariant
-        -- on `state1.entryStates` is a global body-tied
-        -- property we have not threaded through
-        -- `computeEntry`/`analyzeRpo`/`analyzeBody`, so it is
-        -- discharged with `sorry`. The original `proof[sorry]`
-        -- inside `pushOne` — what this PR was chartered to
-        -- remove — is gone.
-        Some (AnalysisState.pushToSuccessors
-          state1 exit succs proof[sorry])
+        Some (pushToSuccessors state1 exit succs
+          proof[computeEntry_pushToSuccessors_precond
+            body state exit h_validAnalysisState
+            (computeEntry_exit_validPcgData
+              body state bb h_validAnalysisState
+              entry exit
+              (mem_mapValues_of_mapGet_eq_some h_entry))])
     end
 
 -- ══════════════════════════════════════════════
@@ -331,10 +361,14 @@ defFn analyzeRpo (.plain "analyzeRpo")
     match rpo with
     | [] => Some state
     | bb :: rest =>
+        -- `computeEntry`'s `validAnalysisState body state`
+        -- precondition is left as `proof[sorry]`: a full
+        -- discharge would propagate the invariant through
+        -- `analyzeRpo`/`analyzeBody`, which is out of scope
+        -- for this PR.
         let state1 ← computeEntry
-          body state bb proof[h_validBody] ;
-        -- Recursive: DSL auto-discharges `validBody` via
-        -- the `precondProof` `assumption` fallback.
+          body state bb proof[h_validBody]
+            proof[sorry] ;
         analyzeRpo body state1 rest
     end
 

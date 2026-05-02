@@ -28,14 +28,24 @@ inductive FnBody where
     The named form preserves enough information for the Lean
     backend to insert `simp_all [name]` proof obligations at
     recursive call sites; the expression form falls back to
-    `simp_all` (no specific lemma) for proof discharge. -/
+    `simp_all` (no specific lemma) for proof discharge. Both
+    forms accept an optional `using [lemma, …]` clause that
+    adds extra simp lemmas to the auto-discharge tactic — used
+    when the recursive call's precondition needs a specific
+    preservation lemma the default tactic can't find on its
+    own. -/
 inductive Precondition where
   /-- Property-call form: `name(arg₁, …, argₙ)` where each
-      argument is a parameter name in scope. -/
+      argument is a parameter name in scope. `extraLemmas`
+      lists extra simp lemma names to splice into the
+      `simp_all [name, …]` auto-tactic. -/
   | named (name : String) (args : List String)
+      (extraLemmas : List String := [])
   /-- General-expression form: any DSL boolean / Prop
-      expression in scope. -/
-  | expr_ (e : DslExpr)
+      expression in scope. `extraLemmas` lists extra simp
+      lemma names to splice into the `simp_all […]`
+      auto-tactic. -/
+  | expr_ (e : DslExpr) (extraLemmas : List String := [])
   deriving Repr, Inhabited, Lean.Quote
 
 /-- A postcondition for a `defFn`. Same shape as `Precondition`:
@@ -55,8 +65,8 @@ namespace Precondition
     tracking and `simp_all` lemma selection at recursive call
     sites. -/
 def calledName? : Precondition → Option String
-  | .named n _ => some n
-  | .expr_ _ => none
+  | .named n .. => some n
+  | .expr_ .. => none
 
 end Precondition
 
@@ -73,10 +83,13 @@ namespace Precondition
 /-- Reinterpret a parsed precondition as a postcondition.
     Both inductive types have the same shape; this is just
     the identity on the constructors so the same parser can
-    populate either field of a `FnDef`. -/
+    populate either field of a `FnDef`. The `extraLemmas`
+    list — used only at recursive-call auto-discharge in the
+    Lean export — is dropped, since postconditions don't
+    have a "recursive call site" to discharge. -/
 def toPostcondition : Precondition → Postcondition
-  | .named n args => .named n args
-  | .expr_ e => .expr_ e
+  | .named n args _ => .named n args
+  | .expr_ e _ => .expr_ e
 
 end Precondition
 
@@ -474,7 +487,7 @@ def formalDefLatex
     (DslExpr.toDoc f.name ctx noDisp isProperty e).toLatexMath
   let precondLines : List Latex :=
     f.preconditions.map fun pc => match pc with
-      | .named name args =>
+      | .named name args _ =>
         let argDocs : List Doc :=
           args.map (fun a => Doc.plain a)
         match ctx.precondShortUsage name argDocs with
@@ -485,7 +498,7 @@ def formalDefLatex
           .seq [ .raw "    "
                , Latex.require_ (.inlineMath
                    (appliedPropMath name args)) ]
-      | .expr_ e =>
+      | .expr_ e _ =>
         .seq [ .raw "    "
              , Latex.require_ (.inlineMath (exprMath e)) ]
   let postcondLines : List Latex :=
