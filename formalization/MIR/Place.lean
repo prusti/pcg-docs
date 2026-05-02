@@ -43,6 +43,23 @@ defStruct VariantIdx (.raw "V",
 where
   | index "The variant index." : Nat
 
+-- Same `decide`-vs-structural workaround as `Local`, applied to
+-- `FieldIdx` and `VariantIdx`: `LawfulBEq ProjElem` (and hence
+-- `LawfulBEq Place`) needs structural `BEq` on every field type.
+defRaw after =>
+deriving instance BEq for FieldIdx
+defRaw after =>
+deriving instance ReflBEq for FieldIdx
+defRaw after =>
+deriving instance LawfulBEq for FieldIdx
+
+defRaw after =>
+deriving instance BEq for VariantIdx
+defRaw after =>
+deriving instance ReflBEq for VariantIdx
+defRaw after =>
+deriving instance LawfulBEq for VariantIdx
+
 defEnum ProjElem (.raw "π", .raw "Π")
   "Projection Elements"
   (doc! "A projection element applied to a place. See `definitions/places.md`.")
@@ -61,6 +78,11 @@ where
     (mathdoc! "@{variant}")
   deriving Repr, BEq, Hashable
 
+-- `ProjElem` is *not* a nested inductive — it only refers to
+-- already-lawful types (`FieldIdx`, `Ty`, `Local`, `VariantIdx`)
+-- — so the standard `LawfulBEq` derive succeeds.
+deriving instance ReflBEq, LawfulBEq for ProjElem
+
 defStruct Place (.raw "p", .raw "P")
   "Places"
   (doc! "A place in the MIR: a local with a projection. See `definitions/places.md`.")
@@ -69,5 +91,10 @@ where
   | projection "The list of projection elements."
       : List ProjElem
   deriving Repr, BEq, Hashable
+
+-- `LawfulBEq (List ProjElem)` is provided by stdlib whenever
+-- `LawfulBEq ProjElem` is in scope; combined with `LawfulBEq
+-- Local`, that gives `LawfulBEq Place`.
+deriving instance ReflBEq, LawfulBEq for Place
 
 defAlias RETURN = Place⟨Local⟨0⟩, []⟩

@@ -582,41 +582,12 @@ to `⟨⟨0⟩, []⟩` — contradicting the `p ≠ p'` antecedent of
 /-! ## Helpers for `places_initialPcg_root` -/
 
 -- `Std.HashSet.mem_union_iff` / `mem_insert` and related
--- decomposition lemmas need `EquivBEq` and `LawfulHashable`
--- on the element type. `Place`'s structural `BEq`/`Hashable`
--- derives are sound, but Lean's `deriving instance LawfulBEq`
--- doesn't reach through the nested-inductive `Ty` field used
--- inside `ProjElem.field`. We discharge what we can structurally
--- — the `Local` half of `eq_of_beq`/`rfl`, and the full
--- `LawfulHashable Place` (which only uses `LawfulBEq.eq_of_beq`
--- to collapse the two arguments) — and leave the remaining
--- `List ProjElem` reflection as `sorry`. The
--- `places_initialPcg_root` proof itself is sorry-free and
--- depends on these instances only as black boxes; the
--- `field`-projection arm is in fact unreachable for
--- `places (PcgData.init body)` (the initial PCG only places
--- `.leaf` trees, which expose no `.field` projections).
-instance : LawfulBEq Place where
-  eq_of_beq {a b} h := by
-    cases a with | mk la pa =>
-    cases b with | mk lb pb =>
-    simp [BEq.beq, instBEqPlace.beq] at h
-    obtain ⟨h_loc, _⟩ := h
-    have hl : la = lb := LawfulBEq.eq_of_beq h_loc
-    -- `pa.beq pb = true → pa = pb` requires `LawfulBEq (List
-    -- ProjElem)`, blocked by the opaque `instBEqTy.beq` in
-    -- `ProjElem.field`.
-    have hp : pa = pb := sorry
-    subst hl; subst hp; rfl
-  rfl {a} := by
-    cases a with | mk la pa =>
-    simp [BEq.beq, instBEqPlace.beq]
-    refine ⟨?_, ?_⟩
-    · exact ReflBEq.rfl
-    · -- `pa.beq pa = true` requires `ReflBEq (List ProjElem)`,
-      -- blocked by the same opaque-`Ty`-BEq issue as above.
-      sorry
-
+-- decomposition lemmas need `EquivBEq` and `LawfulHashable` on
+-- the element type. `LawfulBEq Place` is now provided in
+-- `MIR/Place.lean` (after `MIR/Ty.lean` swaps in a non-`partial`
+-- structural `BEq Ty` so the lawfulness derive can reach
+-- through `ProjElem.field`); `LawfulHashable Place` follows
+-- from it via the standard `f a = f a` → `rfl` argument.
 instance : LawfulHashable Place where
   hash_eq {a b} h := by
     have heq : a = b := LawfulBEq.eq_of_beq h

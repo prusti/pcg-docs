@@ -80,7 +80,7 @@ where
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
     (mathdoc! "[{elem}; n]")
-  deriving Repr, BEq, Hashable
+  deriving Repr, Hashable
 
 -- `bool` rather than `.param 0` because the operational
 -- semantics' size lookup (`Ty.sizeOf`) requires `IsSized`,
@@ -90,6 +90,118 @@ where
 -- trivially in proofs that come from `validBody`.
 instance : Inhabited Ty where
   default := .bool
+
+-- `Std.HashMap` / `Std.HashSet` membership simp lemmas need
+-- `EquivBEq` and `LawfulHashable` on the key type, which both
+-- follow from `LawfulBEq`. The DSL's default `deriving
+-- DecidableEq` produces a `decide`-based `BEq` whose unfolding
+-- defeats the `LawfulBEq` derive (same workaround as
+-- `Local` / `BasicBlockIdx` elsewhere); install a structural
+-- `BEq` first, then `ReflBEq` / `LawfulBEq`.
+deriving instance BEq, ReflBEq, LawfulBEq for RegionVid
+deriving instance BEq, ReflBEq, LawfulBEq for EarlyBoundRegion
+deriving instance BEq, ReflBEq, LawfulBEq for Region
+deriving instance BEq, ReflBEq, LawfulBEq for TyCtorName
+deriving instance BEq, ReflBEq, LawfulBEq for AliasTyName
+deriving instance BEq, ReflBEq, LawfulBEq for Size
+deriving instance BEq, ReflBEq, LawfulBEq for IntType
+deriving instance BEq, ReflBEq, LawfulBEq for Mutability
+
+-- Structural `BEq` for `Ty`, defined mutually with the `List Ty`
+-- case so the recursion is non-`partial`. The `deriving BEq`
+-- handler emits a `partial def` for nested inductives, which
+-- blocks any `LawfulBEq` proof; this version is unfoldable
+-- and lets `LawfulBEq Ty` go through.
+mutual
+def Ty.beq : Ty → Ty → Bool
+  | .bool, .bool => true
+  | .int it₁, .int it₂ => it₁ == it₂
+  | .param i₁, .param i₂ => i₁ == i₂
+  | .alias b₁ n₁ a₁, .alias b₂ n₂ a₂ =>
+      Ty.beq b₁ b₂ && n₁ == n₂ && Ty.beqList a₁ a₂
+  | .ctor n₁ a₁, .ctor n₂ a₂ =>
+      n₁ == n₂ && Ty.beqList a₁ a₂
+  | .ref r₁ m₁ p₁, .ref r₂ m₂ p₂ =>
+      r₁ == r₂ && m₁ == m₂ && Ty.beq p₁ p₂
+  | .box i₁, .box i₂ => Ty.beq i₁ i₂
+  | .array e₁ n₁, .array e₂ n₂ => Ty.beq e₁ e₂ && n₁ == n₂
+  | _, _ => false
+
+def Ty.beqList : List Ty → List Ty → Bool
+  | [], [] => true
+  | x :: xs, y :: ys => Ty.beq x y && Ty.beqList xs ys
+  | _, _ => false
+end
+
+instance : BEq Ty := ⟨Ty.beq⟩
+
+mutual
+private theorem Ty.beq_self : ∀ (t : Ty), Ty.beq t t = true
+  | .bool => rfl
+  | .int _ => by simp [Ty.beq]
+  | .param _ => by simp [Ty.beq]
+  | .alias b _ args => by
+      simp [Ty.beq, Ty.beq_self b, Ty.beqList_self args]
+  | .ctor _ args => by
+      simp [Ty.beq, Ty.beqList_self args]
+  | .ref _ _ p => by
+      simp [Ty.beq, Ty.beq_self p]
+  | .box i => by
+      simp [Ty.beq, Ty.beq_self i]
+  | .array e _ => by
+      simp [Ty.beq, Ty.beq_self e]
+
+private theorem Ty.beqList_self : ∀ (ts : List Ty), Ty.beqList ts ts = true
+  | [] => rfl
+  | x :: xs => by
+      simp [Ty.beqList, Ty.beq_self x, Ty.beqList_self xs]
+end
+
+mutual
+private theorem Ty.eq_of_beq : ∀ {a b : Ty}, Ty.beq a b = true → a = b
+  | .bool, .bool, _ => rfl
+  | .int _, .int _, h => by
+      simp [Ty.beq] at h
+      exact congrArg _ h
+  | .param _, .param _, h => by
+      simp [Ty.beq] at h
+      exact congrArg _ h
+  | .alias _ _ _, .alias _ _ _, h => by
+      simp [Ty.beq] at h
+      obtain ⟨⟨hbb, hn⟩, ha⟩ := h
+      have hb := Ty.eq_of_beq hbb
+      have hl := Ty.eq_of_beqList ha
+      subst hb; subst hn; subst hl; rfl
+  | .ctor _ _, .ctor _ _, h => by
+      simp [Ty.beq] at h
+      obtain ⟨hn, ha⟩ := h
+      have hl := Ty.eq_of_beqList ha
+      subst hn; subst hl; rfl
+  | .ref _ _ _, .ref _ _ _, h => by
+      simp [Ty.beq] at h
+      obtain ⟨⟨hr, hm⟩, hpb⟩ := h
+      have hp := Ty.eq_of_beq hpb
+      subst hr; subst hm; subst hp; rfl
+  | .box _, .box _, h => by
+      simp [Ty.beq] at h
+      exact congrArg _ (Ty.eq_of_beq h)
+  | .array _ _, .array _ _, h => by
+      simp [Ty.beq] at h
+      obtain ⟨heb, hn⟩ := h
+      have he := Ty.eq_of_beq heb
+      subst he; subst hn; rfl
+
+private theorem Ty.eq_of_beqList : ∀ {a b : List Ty}, Ty.beqList a b = true → a = b
+  | [], [], _ => rfl
+  | _ :: _, _ :: _, h => by
+      simp [Ty.beqList] at h
+      have hx := Ty.eq_of_beq h.1
+      have hxs := Ty.eq_of_beqList h.2
+      subst hx; subst hxs; rfl
+end
+
+instance : ReflBEq Ty where rfl := Ty.beq_self _
+instance : LawfulBEq Ty where eq_of_beq := Ty.eq_of_beq
 
 defEnum IntValue (.raw "iv", .cal (.raw "IV"))
   "Integer Values"
