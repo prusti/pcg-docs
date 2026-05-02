@@ -9,8 +9,7 @@ defAlias AnalysisResults
   "Per-body Analysis Results"
   (.seq [
     .plain "Analysis results ",
-    Doc.defMath (.text "ar")
-      (.text "AnalysisResults"),
+    .math (.seq [.text "ar", .sym .setContains, .text "AnalysisResults"]),
     .plain " bundle the per-block ", Doc.refLinkOf @PcgDomainData "PcgDomainData",
     .plain " lists produced by a single sweep of ",
     .code "PcgData.analyzeBody",
@@ -40,8 +39,7 @@ defAlias ProgAnalysisResults
   "Whole-program Analysis Results"
   (.seq [
     .plain "Program analysis results ",
-    Doc.defMath (.text "par")
-      (.text "ProgAnalysisResults"),
+    .math (.seq [.text "par", .sym .setContains, .text "ProgAnalysisResults"]),
     .plain " bundle the per-body ", Doc.refLinkOf @AnalysisResults "AnalysisResults",
     .plain " produced by running ", Doc.refLinkByName "analyzeBody",
     .plain " on every function in a program: one entry per \

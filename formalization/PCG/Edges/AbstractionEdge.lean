@@ -8,8 +8,7 @@ defEnum AbstractionEdge {P}
   "Abstraction Edges"
   (.seq [
     .plain "An abstraction edge ",
-    Doc.defMath (.text "a")
-      (.text "AbstractionEdge"),
+    .math (.seq [.text "a", .sym .setContains, .text "AbstractionEdge"]),
     .plain " represents the flow of borrows introduced due \
      to a function call or a loop. A function call \
      abstraction edge connects a source lifetime projection \

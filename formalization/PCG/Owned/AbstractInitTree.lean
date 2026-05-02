@@ -7,8 +7,7 @@ defEnum AbstractInitTree {D}
   "Abstract Initialisation Trees"
   (.seq [
     .plain "An abstract initialisation tree ",
-    Doc.defMath (.text "t")
-      (.text "AbstractInitTree") ["D"],
+    .math (.seq [.text "t", .sym .setContains, .text "AbstractInitTree", .sym .space, .raw "D"]),
     .plain " is either a leaf carrying a value drawn from the \
      parameter set ",
     .math (.text "D"),

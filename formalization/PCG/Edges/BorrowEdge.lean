@@ -10,8 +10,7 @@ defStruct BorrowEdge {P}
   "Borrow Edges"
   (.seq [
     .plain "A borrow edge ",
-    Doc.defMath (.text "be")
-      (.text "BorrowEdge") ["P"],
+    .math (.seq [.text "be", .sym .setContains, .text "BorrowEdge", .sym .space, .raw "P"]),
     .plain " records a borrow introduced by an ",
     .code "&",
     .plain "-expression: it connects the ",

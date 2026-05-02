@@ -7,8 +7,7 @@ defStruct PlaceTriple
   "Place Triples"
   (.seq [
     .plain "A place triple ",
-    Doc.defMath (.text "pt")
-      (.text "PlaceTriple"),
+    .math (.seq [.text "pt", .sym .setContains, .text "PlaceTriple"]),
     .plain " bundles a place with the capability required for \
      the place before a statement executes and the optional \
      capability established for the place after the statement \

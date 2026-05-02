@@ -14,8 +14,7 @@ defStruct PcgData {P}
   "PCG Data"
   (.seq [
     .plain "The PCG data ",
-    Doc.defMath (.text "pd")
-      (.text "PcgData") ["P"],
+    .math (.seq [.text "pd", .sym .setContains, .text "PcgData", .sym .space, .raw "P"]),
     .plain " bundles the per-program-point state tracked by \
      the PCG: the borrows graph, the owned state, the current \
      basic block, and an optional ", Doc.refLinkOf @TransientState "TransientState",

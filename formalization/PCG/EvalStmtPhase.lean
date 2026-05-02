@@ -4,7 +4,7 @@ defEnum EvalStmtPhase (.raw "\\varphi", .raw "EvalStmtPhase")
   "Evaluation Statement Phases"
   (.seq [
     .plain "An evaluation statement phase ",
-    Doc.defMath (.raw "\\varphi") (.raw "EvalStmtPhase"),
+    .math (.seq [.raw "\\varphi", .sym .setContains, .raw "EvalStmtPhase"]),
     .plain " identifies one of the four phases at which the \
      PCG state is observed during a MIR statement: before \
      and after the operands are evaluated, and before and \

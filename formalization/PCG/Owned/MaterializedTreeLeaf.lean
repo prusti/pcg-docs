@@ -7,8 +7,7 @@ defEnum MaterializedTreeLeaf
   "Materialised Tree Leaves"
   (.seq [
     .plain "A materialised tree leaf ",
-    Doc.defMath (.text "mtl")
-      (.text "MaterializedTreeLeaf"),
+    .math (.seq [.text "mtl", .sym .setContains, .text "MaterializedTreeLeaf"]),
     .plain " occupies one leaf slot in a ",
     .math (.text "MaterializedTree"),
     .plain ". It is either an uninitialised or shallowly \

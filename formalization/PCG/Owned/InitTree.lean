@@ -12,7 +12,7 @@ defAlias InitTree
      .text "InitTree")
   "Initialisation Trees"
   (doc! "An initialisation tree \
-    {Doc.defMath (.text "it") (.text "InitTree")} describes \
+    {.math (.seq [.text "it", .sym .setContains, .text "InitTree"])} describes \
     the initialisation state of an owned place: an abstract \
     initialisation tree whose leaves each carry an \
     initialisation state. By invariant, an internal node has \

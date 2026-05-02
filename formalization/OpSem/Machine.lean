@@ -12,7 +12,7 @@ defStruct Machine (.raw "\\mu", .text "Machine")
   "Machines"
   (.seq [
     .plain "A machine state ",
-    Doc.defMath (.raw "\\mu") (.text "Machine"),
+    .math (.seq [.raw "\\mu", .sym .setContains, .text "Machine"]),
     .plain " bundles the whole program being executed, the \
      single-threaded execution context, and the shared memory. \
      Per-call state — the function body, program counter, and \

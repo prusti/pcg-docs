@@ -8,8 +8,7 @@ defAlias LocalLifetimeProjection {P}
   "Local Lifetime Projections"
   (.seq [
     .plain "A local lifetime projection ",
-    Doc.defMath (.text "llp")
-      (.text "LocalLifetimeProjection") ["P"],
+    .math (.seq [.text "llp", .sym .setContains, .text "LocalLifetimeProjection", .sym .space, .raw "P"]),
     .plain " is a lifetime projection whose base is a \
      maybe-labelled place drawn from the parameter set ",
     .math (.text "P"),

@@ -7,8 +7,7 @@ defEnum PcgPlace {P}
   "PCG Places"
   (.seq [
     .plain "A PCG place ",
-    Doc.defMath (.hat (.raw "p"))
-      (.text "PcgPlace") ["P"],
+    .math (.seq [.hat (.raw "p"), .sym .setContains, .text "PcgPlace", .sym .space, .raw "P"]),
     .plain " is either a maybe-labelled place over the place \
      set ",
     .math (.text "P"),

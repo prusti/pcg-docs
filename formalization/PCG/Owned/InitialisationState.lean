@@ -4,7 +4,7 @@ import Core.Dsl.DefFn
 defEnum InitialisationState (.raw "i", .raw "I")
   "Initialisation States"
   (doc! "An initialisation state \
-    {Doc.defMath (.raw "i") (.raw "I")} describes whether an \
+    {.math (.seq [.raw "i", .sym .setContains, .raw "I"])} describes whether an \
     owned place is uninitialised ($__U__$), shallowly \
     initialised ($__S__$), or fully initialised ($__D__$) at \
     a particular program point. Each leaf node in the \

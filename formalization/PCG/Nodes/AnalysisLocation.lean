@@ -6,8 +6,7 @@ defStruct AnalysisLocation (.text "al",
   "Analysis Locations"
   (.seq [
     .plain "An analysis location ",
-    Doc.defMath (.text "al")
-      (.text "AnalysisLocation"),
+    .math (.seq [.text "al", .sym .setContains, .text "AnalysisLocation"]),
     .plain " identifies a program point at which the PCG \
      state is observed: a MIR location paired with the \
      evaluation phase of the statement at that location."])

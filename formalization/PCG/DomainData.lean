@@ -7,8 +7,7 @@ defStruct DomainData {T}
   "Domain Data"
   (.seq [
     .plain "A domain-data record ",
-    Doc.defMath (.text "dd")
-      (.text "DomainData") ["T"],
+    .math (.seq [.text "dd", .sym .setContains, .text "DomainData", .sym .space, .raw "T"]),
     .plain " bundles the per-program-point dataflow state of \
      a single basic block: the value on entry, plus an ",
     Doc.refLinkOf @EvalStmtData "EvalStmtData",

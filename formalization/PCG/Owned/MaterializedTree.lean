@@ -8,8 +8,7 @@ defAlias MaterializedTree
   "Materialised Trees"
   (.seq [
     .plain "A materialised tree ",
-    Doc.defMath (.text "mt")
-      (.text "MaterializedTree"),
+    .math (.seq [.text "mt", .sym .setContains, .text "MaterializedTree"]),
     .plain " is an abstract initialisation tree whose leaves \
      are materialised-tree leaves: either uninitialised, \
      shallowly initialised, or fully initialised together \

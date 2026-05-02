@@ -5,7 +5,7 @@ defEnum EdgeMutability (.raw "em", .raw "EdgeMutability")
   "Edge Mutabilities"
   (.seq [
     .plain "An edge mutability ",
-    Doc.defMath (.raw "em") (.raw "EdgeMutability"),
+    .math (.seq [.raw "em", .sym .setContains, .raw "EdgeMutability"]),
     .plain " annotates a PCG edge with whether it was \
      introduced by a mutable (", .math (.doc (.code "Mut")),
     .plain ") or immutable/shared (",

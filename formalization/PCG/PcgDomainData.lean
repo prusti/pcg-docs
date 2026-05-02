@@ -9,8 +9,7 @@ defAlias PcgDomainData
   "PCG Domain Data"
   (.seq [
     .plain "PCG domain data ",
-    Doc.defMath (.text "pdd")
-      (.text "PcgDomainData"),
+    .math (.seq [.text "pdd", .sym .setContains, .text "PcgDomainData"]),
     .plain " is the dataflow record carried by the PCG \
      analysis at each basic block: a ",
     Doc.refLinkOf @DomainData "DomainData",

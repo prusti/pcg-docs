@@ -6,7 +6,7 @@ defEnum AnalysisObject (.raw "ao", .raw "AnalysisObject")
   "Analysis Objects"
   (.seq [
     .plain "An analysis object ",
-    Doc.defMath (.raw "ao") (.raw "AnalysisObject"),
+    .math (.seq [.raw "ao", .sym .setContains, .raw "AnalysisObject"]),
     .plain " is the program element at which the PCG \
      analysis observes a basic block: either a MIR \
      statement or a MIR terminator."])

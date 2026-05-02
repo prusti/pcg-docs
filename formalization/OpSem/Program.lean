@@ -8,8 +8,7 @@ defStruct Program (.text "prog",
   "Programs"
   (.seq [
     .plain "A program ",
-    Doc.defMath (.text "prog")
-      (.text "Program"),
+    .math (.seq [.text "prog", .sym .setContains, .text "Program"]),
     .plain " bundles every function known to the PCG together \
      with the name of the entry point. Each function is keyed \
      by its name so calls can be resolved by looking the \

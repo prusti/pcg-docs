@@ -7,8 +7,7 @@ defStruct EvalStmtData {T}
   "Evaluation Statement Data"
   (.seq [
     .plain "An evaluation-statement data record ",
-    Doc.defMath (.text "esd")
-      (.text "EvalStmtData") ["T"],
+    .math (.seq [.text "esd", .sym .setContains, .text "EvalStmtData", .sym .space, .raw "T"]),
     .plain " bundles four values of type ",
     .math (.text "T"),
     .plain ", one for each ",

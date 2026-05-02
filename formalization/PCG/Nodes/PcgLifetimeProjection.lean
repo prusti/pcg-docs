@@ -8,8 +8,7 @@ defAlias PcgLifetimeProjection {P}
   "PCG Lifetime Projections"
   (.seq [
     .plain "A PCG lifetime projection ",
-    Doc.defMath (.text "plp")
-      (.text "PcgLifetimeProjection") ["P"],
+    .math (.seq [.text "plp", .sym .setContains, .text "PcgLifetimeProjection", .sym .space, .raw "P"]),
     .plain " is a lifetime projection whose base is a PCG \
      lifetime projection base over the parameter set ",
     .math (.text "P"),

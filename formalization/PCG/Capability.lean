@@ -2,7 +2,7 @@ import Core.Dsl.DefEnum
 
 defEnum Capability (.raw "c", .raw "C")
   "Capabilities"
-  (doc! "A capability {Doc.defMath (.raw "c") (.raw "C")} \
+  (doc! "A capability {.math (.seq [.raw "c", .sym .setContains, .raw "C"])} \
     describes the actions permitted on a place at a particular \
     program point: either no capability ({Doc.m (.sym .emptySet)}), \
     exclusive ($__E__$), read ($__R__$), write ($__W__$), or \

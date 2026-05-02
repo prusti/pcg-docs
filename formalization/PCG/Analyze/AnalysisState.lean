@@ -10,8 +10,7 @@ defStruct AnalysisState
   "Per-body Analysis State"
   (.seq [
     .plain "An analysis state ",
-    Doc.defMath (.text "as")
-      (.text "AnalysisState"),
+    .math (.seq [.text "as", .sym .setContains, .text "AnalysisState"]),
     .plain " bundles the in-progress per-block analysis \
      results with the entry-state map populated by \
      forward propagation. When a block ", .code "bb",

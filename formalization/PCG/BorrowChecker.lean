@@ -7,8 +7,7 @@ defStruct BorrowChecker {P}
   "BorrowCheckers"
   (.seq [
     .plain "A borrow-checker ",
-    Doc.defMath (.text "bc")
-      (.text "BorrowChecker") ["P"],
+    .math (.seq [.text "bc", .sym .setContains, .text "BorrowChecker", .sym .space, .raw "P"]),
     .plain " is an oracle that exposes the subset of \
      Polonius-style facts needed by the PCG: for each PCG \
      node and MIR location, whether the node is live at \

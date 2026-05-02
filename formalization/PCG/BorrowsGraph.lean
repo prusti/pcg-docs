@@ -10,8 +10,7 @@ defStruct BorrowsGraph {P}
   "Borrows Graphs"
   (.seq [
     .plain "A borrows graph ",
-    Doc.defMath (.text "bg")
-      (.text "BorrowsGraph") ["P"],
+    .math (.seq [.text "bg", .sym .setContains, .text "BorrowsGraph", .sym .space, .raw "P"]),
     .plain " is the portion of the PCG that tracks borrow \
      edges: it maps each PCG edge to the validity conditions \
      under which the edge holds."]) subscript

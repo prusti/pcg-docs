@@ -6,7 +6,7 @@ defEnum LPLabel
   "Lifetime Projection Labels"
   (.seq [
     .plain "A lifetime projection label ",
-    Doc.defMath symDoc setDoc,
+    .math (.seq [symDoc, .sym .setContains, setDoc]),
     .plain " is either a snapshot location identifying when \
      the projection was taken, or the placeholder ",
     .math (.doc (.code "FUTURE")),

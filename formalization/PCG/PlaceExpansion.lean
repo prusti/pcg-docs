@@ -8,8 +8,7 @@ defEnum PlaceExpansion {D}
   "Place Expansions"
   (.seq [
     .plain "A place expansion ",
-    Doc.defMath (.text "xp")
-      (.text "PlaceExpansion") ["D"],
+    .math (.seq [.text "xp", .sym .setContains, .text "PlaceExpansion", .sym .space, .raw "D"]),
     .plain " describes the projections produced by expanding \
      a place: either a set of struct/tuple fields, a deref, \
      or a guided expansion (enum downcast, array index, or \

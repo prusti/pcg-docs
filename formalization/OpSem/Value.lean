@@ -6,7 +6,7 @@ defEnum Value (.raw "v", .cal (.raw "V"))
   "Values"
   (.seq [
     .plain "A runtime value ",
-    Doc.defMath (.raw "v") (.cal (.raw "V")),
+    .math (.seq [.raw "v", .sym .setContains, .cal (.raw "V")]),
     .plain " is either a boolean, an integer, a tuple, an \
      array, a (data) pointer, or a function pointer."])
 where

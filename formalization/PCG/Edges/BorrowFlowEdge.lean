@@ -8,8 +8,7 @@ defStruct BorrowFlowEdge {P}
   "Borrow-Flow Edges"
   (.seq [
     .plain "A borrow-flow edge ",
-    Doc.defMath (.text "bfe")
-      (.text "BorrowFlowEdge"),
+    .math (.seq [.text "bfe", .sym .setContains, .text "BorrowFlowEdge"]),
     .plain " represents the flow of borrows between a source \
      PCG lifetime projection and a target local lifetime \
      projection over the place set ",

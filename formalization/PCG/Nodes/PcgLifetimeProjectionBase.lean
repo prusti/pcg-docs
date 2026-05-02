@@ -8,8 +8,7 @@ defEnum PcgLifetimeProjectionBase {P}
   "PCG Lifetime Projection Bases"
   (.seq [
     .plain "A PCG lifetime projection base ",
-    Doc.defMath (.text "b")
-      (.text "PcgLifetimeProjectionBase") ["P"],
+    .math (.seq [.text "b", .sym .setContains, .text "PcgLifetimeProjectionBase", .sym .space, .raw "P"]),
     .plain " is either a constant value or a PCG place over \
      the place set ",
     .math (.text "P"),

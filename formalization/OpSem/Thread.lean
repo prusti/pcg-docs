@@ -5,8 +5,7 @@ defStruct Thread (.raw "\\theta", .text "Thread")
   "Threads"
   (.seq [
     .plain "A thread ",
-    Doc.defMath (.raw "\\theta")
-      (.text "Thread"),
+    .math (.seq [.raw "\\theta", .sym .setContains, .text "Thread"]),
     .plain " is the execution context of one strand of \
      control flow. Unlike MiniRust we only model a single \
      thread, so the full thread state is the call stack: a \

@@ -6,7 +6,7 @@ defEnum StmtOrTerminator
     (.raw "sot", .text "StmtOrTerminator")
   "Statements or Terminators"
   (doc! "A statement-or-terminator \
-    {Doc.defMath (.raw "sot") (.text "StmtOrTerminator")} is \
+    {.math (.seq [.raw "sot", .sym .setContains, .text "StmtOrTerminator"])} is \
     the single MIR program element observed at one \
     #Location: the statement at `stmtIdx` when that index is \
     in the block's statement list, otherwise the block's \

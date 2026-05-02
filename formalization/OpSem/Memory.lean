@@ -5,7 +5,7 @@ import Core.Dsl.DefRaw
 defStruct Memory (.cal (.raw "M"), .text "Mem")
   "Memory"
   (.seq [.plain "A memory ",
-    Doc.defMath (.cal (.raw "M")) (.text "Mem"),
+    .math (.seq [.cal (.raw "M"), .sym .setContains, .text "Mem"]),
     .plain " is a list of allocations."])
 where
   | allocs "The allocations." : List Allocation

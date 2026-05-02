@@ -4,7 +4,7 @@ import MIR.Ty
 defStruct Provenance (.raw "\\pi", .text "Provenance")
   "Provenances"
   (.seq [.plain "A pointer provenance ",
-    Doc.defMath (.raw "\\pi") (.text "Provenance"),
+    .math (.seq [.raw "\\pi", .sym .setContains, .text "Provenance"]),
     .plain ", identifying the allocation."])
 where
   | id "The allocation identifier." : AllocId
@@ -13,7 +13,7 @@ where
 defStruct ThinPointer (.raw "ptr", .text "ThinPointer")
   "Thin Pointers"
   (.seq [.plain "A thin pointer ",
-    Doc.defMath (.raw "ptr") (.text "ThinPointer"),
+    .math (.seq [.raw "ptr", .sym .setContains, .text "ThinPointer"]),
     .plain ": an address together with optional provenance."])
 where
   | addr "The address." : Address
@@ -23,7 +23,7 @@ where
 defEnum PointerMeta (.raw "meta", .text "PointerMeta")
   "Pointer Metadata"
   (.seq [.plain "Wide-pointer metadata ",
-    Doc.defMath (.raw "meta") (.text "PointerMeta"),
+    .math (.seq [.raw "meta", .sym .setContains, .text "PointerMeta"]),
     .plain ". Only the element-count case is modelled; vtable \
     pointers are not supported."])
 where
@@ -38,7 +38,7 @@ instance : Inhabited PointerMeta where
 defStruct Pointer (.bold (.raw "p"), .text "Pointer")
   "Pointers"
   (.seq [.plain "A pointer ",
-    Doc.defMath symDoc setDoc,
+    .math (.seq [symDoc, .sym .setContains, setDoc]),
     .plain ": a thin pointer together with optional wide-pointer \
     metadata."])
 where
@@ -50,7 +50,7 @@ defStruct TupleHeadLayout (.raw "thl",
     .text "TupleHeadLayout")
   "Tuple Head Layouts"
   (.seq [.plain "The layout of the head of a tuple type ",
-    Doc.defMath (.raw "thl") (.text "TupleHeadLayout"),
+    .math (.seq [.raw "thl", .sym .setContains, .text "TupleHeadLayout"]),
     .plain ". Alignment information is omitted."])
 where
   | endOffset "Offset at which the tuple head ends (in bytes)." : Nat
@@ -59,7 +59,7 @@ where
 defEnum LayoutStrategy (.raw "ls", .text "LayoutStrategy")
   "Layout Strategies"
   (.seq [.plain "A ",
-    Doc.defMath (.raw "ls") (.text "LayoutStrategy"),
+    .math (.seq [.raw "ls", .sym .setContains, .text "LayoutStrategy"]),
     .plain " describes how the size of a value can be \
     determined. Alignment is not tracked and trait objects are \
     not supported."])
@@ -80,7 +80,7 @@ instance : Inhabited LayoutStrategy where
 defStruct PointeeInfo (.raw "pi", .text "PointeeInfo")
   "Pointee Information"
   (.seq [.plain "Information about a pointer's pointee ",
-    Doc.defMath (.raw "pi") (.text "PointeeInfo"),
+    .math (.seq [.raw "pi", .sym .setContains, .text "PointeeInfo"]),
     .plain ". Only the layout is modelled; other fields from \
     minirust are omitted."])
 where
@@ -92,7 +92,7 @@ defEnum PointerMetaKind (.raw "mk",
   "Pointer Metadata Kinds"
   (.seq [.plain "The statically known kind of metadata stored \
     in a pointer ",
-    Doc.defMath (.raw "mk") (.text "PointerMetaKind"),
+    .math (.seq [.raw "mk", .sym .setContains, .text "PointerMetaKind"]),
     .plain ". The vtable-pointer case is omitted."])
 where
   | none
@@ -105,7 +105,7 @@ where
 defEnum PtrType (.raw "pt", .text "PtrType")
   "Pointer Types"
   (.seq [.plain "Static type information about a pointer ",
-    Doc.defMath (.raw "pt") (.text "PtrType"),
+    .math (.seq [.raw "pt", .sym .setContains, .text "PtrType"]),
     .plain ". The vtable-pointer case is omitted."])
 where
   | ref (mutbl : Mutability) (pointee : PointeeInfo)
