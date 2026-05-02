@@ -111,7 +111,7 @@ defFn pushOne (.plain "pushOne")
           PcgData.join
             ‹existing, exit, succ, proof[sorry]›
       | .none =>
-          PcgData⟨exit↦bg, exit↦ownedState, succ, None⟩
+          PcgData⟨exit↦bg, exit↦os, succ, None⟩
       end ;
     let entries1 :=
       mapInsert ‹state↦entryStates, succ, newEntry› ;

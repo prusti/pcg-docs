@@ -219,7 +219,7 @@ defFn getCapability (.plain "getCapability")
   (p "The place whose capability is requested." : Place)
   requires validPlace(body, p)
   : Option Capability :=
-    let tree ← getAlloc ‹pd↦ownedState, p↦«local»› ;
+    let tree ← getAlloc ‹pd↦os, p↦«local»› ;
     let projs := p↦projection ;
     if treeIsInternal ‹projs, tree›
         ∨ placeIsMutablyBorrowed ‹pd↦bg, p›

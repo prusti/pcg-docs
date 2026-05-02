@@ -24,7 +24,7 @@ defStruct PcgData {P}
 where
   | bg "The borrows portion of the PCG."
       : BorrowsGraph P
-  | ownedState "The owned portion of the PCG."
+  | os "The owned portion of the PCG."
       : OwnedState
   | basicBlock "The current basic block."
       : BasicBlockIdx
@@ -197,13 +197,13 @@ defFn join (.plain "join")
   (pd2 "The second PCG data." : PcgData Place)
   (bb "The basic block of the joined program point."
       : BasicBlockIdx)
-  requires pd1↦ownedState↦locals·length
-             = pd2↦ownedState↦locals·length
+  requires pd1↦os↦locals·length
+             = pd2↦os↦locals·length
   : PcgData Place :=
     PcgData⟨
       BorrowsGraph.join ‹pd1↦bg, pd2↦bg›,
       OwnedState.meet
-        ‹pd1↦ownedState, pd2↦ownedState,
+        ‹pd1↦os, pd2↦os,
          proof[h_pre0]›,
       bb,
       None⟩
@@ -228,7 +228,7 @@ defFn edges (.plain "edges")
     blocked by a deref edge, and (3) every edge already recorded in the borrows graph.")
   (pd "The PCG data." : PcgData Place)
   : List (PcgEdge Place) :=
-    let treeEdges := localsUnpackEdges ‹pd↦ownedState↦locals› ;
+    let treeEdges := localsUnpackEdges ‹pd↦os↦locals› ;
     let targets := transientReadPlaces ‹pd↦transientState›
       ++ BorrowsGraph.blockedCurrentPlaces ‹pd↦bg› ;
     let matEdges := targets·flatMap fun p => placeUnpackChain ‹p› ;

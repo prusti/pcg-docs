@@ -225,26 +225,20 @@ private def elabDefStruct
           if ft.isIdent then toString ft.getId
           else ft.reprint.getD (toString ft)
         let tyTerm ← `(DSLType.parse $(quote typeStr))
+        -- Without an explicit `symbol …` override, leave the
+        -- symbolDoc unset so the LaTeX renderer falls back to
+        -- the field's own ident (rendered via `\mathit{name}`
+        -- through `LatexMath.escaped`). The earlier behaviour
+        -- of auto-looking up the field type's `symbolDoc` was
+        -- ambiguous when several fields shared a type and
+        -- frequently produced surprising symbols (`pd.ownedState`
+        -- rendering as `os` because `OwnedState`'s symbol is
+        -- `os`); the explicit override remains available for
+        -- the cases where the auto-lookup was useful.
+        let _ := selfN
         let symTerm : TSyntax `term ← match fsymOverride with
           | some s => `(some ($s : MathDoc))
-          | none =>
-            if ft.isIdent then do
-              let tn := Name.mkSimple (toString ft.getId)
-              let env ← getEnv
-              if tn == selfN then
-                `(some ($symDoc : MathDoc))
-              else if env.find? (tn ++ `enumDef) |>.isSome
-                  then
-                let ref := mkIdent
-                  (tn ++ `enumDef ++ `symbolDoc)
-                `(some $ref)
-              else if env.find? (tn ++ `structDef)
-                  |>.isSome then
-                let ref := mkIdent
-                  (tn ++ `structDef ++ `symbolDoc)
-                `(some $ref)
-              else `(none)
-            else `(none)
+          | none => `(none)
         `({ name := $ns, ty := $tyTerm,
             doc := ($fd : Doc),
             symbolDoc := $symTerm : FieldDef })

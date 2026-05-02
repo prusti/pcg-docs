@@ -45,8 +45,8 @@ defFn obtain (.plain "obtain")
   : Option (PcgData Place) where
   | pd ; body ; p ; .write =>
       if isOwned ‹body, p, proof[h_validPlace]› then
-        let newOs ← obtainWriteOwned ‹pd↦ownedState, p› ;
-        Some pd[ownedState => newOs]
+        let newOs ← obtainWriteOwned ‹pd↦os, p› ;
+        Some pd[os => newOs]
       else
         Some pd[transientState =>
           Some (.writeBorrowedPlace ‹p›)]

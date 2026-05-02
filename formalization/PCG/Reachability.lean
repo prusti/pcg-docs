@@ -142,7 +142,7 @@ defFn ownedTreePlaceNodes (.plain "ownedTreePlaceNodes")
     explicit unpack edge for it.")
   (pd "The PCG data." : PcgData Place)
   : List (PcgNode Place) :=
-    pd↦ownedState↦locals·zipIdx·flatMap fun ⟨ol, idx⟩ =>
+    pd↦os↦locals·zipIdx·flatMap fun ⟨ol, idx⟩ =>
       match ol with
       | .allocated t =>
           itPlaces ‹t, Local⟨idx⟩, []›·toList·map fun p =>
