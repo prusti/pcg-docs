@@ -128,6 +128,29 @@ def lintTests : TestSeq :=
     test "two backticks far apart → flagged"
       (DslLint.stringHasBacktickPair "open ` close ` ok"
         == true) $
+    test "consecutive same-type binders → flagged"
+      (DslLint.mergeableBinders
+        [(["m'"], some "Machine"), (["m"], some "Machine")]
+        == ["Machine"]) $
+    test "single binder group → not flagged"
+      (DslLint.mergeableBinders
+        [(["m'", "m"], some "Machine")]
+        |>.isEmpty) $
+    test "consecutive different-type binders → not flagged"
+      (DslLint.mergeableBinders
+        [(["pr"], some "Program"),
+         (["m"], some "Machine")]
+        |>.isEmpty) $
+    test "untyped binder run → not flagged"
+      (DslLint.mergeableBinders
+        [(["x"], none), (["y"], none)]
+        |>.isEmpty) $
+    test "forall_ in lintExpr surfaces mergeableBinders"
+      (let body := DslExpr.forall_
+        [(["m'"], some "Machine"), (["m"], some "Machine")]
+        .true_
+       (DslLint.lintExpr body).any
+        (·.rule == "mergeableBinders")) $
     .done
 
 def main (args : List String) : IO UInt32 :=

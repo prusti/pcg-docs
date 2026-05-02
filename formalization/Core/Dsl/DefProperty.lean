@@ -278,6 +278,13 @@ elab_rules : command
           begin $stmts:fnStmt* return $ret:fnExpr) =>
         parseStmtsAsExpr stmts (← parseExpr ret)
       | _ => throwError "invalid propertyBody"
+    -- Lint pass: every diagnostic surfaces as a build-time
+    -- error attached to the property's name token, so the
+    -- offending property is easy to locate in the user's
+    -- file. Currently flags `mergeableBinders` (e.g.
+    -- `m' ∈ Machine, m ∈ Machine` should be `m' m ∈ Machine`).
+    for diag in DslLint.lintExpr rhsAst do
+      Lean.throwErrorAt name diag.message
     elabExprProperty name symDoc paramData
       rhsAst shortBinders shortExpr docBinders docExpr
       (display := displayTerm)

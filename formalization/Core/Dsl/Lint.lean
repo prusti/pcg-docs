@@ -77,6 +77,18 @@ def irrefutableWhereMessage : String :=
    use the direct expression form (`:= …`) instead, \
    since no case analysis is being performed"
 
+/-- Diagnostic message for `mergeableBinders`: the `∀∀` binder
+    chain has two consecutive groups with the same type
+    annotation, e.g. `m' ∈ Machine, m ∈ Machine`. The DSL
+    parser also accepts the merged shorthand
+    `m' m ∈ Machine`, which renders identically and reads
+    more compactly. -/
+def mergeableBindersMessage (typeName : String) : String :=
+  s!"two consecutive `∀∀` binder groups share the type \
+    `{typeName}`; combine them into a single group \
+    (e.g. `x y ∈ {typeName}`) instead of repeating the type \
+    on each name"
+
 /-- True iff every arm of the match has only irrefutable patterns —
     that is, the scrutinee is bound rather than analysed. An empty
     arm list is treated as refutable since the parser already
@@ -110,6 +122,19 @@ private def directChildren : DslExpr → List DslExpr
   | .structUpdate r _ v => [r, v]
   | .formatHint _ b => [b]
 
+/-- Find consecutive `∀∀` binder groups whose type annotations
+    are present and equal. Returns the shared type's `String`
+    rendering for each violation; an empty list means the
+    binder chain is already in canonical (merged) form. -/
+def mergeableBinders
+    (binders : List (List String × Option String))
+    : List String :=
+  let pairs := binders.zip binders.tail!
+  pairs.filterMap fun ((_, t1), (_, t2)) =>
+    match t1, t2 with
+    | some s1, some s2 => if s1 == s2 then some s1 else none
+    | _, _ => none
+
 /-- Lint diagnostics for `e` and every sub-expression. -/
 partial def lintExpr (e : DslExpr) : List Diagnostic :=
   let here : List Diagnostic :=
@@ -119,6 +144,10 @@ partial def lintExpr (e : DslExpr) : List Diagnostic :=
         [{ rule := "irrefutableMatch",
            message := irrefutableMatchMessage }]
       else []
+    | .forall_ binders _ =>
+      (mergeableBinders binders).map fun ty =>
+        { rule := "mergeableBinders",
+          message := mergeableBindersMessage ty }
     | _ => []
   here ++ (directChildren e).flatMap lintExpr
 

@@ -125,7 +125,7 @@ defProperty FramingInd (.plain "FramingInd")
            induction on #[Reachable]'s reflexive-transitive \
            closure of #[Step] gives the full #[Framing].")
   := ∀∀ par ∈ ProgAnalysisResults,
-        m' ∈ Machine, m ∈ Machine .
+        m' m ∈ Machine .
        ‹break› Runnable ‹m› ∧
        ‹break› describes ‹par, prog ‹m›› ∧
        ‹break› Step ‹m', m› ∧
