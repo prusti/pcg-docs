@@ -5,6 +5,7 @@ import Core.Doc.Interp
 import Core.Export.Latex
 import Core.Dsl.Lint
 import Tests.DslGotoDef
+import Tests.ProofFolding
 
 open LSpec DSLType
 

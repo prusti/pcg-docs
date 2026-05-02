@@ -4,6 +4,7 @@ import Core.Export.Lean
 import Core.Dsl.DefEnum
 import Core.Dsl.IdentRefs
 import Core.Dsl.Lint
+import Core.Dsl.ProofFolding
 import Runtime
 import Lean
 
