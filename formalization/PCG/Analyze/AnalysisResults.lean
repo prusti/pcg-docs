@@ -14,6 +14,18 @@ defAlias AnalysisResults
     basic block, keyed by #BasicBlockIdx.")
   := Map BasicBlockIdx (List PcgDomainData)
 
+defProperty validAnalysisResults (.plain "validAnalysisResults")
+  short
+    (doc! "{ar} is valid against {body}")
+  long
+    (doc! "every #PcgDomainData stored in any per-block list \
+      of {ar} is a valid PCG domain data for {body}")
+  (body "The function body." : Body)
+  (ar "The analysis results." : AnalysisResults)
+  :=
+    mapValues ar·forAll fun pdds =>
+      pdds·forAll fun pdd => validPcgDomainData body pdd
+
 defProperty contains (.plain "contains")
   short
     (.math (.seq [.doc l,

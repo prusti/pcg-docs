@@ -1,4 +1,5 @@
 import Core.Dsl.DefFn
+import Core.Dsl.DefProperty
 import Core.Dsl.DefStruct
 import MIR.Body
 import PCG.BorrowsGraph
@@ -206,6 +207,18 @@ defFn join (.plain "join")
       None⟩
 
 end PcgData
+
+defProperty validPcgData (.plain "validPcgData")
+  short
+    (doc! "{pd} is a valid PCG data for {body}")
+  long
+    (doc! "the owned state of {pd} carries one entry per \
+      local declared in {body} — i.e. its `locals` list has \
+      the same length as {body}'s `decls` list")
+  (body "The function body." : Body)
+  (pd "The PCG data." : PcgData Place)
+  :=
+    pd↦os↦locals·length = body↦decls·length
 
 defFn transientReadPlaces (.plain "transientReadPlaces")
   (doc! "Extract the read-place set from the optional transient place: returns the carried set when \
