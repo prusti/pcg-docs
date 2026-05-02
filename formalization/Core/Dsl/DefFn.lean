@@ -799,12 +799,16 @@ private def wrapBody
   else s!"⟨{body}, by first | trivial | decide | sorry⟩"
 
 /-- Lean proof tactic for a self-recursive call's
-    precondition obligation. Named preconditions unfold via
-    `simp_all [name]`; general expressions fall back to
-    plain `simp_all`. -/
+    precondition obligation. Tries `assumption` first
+    (covers the common case where the recursive call passes
+    the same argument as the enclosing function and so
+    inherits the named hypothesis verbatim), then falls back
+    to `simp_all [name]` for named preconditions or plain
+    `simp_all` for expression-form preconditions. -/
 private def precondProof : Precondition → String
-  | .named n _ => s!"(by simp_all [{n}])"
-  | .expr_ _ => "(by simp_all)"
+  | .named n _ =>
+    s!"(by first | assumption | simp_all [{n}])"
+  | .expr_ _ => "(by first | assumption | simp_all)"
 
 -- ══════════════════════════════════════════════
 -- Pattern-matching form

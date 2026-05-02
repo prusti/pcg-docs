@@ -143,11 +143,13 @@ defFn computeEntry (.plain "computeEntry")
   (body "The function body." : Body)
   (state "The current analysis state." : AnalysisState)
   (bb "The block to step over." : BasicBlockIdx)
+  requires validBody(body)
   : Option AnalysisState :=
     match mapGet ‹state↦entryStates, bb› with
     | .none => Some state
     | .some entry =>
-        let result ← PcgData.analyzeBlock ‹entry, body, bb› ;
+        let result ← PcgData.analyzeBlock
+          ‹entry, body, bb, proof[h_validBody]› ;
         let exit :=
           match result·getLast? with
           | .some last => last↦states↦postMain
@@ -173,11 +175,15 @@ defFn analyzeRpo (.plain "analyzeRpo")
   (state "The current analysis state." : AnalysisState)
   (rpo "Remaining blocks to process, in reverse postorder."
       : List BasicBlockIdx)
+  requires validBody(body)
   : Option AnalysisState :=
     match rpo with
     | [] => Some state
     | bb :: rest =>
-        let state1 ← computeEntry ‹body, state, bb› ;
+        let state1 ← computeEntry
+          ‹body, state, bb, proof[h_validBody]› ;
+        -- Recursive: DSL auto-discharges `validBody` via
+        -- the `precondProof` `assumption` fallback.
         analyzeRpo ‹body, state1, rest›
     end
 
@@ -202,11 +208,13 @@ defFn analyzeBody (.plain "analyzeBody")
     .code "PcgData.analyzeBlock",
     .plain " fails on any block."])
   (body "The function body." : Body)
+  requires validBody(body)
   : Option AnalysisResults :=
     let init := PcgData.init ‹body› ;
     let rpo := reversePostorder ‹body› ;
     let entryStates0 :=
       mapSingleton ‹BasicBlockIdx⟨0⟩, init› ;
     let state0 := AnalysisState⟨mapEmpty‹›, entryStates0⟩ ;
-    let final ← analyzeRpo ‹body, state0, rpo› ;
+    let final ← analyzeRpo
+      ‹body, state0, rpo, proof[h_validBody]› ;
     Some final↦results

@@ -357,12 +357,16 @@ private def precondLean : Precondition → String
   | .expr_ e => e.toLean
 
 /-- The Lean proof-tactic string spliced as the proof argument
-    of a self-recursive call. Named preconditions unfold their
-    property with `simp_all [name]`; general expressions fall
-    back to plain `simp_all`. -/
+    of a self-recursive call. Tries `assumption` first (so a
+    recursive call that passes the same argument as the
+    enclosing function inherits its named hypothesis directly
+    without forcing simp to unfold the property), and falls
+    back to `simp_all [name]` for named preconditions or plain
+    `simp_all` for expression-form preconditions. -/
 private def precondProof : Precondition → String
-  | .named n _ => s!"(by simp_all [{n}])"
-  | .expr_ _ => "(by simp_all)"
+  | .named n _ =>
+    s!"(by first | assumption | simp_all [{n}])"
+  | .expr_ _ => "(by first | assumption | simp_all)"
 
 /-- Render a postcondition as a Lean source-level expression
     used inside the subtype return wrapper. -/

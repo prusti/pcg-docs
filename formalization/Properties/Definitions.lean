@@ -98,7 +98,13 @@ defFn insertAnalyzedBody (.plain "insertAnalyzedBody")
       : ProgAnalysisResults)
   (b "The body to analyse." : Body)
   : Option ProgAnalysisResults :=
-    let ar ← analyzeBody ‹b› ;
+    -- The `analyzeBody` precondition `validBody b` should
+    -- ultimately be discharged by a program-level invariant
+    -- (e.g. a `validProgram` strengthened to require every
+    -- body to be valid). Until that lands, use a `sorry` so
+    -- the call site here matches the iterator shape that
+    -- `foldlM` expects (no precondition argument).
+    let ar ← analyzeBody ‹b, proof[sorry]› ;
     Some (mapInsert ‹acc, b, ar›)
 
 defFn analyzeProgram (.plain "analyzeProgram")
