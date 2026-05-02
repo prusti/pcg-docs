@@ -242,12 +242,14 @@ defProperty validBody (.plain "validBody")
   short
     (doc! "{body} is a valid body")
   long
-    (doc! "every place referenced in {body} is a valid place \
-      in {body}, and every local declaration of {body} is a \
-      sized type")
+    (doc! "every statement and terminator in {body} is valid \
+      against {body}, and every local declaration of {body} \
+      is a sized type")
   (body "The function body." : Body)
   :=
-    (body·bodyPlaces·forAll fun p => validPlace ‹body, p›) ∧
+    (body↦blocks·forAll fun bb =>
+      (bb↦statements·forAll fun s => validStatement ‹body, s›) ∧
+      validTerminator ‹body, bb↦terminator›) ∧
     (body↦decls·forAll fun t => IsSized ‹t›)
 
 defFn placeTy (.plain "ty")

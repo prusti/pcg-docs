@@ -54,14 +54,17 @@ defFn analyze (.plain "analyze")
         | .postMain => ∅
       end ;
     -- Discharging the `validPlace` precondition of
-    -- `obtainTriples` would require carrying a `validBody`
-    -- (or analogous) precondition through `analyze` and
-    -- proving that `operandTriples` / `mainTriples` only
-    -- emit place triples whose `place` field comes from
-    -- `body.bodyPlaces`. That refactor is out of scope
-    -- here; leaving an explicit `sorry` at the call site
-    -- documents the assumption locally rather than burying
-    -- it inside `obtainTriples`.
+    -- `obtainTriples` requires showing that the `place` field
+    -- of every triple in `operandTriples ao` /
+    -- `mainTriples ao` is in `s.statementPlaces` (resp.
+    -- `t.terminatorPlaces`) — at which point
+    -- `validAnalysisObject` (which unfolds to
+    -- `validStatement` / `validTerminator` and so to
+    -- `forAll p ∈ statementPlaces, validPlace body p`)
+    -- discharges it. That structural inclusion proof is out
+    -- of scope here; leaving an explicit `sorry` at the call
+    -- site documents the gap locally rather than burying it
+    -- inside `obtainTriples`.
     obtainTriples ‹pd, body, triples·toList,
       proof[sorry]›
 
