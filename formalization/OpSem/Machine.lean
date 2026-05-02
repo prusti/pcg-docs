@@ -195,9 +195,12 @@ defFn createFrame (.plain "createFrame")
     stack-pop-action handling from MiniRust's `create_frame` are intentionally not modelled here. The \
     #validMachine precondition gives #validStack m.thread.stack m.mem (carrying enough non-overlap \
     structure to thread #validMemory m.mem into `liveAndStoreArgs`); the #validBody precondition \
-    discharges `storageLive`'s #validLocal `initFrame.body Local⟨0⟩` requirement via the \
-    #validBody \"`decls ≠ []`\" conjunct. The remaining #validStackFrame and #validLocation \
-    `body START` obligations needed for the initial-frame construction are left as `sorry` for now.")
+    discharges both of `storageLive`'s obligations on the initial frame: the #validLocal \
+    `initFrame.body Local⟨0⟩` requirement via the \"`decls ≠ []`\" conjunct, and the \
+    #validStackFrame `m.mem initFrame` requirement via the \"`blocks ≠ []`\" conjunct (which closes \
+    the #validLocation `body START` half of #validStackFrame; the locals-validity half is vacuous \
+    since the initial frame's locals map is empty). The remaining `liveAndStoreArgs` preconditions \
+    are left as `sorry` for now.")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
@@ -206,7 +209,26 @@ defFn createFrame (.plain "createFrame")
     let initFrame := StackFrame⟨body, START, mapEmpty‹›⟩ ;
     let ⟨frame1, mem1⟩ := StackFrame.storageLive
       initFrame m↦mem Local⟨0⟩
-      proof[sorry] proof[(by
+      proof[(by
+        -- `validStackFrame m.mem initFrame` unfolds to
+        -- `validBody body ∧ validLocation body START ∧
+        --  ∀ ptr ∈ mapValues mapEmpty, validPtr m.mem ptr`.
+        -- `validBody body` is `h_validBody`. The third
+        -- conjunct is vacuous — the initial frame's locals
+        -- map is empty. The middle conjunct's first sub-
+        -- conjunct is `0 < body.blocks.length`, supplied by
+        -- the `blocks ≠ []` clause of `h_validBody` via
+        -- `List.length_pos_iff`; its second sub-conjunct
+        -- (`0 ≤ …`) is `Nat.zero_le`.
+        refine ⟨h_validBody, ?_, ?_⟩
+        · exact ⟨List.length_pos_iff.mpr h_validBody.2.1,
+            Nat.zero_le _⟩
+        · intro ptr hptr
+          change ptr ∈ mapValues (mapEmpty (κ := Local) (ν := ThinPointer)) at hptr
+          unfold mapValues mapEmpty at hptr
+          rw [Std.HashMap.fold_eq_foldl_toList,
+              Std.HashMap.toList_empty] at hptr
+          exact (List.not_mem_nil hptr).elim)] proof[(by
         -- `validLocal body Local⟨0⟩` reduces to
         -- `0 < body.decls.length`. `h_validBody : validBody
         -- body` has `decls ≠ []` as its first conjunct, and

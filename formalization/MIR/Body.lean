@@ -282,12 +282,14 @@ defProperty validBody (.plain "validBody")
     (doc! "{body} is a valid body")
   long
     (doc! "{body} declares at least one local (its return \
-      slot), every statement and terminator in {body} is \
-      valid against {body}, and every local declaration of \
+      slot), {body} contains at least one basic block (its \
+      entry block), every statement and terminator in {body} \
+      is valid against {body}, and every local declaration of \
       {body} is a sized type")
   (body "The function body." : Body)
   :=
     body↦decls ≠ [] ∧
+    body↦blocks ≠ [] ∧
     (body↦blocks·forAll fun bb =>
       (bb↦statements·forAll fun s => validStatement body s) ∧
       validTerminator body bb↦terminator) ∧

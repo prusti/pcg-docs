@@ -117,20 +117,20 @@ defFn storageLive (.plain "storageLive")
     let ty := frame↦body↦decls ! l↦index ;
     let sz := Ty.sizeOf ty
       proof[(by
-        -- `h_validStackFrame.1.2.2 : ∀ t ∈ frame.body.decls, IsSized t`
-        -- (`validBody = decls ≠ [] ∧ … ∧ decls.forAll IsSized`,
-        -- so `.1.2.2` reaches the `IsSized` clause through the
-        -- `validBody` outer conjunct of the new mem-threaded
-        -- `validStackFrame`), and `h_pre1 : validLocal
-        -- frame.body l` (the second precondition, named
-        -- positionally because its argument list isn't a
-        -- bare-var sequence the DSL can name as
+        -- `h_validStackFrame.1.2.2.2 : ∀ t ∈ frame.body.decls, IsSized t`
+        -- (`validBody = decls ≠ [] ∧ blocks ≠ [] ∧ … ∧
+        -- decls.forAll IsSized`, so `.1.2.2.2` reaches the
+        -- `IsSized` clause through the `validBody` outer
+        -- conjunct of the mem-threaded `validStackFrame`), and
+        -- `h_pre1 : validLocal frame.body l` (the second
+        -- precondition, named positionally because its argument
+        -- list isn't a bare-var sequence the DSL can name as
         -- `h_validLocal`) pins the index in range, so
         -- `decls[l.index]!` reduces to `decls[l.index]` — in
         -- the list, discharging `IsSized` directly.
         show Ty.IsSized (frame.body.decls[l.index]!)
         rw [getElem!_pos frame.body.decls l.index h_pre1]
-        exact h_validStackFrame.1.2.2 _
+        exact h_validStackFrame.1.2.2.2 _
           (List.getElem_mem h_pre1))] ;
     let addr := Memory.top mem1 ;
     let ⟨mem2, aid⟩ := Memory.allocate mem1 sz ;
