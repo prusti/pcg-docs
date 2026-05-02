@@ -201,6 +201,28 @@ defProperty validPlace (.plain "valid")
     p↦«local»↦index < body↦decls·length ∧
     validProjTy ‹body↦decls ! p↦«local»↦index, p↦projection›
 
+defProperty validStatement (.plain "validStatement")
+  short
+    (.seq [s, .plain " is a valid statement in ", body])
+  long
+    (.seq [.plain "every place referenced by ", s,
+           .plain " is a valid place in ", body])
+  (body "The function body." : Body)
+  (s "The statement." : Statement)
+  :=
+    s·statementPlaces·forAll fun p => validPlace ‹body, p›
+
+defProperty validTerminator (.plain "validTerminator")
+  short
+    (.seq [t, .plain " is a valid terminator in ", body])
+  long
+    (.seq [.plain "every place referenced by ", t,
+           .plain " is a valid place in ", body])
+  (body "The function body." : Body)
+  (t "The terminator." : Terminator)
+  :=
+    t·terminatorPlaces·forAll fun p => validPlace ‹body, p›
+
 defProperty validLocation (.plain "validLocation")
   short
     (doc! "{loc} is a valid location in body {body}")

@@ -58,7 +58,7 @@ use crate::pcgnode::PcgNode;
 "use formal_mir::body::Location;
 ")
   , ("PCG", "analysisobject", .raw
-"use formal_mir::body::Terminator;
+"use formal_mir::body::{Body, Terminator, valid_statement, valid_terminator};
 use formal_mir::statements::Statement;
 ")
   , ("PCG", "borrowedge", .raw

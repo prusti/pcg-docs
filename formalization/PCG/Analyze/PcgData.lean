@@ -38,6 +38,8 @@ defFn analyze (.plain "analyze")
   (loc "The program point at which the phase is evaluated."
       : Location)
   (phase "The evaluation phase." : EvalStmtPhase)
+  requires validAnalysisObject ‹body,
+             getAnalysisObject ‹body, loc››
   : Option (PcgData Place) :=
     let ao := getAnalysisObject ‹body, loc› ;
     let triples :=
@@ -60,10 +62,14 @@ defFn analyzeAt (.plain "analyzeAt")
   (loc "The location at which to step (statement or \
        terminator)." : Location)
   : Option PcgDomainData :=
-    let preOp ← analyze ‹pd, body, loc, .preOperands› ;
-    let postOp ← analyze ‹preOp, body, loc, .postOperands› ;
-    let preM ← analyze ‹postOp, body, loc, .preMain› ;
-    let postM ← analyze ‹preM, body, loc, .postMain› ;
+    let preOp ← analyze ‹pd, body, loc, .preOperands,
+      lean_proof("sorry")› ;
+    let postOp ← analyze ‹preOp, body, loc, .postOperands,
+      lean_proof("sorry")› ;
+    let preM ← analyze ‹postOp, body, loc, .preMain,
+      lean_proof("sorry")› ;
+    let postM ← analyze ‹preM, body, loc, .postMain,
+      lean_proof("sorry")› ;
     Some DomainData⟨pd,
       EvalStmtData⟨preOp, postOp, preM, postM⟩⟩
 
