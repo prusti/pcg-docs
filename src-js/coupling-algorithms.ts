@@ -23,7 +23,7 @@ export interface Edge {
 }
 
 interface CoupledEdgeResult {
-    type: 'coupled' | 'merged-coupled' | 'identity';
+    type: 'coupled' | 'identity';
     underlyingEdges: InternalEdge[];
     sources: string[];
     targets: string[];
@@ -511,99 +511,6 @@ function getAllReachableGraphs(graph: HypergraphForCoupling): HypergraphForCoupl
 }
 
 /**
- * Merged unblocking frontier expiries coupling algorithm
- *
- * This algorithm takes the coupled edges from unblocking-frontier-expiries and
- * performs an additional merging step. The result is that removing any coupled
- * edge unblocks at least one node.
- *
- * Algorithm:
- * 1. Compute coupled edges using unblocking-frontier-expiries
- * 2. For each node N in the graph:
- *    a. Find all coupled edges whose sources contain N
- *    b. Create a new hyperedge by merging all underlying edges from these coupled edges
- * 3. Filter out redundant edges: Remove any edge E if there exist distinct edges E1, E2
- *    such that underlying(E1) ∪ underlying(E2) = underlying(E)
- *    Rationale: If E can be expressed as the union of two other coupled edges, then
- *    unblocking E is equivalent to unblocking E1 and E2 in sequence, making E redundant.
- *
- * Note: The resulting coupled edges may overlap (share underlying edges), which
- * is the key difference from the original algorithm.
- */
-function computeCouplingMergedUnblockingFrontierExpiries(nodes: Node[], edges: Edge[]): CoupledEdgeResult[] {
-    const graph = new HypergraphForCoupling(nodes, edges);
-
-    const unblockingCoupled = computeCouplingUnblockingFrontierExpiries(nodes, edges);
-
-    if (unblockingCoupled.length === 0) {
-        return [];
-    }
-
-    const mergedCoupled: CoupledEdgeResult[] = [];
-    const processedSets = new Set<string>();
-
-    for (const nodeId of graph.nodes) {
-        const coupledWithNode = unblockingCoupled.filter(coupled =>
-            coupled.sources.includes(nodeId)
-        );
-
-        if (coupledWithNode.length === 0) continue;
-
-        const underlyingEdgesArray = [...new Set(coupledWithNode.flatMap(c => c.underlyingEdges))];
-        const edgeIdsSignature = underlyingEdgesArray
-            .map(e => e.id)
-            .sort()
-            .join(',');
-
-        if (!processedSets.has(edgeIdsSignature)) {
-            processedSets.add(edgeIdsSignature);
-            const coupled = new CoupledEdge(underlyingEdgesArray);
-            mergedCoupled.push({
-                type: 'merged-coupled',
-                underlyingEdges: underlyingEdgesArray,
-                sources: coupled.sources,
-                targets: coupled.targets
-            });
-        }
-    }
-
-    return filterRedundantCoupledEdges(mergedCoupled);
-}
-
-/**
- * Filter out redundant coupled edges.
- *
- * An edge E is redundant if there exist distinct edges E1 and E2 such that
- * underlying(E1) ∪ underlying(E2) = underlying(E).
- *
- * This is because unblocking E is equivalent to unblocking E1 and E2 in sequence.
- */
-function filterRedundantCoupledEdges(coupledEdges: CoupledEdgeResult[]): CoupledEdgeResult[] {
-    return coupledEdges.filter((edge, idx) => {
-        const edgeUnderlyingIds = new Set(edge.underlyingEdges.map(e => e.id));
-
-        for (let i = 0; i < coupledEdges.length; i++) {
-            if (i === idx) continue;
-
-            for (let j = i + 1; j < coupledEdges.length; j++) {
-                if (j === idx) continue;
-
-                const edge1UnderlyingIds = new Set(coupledEdges[i].underlyingEdges.map(e => e.id));
-                const edge2UnderlyingIds = new Set(coupledEdges[j].underlyingEdges.map(e => e.id));
-
-                const unionIds = new Set([...edge1UnderlyingIds, ...edge2UnderlyingIds]);
-
-                if (setsEqual(unionIds, edgeUnderlyingIds)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    });
-}
-
-/**
  * Identity coupling - returns each edge as its own coupled edge
  * This is useful as a baseline comparison
  */
@@ -641,11 +548,6 @@ export const COUPLING_ALGORITHMS = {
         description: 'Maximal coupling based on unblocking frontier expiries',
         compute: computeCouplingUnblockingFrontierExpiries
     },
-    // 'merged-unblocking-frontier-expiries': {
-    //     name: 'Merged Unblocking Frontier Expiries',
-    //     description: 'Merges coupled edges such that removing any coupled edge unblocks a node (coupled edges may overlap)',
-    //     compute: computeCouplingMergedUnblockingFrontierExpiries
-    // },
     'expire-together': {
         name: 'Expire Together',
         description: 'Coupling based on edges that expire together in all reachable subgraphs',
