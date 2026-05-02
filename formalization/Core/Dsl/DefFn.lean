@@ -339,7 +339,9 @@ partial def parsePatAtom
     : Lean.Elab.Command.CommandElabM BodyPat := do
   match stx with
   | `(fnPatAtom| _) => pure .wild
-  | `(fnPatAtom| $n:ident) => pure (.var (toString n.getId))
+  | `(fnPatAtom| $n:ident) => do
+    recordLocalBinder n n.getId
+    pure (.var (toString n.getId))
   | `(fnPatAtom| $n:num) => pure (.natLit n.getNat)
   | `(fnPatAtom| [ ]) => pure .nil
   | `(fnPatAtom| [ $ps:fnPat,* ]) => do
@@ -357,7 +359,8 @@ partial def parsePat
   match stx with
   | `(fnPat| $a:fnPatAtom) => parsePatAtom a
   | `(fnPat| _) => pure .wild
-  | `(fnPat| $n:ident) =>
+  | `(fnPat| $n:ident) => do
+    recordLocalBinder n n.getId
     pure (.var (toString n.getId))
   | `(fnPat| .$n:ident $args:fnPatAtom*) => do
     let a ← args.mapM parsePatAtom
@@ -520,6 +523,7 @@ partial def parseExpr
       paramStr (← parseExpr b))
   | `(fnExpr| $e:fnExpr ·forAll fun $p:ident =>
         $b:fnExpr) => do
+    recordLocalBinder p p.getId
     pure (.setAll (← parseExpr e)
       (toString p.getId) (← parseExpr b))
   | `(fnExpr| $l:fnExpr ∈ $r:fnExpr) =>
@@ -544,11 +548,13 @@ partial def parseExpr
     let parsed ← groups.getElems.toList.mapM
       fun (g : Lean.TSyntax `fnForallGroup) =>
         match g with
-        | `(fnForallGroup| $x:ident) =>
+        | `(fnForallGroup| $x:ident) => do
+          recordLocalBinder x x.getId
           pure (([toString x.getId] : List String),
                 (none : Option String))
         | `(fnForallGroup| $xs:ident* ∈ $t:ident) => do
           recordIdentRef t t.getId
+          for x in xs do recordLocalBinder x x.getId
           let names := xs.toList.map
             fun (x : Lean.TSyntax `ident) => toString x.getId
           pure (names, some (toString t.getId))
@@ -948,7 +954,18 @@ elab_rules : command
     -- and consumed in source order by `graftDslProofMarkers`
     -- below.
     proofSyntaxBuffer.set #[]
+    -- Reset the local-binder buffer so this `defFn`'s param
+    -- and `let`-binding ident syntaxes are collected from a
+    -- clean slate and consumed in source order by
+    -- `graftLocalIdents` below.
+    localBinderBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    -- Each parameter binder needs its user-source ident
+    -- syntax recorded so the rendered defStr's binder
+    -- occurrence (and every body usage) can be grafted with
+    -- user positions, lighting up LSP gotoDef.
+    for (pn, _, _) in paramData do
+      recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
     let displayTerm ← match dps with
@@ -1040,11 +1057,18 @@ elab_rules : command
       -- elaborator records `TermInfo` at the user's positions.
       let userProofs ← takeProofSyntaxes
       let (stx, _) := graftDslProofMarkers userProofs stx
+      -- Splice each parameter binder, `let`-binding, and
+      -- variable usage's user-source syntax in over the
+      -- corresponding rendered ident, so LSP gotoDef on a
+      -- local-var usage in the DSL source navigates to its
+      -- binder rather than dead-ending at synthetic positions.
+      let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
-      -- Drop any buffered proof syntaxes so a later `defFn`
-      -- doesn't inherit stale entries.
+      -- Drop any buffered proof syntaxes / local binders so a
+      -- later `defFn` doesn't inherit stale entries.
       let _ ← takeProofSyntaxes
+      let _ ← takeLocalBinders
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
     setUserDeclRanges name (← getRef)
@@ -1076,7 +1100,10 @@ elab_rules : command
     DslLint.lintDocTerm doc
     identRefBuffer.set #[]
     proofSyntaxBuffer.set #[]
+    localBinderBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (pn, _, _) in paramData do
+      recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
     let displayTerm ← match dps with
@@ -1123,9 +1150,11 @@ elab_rules : command
       let stx := graftUserNameToken name.getId name.raw stx
       let userProofs ← takeProofSyntaxes
       let (stx, _) := graftDslProofMarkers userProofs stx
+      let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
       let _ ← takeProofSyntaxes
+      let _ ← takeLocalBinders
       throwError s!"defFn: parse error: {e}\n\
         ---\n{defStr}\n---"
     setUserDeclRanges name (← getRef)
@@ -1187,6 +1216,8 @@ private def parseMutualEntry
           $arms:fnArm*) => do
     DslLint.lintDocTerm doc
     let paramData ← ps.mapM parseFnParam
+    for (pn, _, _) in paramData do
+      recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
     let displayTerm ← match dps with
@@ -1268,6 +1299,7 @@ elab_rules : command
   | `(defFnMutual $entries:mutualFnEntry* end) => do
     identRefBuffer.set #[]
     proofSyntaxBuffer.set #[]
+    localBinderBuffer.set #[]
     if entries.isEmpty then
       throwError "defFnMutual: expected at least one entry"
     let results ← entries.mapM parseMutualEntry
@@ -1287,9 +1319,11 @@ elab_rules : command
         stx
       let userProofs ← takeProofSyntaxes
       let (stx, _) := graftDslProofMarkers userProofs stx
+      let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
       let _ ← takeProofSyntaxes
+      let _ ← takeLocalBinders
       throwError s!"defFnMutual: parse error: {e}\n\
         ---\n{mutualStr}\n---"
     -- Tag every entry with a shared group id derived from

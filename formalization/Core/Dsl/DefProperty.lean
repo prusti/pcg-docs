@@ -89,9 +89,15 @@ private def elabPropertyDecl
     -- the proof goal at the user's cursor.
     let userProofs ← takeProofSyntaxes
     let (stx, _) := graftDslProofMarkers userProofs stx
+    -- Splice each parameter binder, `let`-binding pat, and
+    -- variable usage's user-source syntax over its rendered
+    -- ident so LSP gotoDef on a local in the property body
+    -- navigates to its binder.
+    let stx ← graftLocalIdentsFromBuffers stx
     elabCommand stx
   | .error e =>
     let _ ← takeProofSyntaxes
+    let _ ← takeLocalBinders
     throwError
       s!"defProperty: parse error: {e}\n\
         ---\n{defStr}\n---"
@@ -169,7 +175,10 @@ elab_rules : command
     DslLint.lintDocTerm docExpr
     identRefBuffer.set #[]
     proofSyntaxBuffer.set #[]
+    localBinderBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (pn, _, _) in paramData do
+      recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := paramData.map (·.1)
     let docBinders := shortBinders
@@ -285,7 +294,10 @@ elab_rules : command
     DslLint.lintDocTerm docExpr
     identRefBuffer.set #[]
     proofSyntaxBuffer.set #[]
+    localBinderBuffer.set #[]
     let paramData ← ps.mapM parseFnParam
+    for (pn, _, _) in paramData do
+      recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := paramData.map (·.1)
     let docBinders := shortBinders

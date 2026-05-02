@@ -276,6 +276,21 @@ private partial def findUserIdent
       none
   | _ => none
 
+/-- Walk a parsed syntax tree and collect every
+    `Lean.Syntax.ident` whose name matches `needle`, in
+    depth-first / left-to-right order. Used by the local-
+    ident gotoDef tests to locate a *usage* of a binder (the
+    second occurrence — first is the binder itself). -/
+private partial def collectUserIdents
+    (needle : Lean.Name) (stx : Lean.Syntax) : Array Lean.Syntax :=
+  match stx with
+  | .ident _ _ n _ => if n == needle then #[stx] else #[]
+  | .node _ _ args =>
+    args.foldl
+      (fun acc child => acc ++ collectUserIdents needle child)
+      #[]
+  | _ => #[]
+
 open Lean Elab Command in
 /-- Run `defFn`-style command `src` whose body is expected to
     contain a single `proof[…]` block, and check that after
@@ -418,5 +433,133 @@ run_cmd do
   unless resolved.contains expected do
     throwError s!"resolveFnByShortName on `bodyPlaces` \
       returned {resolved}; expected to include {expected}"
+
+-- ══════════════════════════════════════════════
+-- Build-time check: gotoDef from a usage of an
+-- argument or `let`-bound variable
+-- ══════════════════════════════════════════════
+--
+-- Each `defFn`/`defProperty` body that references a
+-- parameter or `let`-bound variable must, after the in-tree
+-- DSL elaboration of the synthesized `def`, carry a
+-- `TermInfo` whose source range falls on the *user-source*
+-- usage occurrence. Without this, LSP gotoDef on a local var
+-- in the DSL source dead-ends at synthetic positions inside
+-- the rendered string.
+--
+-- The pipeline that gives us this is:
+--   1. `parsePat` and the param-parsing loop record each
+--      binder ident syntax into `localBinderBuffer`.
+--   2. `parseExpr` records each variable usage into
+--      `identRefBuffer` (existing flow, also used for
+--      global-ref `addConstInfo`).
+--   3. `graftLocalIdentsFromBuffers` builds a per-name FIFO
+--      queue from both buffers and, for each ident node in
+--      the parsed-from-string defStr, replaces it with the
+--      next user-source syntax for that name.
+--   4. The elaborator processes the grafted syntax and emits
+--      `TermInfo` leaves at the user-source usage positions.
+--
+-- The tests below elaborate synthetic defFn / defProperty
+-- bodies and verify that after elaboration a `TermInfo` for
+-- the parameter usage / `let`-bound usage lands at the user-
+-- source byte offset (i.e. the *second* occurrence of the
+-- name in the parsed src — the first is the binder).
+open Lean Elab Command in
+/-- Run `defFn`-style command `src` and check that after
+    elaboration there's a `TermInfo` whose `stx` is the
+    `nameNeedle` identifier at the *user-source* position of
+    its `occurrenceIdx`-th occurrence in the parsed src.
+    `occurrenceIdx = 1` typically targets the first usage of
+    a binder (occurrence 0 is the binder itself). -/
+private def checkLocalIdentInfoAt
+    (src : String) (nameNeedle : Name)
+    (occurrenceIdx : Nat) : CommandElabM Unit := do
+  let env ← getEnv
+  let stx ← match Parser.runParserCategory env `command src with
+    | .ok stx => pure stx
+    | .error e => throwError s!"parse error in synthesised \
+        defFn:\n---\n{src}\n---\n{e}"
+  let userIdents := collectUserIdents nameNeedle stx
+  let some userStx := userIdents[occurrenceIdx]?
+    | throwError s!"checkLocalIdentInfoAt: expected at least \
+        {occurrenceIdx + 1} occurrences of '{nameNeedle}' in \
+        parsed src, found {userIdents.size}"
+  let some userPos := userStx.getPos?
+    | throwError s!"checkLocalIdentInfoAt: occurrence \
+        {occurrenceIdx} of '{nameNeedle}' has no source position"
+  let foundRef ← IO.mkRef false
+  let pred : Lean.Elab.Info → Bool := fun info =>
+    match info with
+    | .ofTermInfo ti =>
+      ti.stx.getKind == Lean.identKind &&
+      ti.stx.getId == nameNeedle &&
+      (match ti.stx.getPos? with
+        | some p => p.byteIdx == userPos.byteIdx
+        | none => false)
+    | _ => false
+  withInfoTreeContext (mkInfoTree := fun trees => do
+      if trees.any (fun t => (t.findInfo? pred).isSome) then
+        foundRef.set true
+      return InfoTree.node
+        (Info.ofCommandInfo
+          { elaborator := `checkLocalIdentInfoAt, stx })
+        trees) do
+    elabCommand stx
+  let found ← foundRef.get
+  if !found then
+    throwError s!"local-ident gotoDef regression: no TermInfo \
+      lands on occurrence {occurrenceIdx} of '{nameNeedle}' \
+      (byte offset {userPos.byteIdx}) in:\n---\n{src}\n---\n\
+      The graftLocalIdentsFromBuffers pass is not preserving \
+      user-source positions for local idents, so LSP gotoDef \
+      on a parameter or let-bound usage would dead-end at the \
+      cursor."
+
+elab "checkLocalIdentInfoAt" : command => do
+  -- Parameter usage: `n` appears as binder in `(n : Nat)` and
+  -- again as a usage in the body `n + 1`. The graft must
+  -- splice the user-source `n` over the rendered defStr's
+  -- second `n` ident so a TermInfo lands on the usage.
+  checkLocalIdentInfoAt
+    "defFn testParamUsage (.plain \"testParamUsage\") \
+       (.plain \"Tests gotoDef on a parameter usage.\") \
+       (n \"Test param.\" : Nat) \
+       : Nat := n + 1"
+    `n 1
+  -- Let-bound usage: `let x := 1; x + 1`. `x` appears as
+  -- binder, then as a usage in `x + 1`. The pat-parser
+  -- records the binder; the body's `x` is a usage; the graft
+  -- pairs them in source order.
+  checkLocalIdentInfoAt
+    "defFn testLetUsage (.plain \"testLetUsage\") \
+       (.plain \"Tests gotoDef on a let-bound usage.\") \
+       : Nat := \
+         let x := 1 ; \
+         x + 1"
+    `x 1
+  -- Two parameter usages: `n + n`. The graft must pair the
+  -- binder with the binder, and each usage with each usage in
+  -- source order. Verify the *second* usage (occurrence 2).
+  checkLocalIdentInfoAt
+    "defFn testTwoParamUsages (.plain \"testTwoParamUsages\") \
+       (.plain \"Tests gotoDef on two parameter usages.\") \
+       (n \"Test param.\" : Nat) \
+       : Nat := n + n"
+    `n 2
+  -- defProperty body referencing a parameter usage. Same
+  -- pipeline through DefProperty's elabPropertyDecl.
+  checkLocalIdentInfoAt
+    "defProperty testPropParamUsage \
+       (.plain \"testPropParamUsage\") \
+       short (.seq [.plain \"short\"]) \
+       long (.seq [.plain \"long\"]) \
+       (n \"Test param.\" : Nat) \
+       := n < 10"
+    `n 1
+
+namespace Wrap
+checkLocalIdentInfoAt
+end Wrap
 
 end Tests.DslGotoDef

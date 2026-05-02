@@ -91,6 +91,38 @@ def takeProofSyntaxes : IO (Array Lean.Syntax) := do
   proofSyntaxBuffer.set #[]
   return buf
 
+/-- Buffer of `(name, user-source ident syntax)` pairs for
+    every locally-bound name encountered while parsing a DSL
+    body — function parameters, `let`-binding pattern names,
+    `forall_` binders, etc. Each `defFn`/`defProperty`/...
+    elab-rule clears the buffer at entry; after the generated
+    Lean declaration is parsed back from a string,
+    `graftLocalIdents` walks the parsed tree and replaces each
+    matching identifier (binder occurrence or usage in the
+    body) with the corresponding user-source syntax, so the
+    `TermInfo` leaves Lean's elaborator records carry the
+    user's positions. That makes LSP gotoDef on a parameter
+    or `let`-bound usage navigate to its binder in the user's
+    DSL source rather than disappearing into the synthesized
+    rendered string. -/
+initialize localBinderBuffer :
+    IO.Ref (Array (Lean.Name × Lean.Syntax)) ← IO.mkRef #[]
+
+/-- Append a local-binder syntax to `localBinderBuffer`. The
+    `name` is the binder's identifier (used to match against
+    occurrences in the parsed-from-string Lean source), and
+    `stx` is the user-source ident syntax to splice in. -/
+def recordLocalBinder
+    (stx : Lean.Syntax) (name : Lean.Name) : IO Unit :=
+  localBinderBuffer.modify (·.push (name, stx))
+
+/-- Take the currently-buffered local-binder entries and
+    empty the buffer. -/
+def takeLocalBinders : IO (Array (Lean.Name × Lean.Syntax)) := do
+  let buf ← localBinderBuffer.get
+  localBinderBuffer.set #[]
+  return buf
+
 /-- Record an identifier reference for later `TermInfo`
     emission. Called from the parser whenever an `ident` token
     syntactically denotes a potential global reference
@@ -311,6 +343,94 @@ partial def graftDslProofMarkers
         ((#[] : Array Lean.Syntax), userProofs)
       (.node info kind newArgs, rest)
     | _ => (stx, userProofs)
+
+/-- Build a per-name FIFO queue (Lean has no `Queue`, so we
+    use `Std.HashMap Name (Array Syntax)` and treat each
+    array as a queue: `pop` reads index 0 and returns the
+    tail). The buffer is in source-order, so the head of each
+    name's queue is its earliest-occurring user-source syntax,
+    matching the earliest-occurring same-name ident in the
+    parsed-from-string defStr. -/
+private def buildLocalIdentQueue
+    (entries : Array (Lean.Name × Lean.Syntax))
+    : Std.HashMap Lean.Name (Array Lean.Syntax) :=
+  entries.foldl
+    (fun acc (name, stx) =>
+      let cur := acc.getD name #[]
+      acc.insert name (cur.push stx))
+    {}
+
+/-- Walk a parsed-from-string syntax tree and, for each
+    `Lean.Syntax.ident` whose name matches a queued user-source
+    syntax in `queue`, replace it with the next entry from
+    that name's queue (popped from the front). Returns the
+    rewritten syntax and the residual queue.
+
+    This pairs each rendered identifier occurrence with the
+    user-source occurrence at the same position in source
+    order. Both the rendered and the user-source streams
+    interleave binders and usages in the same depth-first /
+    left-to-right order, so a per-name FIFO suffices to align
+    them: the first rendered `n` ident matches the first
+    user-source `n` ident (typically the binder), the second
+    matches the next usage, etc.
+
+    Used by `defFn`/`defProperty`/`defTheorem` after
+    `Parser.runParserCategory` so LSP gotoDef on a parameter
+    or `let`-bound usage in the DSL source navigates to its
+    binder. Without this, every local-ident `TermInfo` that
+    Lean's elaborator records sits at synthetic positions
+    inside the rendered string and is invisible to the LSP. -/
+partial def graftLocalIdents
+    (queue : Std.HashMap Lean.Name (Array Lean.Syntax))
+    (stx : Lean.Syntax)
+    : Lean.Syntax × Std.HashMap Lean.Name (Array Lean.Syntax) :=
+  match stx with
+  | .ident _ _ n _ =>
+    match queue.get? n with
+    | some pending =>
+      if h : pending.size > 0 then
+        let userStx := pending[0]
+        let rest := pending.extract 1 pending.size
+        (userStx, queue.insert n rest)
+      else (stx, queue)
+    | none => (stx, queue)
+  | .node info kind args =>
+    let (newArgs, finalQueue) := args.foldl
+      (fun (acc, q) child =>
+        let (newChild, q') := graftLocalIdents q child
+        (acc.push newChild, q'))
+      ((#[] : Array Lean.Syntax), queue)
+    (.node info kind newArgs, finalQueue)
+  | _ => (stx, queue)
+
+/-- Combine the current `localBinderBuffer` (binders, in
+    push order) with the current `identRefBuffer` snapshot
+    (usages, in push order, *not* drained because
+    `flushIdentRefs` consumes it later for global-ref
+    `addConstInfo` emission), build a per-name FIFO queue,
+    and graft the queued user-source syntaxes over `stx`.
+
+    The combined order matches the rendered defStr's
+    traversal order: parameter binders are rendered first
+    (in `(p1 : T1) (p2 : T2) …`), then the body's local
+    binders and usages appear in the same depth-first /
+    left-to-right sequence the parser visited them in. Each
+    name's queue is drained in order, so the first rendered
+    `n` ident binds to the user's first `n` syntax (the
+    binder), the second to the next (a usage), and so on.
+
+    The local-binder buffer is drained; the ident-ref buffer
+    is left intact for the subsequent `flushIdentRefs` call. -/
+def graftLocalIdentsFromBuffers
+    (stx : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM Lean.Syntax := do
+  let binders ← takeLocalBinders
+  let usages ← identRefBuffer.get
+  let entries := binders ++ usages.map (fun (s, n) => (n, s))
+  let queue := buildLocalIdentQueue entries
+  let (stx', _) := graftLocalIdents queue stx
+  return stx'
 
 open Lean Elab Command in
 /-- After elaborating a DSL-synthesised declaration, override

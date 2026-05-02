@@ -51,6 +51,7 @@ elab_rules : command
         $stmt:fnExpr proof $proofIdent:ident) => do
     identRefBuffer.set #[]
     proofSyntaxBuffer.set #[]
+    localBinderBuffer.set #[]
     let stmtAst ← parseExpr stmt
     -- Lower the statement to a Lean type expression with
     -- antecedent binders rebound (so `proof[h_…]`
@@ -75,9 +76,11 @@ elab_rules : command
     | .ok stx =>
       let userProofs ← takeProofSyntaxes
       let (stx, _) := graftDslProofMarkers userProofs stx
+      let stx ← graftLocalIdentsFromBuffers stx
       elabCommand stx
     | .error e =>
       let _ ← takeProofSyntaxes
+      let _ ← takeLocalBinders
       throwError s!"defTheorem: parse error: {e}\n\
         ---\n{cmdStr}\n---"
     setUserDeclRanges name (← getRef)
