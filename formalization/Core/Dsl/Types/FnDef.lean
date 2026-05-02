@@ -21,9 +21,11 @@ inductive FnBody where
   deriving Repr
 
 /-- A precondition for a `defFn`. Either a named property
-    applied to identifier arguments (the legacy `requires
-    Name(a, b)` form), or an arbitrary `DslExpr` (the
-    `requires <expr>` form, e.g. `requires xs·length = ys·length`).
+    applied to identifier arguments — the bracketless
+    `requires Name arg₁ arg₂` form, recovered by
+    `parsePrecond` from the underlying `fnExpr` parse — or an
+    arbitrary `DslExpr` (the general `requires <expr>` form,
+    e.g. `requires xs·length = ys·length`).
 
     The named form preserves enough information for the Lean
     backend to insert `simp_all [name]` proof obligations at
@@ -35,7 +37,7 @@ inductive FnBody where
     preservation lemma the default tactic can't find on its
     own. -/
 inductive Precondition where
-  /-- Property-call form: `name(arg₁, …, argₙ)` where each
+  /-- Property-call form: `Name arg₁ … argₙ` where each
       argument is a parameter name in scope. `extraLemmas`
       lists extra simp lemma names to splice into the
       `simp_all [name, …]` auto-tactic. -/

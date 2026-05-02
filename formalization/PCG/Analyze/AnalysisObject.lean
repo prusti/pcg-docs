@@ -121,7 +121,7 @@ defFn getAnalysisObject (.plain "getAnalysisObject")
   (body "The function body." : Body)
   (loc "The location." : Location)
   requires validBody body
-  ensures validAnalysisObject(body, result)
+  ensures validAnalysisObject body result
   : AnalysisObject :=
     let bb := body↦blocks ! loc↦block↦index ;
     if loc↦stmtIdx < bb↦statements·length then

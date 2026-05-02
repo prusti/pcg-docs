@@ -273,20 +273,21 @@ syntax "let " fnPat " := " fnExpr : fnStmt
 syntax "let " fnPat " ← " fnExpr : fnStmt
 
 declare_syntax_cat fnPrecond
--- Property-call form: `Name(arg₁, …, argₙ)` where each arg is
--- a parameter name in scope. Tried first because the more
--- specific syntax is unambiguous.
-syntax ident "(" ident,+ ")" : fnPrecond
--- Property-call form with a `using [lemma, …]` clause: extra
--- simp lemma names spliced into the auto-discharge tactic
--- the Lean backend emits at recursive call sites.
-syntax ident "(" ident,+ ")" "using" "[" ident,+ "]" : fnPrecond
--- General-expression form: any DSL expression that evaluates
+-- The `fnPrecond` shapes: any DSL expression that evaluates
 -- to `Prop` or `Bool`. Allows preconditions like
--- `requires xs·length = ys·length` that are not a single
--- property call.
+-- `requires xs·length = ys·length` (an arbitrary expression)
+-- and the bracketless property-call form
+-- `requires Name arg₁ arg₂ …` (a juxtaposition the
+-- `parsePrecond` matcher recognises and lowers to a `.named`
+-- precondition so the proof binder stays `h_<Name>`). The
+-- legacy parenthesised `Name(arg₁, arg₂)` form was dropped:
+-- every existing call site already uses Haskell-style
+-- application both in `requires` / `ensures` clauses and in
+-- the surrounding function bodies.
 syntax fnExpr : fnPrecond
--- General-expression form with a `using [lemma, …]` clause.
+-- General-expression form with a `using [lemma, …]` clause:
+-- extra simp lemma names spliced into the auto-discharge
+-- tactic the Lean backend emits at recursive call sites.
 syntax fnExpr "using" "[" ident,+ "]" : fnPrecond
 
 /-- Pattern-matching function.
@@ -702,14 +703,6 @@ def parsePrecond
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM Precondition := do
   match stx with
-  | `(fnPrecond| $n:ident ($args:ident,*)) =>
-    pure (.named (toString n.getId)
-      (args.getElems.toList.map (toString ·.getId)))
-  | `(fnPrecond| $n:ident ($args:ident,*)
-        using [ $lemmas:ident,* ]) =>
-    pure (.named (toString n.getId)
-      (args.getElems.toList.map (toString ·.getId))
-      (lemmas.getElems.toList.map (toString ·.getId)))
   | `(fnPrecond| $e:fnExpr using [ $lemmas:ident,* ]) =>
     let parsed ← parseExpr e
     let lemmaNames :=
@@ -731,12 +724,12 @@ def parsePrecond
     | _ => pure (.expr_ parsed lemmaNames)
   | `(fnPrecond| $e:fnExpr) =>
     -- Bracketless property-call form `Name arg₁ arg₂ …`
-    -- (introduced when the `‹›` brackets were dropped from
-    -- function calls): `parseExpr` lowers it to a `.call`
-    -- whose head is `.var Name` and whose args are bare
-    -- `.var argᵢ`. Re-interpret that as a `.named`
-    -- precondition so the auto-generated proof binder
-    -- stays `h_<Name>` rather than the generic `h_pre<i>`.
+    -- (the only form now that the legacy `Name(args)`
+    -- parenthesised syntax is gone): `parseExpr` lowers it to
+    -- a `.call` whose head is `.var Name` and whose args are
+    -- bare `.var argᵢ`. Re-interpret that as a `.named`
+    -- precondition so the auto-generated proof binder stays
+    -- `h_<Name>` rather than the generic `h_pre<i>`.
     let parsed ← parseExpr e
     match parsed with
     | .call (.var name) args =>
