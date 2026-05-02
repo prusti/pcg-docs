@@ -8,6 +8,14 @@ import OpSem.Statements
 import OpSem.StepResult
 import OpSem.Terminator
 
+-- Open `StackFrame` so the in-tree elaboration of the
+-- proofs below resolves `validStackFrame` to
+-- `StackFrame.validStackFrame`. The Lean exporter places
+-- `validStackFrame` in `namespace Memory` (its first param's
+-- type is `Memory`), which is already opened in the
+-- generated file, so the same unqualified name works there.
+open StackFrame
+
 namespace Machine
 
 defFn evalStatement (.plain "evalStatement")
@@ -37,27 +45,27 @@ defFn evalStatement (.plain "evalStatement")
           -- `m.thread.stack.head!`. `Runnable m` gives us
           -- `stack ≠ [] ∧ validProgram ∧ validStack`, whose
           -- third conjunct's first sub-conjunct is `∀ f ∈
-          -- stack, validStackFrame f`. Pull it out and apply
-          -- to the head, which is in the (cons-shaped) stack.
-          show StackFrame.validStackFrame
-            (currentFrame m h_Runnable)
+          -- stack, validStackFrame m.mem f`. Pull it out and
+          -- apply to the head, which is in the (cons-shaped)
+          -- stack.
+          show validStackFrame m.mem
+                  (currentFrame m h_Runnable)
           unfold currentFrame
           match hcase : m.thread.stack, h_Runnable.1 with
           | [], hne => exact absurd rfl hne
           | hd :: tl, _ =>
             have hall : ∀ f ∈ m.thread.stack,
-                StackFrame.validStackFrame f :=
+                validStackFrame m.mem f :=
               h_Runnable.2.2.1
             rw [hcase] at hall
-            show StackFrame.validStackFrame ((hd :: tl).head!)
             exact hall hd List.mem_cons_self)]
         -- The `.storageLive lcl` case carries no syntactic
         -- guarantee that `lcl` is in range of the current
         -- body's `decls` — `validStatement` only constrains
         -- the statement's `places`, and `StorageLive` has
         -- none. Discharging this would need either a
-        -- `validLocal`-flavoured `validStatement` or a frame-
-        -- level invariant about declared locals.
+        -- `validLocal`-flavoured `validStatement` or a
+        -- frame-level invariant about declared locals.
         proof[sorry] ;
       let rest := stackTail
         m proof[h_Runnable] ;
@@ -67,7 +75,19 @@ defFn evalStatement (.plain "evalStatement")
         m proof[h_Runnable] ;
       let ⟨frame', mem'⟩ := StackFrame.storageDead
         frame m↦mem lcl
-        -- Same caveat as the `storageLive` arm above.
+        proof[(by
+          show validStackFrame m.mem
+                  (currentFrame m h_Runnable)
+          unfold currentFrame
+          match hcase : m.thread.stack, h_Runnable.1 with
+          | [], hne => exact absurd rfl hne
+          | hd :: tl, _ =>
+            have hall : ∀ f ∈ m.thread.stack,
+                validStackFrame m.mem f :=
+              h_Runnable.2.2.1
+            rw [hcase] at hall
+            exact hall hd List.mem_cons_self)]
+        -- Same caveat as the `.storageLive` arm above.
         proof[sorry] ;
       let rest := stackTail
         m proof[h_Runnable] ;
@@ -105,13 +125,13 @@ defFn step (.plain "step")
           | [], hne => exact absurd rfl hne
           | hd :: tl, _ =>
             have hall : ∀ f ∈ m.thread.stack,
-                StackFrame.validStackFrame f :=
+                validStackFrame m.mem f :=
               h_Runnable.2.2.1
             rw [hcase] at hall
             show validLocation
               ((hd :: tl).head!).body
               ((hd :: tl).head!).pc
-            exact (hall hd List.mem_cons_self).2)] with
+            exact (hall hd List.mem_cons_self).2.1)] with
     | .terminator t =>
         evalTerminator m t proof[h_Runnable]
     | .stmt s =>

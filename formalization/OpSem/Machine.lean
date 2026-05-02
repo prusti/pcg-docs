@@ -137,23 +137,21 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
   (mem "The memory state." : Memory)
-  requires validStackFrame frame
   : StackFrame × Memory where
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
+      -- Both `storageLive` preconditions (the new mem-threaded
+      -- `validStackFrame mem frame` and `validLocal frame.body
+      -- ⟨k⟩`) are stubbed with `sorry`: the now-mem-threaded
+      -- `validStackFrame` would have to be preserved through
+      -- the `storageLive`/`typedStore` step (which `simp_all`
+      -- can't see through the `frame1`/`mem1` let-bindings),
+      -- and `validLocal` needs a `k < frame.body.decls.length`
+      -- bound that no precondition currently provides.
       let ⟨frame1, mem1⟩ := StackFrame.storageLive frame mem Local⟨k⟩
-        proof[h_validStackFrame] proof[sorry] ;
-      -- Re-pack the frame with the original body and program counter so
-      -- the recursive call's `validStackFrame` precondition discharges
-      -- definitionally — `storageLive` only changes `locals`, but
-      -- threading `frame1` directly hides that fact behind a let-binding
-      -- the auto-tactic can't see through. The `validLocal` precondition
-      -- on `storageLive` is still discharged with `sorry`; threading
-      -- `k < frame.body.decls.length` through the recursion is left to a
-      -- follow-up.
-      let frame2 := StackFrame⟨frame↦body, frame↦pc, frame1↦locals⟩ ;
+        proof[sorry] proof[sorry] ;
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
-      liveAndStoreArgs rest (k + 1) frame2 (typedStore mem1 ptr v)
+      liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
 
 defFn createFrame (.plain "createFrame")
   (doc! "Build a fresh stack frame for a call into `body` and push it onto the thread's call stack. \
@@ -174,7 +172,7 @@ defFn createFrame (.plain "createFrame")
       initFrame m↦mem Local⟨0⟩
       proof[sorry] proof[sorry] ;
     let ⟨frame2, mem2⟩ :=
-      liveAndStoreArgs args 1 frame1 mem1 proof[sorry] ;
+      liveAndStoreArgs args 1 frame1 mem1 ;
     Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩

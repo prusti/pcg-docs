@@ -1,5 +1,6 @@
 import MIR.Ty
 import Core.Dsl.DefAlias
+import Core.Dsl.DefRaw
 
 defStruct Local (.raw "l", .raw "L")
   "Locals"
@@ -8,7 +9,24 @@ defStruct Local (.raw "l", .raw "L")
   constructor "LocalIdx"
 where
   | index "The local variable index." : Nat
-  deriving DecidableEq, BEq, Repr, Hashable
+  deriving DecidableEq, Repr, Hashable
+
+/-! `Std.HashMap.getElem?_eq_some_iff_…` (used to recover
+    `(_, ptr) ∈ frame.locals.toList` from
+    `mapGet frame.locals l = some ptr` in StackFrame's
+    `storageDead`) needs `EquivBEq` and `LawfulHashable` on the
+    key. Those follow from `LawfulBEq`, whose derive needs a
+    *structural* `BEq` — adding `BEq` to the `defStruct`
+    deriving list installs a `DecidableEq`-driven `BEq` whose
+    `decide` unfolding defeats the `LawfulBEq` derive. The
+    same-shaped block in `MIR/Body.lean` does this for
+    `BasicBlockIdx`. -/
+defRaw after =>
+deriving instance BEq for Local
+defRaw after =>
+deriving instance ReflBEq for Local
+defRaw after =>
+deriving instance LawfulBEq for Local
 
 defStruct FieldIdx (.raw "f", .raw "F")
   "Field Indices"

@@ -25,17 +25,21 @@ where
 
 namespace StackFrame
 
+open Memory in
 defProperty validStackFrame (.plain "validStackFrame")
   short
-    (doc! "{frame} is a valid stack frame")
+    (doc! "{frame} is a valid stack frame in {m}")
   long
-    (doc! "the body of {frame} is a valid body, and the \
-      program counter of {frame} is a valid location in that \
-      body")
+    (doc! "the body of {frame} is a valid body, the program \
+      counter of {frame} is a valid location in that body, \
+      and every locals-map entry of {frame} carries a thin \
+      pointer that is valid in {m}")
+  (m "The memory." : Memory)
   (frame "The stack frame." : StackFrame)
   :=
     validBody frame↦body ∧
-    validLocation frame↦body frame↦pc
+    validLocation frame↦body frame↦pc ∧
+    (mapValues frame↦locals·forAll fun ptr => validPtr m ptr)
 
 open Memory in
 defFn storageDeadPtr (.plain "storageDeadPtr")
@@ -61,6 +65,7 @@ defFn storageDeadPtr (.plain "storageDeadPtr")
       ⟨newFrame, newMem⟩
   | frame ; mem ; _ ; _ => ⟨frame, mem⟩
 
+open Memory in
 defFn storageDead (.plain "storageDead")
   (doc! "Tear down the stack allocation backing a local, if one is live, returning the updated \
     stack frame (with the local removed from `locals`) together with the updated memory. If the \
@@ -71,17 +76,25 @@ defFn storageDead (.plain "storageDead")
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage should be torn down." : Local)
-  requires validLocal frame↦body l
+  requires validStackFrame mem frame, validLocal frame↦body l
   : StackFrame × Memory :=
-    match mapGet frame↦locals l with
+    match heq : mapGet frame↦locals l with
     | .none => ⟨frame, mem⟩
     | .some ptr =>
-        -- The new `validPtr` obligation on `storageDeadPtr`
-        -- propagates up to here; a per-frame validity
-        -- invariant (every pointer in `frame.locals` is a
-        -- valid pointer in `mem`) would discharge it, but
-        -- threading that through is left for a follow-up.
-        storageDeadPtr frame mem l ptr proof[sorry]
+        -- The locals map's third validity conjunct
+        -- (`∀ ptr ∈ mapValues frame.locals, validPtr mem ptr`)
+        -- discharges `storageDeadPtr`'s `validPtr` requirement
+        -- once we know `ptr` is a value of the map. The
+        -- `match heq : ... with` form propagates the equation
+        -- `mapGet frame.locals l = some ptr` into the arm so
+        -- `mem_mapValues_of_mapGet_eq_some` applies.
+        storageDeadPtr frame mem l ptr
+          proof[(by
+            have hall : ∀ p ∈ mapValues frame.locals,
+                validPtr mem p :=
+              h_validStackFrame.2.2
+            exact hall ptr
+              (mem_mapValues_of_mapGet_eq_some heq))]
     end
 
 defFn storageLive (.plain "storageLive")
@@ -97,23 +110,24 @@ defFn storageLive (.plain "storageLive")
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage should be brought live." : Local)
-  requires validStackFrame frame, validLocal frame↦body l
+  requires validStackFrame mem frame, validLocal frame↦body l
   : StackFrame × Memory :=
     let ⟨frame1, mem1⟩ := storageDead frame mem l
-      proof[h_pre1] ;
+      proof[h_validStackFrame] proof[h_pre1] ;
     let ty := frame↦body↦decls ! l↦index ;
     let sz := Ty.sizeOf ty
       proof[(by
         -- `h_validStackFrame.1.2.2 : ∀ t ∈ frame.body.decls, IsSized t`
-        -- (`validBody` is `decls ≠ [] ∧ (∀ bb …) ∧ (∀ t …,
-        -- IsSized t)`, so the `.2.2` projection picks out the
-        -- third conjunct), and `h_pre1 : validLocal frame.body
-        -- l` (the second precondition, named positionally
-        -- because its argument list isn't a bare-var sequence
-        -- the DSL can name as `h_validLocal`) pins the index
-        -- in range, so `decls[l.index]!` reduces to
-        -- `decls[l.index]` — in the list, discharging
-        -- `IsSized` directly.
+        -- (`validBody = decls ≠ [] ∧ … ∧ decls.forAll IsSized`,
+        -- so `.1.2.2` reaches the `IsSized` clause through the
+        -- `validBody` outer conjunct of the new mem-threaded
+        -- `validStackFrame`), and `h_pre1 : validLocal
+        -- frame.body l` (the second precondition, named
+        -- positionally because its argument list isn't a
+        -- bare-var sequence the DSL can name as
+        -- `h_validLocal`) pins the index in range, so
+        -- `decls[l.index]!` reduces to `decls[l.index]` — in
+        -- the list, discharging `IsSized` directly.
         show Ty.IsSized (frame.body.decls[l.index]!)
         rw [getElem!_pos frame.body.decls l.index h_pre1]
         exact h_validStackFrame.1.2.2 _
@@ -151,25 +165,25 @@ these helpers without needing a manual proof argument. -/
 
 @[simp] theorem storageDead_body
     (frame : StackFrame) (mem : Memory) (l : Local)
-    (h : validLocal frame.body l) :
-    (storageDead frame mem l h).fst.body = frame.body := by
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    (storageDead frame mem l h₁ h₂).fst.body = frame.body := by
   unfold storageDead; split <;> simp [storageDeadPtr_body]
 
 @[simp] theorem storageDead_pc
     (frame : StackFrame) (mem : Memory) (l : Local)
-    (h : validLocal frame.body l) :
-    (storageDead frame mem l h).fst.pc = frame.pc := by
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    (storageDead frame mem l h₁ h₂).fst.pc = frame.pc := by
   unfold storageDead; split <;> simp [storageDeadPtr_pc]
 
 @[simp] theorem storageLive_body
     (frame : StackFrame) (mem : Memory) (l : Local)
-    (h₁ : validStackFrame frame) (h₂ : validLocal frame.body l) :
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
     (storageLive frame mem l h₁ h₂).fst.body = frame.body := by
   unfold storageLive; simp
 
 @[simp] theorem storageLive_pc
     (frame : StackFrame) (mem : Memory) (l : Local)
-    (h₁ : validStackFrame frame) (h₂ : validLocal frame.body l) :
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
     (storageLive frame mem l h₁ h₂).fst.pc = frame.pc := by
   unfold storageLive; simp
 
@@ -196,6 +210,7 @@ defFn localAllocations (.plain "localAllocations")
       mapValues frame↦locals·flatMap fun ptr =>
         ptrAllocations ptr mem
 
+open StackFrame in
 defProperty validStack (.plain "validStack")
   short
     (doc! "{stack} is a valid stack against {mem}")
@@ -207,7 +222,7 @@ defProperty validStack (.plain "validStack")
   (mem "The memory." : Memory)
   :=
     let allocs := localAllocations stack mem ;
-    (stack·forAll fun frame => StackFrame.validStackFrame frame) ∧
+    (stack·forAll fun frame => validStackFrame mem frame) ∧
     (∀∀ i, j .
       i < j < allocs·length →
       Allocation.nonOverlapping (allocs ! i) (allocs ! j))
