@@ -2,6 +2,7 @@ import Core.Doc.Interp
 import Core.Registry
 import Core.Dsl.IdentRefs
 import Core.Dsl.Lint
+import Core.Dsl.DefFn
 import Lean
 
 open Core.Dsl.IdentRefs
@@ -27,6 +28,26 @@ syntax "defAlias " ident ("{" ident+ "}")?
     "(" term "," term ")"
     str "(" term ")"
     ":=" term : command
+
+/-- Define a value alias (a constant) with cross-language
+    export metadata.
+
+    Generates:
+    1. A Lean `def Name : Type := Body` declaration (the type
+       is inferred from `Body` by Lean's elaborator).
+    2. An `AliasDef` registry entry for downstream export. The
+       Rust export emits `pub const NAME: Type = Body;` rather
+       than `pub type Name = Body;`.
+
+    Example:
+    ```
+    defAlias RETURN = Place⟨Local⟨0⟩, []⟩
+    ```
+
+    The body is parsed as a DSL `fnExpr` so anonymous-constructor
+    syntax (`Name⟨a, b, …⟩`) and list literals work the same way
+    they do inside `defFn` bodies. -/
+syntax "defAlias " ident " = " fnExpr : command
 
 open Lean Elab Command in
 elab_rules : command
@@ -80,7 +101,77 @@ elab_rules : command
             let $typeParamsId : List String := $typeParamsTerm;
             ($doc : Doc)),
           typeParams := $typeParamsTerm,
-          aliased := $bodyTyTerm }))
+          aliased := $bodyTyTerm,
+          value := none }))
+    let mod ← getMainModule
+    let modName : TSyntax `term := quote mod
+    elabCommand (← `(command|
+      initialize registerAliasDef $adId $modName))
+
+open Lean Elab Command Core.Dsl.IdentRefs in
+elab_rules : command
+  | `(defAlias $name:ident = $body:fnExpr) => do
+    let nameStr := toString name.getId
+    -- Parse the DSL `fnExpr` body into a `DslExpr` so Rust /
+    -- Lean / LaTeX renderers can share the same expression.
+    let dslExpr ← parseExpr body.raw
+    -- Render the body as Lean source via the DSL's
+    -- `DslExpr.toLean`, which strips the struct name from
+    -- `mkStruct` and emits anonymous-constructor `⟨…⟩` syntax.
+    -- For a top-level `def` Lean can't infer the type of a
+    -- bare `⟨…⟩`, so when the user wrote `Name⟨…⟩` at the
+    -- outermost level we attach a `: Name` ascription to give
+    -- the elaborator a starting type. Inner anonymous
+    -- constructors then inherit their expected types from
+    -- the outer struct's field types.
+    let bodySrc := match dslExpr with
+      | .mkStruct sName _ =>
+        if sName.isEmpty then DslExpr.toLean dslExpr
+        else s!"({DslExpr.toLean dslExpr} : {sName})"
+      | _ => DslExpr.toLean dslExpr
+    -- Generate `def Name := Body` so the definition is a real
+    -- Lean constant — the IDE keeps full hover / gotoDef on
+    -- references to `Name`.
+    let defStr := s!"def {nameStr} := {bodySrc}"
+    let env ← getEnv
+    match Parser.runParserCategory env `command defStr with
+    | .ok stx =>
+      let stx := graftUserNameToken name.getId name.raw stx
+      elabCommand stx
+    | .error e =>
+      throwError s!"defAlias (value): parse error: {e}\n\
+        ---\n{defStr}\n---"
+    setUserDeclRanges name (← getRef)
+    -- After elaboration, look up the constant's inferred type
+    -- and convert it to a `DSLType` via `DSLType.parse` over
+    -- the pretty-printed type string.
+    let env ← getEnv
+    let cName := name.getId
+    let some cInfo := env.find? cName
+      | throwError s!"defAlias (value): could not find {cName} \
+          after elaboration"
+    let tyStr ← liftCoreM <| Lean.Meta.MetaM.run' do
+      let pp ← Lean.Meta.ppExpr cInfo.type
+      pure (toString pp)
+    let bodyTyTerm ← `(DSLType.parse $(quote tyStr))
+    let dslExprTerm : TSyntax `term := quote dslExpr
+    let ns : TSyntax `term := quote nameStr
+    let adId := mkIdent (cName ++ `aliasDef)
+    -- Value aliases have no `symbolDoc` / `setDoc` (they're
+    -- not types), so we leave both as empty `MathDoc`s.
+    -- `checkSymbolUnique` ignores empty rendered symbols, so
+    -- this also keeps the duplicate-symbol warning quiet for
+    -- repeated value aliases.
+    elabCommand (← `(command|
+      def $adId : AliasDef :=
+        { name := $ns,
+          symbolDoc := MathDoc.raw "",
+          setDoc := MathDoc.raw "",
+          docParam := $ns,
+          doc := Doc.plain "",
+          typeParams := [],
+          aliased := $bodyTyTerm,
+          value := some $dslExprTerm }))
     let mod ← getMainModule
     let modName : TSyntax `term := quote mod
     elabCommand (← `(command|

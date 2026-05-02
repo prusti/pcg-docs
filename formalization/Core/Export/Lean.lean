@@ -302,11 +302,21 @@ end StructDef
 
 namespace AliasDef
 
-/-- Lower a type alias to a Lean `abbrev` declaration. -/
+/-- Lower an alias to a Lean declaration: `abbrev` for a type
+    alias, `def` for a value alias (with the type written
+    explicitly so the elaborator doesn't have to re-infer it). -/
 def toLeanAST (a : AliasDef) : LeanDecl :=
-  .abbrev_ a.name a.typeParams a.aliased.toLeanAST
+  match a.value with
+  | none => .abbrev_ a.name a.typeParams a.aliased.toLeanAST
+  | some e =>
+    .def_ {
+      name := a.name,
+      params := [],
+      precondBinds := [],
+      retType := a.aliased.toLeanAST,
+      body := .expr e.toLeanAST }
 
-/-- Render a type alias to Lean source. -/
+/-- Render an alias to Lean source. -/
 def toLean (a : AliasDef) : String :=
   toString a.toLeanAST
 

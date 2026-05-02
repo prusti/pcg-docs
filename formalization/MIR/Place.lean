@@ -1,4 +1,5 @@
 import MIR.Ty
+import Core.Dsl.DefAlias
 
 defStruct Local (.raw "l", .raw "L")
   "Locals"
@@ -56,3 +57,5 @@ where
   | projection "The list of projection elements."
       : List ProjElem
   deriving Repr, BEq, Hashable
+
+defAlias RETURN = Place⟨Local⟨0⟩, []⟩

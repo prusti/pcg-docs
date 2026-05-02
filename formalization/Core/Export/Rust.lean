@@ -608,20 +608,65 @@ end EnumDef
 
 namespace AliasDef
 
-/-- Convert a type alias to a `RustItem.typeAlias`, i.e. a
-    `pub type Name<Generics> = Body;` declaration. -/
-def toRustItem (a : AliasDef) : RustItem :=
-  .typeAlias {
-    doc := a.doc.toPlainText
-    vis := .pub
-    name := ⟨a.name⟩
-    generics := a.typeParams.map (⟨·⟩)
-    aliased := a.aliased.toRust
-  }
+/-- Recursively render a value-alias body as a const-evaluable
+    Rust expression. Struct constructors are emitted as Rust
+    struct literals (`Path { field: expr, … }`) rather than
+    `Path::new(…)` calls, since `new` typically takes
+    `impl Into<…>` and is not const-evaluable. Empty lists
+    become the empty `vec![]` macro, which expands to
+    `Vec::new()` and is therefore valid in a `const` context.
 
-/-- Render a type alias to Rust source. -/
+    `structFields` resolves a struct's field names; an unknown
+    name falls back to the regular `Path::new(args)` form. -/
+partial def valueExprToRustConst
+    (structFields : String → Option (List String))
+    : DslExpr → RustExpr
+  | .natLit n => .raw (toString n)
+  | .true_ => .litBool true
+  | .false_ => .litBool false
+  | .emptyList => .emptyVec
+  | .none_ => .none_
+  | .some_ e =>
+    .call (.path ⟨[⟨"Some"⟩]⟩)
+      [valueExprToRustConst structFields e]
+  | .mkStruct name args =>
+    let argEs := args.map (valueExprToRustConst structFields)
+    if name.isEmpty then .tuple argEs
+    else match structFields name with
+      | some fNames =>
+        .structInit ⟨[⟨name⟩]⟩
+          ((fNames.map (⟨·⟩ : String → RustIdent)).zip argEs) none
+      | none =>
+        .call (.path ⟨[⟨name⟩, ⟨"new"⟩]⟩) argEs
+  | .var n => .ident ⟨n⟩
+  | _ => .raw "/* unsupported value-alias expression */"
+
+/-- Convert an alias to a `RustItem`. Type aliases become
+    `pub type Name<Generics> = Body;`; value aliases become
+    `pub const NAME: Type = Value;`. -/
+def toRustItem (structFields : String → Option (List String)
+    := fun _ => none) (a : AliasDef) : RustItem :=
+  match a.value with
+  | none =>
+    .typeAlias {
+      doc := a.doc.toPlainText
+      vis := .pub
+      name := ⟨a.name⟩
+      generics := a.typeParams.map (⟨·⟩)
+      aliased := a.aliased.toRust
+    }
+  | some e =>
+    let valStr :=
+      (renderExpr 0 (valueExprToRustConst structFields e)).trimAscii.toString
+    let tyStr := a.aliased.toRust.render
+    let docStr := a.doc.toPlainText
+    let docComment :=
+      if docStr.isEmpty then "" else s!"/// {docStr}\n"
+    .raw s!"{docComment}pub const {a.name}: {tyStr} = {valStr};"
+
+/-- Render an alias to Rust source. -/
 def toRust (a : AliasDef) : String :=
-  a.toRustItem.render
+  (a.toRustItem (fun _ => none)).render
 
 end AliasDef
 
@@ -1485,7 +1530,7 @@ def buildModules
         (·.structDef.toRustItemsWith mapSetTypes) ++
       modEnums.map
         (·.enumDef.toRustItemWith mapSetTypes) ++
-      modAliases.map (·.aliasDef.toRustItem) ++
+      modAliases.map (·.aliasDef.toRustItem structFieldLookup) ++
       modFns.map
         (·.fnDef.toRustItem structFieldLookup modCtx) ++
       modProps.map (·.propertyDef.fnDef.toRustItem
