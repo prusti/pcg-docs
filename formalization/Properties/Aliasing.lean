@@ -114,7 +114,7 @@ defProperty ConnectedInvariant (.plain "ConnectedInvariant")
     (doc! "the connected invariant holds between {m} and {pcg}")
   long
     (doc! "Holds when, for every pair of distinct valid \
-           places in {m}'s current body whose #placeNode's \
+           places in {m}'s current body whose #[placeNode]'s \
            are tracked by {pcg} and which are backed by \
            allocations in {m}, either their PCG nodes are \
            connected in {pcg} or the backing allocations \

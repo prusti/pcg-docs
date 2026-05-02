@@ -133,7 +133,7 @@ defFn edgeAllSources (.plain "edgeAllSources")
   | .abstraction _ => []
 
 defFn ownedTreePlaceNodes (.plain "ownedTreePlaceNodes")
-  (doc! "All #placeNode's tracked by the owned state of {pd}: \
+  (doc! "All #[placeNode]'s tracked by the owned state of {pd}: \
     walks each allocated local's initialisation tree via \
     #itPlaces and collects the corresponding nodes. Includes \
     every internal and leaf node along each owned local's \
