@@ -50,6 +50,51 @@ instance : LawfulHashable Local where
 
 section Helpers
 
+private theorem mapGet_mapEmpty {κ ν : Type} [BEq κ] [Hashable κ]
+    (k : κ) : mapGet (mapEmpty : Map κ ν) k = .none := by
+  unfold mapGet mapEmpty
+  exact Std.HashMap.getElem?_empty
+
+/-- `storageDead` is a no-op when the local being deallocated is
+    absent from the frame's locals map. The new `validStackFrame`
+    overhaul made `storageDead` discharge its `validPtr` precondition
+    via a `match heq : mapGet … with` form; on an absent lookup the
+    match collapses to its `.none` arm, leaving the frame and memory
+    unchanged. -/
+private theorem storageDead_of_mapGet_eq_none
+    {frame : StackFrame} {mem : Memory} {l : Local}
+    {h1 : validStackFrame mem frame} {h2 : validLocal frame.body l}
+    (hg : mapGet frame.locals l = .none) :
+    StackFrame.storageDead frame mem l h1 h2 = ⟨frame, mem⟩ := by
+  unfold StackFrame.storageDead
+  split
+  · rfl
+  · rename_i ptr heq
+    rw [hg] at heq
+    cases heq
+
+/-- Specialisation of `storageDead_of_mapGet_eq_none` for a frame whose
+    locals map is the empty map — applies to the very first call inside
+    `createFrame` (where the initial frame has `locals := mapEmpty`). -/
+private theorem storageDead_initFrame_mapEmpty
+    {body : Body} {pc : Location} {mem : Memory} {l : Local}
+    {h1 : validStackFrame mem ⟨body, pc, mapEmpty⟩}
+    {h2 : validLocal body l} :
+    StackFrame.storageDead ⟨body, pc, mapEmpty⟩ mem l h1 h2
+      = (⟨body, pc, mapEmpty⟩, mem) :=
+  storageDead_of_mapGet_eq_none (mapGet_mapEmpty _)
+
+/-- `liveAndStoreArgs []` is the identity — it neither allocates new
+    locals nor mutates the supplied memory. The two proof arguments are
+    irrelevant; consumers can supply `sorry`-shaped placeholders or
+    real witnesses. -/
+private theorem liveAndStoreArgs_nil
+    (k : Nat) (frame : StackFrame) (mem : Memory)
+    (h1 : validMemory mem) (h2 : validStackFrame mem frame) :
+    liveAndStoreArgs [] k frame mem h1 h2 = (frame, mem) := by
+  unfold liveAndStoreArgs
+  rfl
+
 /-- The current frame of `initialMachine pr h` has its locals map
     consisting of a single entry for `Local⟨0⟩`. -/
 private theorem initialMachine_currentFrame_locals
@@ -57,12 +102,27 @@ private theorem initialMachine_currentFrame_locals
     let m := initialMachine pr h
     let frame := m.thread.stack.head!
     (frame.locals.get? lcl).isSome ↔ lcl = ⟨0⟩ := by
-  -- After the `validStackFrame` overhaul, `storageDead` uses
-  -- `match heq : … with` to recover its precondition, which
-  -- `unfold storageLive storageDead ; simp` no longer pushes
-  -- through to a `Std.HashMap.get?_insert` rewrite. Left as
-  -- `sorry` until the InitialMachine proofs are updated.
-  sorry
+  -- The initial machine's stack head is the frame produced by
+  -- `storageLive ⟨body, START, mapEmpty⟩ ⟨[]⟩ ⟨0⟩`, whose locals
+  -- map is `mapInsert mapEmpty ⟨0⟩ ptr` for some `ptr`. The
+  -- `storageDead` call inside `storageLive` is a no-op because
+  -- `mapGet mapEmpty ⟨0⟩ = .none` (see
+  -- `storageDead_of_mapGet_eq_none`). We rewrite that step
+  -- explicitly, then reduce the resulting `get?_insert` lookup.
+  unfold initialMachine Machine.createFrame
+    StackFrame.storageLive
+  simp only [storageDead_initFrame_mapEmpty, liveAndStoreArgs_nil]
+  simp only [List.head!]
+  unfold mapInsert
+  rw [Std.HashMap.get?_insert]
+  by_cases h0 : lcl = ⟨0⟩
+  · subst h0; simp
+  · have hne : ((⟨0⟩ : Local) == lcl) = false := by
+      apply Bool.eq_false_iff.mpr
+      simp [beq_iff_eq]
+      intro heq; exact h0 heq.symm
+    simp [hne, mapEmpty]
+    exact h0
 
 /-- The current body of `initialMachine pr h` is the start function's
     body. -/
@@ -70,9 +130,10 @@ private theorem currBody_initialMachine
     (pr : Program) (h : validProgram pr)
     (h_R : Runnable (initialMachine pr h)) :
     currBody (initialMachine pr h) h_R = Program.startProgram pr h := by
-  -- See `initialMachine_currentFrame_locals` above for why this
-  -- proof is currently a `sorry`.
-  sorry
+  unfold currBody currentFrame initialMachine Machine.createFrame
+    StackFrame.storageLive
+  simp only [storageDead_initFrame_mapEmpty, liveAndStoreArgs_nil]
+  simp [List.head!]
 
 /-- **Single-allocation lemma**: the initial machine has exactly one
     allocation. `createFrame` invoked with no caller arguments runs
@@ -82,12 +143,11 @@ private theorem currBody_initialMachine
 theorem mem_initialMachine_length_one
     (pr : Program) (h : validProgram pr) :
     (initialMachine pr h).mem.allocs.length = 1 := by
-  -- After the `validStackFrame` overhaul, `storageDead` uses
-  -- `match heq : … with` to recover its precondition. The
-  -- former `unfold … storageLive storageDead … ; simp` proof
-  -- doesn't push the new shape through; left as `sorry` until
-  -- the InitialMachine proofs are updated to handle it.
-  sorry
+  unfold initialMachine Machine.createFrame
+    StackFrame.storageLive
+  simp only [storageDead_initFrame_mapEmpty, liveAndStoreArgs_nil]
+  unfold Memory.allocate
+  simp
 
 -- Corollary of single allocation: every successful `mem.allocs`
 -- lookup in the initial machine returns the same allocation —
