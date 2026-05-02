@@ -31,14 +31,12 @@ defAlias InitTree
 
 defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
   short
-    (.seq [it, .plain " has at least one non-deep leaf"])
+    (doc! "{it} has at least one non-deep leaf")
   long
-    (.seq [it, .plain " contains at least one descendant \
-           leaf whose capability is not fully initialised — \
-           recurses structurally on the tree, with the ",
-           .code "fields",
-           .plain " case folded over the children list as a \
-           disjunction."])
+    (doc! "{it} contains at least one descendant leaf whose \
+      capability is not fully initialised — recurses \
+      structurally on the tree, with the `fields` case \
+      folded over the children list as a disjunction.")
   (it "The initialisation tree." : InitTree)
   := match it with
      | .leaf cap => cap ≠ .deep
@@ -119,13 +117,11 @@ def placeIsOwnedIn (body : Body) (p : Place) : Prop :=
 
 defProperty AllPlacesOwned (.plain "AllPlacesOwned")
   short
-    (.seq [.plain "every place in ", it,
-           .plain " (rooted at ", base,
-           .plain ") is owned in ", body])
+    (doc! "every place in {it} (rooted at {base}) is owned \
+      in {body}")
   long
-    (.seq [.plain "every place reachable by walking ",
-           it, .plain " from base local ", base,
-           .plain " is an owned place in body ", body])
+    (doc! "every place reachable by walking {it} from base \
+      local {base} is an owned place in body {body}")
   (body "The MIR function body." : Body)
   (base "The base local the tree is rooted at." : Local)
   (it "The initialisation tree." : InitTree)
@@ -135,14 +131,12 @@ defProperty AllPlacesOwned (.plain "AllPlacesOwned")
 
 defProperty ValidInitTree (.plain "ValidInitTree")
   short
-    (.seq [it,
-           .plain " is a valid initialisation tree rooted \
-           at ", base, .plain " in body ", body])
+    (doc! "{it} is a valid initialisation tree rooted at \
+      {base} in body {body}")
   long
-    (.seq [it, .plain " has at least one non-deep \
-           leaf, and every place reachable by walking ",
-           it, .plain " from base local ", base,
-           .plain " is an owned place in body ", body])
+    (doc! "{it} has at least one non-deep leaf, and every \
+      place reachable by walking {it} from base local {base} \
+      is an owned place in body {body}")
   (body "The MIR function body." : Body)
   (base "The base local the tree is rooted at." : Local)
   (it "The initialisation tree." : InitTree)

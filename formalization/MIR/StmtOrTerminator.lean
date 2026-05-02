@@ -5,18 +5,13 @@ import MIR.Body
 defEnum StmtOrTerminator
     (.raw "sot", .text "StmtOrTerminator")
   "Statements or Terminators"
-  (.seq [
-    .plain "A statement-or-terminator ",
-    Doc.defMath (.raw "sot")
-      (.text "StmtOrTerminator"),
-    .plain " is the single MIR program element observed at \
-     one ", Doc.refLinkOf @Location "Location", .plain ": the statement at \
-     ", .code "stmtIdx", .plain " when that index is in the \
-     block's statement list, otherwise the block's \
-     terminator (when ", .code "stmtIdx",
-    .plain " equals ", .code "statements.length",
-    .plain ", which a ", Doc.refLinkOf @validLocation "validLocation",
-    .plain " allows)."])
+  (doc! "A statement-or-terminator \
+    {Doc.defMath (.raw "sot") (.text "StmtOrTerminator")} is \
+    the single MIR program element observed at one \
+    #Location: the statement at `stmtIdx` when that index is \
+    in the block's statement list, otherwise the block's \
+    terminator (when `stmtIdx` equals `statements.length`, \
+    which a #validLocation allows).")
 where
   | stmt (s : Statement)
     "A MIR statement."

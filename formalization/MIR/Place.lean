@@ -2,9 +2,8 @@ import MIR.Ty
 
 defStruct Local (.raw "l", .raw "L")
   "Locals"
-  (.seq [.plain "A local ",
-    Doc.defMath (.raw "l") (.raw "L"),
-    .plain " is a variable in the MIR, identified by index."])
+  (doc! "A local {Doc.defMath (.raw "l") (.raw "L")} is a \
+    variable in the MIR, identified by index.")
   constructor "LocalIdx"
 where
   | index "The local variable index." : Nat

@@ -127,19 +127,13 @@ where
 
 defProperty validProjTy (.plain "validProjTy")
   short
-    (.seq [τ, .plain " is a valid type for projection list ",
-           projs])
+    (doc! "{τ} is a valid type for projection list {projs}")
   long
-    (.seq [.plain "every projection step in ", projs,
-           .plain " is well-typed when applied to ", τ,
-           .plain ": a ", .code ".deref",
-           .plain " step requires a reference or ",
-           .code "Box", .plain ", a ", .code ".field",
-           .plain " step lands in any type, an ",
-           .code ".index",
-           .plain " step requires an array, and a ",
-           .code ".downcast",
-           .plain " step lands in any type"])
+    (doc! "every projection step in {projs} is well-typed when \
+      applied to {τ}: a `.deref` step requires a reference or \
+      `Box`, a `.field` step lands in any type, an `.index` \
+      step requires an array, and a `.downcast` step lands in \
+      any type")
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
   where
@@ -196,15 +190,11 @@ defFn placeTy' (.plain "placeTy'")
 
 defProperty validPlace (.plain "valid")
   short
-    (.seq [p, .plain " is a valid place in body ",
-           body])
+    (doc! "{p} is a valid place in body {body}")
   long
-    (.seq [.plain "the base local of ", p,
-           .plain " is in range of ", body,
-           .plain "'s declarations, and the projection list \
-           of ", p,
-           .plain " is well-typed against the type of that \
-           local"])
+    (doc! "the base local of {p} is in range of {body}'s \
+      declarations, and the projection list of {p} is \
+      well-typed against the type of that local")
   (body "The function body." : Body)
   (p "The place." : Place)
   :=
@@ -213,16 +203,12 @@ defProperty validPlace (.plain "valid")
 
 defProperty validLocation (.plain "validLocation")
   short
-    (.seq [loc, .plain " is a valid location in body ",
-           body])
+    (doc! "{loc} is a valid location in body {body}")
   long
-    (.seq [.plain "the block index of ", loc,
-           .plain " is in range of ", body,
-           .plain "'s blocks, and the statement index of ",
-           loc,
-           .plain " is at most the number of statements in \
-           that block (so the terminator position is \
-           included)"])
+    (doc! "the block index of {loc} is in range of {body}'s \
+      blocks, and the statement index of {loc} is at most \
+      the number of statements in that block (so the \
+      terminator position is included)")
   (body "The function body." : Body)
   (loc "The location." : Location)
   :=
@@ -232,21 +218,19 @@ defProperty validLocation (.plain "validLocation")
 
 defProperty validBody (.plain "validBody")
   short
-    (.seq [body, .plain " is a valid body"])
+    (doc! "{body} is a valid body")
   long
-    (.seq [.plain "every place referenced in ", body,
-           .plain " is a valid place in ", body,
-           .plain ", and every local declaration of ",
-           body, .plain " is a sized type"])
+    (doc! "every place referenced in {body} is a valid place \
+      in {body}, and every local declaration of {body} is a \
+      sized type")
   (body "The function body." : Body)
   :=
     (body·bodyPlaces·forAll fun p => validPlace ‹body, p›) ∧
     (body↦decls·forAll fun t => IsSized ‹t›)
 
 defFn placeTy (.plain "ty")
-  (.seq [.plain "Compute the type of a place: look up the \
-    base local in ", .math (.raw "\\Delta"),
-    .plain ", then project through projections."])
+  (doc! "Compute the type of a place: look up the base local \
+    in $\\Delta$, then project through projections.")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace(body, place)

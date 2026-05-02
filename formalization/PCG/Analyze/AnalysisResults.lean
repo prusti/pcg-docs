@@ -24,11 +24,9 @@ defProperty contains (.plain "contains")
                   .sym .setContains,
                   .doc ar]))
   long
-    (.seq [.plain "the basic block of ", l,
-           .plain " is a key of ", ar,
-           .plain ", and the statement index of ", l,
-           .plain " is less than the length of the per-block \
-                   list ", ar, .plain " stores at that key"])
+    (doc! "the basic block of {l} is a key of {ar}, and the \
+      statement index of {l} is less than the length of the \
+      per-block list {ar} stores at that key")
   (ar "The analysis results." : AnalysisResults)
   (l "The location." : Location)
   displayed (#l, .sym .setContains, #ar)
@@ -57,10 +55,9 @@ defProperty programContains (.plain "programContains")
                   .doc par, .raw "[",
                   .doc b, .raw "]"]))
   long
-    (.seq [b, .plain " is a key of ", par,
-           .plain ", and ", l, .plain " is contained in \
-           the per-body analysis results that ", par,
-           .plain " stores under ", b])
+    (doc! "{b} is a key of {par}, and {l} is contained in \
+      the per-body analysis results that {par} stores under \
+      {b}")
   (par "The program analysis results."
       : ProgAnalysisResults)
   (b "The function body." : Body)

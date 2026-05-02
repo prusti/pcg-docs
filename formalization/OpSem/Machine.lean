@@ -28,13 +28,11 @@ namespace Machine
 
 defProperty Runnable (.plain "Runnable")
   short
-    (.seq [m, .plain " is a runnable machine"])
+    (doc! "{m} is a runnable machine")
   long
-    (.seq [.plain "the call stack of ", m,
-           .plain " is non-empty, the program of ", m,
-           .plain " is valid, and the call stack of ", m,
-           .plain " is a valid stack against the memory of ",
-           m])
+    (doc! "the call stack of {m} is non-empty, the program of \
+      {m} is valid, and the call stack of {m} is a valid \
+      stack against the memory of {m}")
   (m "The machine state." : Machine)
   :=
     m↦thread↦stack ≠ [] ∧

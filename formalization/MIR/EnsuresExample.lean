@@ -12,10 +12,9 @@ import Core.Dsl.DefProperty
 
 defProperty IsTrue (.plain "IsTrue")
   short
-    (.seq [b, .plain " holds"])
+    (doc! "{b} holds")
   long
-    (.seq [b, .plain " is the boolean value ",
-           .code "true"])
+    (doc! "{b} is the boolean value `true`")
   (b "The boolean to test." : Bool)
   where
   | true => true

@@ -221,15 +221,11 @@ decreasing_by
 
 defProperty reachableFrom (.plain "reachableFrom")
   short
-    (.seq [b, .plain " is reachable from ", a,
-           .plain " in ", pd])
+    (doc! "{b} is reachable from {a} in {pd}")
   long
-    (.seq [b, .plain " is reachable from ", a,
-           .plain " in ", pd, .plain ": ",
-           .code "reachableSearch",
-           .plain " starting from ", a,
-           .plain " finds ", b, .plain " by walking the \
-           PCG with cycle detection."])
+    (doc! "{b} is reachable from {a} in {pd}: \
+      `reachableSearch` starting from {a} finds {b} by \
+      walking the PCG with cycle detection.")
   (pd "The PCG data." : PcgData Place)
   (a "The starting node." : PcgNode Place)
   (b "The candidate target node." : PcgNode Place)
@@ -238,14 +234,11 @@ defProperty reachableFrom (.plain "reachableFrom")
 
 defProperty connected (.plain "connected")
   short
-    (.seq [a, .plain " and ", b,
-           .plain " are connected in ", pd])
+    (doc! "{a} and {b} are connected in {pd}")
   long
-    (.seq [a, .plain " and ", b,
-           .plain " are connected in ", pd,
-           .plain ": one of the two nodes is reachable \
-           from the other along the directed edge \
-           relation."])
+    (doc! "{a} and {b} are connected in {pd}: one of the two \
+      nodes is reachable from the other along the directed \
+      edge relation.")
   (pd "The PCG data." : PcgData Place)
   (a "The first node." : PcgNode Place)
   (b "The second node." : PcgNode Place)

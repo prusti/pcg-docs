@@ -22,11 +22,10 @@ where
 
 defProperty validProgram (.plain "validProgram")
   short
-    (.seq [program, .plain " is a valid program"])
+    (doc! "{program} is a valid program")
   long
-    (.seq [.plain "the start function name of ", program,
-           .plain " is registered in the function map of ",
-           program])
+    (doc! "the start function name of {program} is registered \
+      in the function map of {program}")
   (program "The program." : Program)
   :=
     program↦start ∈ program↦functions

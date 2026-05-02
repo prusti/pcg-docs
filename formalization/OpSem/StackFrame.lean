@@ -87,12 +87,11 @@ end StackFrame
 
 defProperty validStackFrame (.plain "validStackFrame")
   short
-    (.seq [frame, .plain " is a valid stack frame"])
+    (doc! "{frame} is a valid stack frame")
   long
-    (.seq [.plain "the body of ", frame,
-           .plain " is a valid body, and the program \
-           counter of ", frame,
-           .plain " is a valid location in that body"])
+    (doc! "the body of {frame} is a valid body, and the \
+      program counter of {frame} is a valid location in that \
+      body")
   (frame "The stack frame." : StackFrame)
   :=
     validBody ‹frame↦body› ∧
@@ -121,13 +120,11 @@ defFn localAllocations (.plain "localAllocations")
 
 defProperty validStack (.plain "validStack")
   short
-    (.seq [stack, .plain " is a valid stack against ", mem])
+    (doc! "{stack} is a valid stack against {mem}")
   long
-    (.seq [.plain "every frame in ", stack,
-           .plain " is a valid stack frame, and the \
-           allocations backing the locals across all frames \
-           in ", stack,
-           .plain " are pairwise non-overlapping in ", mem])
+    (doc! "every frame in {stack} is a valid stack frame, and \
+      the allocations backing the locals across all frames in \
+      {stack} are pairwise non-overlapping in {mem}")
   (stack "The call stack." : List StackFrame)
   (mem "The memory." : Memory)
   :=
