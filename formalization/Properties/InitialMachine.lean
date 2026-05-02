@@ -48,11 +48,6 @@ instance : LawfulHashable Local where
     have heq : a = b := LawfulBEq.eq_of_beq h
     subst heq; rfl
 
-/-- The initial PCG state for a function body: empty borrows graph,
-    `OwnedState.initial` for the body, no transient state. -/
-def initialPcg (body : Body) : PcgData Place :=
-  ⟨⟨mapEmpty⟩, OwnedState.initial body, ⟨0⟩, none⟩
-
 section Helpers
 
 /-- The current frame of `initialMachine pr h` has its locals map
@@ -139,9 +134,9 @@ theorem placeAllocation_initialMachine_local0
 theorem getCapability_initialPcg_local0_not_exclusive
     (body : Body) (projs : List ProjElem)
     (h_validPlace : validPlace body ⟨⟨0⟩, projs⟩) :
-    getCapability (initialPcg body) body ⟨⟨0⟩, projs⟩ h_validPlace
+    getCapability (PcgData.init body) body ⟨⟨0⟩, projs⟩ h_validPlace
       ≠ some .exclusive := by
-  unfold getCapability initialPcg
+  unfold getCapability PcgData.init
   unfold getAlloc OwnedState.initial
   cases hdecls : body.decls with
   | nil =>
@@ -462,7 +457,7 @@ theorem framingInvariant_initialMachine
     (pr : Program) (h : validProgram pr) :
     FramingInvariant
       (initialMachine pr h)
-      (initialPcg (Program.startProgram pr h)) := by
+      (PcgData.init (Program.startProgram pr h)) := by
   intro p p' a a' _h_neq h_Runnable h_hasCap1 _h_hasCap2
         h_hasAlloc1 h_hasAlloc2
   exfalso
@@ -500,7 +495,7 @@ defTheorem framingInvariantInitial
   := ∀∀ pr ∈ Program .
        validProgram pr
        → FramingInvariant
-           (initialMachine pr proof[h_validProgram]) (initialPcg
+           (initialMachine pr proof[h_validProgram]) (PcgData.init
               (Program.startProgram
                  pr proof[h_validProgram]))
   proof framingInvariant_initialMachine
@@ -517,7 +512,7 @@ For the initial PCG, `OwnedState.initial body` assigns each
 allocated local a `.leaf` init tree, so `itPlaces` produces a
 single root place `⟨local, []⟩` per allocated local. The borrows
 graph is empty (no deref or borrow edges contribute). So
-`p ∈ places (initialPcg body)` forces `p.projection = []`.
+`p ∈ places (PcgData.init body)` forces `p.projection = []`.
 
 Combined with `hasAllocation_initialMachine` (which forces
 `p.local = ⟨0⟩`), the antecedent collapses both `p` and `p'`
@@ -539,7 +534,7 @@ to `⟨⟨0⟩, []⟩` — contradicting the `p ≠ p'` antecedent of
 -- `places_initialPcg_root` proof itself is sorry-free and
 -- depends on these instances only as black boxes; the
 -- `field`-projection arm is in fact unreachable for
--- `places (initialPcg body)` (the initial PCG only places
+-- `places (PcgData.init body)` (the initial PCG only places
 -- `.leaf` trees, which expose no `.field` projections).
 instance : LawfulBEq Place where
   eq_of_beq {a b} h := by
@@ -637,9 +632,9 @@ private theorem ownedState_initial_locals_form
     wrapped in `PcgEdge.unpack`. -/
 private theorem edges_initialPcg_all_unpack
     (body : Body) (e : PcgEdge Place)
-    (h : e ∈ edges (initialPcg body)) :
+    (h : e ∈ edges (PcgData.init body)) :
     ∃ ue, e = .unpack ue := by
-  unfold edges initialPcg at h
+  unfold edges PcgData.init at h
   simp only [transientReadPlaces,
              BorrowsGraph.blockedCurrentPlaces] at h
   rcases List.mem_append.mp h with h_unpack | h_bg
@@ -656,11 +651,11 @@ private theorem edges_initialPcg_all_unpack
     tree. -/
 theorem places_initialPcg_root
     (body : Body) (p : Place)
-    (h_places : p ∈ places (initialPcg body)) :
+    (h_places : p ∈ places (PcgData.init body)) :
     p.projection = [] := by
-  -- `places (initialPcg body) = owned ∪ edgeP`. The initial
+  -- `places (PcgData.init body) = owned ∪ edgeP`. The initial
   -- PCG's borrows graph is empty and `transientState = none`,
-  -- so all edges in `edges (initialPcg body)` are unpack
+  -- so all edges in `edges (PcgData.init body)` are unpack
   -- edges; the `edgeP` half of `places` matches only `.deref`
   -- and `.borrow`, so `edgeP = ∅`. The `owned` half walks
   -- each allocated local's init tree via `itPlaces`; in
@@ -677,7 +672,7 @@ theorem places_initialPcg_root
   change p ∈ Std.HashSet.union _ _ at h_places
   rw [Std.HashSet.union_eq] at h_places
   by_cases h_owned : p ∈
-      (Set.flatMapList ((initialPcg body).os.locals.zipIdx)
+      (Set.flatMapList ((PcgData.init body).os.locals.zipIdx)
         fun x => match x.fst with
           | OwnedLocal.allocated t => itPlaces t ⟨x.snd⟩ []
           | OwnedLocal.unallocated => ∅)
@@ -727,7 +722,7 @@ theorem places_initialPcg_root
 
 /-- **Singleton lemma**: under the antecedents of
     `ConnectedInvariant` for the initial machine, the set of
-    places `p` that satisfy `p ∈ places (initialPcg ..)` *and*
+    places `p` that satisfy `p ∈ places (PcgData.init ..)` *and*
     `Machine.placeAllocation (initialMachine ..) p _ = some _`
     is the singleton `{⟨⟨0⟩, []⟩}`.
 
@@ -742,7 +737,7 @@ theorem place_initialMachine_initialPcg_eq_root
     (h_R : Runnable (initialMachine pr h))
     (p : Place) (a : Allocation)
     (h_places : p ∈
-      places (initialPcg (Program.startProgram pr h)))
+      places (PcgData.init (Program.startProgram pr h)))
     (h_alloc : Machine.placeAllocation
       (initialMachine pr h) p h_R = some a) :
     p = ⟨⟨0⟩, []⟩ := by
@@ -771,7 +766,7 @@ theorem connectedInvariant_initialMachine
     (pr : Program) (h : validProgram pr) :
     ConnectedInvariant
       (initialMachine pr h)
-      (initialPcg (Program.startProgram pr h)) := by
+      (PcgData.init (Program.startProgram pr h)) := by
   intro p p' a a' h_distinct h_Runnable _h_validPlace _h_validPlace'
         h_places h_places' h_alloc_p h_alloc_p'
   exfalso
@@ -798,7 +793,7 @@ defTheorem connectedInvariantInitial
   := ∀∀ pr ∈ Program .
        validProgram pr
        → ConnectedInvariant
-           (initialMachine pr proof[h_validProgram]) (initialPcg
+           (initialMachine pr proof[h_validProgram]) (PcgData.init
               (Program.startProgram
                  pr proof[h_validProgram]))
   proof connectedInvariant_initialMachine
