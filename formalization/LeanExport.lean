@@ -395,8 +395,15 @@ private def computeOpens
     : List String :=
   let calledFns := items.flatMap fun item =>
     match item with
-    | .fn_ f => f.body.calledNames
-    | .property_ p => p.fnDef.body.calledNames
+    -- Use `referencedNames` rather than `body.calledNames`
+    -- so the `requires`/`ensures` clauses' property heads
+    -- (e.g. `requires Memory.validPtr mem ptr`) are counted
+    -- — without that, a defFn whose body only references
+    -- in-namespace names but whose precondition heads live
+    -- elsewhere would emit those heads unqualified, and the
+    -- generated module would fail to elaborate.
+    | .fn_ f => f.referencedNames
+    | .property_ p => p.fnDef.referencedNames
     | .inductiveProperty_ p =>
       p.rules.flatMap fun r =>
         (r.premises.flatMap DslExpr.calledNames)

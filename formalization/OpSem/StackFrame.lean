@@ -25,20 +25,24 @@ where
 
 namespace StackFrame
 
+open Memory in
 defFn storageDeadPtr (.plain "storageDeadPtr")
   (doc! "Helper for `storageDead`: given a live thin pointer already looked up in `locals`, \
     deallocate the backing allocation (when the pointer has provenance) and remove the local's entry \
-    from `locals`.")
+    from `locals`. The #Memory.validPtr precondition discharges the #Memory.validAllocId \
+    obligation of #[Memory.deallocate]: the `.some prov` arm has `validPtr mem ⟨_, .some prov⟩` \
+    reducing through `validProvenance mem prov` to `validAllocId mem prov.id`.")
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage is being torn down." : Local)
   (ptr "The thin pointer currently bound to the local."
       : ThinPointer)
+  requires validPtr mem ptr
   : StackFrame × Memory where
   | frame ; mem ; l ; ⟨_, .some prov⟩ =>
       let newMem :=
         Memory.deallocate
-          mem prov↦id proof[sorry] ;
+          mem prov↦id proof[h_validPtr] ;
       let newLocals := mapRemove frame↦locals l ;
       let newFrame :=
         StackFrame⟨frame↦body, frame↦pc, newLocals⟩ ;
@@ -56,7 +60,13 @@ defFn storageDead (.plain "storageDead")
   : StackFrame × Memory :=
     match mapGet frame↦locals l with
     | .none => ⟨frame, mem⟩
-    | .some ptr => storageDeadPtr frame mem l ptr
+    | .some ptr =>
+        -- The new `validPtr` obligation on `storageDeadPtr`
+        -- propagates up to here; a per-frame validity
+        -- invariant (every pointer in `frame.locals` is a
+        -- valid pointer in `mem`) would discharge it, but
+        -- threading that through is left for a follow-up.
+        storageDeadPtr frame mem l ptr proof[sorry]
     end
 
 defFn storageLive (.plain "storageLive")
