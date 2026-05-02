@@ -182,12 +182,11 @@ syntax (name := fnForallGroupTyped) ident+ " ∈ " ident
 -- p p' ∈ Place, body`; Lean renders as
 -- `∀ (pr : Program) (ar : AnalysisResults) (p p' : Place), body`.
 syntax "∀∀" sepBy1(fnForallGroup, ", ") " . " fnExpr : fnExpr
--- Proof placeholder
-syntax "sorry" : fnExpr
 -- Raw Lean proof term (invisible in Rust/LaTeX). The body
 -- between the brackets is a real Lean `term`, not a string —
 -- so a typo or unresolved name surfaces as a Lean elaboration
--- error rather than slipping through as opaque text.
+-- error rather than slipping through as opaque text. The
+-- `sorry` placeholder is written as `proof[sorry]`.
 syntax:max "proof[" term "]" : fnExpr
 -- Presentation-only formatting hint: a soft line break
 -- inserted before the next expression in the LaTeX
@@ -578,7 +577,6 @@ partial def parseExpr
           pure (names, some (toString t.getId))
         | _ => throwError s!"unexpected forall group"
     pure (.forall_ parsed (← parseExpr b))
-  | `(fnExpr| sorry) => pure .sorryProof
   | `(fnExpr| proof[$t:term]) =>
     -- Reprint the parsed Lean term back to source form so the
     -- generated Lean export embeds it verbatim. The `term`

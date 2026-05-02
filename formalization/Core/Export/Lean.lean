@@ -186,7 +186,6 @@ private def toLeanASTAlg
   | .or l r => .binop "∨" l r
   | .implies l r => .binop "→" l r
   | .forall_ binders b => .forall_ binders b
-  | .sorryProof => .raw "sorry"
   | .leanProof t =>
     if withProofMarkers then
       .raw s!"(Core.Dsl.IdentRefs.dslProofMarker ({t}))"
@@ -567,7 +566,7 @@ private partial def flattenImplies
 private partial def hasHypothesisRef : DslExpr → Bool
   | .leanProof t => t.startsWith "h_"
   | .var _ | .natLit _ | .true_ | .false_ | .emptyList
-  | .none_ | .emptySet | .sorryProof => false
+  | .none_ | .emptySet => false
   | .some_ x | .dot x _ | .field x _ | .setSingleton x
   | .forall_ _ x | .lambda _ x => hasHypothesisRef x
   | .cons l r | .append l r | .flatMap l r | .map l r
@@ -790,7 +789,7 @@ namespace DslExpr
 private def calledNamesAlg :
     DslExprF (DslExpr × List String) → List String
   | .var _ | .natLit _ | .true_ | .false_ | .emptyList | .none_
-  | .emptySet | .sorryProof | .leanProof _ => []
+  | .emptySet | .leanProof _ => []
   | .some_ (_, e) => e
   | .lambda _ (_, body) => body
   | .mkStruct _ args => (args.map Prod.snd).flatten

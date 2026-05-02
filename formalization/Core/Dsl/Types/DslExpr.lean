@@ -96,11 +96,8 @@ inductive DslExpr where
       (e.g. `Program`, `Machine`); they are not parsed further. -/
   | forall_ (binders : List (List String × Option String))
       (body : DslExpr)
-  /-- Proof placeholder: `sorry`. Used when calling
-      a function with preconditions from another
-      function that can supply the proof. -/
-  | sorryProof
-  /-- Raw Lean proof term, invisible in Rust/LaTeX. -/
+  /-- Raw Lean proof term, invisible in Rust/LaTeX. The
+      bare `sorry` placeholder is just `leanProof "sorry"`. -/
   | leanProof (term : String)
   /-- Match expression:
       `match scrutinee with | pats => rhs | …`.
@@ -187,7 +184,6 @@ def mapChildren (f : DslExpr → DslExpr)
   | .emptyList => .emptyList
   | .none_ => .none_
   | .emptySet => .emptySet
-  | .sorryProof => .sorryProof
   | .leanProof t => .leanProof t
   -- Unary
   | .some_ e => .some_ (f e)
@@ -372,7 +368,7 @@ partial def toDoc
     | .structUpdate .. => false
     | .mkStruct "" _ => false
     | .cons .. => false
-    | .sorryProof | .leanProof _ => false
+    | .leanProof _ => false
     -- A call to an `implicit` defFn renders as just its lone
     -- argument, so its paren-need is whatever the argument's is.
     | .call (.var n) [a] =>
@@ -612,7 +608,6 @@ partial def toDoc
     -- they would render as empty math and leave dangling
     -- commas.
     let visibleArgs := nonProofArgs.filter fun
-      | .sorryProof => false
       | .leanProof _ => false
       | _ => true
     -- A call whose head names an `implicit` defFn renders as
@@ -825,7 +820,6 @@ partial def toDoc
     .seq [.sym .forall_,
           mathIntercalate (.sym .comma) groupDocs,
           rawMath "~.~", go b]
-  | .sorryProof => .seq []
   | .leanProof _ => .seq []
   | .match_ scrut arms _ =>
     -- The scrutinee-equation binder (when present) is a

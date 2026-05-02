@@ -103,7 +103,7 @@ def matchIsIrrefutable
     extracts children flatly rather than rebuilding the node. -/
 private def directChildren : DslExpr → List DslExpr
   | .var _ | .natLit _ | .true_ | .false_ | .emptyList
-  | .none_ | .emptySet | .sorryProof | .leanProof _ => []
+  | .none_ | .emptySet | .leanProof _ => []
   | .some_ e | .dot e _ | .field e _ | .setSingleton e
   | .forall_ _ e | .lambda _ e => [e]
   | .cons l r | .append l r | .flatMap l r | .map l r

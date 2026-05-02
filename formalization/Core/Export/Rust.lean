@@ -991,7 +991,7 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
   | .call (origFn, _) args => do
     let filtered := args.filter fun (origA, _) =>
       match origA with
-      | .sorryProof | .leanProof _ => false
+      | .leanProof _ => false
       | _ => true
     match origFn with
     | .var fn =>
@@ -1081,14 +1081,13 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
   | .or (_, l) (_, r) => pure (.binOp .or l r)
   | .implies _ _ => pure (.raw "/* implication omitted */")
   | .forall_ _ _ => pure (.raw "/* forall omitted */ true")
-  -- A `sorry` / `lean_proof` term in value position
-  -- (a match-arm RHS, a `let`-binder body, etc.) becomes
-  -- `unreachable!()` in Rust: the precondition that justifies
-  -- the Lean `sorry` should also rule the case out at runtime.
-  -- When `sorry` / `lean_proof` appears in argument position
-  -- the call lowering filters it out before it reaches this
-  -- branch (see `.sorryProof | .leanProof _ => false` above).
-  | .sorryProof => pure (.raw "unreachable!()")
+  -- A `lean_proof` term in value position (a match-arm RHS,
+  -- a `let`-binder body, etc.) becomes `unreachable!()` in
+  -- Rust: the precondition that justifies the Lean proof
+  -- should also rule the case out at runtime. When
+  -- `lean_proof` appears in argument position the call
+  -- lowering filters it out before it reaches this branch
+  -- (see `.leanProof _ => false` above).
   | .leanProof _ => pure (.raw "unreachable!()")
   | .match_ (_, scrutExpr) arms _ => do
     let rustArms := arms.map fun (pats, (origRhs, rustRhs)) =>
