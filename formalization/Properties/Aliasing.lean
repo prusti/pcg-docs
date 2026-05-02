@@ -109,6 +109,29 @@ defProperty Framing (.plain "Framing")
             ‹prog ‹m›, lean_proof("h_Runnable.2.1")›, m›
        → ‹break› FramingInvariant' ‹m, par›
 
+defProperty FramingInd (.plain "FramingInd")
+  short
+    (.plain "the framing invariant is preserved by a single \
+            #[Step] transition")
+  long
+    (doc! "The inductive step of #[Framing]'s soundness: if \
+           the current machine is runnable and reached by a \
+           single #[Step] from a predecessor machine state \
+           that itself satisfies #[FramingInvariant'] \
+           against the same program-wide analysis results, \
+           then #[FramingInvariant'] also holds at the \
+           current machine. Pairing this with the base case \
+           (#[FramingInvariant'] on the initial machine) and \
+           induction on #[Reachable]'s reflexive-transitive \
+           closure of #[Step] gives the full #[Framing].")
+  := ∀∀ par ∈ ProgAnalysisResults,
+        m' ∈ Machine, m ∈ Machine .
+       ‹break› Runnable ‹m› ∧
+       ‹break› describes ‹par, prog ‹m›› ∧
+       ‹break› Step ‹m', m› ∧
+       ‹break› FramingInvariant' ‹m', par›
+       → ‹break› FramingInvariant' ‹m, par›
+
 defProperty ConnectedInvariant (.plain "ConnectedInvariant")
   short
     (doc! "the connected invariant holds between {m} and {pcg}")
