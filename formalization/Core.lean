@@ -19,3 +19,4 @@ import Core.Dsl.DefFn
 import Core.Dsl.Lint
 import Core.Dsl.DefOrder
 import Core.Dsl.DefProperty
+import Core.Dsl.ProofFolding
