@@ -16,16 +16,20 @@ namespace PcgData
 defFn obtainTriples (.plain "obtainTriples")
   (.plain "Apply obtain for each triple's pre-condition \
    capability in turn, threading the resulting PCG data \
-   through. Returns None as soon as any obtain fails.")
+   through. Returns None as soon as any obtain fails. The \
+   precondition that every triple's place is valid in the \
+   body discharges the corresponding precondition of obtain \
+   at each step.")
   (pd "The incoming PCG data." : PcgData Place)
   (body "The function body." : Body)
   (triples "The triples whose pre-conditions to obtain."
       : List PlaceTriple)
+  requires triples·forAll fun t => validPlace ‹body, t↦place›
   : Option (PcgData Place) where
   | pd ; _ ; [] => Some pd
   | pd ; body ; t :: rest =>
       let pd' ← obtain ‹pd, body, t↦place, t↦pre,
-        lean_proof("sorry")› ;
+        lean_proof("h_pre0 t (List.mem_cons_self ..)")› ;
       obtainTriples ‹pd', body, rest›
 
 defFn analyze (.plain "analyze")
@@ -49,7 +53,17 @@ defFn analyze (.plain "analyze")
         | .postOperands => ∅
         | .postMain => ∅
       end ;
-    obtainTriples ‹pd, body, triples·toList›
+    -- Discharging the `validPlace` precondition of
+    -- `obtainTriples` would require carrying a `validBody`
+    -- (or analogous) precondition through `analyze` and
+    -- proving that `operandTriples` / `mainTriples` only
+    -- emit place triples whose `place` field comes from
+    -- `body.bodyPlaces`. That refactor is out of scope
+    -- here; leaving an explicit `sorry` at the call site
+    -- documents the assumption locally rather than burying
+    -- it inside `obtainTriples`.
+    obtainTriples ‹pd, body, triples·toList,
+      lean_proof("sorry")›
 
 defFn analyzeAt (.plain "analyzeAt")
   (doc! "Step the PCG state across all four evaluation phases at a single location, threading each \
