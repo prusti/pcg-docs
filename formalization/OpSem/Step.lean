@@ -88,7 +88,30 @@ defFn step (.plain "step")
     let frame := currentFrame
       m proof[h_Runnable] ;
     match getStmtOrTerminator
-        frame↦body frame↦pc proof[sorry] with
+        frame↦body frame↦pc
+        proof[(by
+          -- `frame` is `currentFrame m _`, which unfolds to
+          -- `m.thread.stack.head!`. `Runnable m`'s third
+          -- conjunct is `validStack stack mem`, whose first
+          -- sub-conjunct is `∀ f ∈ stack, validStackFrame f`;
+          -- pull it out, apply to the head (in the cons-shaped
+          -- stack), and project the second component to get
+          -- `validLocation frame.body frame.pc`.
+          show validLocation
+            (currentFrame m h_Runnable).body
+            (currentFrame m h_Runnable).pc
+          unfold currentFrame
+          match hcase : m.thread.stack, h_Runnable.1 with
+          | [], hne => exact absurd rfl hne
+          | hd :: tl, _ =>
+            have hall : ∀ f ∈ m.thread.stack,
+                StackFrame.validStackFrame f :=
+              h_Runnable.2.2.1
+            rw [hcase] at hall
+            show validLocation
+              ((hd :: tl).head!).body
+              ((hd :: tl).head!).pc
+            exact (hall hd List.mem_cons_self).2)] with
     | .terminator t =>
         evalTerminator m t proof[h_Runnable]
     | .stmt s =>
