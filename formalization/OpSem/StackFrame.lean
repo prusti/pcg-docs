@@ -99,19 +99,21 @@ defFn storageLive (.plain "storageLive")
     let ty := frame↦body↦decls ! l↦index ;
     let sz := Ty.sizeOf ty
       proof[(by
-        -- `h_validStackFrame.1.2 : ∀ t ∈ frame.body.decls, IsSized t`.
-        -- For an in-bounds index, `decls[i]!` is a real list
-        -- element and so `IsSized` follows directly. The
-        -- out-of-bounds case is left as `sorry`; it's only
-        -- reachable when the operational semantics try to
-        -- bring storage live for a local that's not declared
-        -- — which a proper `validStackFrame` formulation
-        -- (with a `validLocal` clause) would rule out
-        -- statically.
+        -- `h_validStackFrame.1.2.2 : ∀ t ∈ frame.body.decls, IsSized t`.
+        -- (`validBody` is `decls ≠ [] ∧ (∀ bb …) ∧ (∀ t …,
+        -- IsSized t)`, so the `.2.2` projection picks out
+        -- the third conjunct.) For an in-bounds index,
+        -- `decls[i]!` is a real list element and so
+        -- `IsSized` follows directly. The out-of-bounds case
+        -- is left as `sorry`; it's only reachable when the
+        -- operational semantics try to bring storage live
+        -- for a local that's not declared — which a proper
+        -- `validStackFrame` formulation (with a `validLocal`
+        -- clause) would rule out statically.
         if hlt : l.index < frame.body.decls.length then
           show Ty.IsSized (frame.body.decls[l.index]!)
           rw [getElem!_pos frame.body.decls l.index hlt]
-          exact h_validStackFrame.1.2 _ (List.getElem_mem hlt)
+          exact h_validStackFrame.1.2.2 _ (List.getElem_mem hlt)
         else
           exact sorry)] ;
     let addr := Memory.top mem1 ;
