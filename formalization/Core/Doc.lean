@@ -501,7 +501,7 @@ mutual
     | .hat d => s!"hat({mathToTypst d})"
     | .sub base s =>
       s!"{mathToTypst base}_({mathToTypst s})"
-    | .seq ds => String.join (ds.map mathToPlainText)
+    | .seq ds => String.join (ds.map mathToTypst)
     | .break_ => " "
     | .indent _ body => mathToTypst body
 end

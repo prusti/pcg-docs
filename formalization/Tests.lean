@@ -71,6 +71,10 @@ def docLinkTests : TestSeq :=
     test "toLatex styles internal links with \\dashuline"
       (internalLink.toLatex.render ==
         "\\hyperlink{type:Value}{\\dashuline{Value}}") $
+    test "MathDoc.seq toTypst preserves child styling"
+      ((Doc.math (.seq [.bold (.raw "x"), .raw " + ",
+          .italic (.raw "y")])).toTypst ==
+        "bold(x) + italic(y)") $
     .done
 
 /-- Build a single-arm `match` whose only arm uses `pat`. The
