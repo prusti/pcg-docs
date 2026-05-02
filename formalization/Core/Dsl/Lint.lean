@@ -191,6 +191,36 @@ partial def findBacktickStrLitsInDocTerm
       acc := acc ++ findBacktickStrLitsInDocTerm child
   return acc
 
+/-- Map a `MathDoc.raw` string argument to the unqualified
+    `MathSym` constructor name that should be used instead, when
+    the string is a single LaTeX command for a math symbol that
+    `MathSym` covers. Returns `none` for raw strings that genuinely
+    have no `MathSym` equivalent (e.g. `\\quad`, `\\State`,
+    multi-token snippets). The check trims surrounding whitespace
+    so `.raw "\\pi"` and `.raw "\\pi "` are both flagged.
+
+    Shared between the `DslLint` syntactic checker and the
+    `check_banned_patterns` post-elaboration walker so both flag
+    the same set of strings — keeping a single source of truth for
+    "which raw strings should have been a `MathSym`". -/
+def rawMathSymbolToSym (s : String) : Option String :=
+  match s.trimAscii.toString with
+  | "\\pi" => some "pi"
+  | "\\mu" => some "mu"
+  | "\\alpha" => some "alpha"
+  | "\\theta" => some "theta"
+  | "\\phi" => some "phi"
+  | "\\varphi" => some "varphi"
+  | "\\lambda" => some "lambda"
+  | "\\forall" => some "forall_"
+  | "\\exists" => some "exists_"
+  | "\\emptyset" => some "emptySet"
+  | "\\top" => some "top"
+  | "\\bot" => some "bot"
+  | "\\langle" => some "langle"
+  | "\\rangle" => some "rangle"
+  | _ => none
+
 /-- Diagnostic message for `findBacktickStrLitsInDocTerm`. -/
 def backticksInDocPlainMessage : String :=
   "this string literal contains a backtick-delimited span, but \

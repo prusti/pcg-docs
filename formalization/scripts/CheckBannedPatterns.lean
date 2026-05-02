@@ -1,6 +1,7 @@
 import Lean.Elab.Frontend
 import Core.Doc
 import Core.Doc.Interp
+import Core.Dsl.Lint
 import Core.Export.Latex
 import Core.Dsl.Types.EnumDef
 
@@ -125,6 +126,28 @@ private partial def collectBanned
             replace with `#{s}` so the rendered output also \
             hyperlinks to the definition."]
       else []
+    -- `MathDoc.raw "\\pi"` (and other single-symbol LaTeX
+    -- commands listed in `rawMathSymbolToSym`) — `MathDoc.raw`
+    -- bypasses every backend's symbol mapping and renders raw
+    -- LaTeX, so a single Greek letter or operator dressed up as
+    -- raw markup loses its meaning under Typst / HTML / plain
+    -- text. The structured `MathDoc.sym` constructor renders
+    -- correctly for every backend; for sources where the symbol
+    -- appears inside a `doc!` literal, the matching Unicode
+    -- character (`π`, `μ`, `α`, `θ`, `ϕ`, `φ`) is also accepted
+    -- and translated by the interpolator into the same
+    -- `MathDoc.sym` form. The check trims surrounding whitespace
+    -- so `.raw "\\pi"` and `.raw "\\pi "` are both flagged.
+    | .app (.const ``MathDoc.raw _) (.lit (.strVal s)) =>
+      match DslLint.rawMathSymbolToSym s with
+      | some symName =>
+        [s!"`MathDoc.raw \"{s}\"` renders a single math symbol via \
+            raw LaTeX — use `MathDoc.sym .{symName}` (or the \
+            anonymous-constructor form `.sym .{symName}`) instead. \
+            Inside a `doc!` literal, write the matching Unicode \
+            character (e.g. `π`, `ϕ`, `φ`, `μ`, `α`, `θ`) and the \
+            interpolator emits the structured form for you."]
+      | none => []
     -- `Doc.math (MathDoc.sym _)` (or its `Doc.m` reducible
     -- shorthand) — a hand-written math symbol splice such as
     -- `{Doc.m (.sym .emptySet)}` inside a `doc!` literal.

@@ -81,6 +81,18 @@ inductive MathSym where
   | pipe
   /-- Lambda: `λ` (with trailing space). -/
   | lambda
+  /-- Greek lowercase pi: `π`. -/
+  | pi
+  /-- Greek lowercase mu: `μ`. -/
+  | mu
+  /-- Greek lowercase alpha: `α`. -/
+  | alpha
+  /-- Greek lowercase theta: `θ`. -/
+  | theta
+  /-- Greek lowercase phi (loopy form): `ϕ`. -/
+  | phi
+  /-- Greek lowercase phi (curly form): `φ`. -/
+  | varphi
   /-- Semicolon: `;`. -/
   | semicolon
   /-- Auto-sized left paren: `\left(` in LaTeX. Use when
@@ -234,6 +246,12 @@ def toPlainText : MathSym → String
   | .append => " ++ "
   | .pipe => "|"
   | .lambda => "λ "
+  | .pi => "π"
+  | .mu => "μ"
+  | .alpha => "α"
+  | .theta => "θ"
+  | .phi => "ϕ"
+  | .varphi => "φ"
   | .semicolon => ";"
   | .lparenAuto => "("
   | .rparenAuto => ")"
@@ -555,6 +573,12 @@ mutual
     | .sym .append => " ++ "
     | .sym .pipe => "|"
     | .sym .lambda => "&lambda; "
+    | .sym .pi => "&pi;"
+    | .sym .mu => "&mu;"
+    | .sym .alpha => "&alpha;"
+    | .sym .theta => "&theta;"
+    | .sym .phi => "&phi;"
+    | .sym .varphi => "&phi;"
     | .sym .semicolon => ";"
     | .sym .lparenAuto => "("
     | .sym .rparenAuto => ")"

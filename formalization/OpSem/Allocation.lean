@@ -12,11 +12,11 @@ where
   | index "The allocation index." : Nat
   deriving DecidableEq, Repr, Hashable, Inhabited
 
-defStruct Allocation (.raw "\\alpha",
+defStruct Allocation (.sym .alpha,
     .text "Allocation")
   "Allocations"
   (doc! "An allocation \
-    $\\alpha ∈ _Allocation_$ \
+    $α ∈ _Allocation_$ \
     in the memory model.")
   link "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md"
 where

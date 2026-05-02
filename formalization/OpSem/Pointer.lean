@@ -1,10 +1,10 @@
 import OpSem.Allocation
 import MIR.Ty
 
-defStruct Provenance (.raw "\\pi", .text "Provenance")
+defStruct Provenance (.sym .pi, .text "Provenance")
   "Provenances"
   (doc! "A pointer provenance \
-    $\\pi ∈ _Provenance_$, \
+    $π ∈ _Provenance_$, \
     identifying the allocation.")
 where
   | id "The allocation identifier." : AllocId

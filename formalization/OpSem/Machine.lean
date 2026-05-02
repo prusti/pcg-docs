@@ -17,10 +17,10 @@ import Core.Dsl.DefRaw
 -- already opened in the generated file.)
 open Memory StackFrame
 
-defStruct Machine (.raw "\\mu", .text "Machine")
+defStruct Machine (.sym .mu, .text "Machine")
   "Machines"
   (doc! "A machine state \
-    $\\mu ∈ _Machine_$ \
+    $μ ∈ _Machine_$ \
     bundles the whole program being executed, the \
     single-threaded execution context, and the shared memory. \
     Per-call state — the function body, program counter, and \

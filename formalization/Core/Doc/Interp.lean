@@ -276,6 +276,15 @@ def unicodeMathToSym (c : Char) : Option String :=
   | '⊤' => some "top"
   | '∪' => some "cup"
   | '∩' => some "cap"
+  | 'π' => some "pi"
+  | 'μ' => some "mu"
+  | 'α' => some "alpha"
+  | 'θ' => some "theta"
+  -- `ϕ` (U+03D5, GREEK PHI SYMBOL) is the loopy form rendered
+  -- by `\phi`; `φ` (U+03C6, GREEK SMALL LETTER PHI) is the
+  -- curly form rendered by `\varphi`.
+  | 'ϕ' => some "phi"
+  | 'φ' => some "varphi"
   | _ => none
 
 /-- Map a Unicode math character to its raw LaTeX command

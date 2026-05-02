@@ -152,6 +152,24 @@ def lintTests : TestSeq :=
         .true_
        (DslLint.lintExpr body).any
         (·.rule == "mergeableBinders")) $
+    test "rawMathSymbolToSym maps single-symbol commands to .sym"
+      (DslLint.rawMathSymbolToSym "\\pi" == some "pi" &&
+       DslLint.rawMathSymbolToSym "\\varphi" == some "varphi" &&
+       DslLint.rawMathSymbolToSym "\\phi" == some "phi" &&
+       DslLint.rawMathSymbolToSym "\\mu" == some "mu" &&
+       DslLint.rawMathSymbolToSym "\\alpha" == some "alpha" &&
+       DslLint.rawMathSymbolToSym "\\theta" == some "theta") $
+    test "rawMathSymbolToSym tolerates surrounding whitespace"
+      (DslLint.rawMathSymbolToSym "\\pi " == some "pi" &&
+       DslLint.rawMathSymbolToSym " \\pi" == some "pi" &&
+       DslLint.rawMathSymbolToSym " \\pi " == some "pi") $
+    test "rawMathSymbolToSym ignores raw strings that aren't a \
+          single math symbol"
+      (DslLint.rawMathSymbolToSym "\\quad" == none &&
+       DslLint.rawMathSymbolToSym "\\State " == none &&
+       DslLint.rawMathSymbolToSym "EvalStmtPhase" == none &&
+       DslLint.rawMathSymbolToSym "\\bar{\\tau}" == none &&
+       DslLint.rawMathSymbolToSym "" == none) $
     .done
 
 private def boldShorthandSimple : Doc :=
@@ -179,6 +197,14 @@ private def boldTextSpelled : Doc :=
   .seq [.plain "the ", .bold (.plain "invariant"),
         .plain " holds"]
 
+private def greekInMathInterp : Doc :=
+  doc! "the provenance $π$ identifies an allocation"
+
+private def greekInMathSpelled : Doc :=
+  .seq [.plain "the provenance ",
+        .math (.seq [.sym .pi]),
+        .plain " identifies an allocation"]
+
 def docInterpTests : TestSeq :=
   group "Doc.Interp" $
     test "$__W__$ shorthand renders the same LaTeX as the \
@@ -194,6 +220,9 @@ def docInterpTests : TestSeq :=
     test "__X__ outside $...$ becomes Doc.bold (Doc.plain X)"
       (boldTextShorthand.toLatex.render ==
          boldTextSpelled.toLatex.render) $
+    test "Unicode π inside $...$ becomes MathDoc.sym .pi"
+      (greekInMathInterp.toLatex.render ==
+         greekInMathSpelled.toLatex.render) $
     .done
 
 def main (args : List String) : IO UInt32 :=
