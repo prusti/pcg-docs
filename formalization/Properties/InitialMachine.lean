@@ -163,30 +163,245 @@ theorem getCapability_initialPcg_local0_not_exclusive
     simp only [treeLeafCapability]
     decide
 
+/-- The locals map of `initialMachine` binds `Local⟨0⟩` to a thin
+    pointer whose provenance is the unique allocation `AllocId⟨0⟩`.
+
+    The same `match heq : ∅[…]? with` shape that blocks the
+    `mem_initialMachine_length_one` / `initialMachine_currentFrame_locals`
+    proofs on `mine/main` blocks this proof too — `simp` won't push
+    a `Std.HashMap.getElem?_empty` rewrite through the scrutinee of
+    a `match heq :` form, so the residual goal still mentions the
+    unreduced `match`. Left as `sorry` until the upstream proofs
+    are updated to handle the new `validStackFrame mem frame`
+    contract on `storageDead`. -/
+private theorem evalLocal_initialMachine_provenance
+    (pr : Program) (h : validProgram pr)
+    (h_R : Runnable (initialMachine pr h)) (pp : PlacePtr)
+    (heval : evalLocal (initialMachine pr h) ⟨0⟩ h_R = some pp) :
+    pp.ptr.provenance = some ⟨⟨0⟩⟩ := by
+  sorry
+
+/-- Every allocation in the initial machine has data
+    `List.replicate _ AbstractByte.uninit`. Same upstream-blocked
+    `match heq :` issue as `evalLocal_initialMachine_provenance`. -/
+private theorem initialMachine_alloc_data_eq_replicate
+    (pr : Program) (h : validProgram pr) (a : Allocation)
+    (ha : a ∈ (initialMachine pr h).mem.allocs) :
+    ∃ sz, a.data = List.replicate sz AbstractByte.uninit := by
+  sorry
+
+private theorem initialMachine_alloc_data_uninit
+    (pr : Program) (h : validProgram pr) (idx : Nat)
+    (b : AbstractByte)
+    (hb : b ∈ ((initialMachine pr h).mem.allocs[idx]!).data) :
+    b = AbstractByte.uninit := by
+  have hlen : (initialMachine pr h).mem.allocs.length = 1 :=
+    mem_initialMachine_length_one pr h
+  by_cases h_in : idx < (initialMachine pr h).mem.allocs.length
+  · -- In-bounds: `[idx]!` reduces to `[idx]'h_in`, which is in the list.
+    have h_pos : (initialMachine pr h).mem.allocs[idx]! =
+        (initialMachine pr h).mem.allocs[idx]'h_in :=
+      getElem!_pos (initialMachine pr h).mem.allocs idx h_in
+    rw [h_pos] at hb
+    have hmem : (initialMachine pr h).mem.allocs[idx]'h_in ∈
+        (initialMachine pr h).mem.allocs := List.getElem_mem h_in
+    obtain ⟨_, hd⟩ := initialMachine_alloc_data_eq_replicate pr h _ hmem
+    rw [hd] at hb
+    exact List.eq_of_mem_replicate hb
+  · -- Out-of-bounds: `[idx]!` returns `default`, whose `.data` is `[]`.
+    have h_eq : (initialMachine pr h).mem.allocs[idx]! =
+        (default : Allocation) :=
+      getElem!_neg (initialMachine pr h).mem.allocs idx h_in
+    rw [h_eq] at hb
+    have h_def_data : (default : Allocation).data = ([] : List AbstractByte) := rfl
+    rw [h_def_data] at hb
+    exact (List.not_mem_nil hb).elim
+
+/-- Every byte returned by `Memory.load` on the initial machine is
+    `.uninit`. -/
+private theorem load_initialMachine_all_uninit
+    (pr : Program) (h : validProgram pr) (ptr : ThinPointer) (len : Nat)
+    (b : AbstractByte)
+    (hb : b ∈ Memory.load (initialMachine pr h).mem ptr len) :
+    b = AbstractByte.uninit := by
+  rcases hck : Memory.checkPtr (initialMachine pr h).mem ptr len with _ | ⟨aid, offset⟩
+  · -- `checkPtr` failed → load returns `[]`.
+    have heq : Memory.load (initialMachine pr h).mem ptr len = [] := by
+      unfold Memory.load; rw [hck]
+    rw [heq] at hb
+    exact (List.not_mem_nil hb).elim
+  · -- `checkPtr` succeeded → load returns `readBytesAt alloc.data offset len`.
+    have heq : Memory.load (initialMachine pr h).mem ptr len =
+        Memory.readBytesAt
+          ((initialMachine pr h).mem.allocs[aid.index]!).data offset len := by
+      unfold Memory.load; rw [hck]
+    rw [heq] at hb
+    unfold Memory.readBytesAt at hb
+    have hsub := List.mem_of_mem_take hb
+    have hsub' := List.mem_of_mem_drop hsub
+    exact initialMachine_alloc_data_uninit pr h aid.index b hsub'
+
+/-- `decodePtr` returns `none` on any byte sequence drawn from the
+    initial machine's memory, since every such byte is `.uninit`
+    while `decodePtr` requires the head to be a `.ptrFragment`. -/
+private theorem decodePtr_load_initialMachine
+    (pr : Program) (h : validProgram pr) (ptr : ThinPointer) :
+    decodePtr (Memory.load (initialMachine pr h).mem ptr 8) =
+      (none : Option ThinPointer) := by
+  have hbytes := load_initialMachine_all_uninit pr h ptr 8
+  generalize hL : Memory.load (initialMachine pr h).mem ptr 8 = bs at hbytes
+  cases bs with
+  | nil => rfl
+  | cons b _ =>
+    have hb : b = AbstractByte.uninit := hbytes b List.mem_cons_self
+    rw [hb]
+    rfl
+
+/-- If `pp.ptr.provenance = some ⟨⟨0⟩⟩` and `evalProjs` succeeds on
+    the initial machine starting from `pp`, then the resulting place
+    pointer also has provenance `some ⟨⟨0⟩⟩`. The `.field`,
+    `.downcast`, and `.index` arms preserve provenance verbatim; the
+    `.deref` arm short-circuits because `decodePtr` fails on the
+    initial machine's memory (every byte is `.uninit`). -/
+private theorem evalProjs_initialMachine_provenance
+    (pr : Program) (h : validProgram pr)
+    (h_R : Runnable (initialMachine pr h)) :
+    ∀ (projs : List ProjElem) (pp : PlacePtr) (ty : Ty)
+      (pp' : PlacePtr) (ty' : Ty),
+    pp.ptr.provenance = some ⟨⟨0⟩⟩ →
+    evalProjs (initialMachine pr h) pp ty projs h_R = some ⟨pp', ty'⟩ →
+    pp'.ptr.provenance = some ⟨⟨0⟩⟩ := by
+  intro projs
+  induction projs with
+  | nil =>
+    intro pp ty pp' ty' hprov heval
+    -- `evalProjs m pp ty [] _ = some ⟨pp, ty⟩`, so `pp = pp'`.
+    simp only [evalProjs] at heval
+    injection heval with heq
+    injection heq with hpp _
+    rw [← hpp]
+    exact hprov
+  | cons e rest ih =>
+    intro pp ty pp' ty' hprov heval
+    cases e with
+    | field idx fty =>
+      -- `evalProjs m pp ty (.field idx fty :: rest) = (evalField pp idx ty).bind (...)`
+      simp only [evalProjs] at heval
+      cases hef : evalField pp idx ty with
+      | none => rw [hef] at heval; simp at heval
+      | some pair =>
+        rcases pair with ⟨fp, ft⟩
+        rw [hef] at heval
+        simp only [Option.bind_some] at heval
+        -- `fp.ptr.provenance = pp.ptr.provenance` because `evalField`
+        -- only adjusts the address.
+        have hfp : fp.ptr.provenance = pp.ptr.provenance := by
+          cases ty with
+          | bool | int _ | param _ | alias _ _ _ | ref _ _ _ | box _ | array _ _ =>
+            simp [evalField] at hef
+          | ctor _ args =>
+            simp only [evalField] at hef
+            cases hofs : fieldOffset args idx.index with
+            | none => rw [hofs] at hef; simp at hef
+            | some off =>
+              rw [hofs] at hef
+              simp only [Option.bind_some] at hef
+              injection hef with h1
+              injection h1 with h1l _
+              rw [← h1l]
+        exact ih fp ft pp' ty' (hfp ▸ hprov) heval
+    | downcast variantIdx =>
+      simp only [evalProjs] at heval
+      exact ih pp ty pp' ty' hprov heval
+    | deref =>
+      cases ty with
+      | ref _ _ pointee =>
+        simp only [evalProjs] at heval
+        rw [decodePtr_load_initialMachine pr h pp.ptr] at heval
+        simp at heval
+      | box pointee =>
+        simp only [evalProjs] at heval
+        rw [decodePtr_load_initialMachine pr h pp.ptr] at heval
+        simp at heval
+      | bool | int _ | param _ | alias _ _ _ | ctor _ _ | array _ _ =>
+        all_goals (simp [evalProjs] at heval)
+    | index lcl =>
+      cases ty with
+      | array elem _ =>
+        simp only [evalProjs] at heval
+        cases hsz : Ty.bytes elem with
+        | none => rw [hsz] at heval; simp at heval
+        | some elemSz =>
+          rw [hsz] at heval
+          simp only [Option.bind_some] at heval
+          cases hil : evalLocal (initialMachine pr h) lcl h_R with
+          | none => rw [hil] at heval; simp at heval
+          | some idxPp =>
+            rw [hil] at heval
+            simp only [Option.bind_some] at heval
+            have hbytes := load_initialMachine_all_uninit pr h idxPp.ptr 8
+            cases hd : data (Memory.load (initialMachine pr h).mem idxPp.ptr 8) with
+            | none => rw [hd] at heval; simp at heval
+            | some idxRaw =>
+              rw [hd] at heval
+              simp only [Option.bind_some] at heval
+              -- `data` returned `some idxRaw`; on the initial machine this
+              -- forces `idxRaw = []` because the loaded bytes are `[]` or
+              -- begin with `.uninit` (the latter making `data` fail).
+              have hempty : idxRaw = [] := by
+                cases hib : Memory.load (initialMachine pr h).mem idxPp.ptr 8 with
+                | nil =>
+                  rw [hib] at hd
+                  simp [data] at hd
+                  exact hd
+                | cons b _ =>
+                  exfalso
+                  have hbu : b = AbstractByte.uninit := by
+                    apply hbytes
+                    rw [hib]
+                    exact List.mem_cons_self
+                  rw [hib, hbu] at hd
+                  simp [data] at hd
+              -- After substituting `idxRaw = []`, `decodeLeUnsigned [] = 0`,
+              -- so the offset added is `0` and the new pointer collapses to
+              -- the original `pp` modulo the address. Provenance is
+              -- preserved verbatim.
+              subst hempty
+              -- The new pp has provenance `pp.ptr.provenance`.
+              apply ih (PlacePtr.mk
+                  (ThinPointer.mk
+                    (Address.mk (pp.ptr.addr.addr + decodeLeUnsigned [] * elemSz))
+                    pp.ptr.provenance))
+                elem pp' ty' hprov heval
+      | bool | int _ | param _ | alias _ _ _ | ref _ _ _ | box _ | ctor _ _ =>
+        all_goals (simp [evalProjs] at heval)
+
 /-- The provenance of any successful `evalPlace` in
     `initialMachine pr h` is `some ⟨⟨0⟩⟩` — the `AllocId` of the
     unique allocation.
 
-    Proof sketch: `evalPlace` runs `evalLocal` on `p.local`, then
-    walks `p.projection` via `evalProjs`. The base pointer comes
-    from the locals map; in `initialMachine` the only entry is for
+    Proof: `evalPlace` runs `evalLocal` on `p.local`, then walks
+    `p.projection` via `evalProjs`. The base pointer comes from the
+    locals map; in `initialMachine` the only entry is for
     `Local⟨0⟩` with provenance `some ⟨⟨0⟩⟩` (per the construction
     in `storageLive`). The projection arms (`evalProjs`'s `.field`
     / `.downcast` / `.index` cases) preserve provenance verbatim;
     the `.deref` arm needs `decodePtr` to succeed on memory bytes,
     but `initialMachine` has uninit bytes only, so `decodePtr`
-    returns `none` and `evalProjs` short-circuits.
-
-    A full structural-induction proof on `p.projection` follows
-    those observations; the statement is isolated here so the
-    higher-level single-allocation argument
-    (`hasAllocation_initialMachine_eq`) can quote it directly. -/
+    returns `none` and `evalProjs` short-circuits. -/
 private theorem evalPlace_provenance_initialMachine
     (pr : Program) (h : validProgram pr) (p : Place)
     (h_R : Runnable (initialMachine pr h)) (pp : PlacePtr) (ty : Ty)
     (heval : evalPlace (initialMachine pr h) p h_R = some ⟨pp, ty⟩) :
     pp.ptr.provenance = some ⟨⟨0⟩⟩ := by
-  sorry
+  unfold evalPlace at heval
+  rw [Option.bind_eq_some_iff] at heval
+  obtain ⟨rootPp, hL, hev⟩ := heval
+  have hlocal := evalLocal_initialMachine_local0 pr h p.local h_R rootPp hL
+  rw [hlocal] at hL
+  have hroot := evalLocal_initialMachine_provenance pr h h_R rootPp hL
+  exact evalProjs_initialMachine_provenance pr h h_R p.projection
+    rootPp _ pp ty hroot hev
 
 /-- **The key shared lemma**: any two `hasAllocation _ _ _` witnesses
     in the initial machine name the same backing allocation. Direct
