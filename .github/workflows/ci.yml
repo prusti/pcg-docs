@@ -128,6 +128,20 @@ jobs:
       working-directory: formalization/generated/rust
       run: cargo check
 
+    - name: Check RuntimeRust source crate (fmt + clippy pedantic)
+      # `RuntimeRust/` is the hand-written source-of-truth crate
+      # copied into `generated/rust/formal-runtime/` at export
+      # time. Its `lib.rs` declares `#![deny(clippy::pedantic)]`
+      # and the project relies on rustfmt-clean signatures, but
+      # `rust_export` runs `cargo fmt --all` (no `--check`) on the
+      # *generated* tree only — so without this gate, formatting
+      # or pedantic-clippy regressions in the source would land
+      # silently.
+      working-directory: formalization/RuntimeRust
+      run: |
+        cargo fmt --check
+        cargo clippy --all-targets -- -D warnings
+
     - name: Upload presentation PDF
       uses: actions/upload-artifact@v4
       with:

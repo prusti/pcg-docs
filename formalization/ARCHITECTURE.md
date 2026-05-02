@@ -13,7 +13,8 @@ copy of the definitions).
 ```
 formalization/
 ├── Core/                  -- DSL definitions + backends
-├── Runtime/               -- Shared runtime helpers (see below)
+├── Runtime/               -- Shared Lean runtime helpers (see below)
+├── RuntimeRust/           -- Shared Rust runtime helpers (see below)
 ├── MIR/                   -- MIR-level definitions
 ├── OpSem/                 -- Operational semantics
 ├── PCG/                   -- Place Capability Graph
@@ -120,6 +121,58 @@ explicit `import Runtime.Set` / `import Runtime.Map` to each
 generated module based on which of those helpers the module's
 contents actually reference.
 
+## The `RuntimeRust/` library
+
+`RuntimeRust/` is the Rust counterpart to `Runtime/`: a small,
+hand-written Cargo crate (`formal-runtime`) that owns the
+shared helpers the Rust-export DSL emits calls to. Today it
+contains:
+
+- `RuntimeRust/src/map.rs` — `HashMap`-based helpers
+  (`map_empty`, `map_singleton`, `map_insert`, `map_remove`,
+  `map_at`, `map_get`, `map_values`, `map_union_sets`)
+  paralleling `Runtime/Map.lean`.
+- `RuntimeRust/src/set.rs` — `HashSet`-based helpers
+  (`set_singleton`, …) paralleling `Runtime/Set.lean`.
+- `RuntimeRust/src/list.rs` — slice / `Vec` helpers
+  (`last`, `replicate`, `list_set`, `list_take`, `list_drop`).
+
+The crate uses `#![deny(clippy::all)]` and
+`#![deny(clippy::pedantic)]` so the helpers are held to the
+same lint bar as the rest of the project.
+
+**The entire `RuntimeRust/` folder is copied verbatim into
+the generated Rust workspace** by `RustExport.main`, landing
+at `generated/rust/formal-runtime/`. Each generated crate
+(`formal-mir`, `formal-opsem`, `formal-pcg`) carries a path
+dependency on `formal-runtime` (`runtimeDep` in
+`RustExport.lean`). Modules that need the helpers expose
+them with a one-line item such as
+`pub use formal_runtime::map::*;` (declared in the relevant
+`ExtraSpec.items` entry), so DSL-emitted calls like
+`map_get(...)`, `last(...)` resolve through a single source
+of truth.
+
+This setup means:
+
+- The in-tree formalization and the exported workspace share
+  one copy of every helper — no duplicate string-literal
+  helper bodies in `RustExport.lean`.
+- Adding a new Rust helper is a matter of dropping a function
+  into `RuntimeRust/src/{map,set,list}.rs` (or a new module)
+  and re-exporting it from the consumer module via an
+  `ExtraSpec.items` entry containing
+  `.raw "pub use formal_runtime::<module>::*;"`.
+
+There is one dependency-direction constraint: `formal-runtime`
+sits at the bottom of the workspace, so helpers that
+reference downstream types (e.g. `AbstractByte`, `IntValue`
+from `formal-opsem`) cannot live in `RuntimeRust/`. Such
+helpers stay inline in their consumer's `ExtraSpec.items`
+`.raw` block — for example, `encode_le_unsigned` and
+`int_value_of_nat` remain inline in the `OpSem` decode
+module.
+
 ## Registries and exporters
 
 Each DSL command appends to a global `IO.Ref` registry (see
@@ -132,7 +185,14 @@ in which they were declared):
   the result. Also copies `Runtime/` as described above.
 - `RustExport.lean` — lowers each group to a `RustCrate`
   (`formal-mir`, `formal-opsem`, `formal-pcg`) under
-  `generated/rust/`, ready for `cargo check`.
+  `generated/rust/`, ready for `cargo check`. Per-module
+  Rust extras (hand-rolled `use` directives, trait impls,
+  `pub use formal_runtime::…` re-exports) are declared as
+  entries of `extras : List ExtraSpec` and folded into the
+  matching module's `extraUses` / `extraItems`.
+  `RustExport.main` also copies `RuntimeRust/` verbatim into
+  `generated/rust/formal-runtime/` and adds the path
+  dependency on it to every generated crate.
 - `PresentationExport.lean` → `Presentation.lean` — builds
   one `\section` per crate and one `\subsection` per
   second-level module. Modules nested any deeper
@@ -165,10 +225,25 @@ sync as you edit. Pass exporter flags after `--`, e.g.
 `python3 scripts/watch_presentation.py -- --make-pdf=false`.
 
 If your `defFn` body uses a helper that lives outside the DSL
-grammar, add it to `Runtime/` (for runtime-style helpers) or
-to `extraLeanItems` / `extraItems` (for module-specific
-typeclass instances or one-off Rust snippets) in
-`LeanExport.lean` / `RustExport.lean`.
+grammar, the choice of where to add it is determined by which
+backend(s) need it:
+
+- **Lean-side runtime helpers** go into `Runtime/` (e.g. a
+  new `Runtime/Foo.lean`). They are picked up automatically
+  by the in-tree build and copied verbatim into the generated
+  Lean project.
+- **Rust-side runtime helpers** go into `RuntimeRust/` (a new
+  function in `RuntimeRust/src/{map,set,list}.rs`, or a new
+  module). To make the helper visible in a generated module,
+  add a `pub use formal_runtime::<module>::*;` re-export
+  through an `ExtraSpec.items` entry for that module. Helpers
+  that reference downstream types (and therefore cannot live
+  upstream of their consumer crate) stay as inline `.raw`
+  items on the consumer module's `ExtraSpec`.
+- **Module-specific typeclass instances or one-off snippets**
+  that don't belong in a shared runtime go into
+  `extraLeanItems` (in `LeanExport.lean`) or `extras` (in
+  `RustExport.lean`), keyed by the consumer module.
 
 ## DSL linter (`Core/Dsl/Lint.lean`)
 

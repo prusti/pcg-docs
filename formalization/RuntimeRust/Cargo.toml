@@ -1,0 +1,5 @@
+[package]
+name = "formal-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Hand-written Rust runtime helpers shared by the generated PCG crates."

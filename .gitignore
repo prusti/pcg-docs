@@ -19,6 +19,10 @@ formalization/generated
 # Cargo / build directories anywhere in the tree
 target-*
 
+# RuntimeRust source crate (Cargo.lock omitted — library)
+formalization/RuntimeRust/Cargo.lock
+formalization/RuntimeRust/target
+
 # LaTeX build artifacts
 *.aux
 *.fdb_latexmk

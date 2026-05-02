@@ -46,87 +46,72 @@ import Core.Dsl.Types.OrderDef
 -- LaTeX remain the authoritative exports for these types
 -- until the exporter handles the construct.
 
-/-- Extra Rust items that cannot be auto-generated from
-    `defEnum` / `defStruct` (e.g. trait impls). Keyed by
-    `(cratePrefix, rustModuleName)`. -/
-def extraItems : List (String × String × RustItem) :=
-  [ ("PCG", "borrowchecker", .raw
-"use formal_mir::body::Location;
-use crate::pcgnode::PcgNode;
-")
-  , ("PCG", "analysislocation", .raw
-"use formal_mir::body::Location;
-")
-  , ("PCG", "analysisobject", .raw
-"use formal_mir::body::{Body, Terminator, valid_statement, valid_terminator};
-use formal_mir::statements::Statement;
-")
-  , ("PCG", "borrowedge", .raw
-"use formal_mir::body::Location;
-use formal_mir::region::Region;
-use formal_mir::ty::Mutability;
-use crate::lplabel::LPLabel;
-use crate::maybelabelled::MaybeLabelled;
-")
-  , ("PCG", "snapshotlocation", .raw
-"use formal_mir::body::BasicBlockIdx;
-")
-  , ("PCG", "pcgplace", .raw
-"use formal_mir::place::Local;
-use crate::maybelabelled::MaybeLabelled;
-")
-  , ("PCG", "placetriple", .raw
-"use formal_mir::place::Place;
-")
-  , ("PCG", "transientstate", .raw
-"use std::collections::HashSet;
-")
-  , ("PCG", "pcglifetimeprojectionbase", .raw
-"use formal_mir::constvalue::ConstValue;
-use crate::pcgplace::PcgPlace;
-")
-  , ("PCG", "capability",
-     Capability.orderDef.toRustPartialOrd)
-  , ("PCG", "validityconditions", .raw
-"use formal_mir::body::BasicBlockIdx;
-use std::collections::HashSet;
+/-- Extra Rust content for a single generated module that
+    cannot be auto-generated from `defEnum` / `defStruct`
+    (e.g. trait impls, helper functions, hand-rolled `use`
+    directives). Items go to the module body; uses go to the
+    module's `extraUses` list and render as `use ...;` lines.
+    Splitting these channels means an entry cannot accidentally
+    place a `use` directive in `items` (where it would render
+    after the auto-generated imports) or a structured item in
+    `uses` (which would mangle it). -/
+structure ExtraSpec where
+  /-- Lean-side crate prefix (e.g. `"PCG"`, `"OpSem"`). Used
+      by `buildCrate` to filter specs to the current crate. -/
+  cratePrefix : String
+  /-- Snake-case Rust module name (e.g. `"borrowchecker"`). -/
+  rustModule  : String
+  /-- `use` directive bodies (no `use ` prefix, no trailing
+      `;`). Rendered alongside the auto-generated imports. -/
+  uses        : List String := []
+  /-- Top-level Rust items (impls, fns, raw blocks). -/
+  items       : List RustItem := []
 
-pub fn map_empty<K: Eq + std::hash::Hash, V>() -> HashMap<K, V> {
-    HashMap::new()
-}
-
-pub fn map_singleton<K: Eq + std::hash::Hash, V>(k: &K, v: &V)
-    -> HashMap<K, V>
-where K: Clone, V: Clone {
-    let mut m = HashMap::new();
-    m.insert(k.clone(), v.clone());
-    m
-}
-
-pub fn map_union_sets<
-    K: Eq + std::hash::Hash + Clone,
-    T: Eq + std::hash::Hash + Clone,
->(
-    m1: &HashMap<K, HashSet<T>>,
-    m2: &HashMap<K, HashSet<T>>,
-) -> HashMap<K, HashSet<T>> {
-    let mut out: HashMap<K, HashSet<T>> = m1.clone();
-    for (k, v) in m2.iter() {
-        out.entry(k.clone())
-            .and_modify(|e| e.extend(v.iter().cloned()))
-            .or_insert_with(|| v.clone());
-    }
-    out
-}
-
-pub fn set_singleton<T: Eq + std::hash::Hash + Clone>(x: &T)
-    -> HashSet<T> {
-    let mut s = HashSet::new();
-    s.insert(x.clone());
-    s
-}
-")
-  , ("OpSem", "address", .raw
+/-- Extra Rust content keyed by `(cratePrefix, rustModule)`.
+    Each entry contributes `use` directives (rendered through
+    `RustModule.extraUses`) and/or items (rendered into the
+    module body). -/
+def extras : List ExtraSpec :=
+  [ { cratePrefix := "PCG", rustModule := "borrowchecker"
+    , uses := [ "formal_mir::body::Location"
+              , "crate::pcgnode::PcgNode" ] }
+  , { cratePrefix := "PCG", rustModule := "analysislocation"
+    , uses := [ "formal_mir::body::Location" ] }
+  , { cratePrefix := "PCG", rustModule := "analysisobject"
+    , uses :=
+        [ "formal_mir::body::{Body, Terminator, \
+           valid_statement, valid_terminator}"
+        , "formal_mir::statements::Statement" ] }
+  , { cratePrefix := "PCG", rustModule := "borrowedge"
+    , uses := [ "formal_mir::body::Location"
+              , "formal_mir::region::Region"
+              , "formal_mir::ty::Mutability"
+              , "crate::lplabel::LPLabel"
+              , "crate::maybelabelled::MaybeLabelled" ] }
+  , { cratePrefix := "PCG", rustModule := "snapshotlocation"
+    , uses := [ "formal_mir::body::BasicBlockIdx" ] }
+  , { cratePrefix := "PCG", rustModule := "pcgplace"
+    , uses := [ "formal_mir::place::Local"
+              , "crate::maybelabelled::MaybeLabelled" ] }
+  , { cratePrefix := "PCG", rustModule := "placetriple"
+    , uses := [ "formal_mir::place::Place" ] }
+  , { cratePrefix := "PCG", rustModule := "transientstate"
+    , uses := [ "std::collections::HashSet" ] }
+  , { cratePrefix := "PCG"
+    , rustModule  := "pcglifetimeprojectionbase"
+    , uses := [ "formal_mir::constvalue::ConstValue"
+              , "crate::pcgplace::PcgPlace" ] }
+  , { cratePrefix := "PCG", rustModule := "capability"
+    , items := [Capability.orderDef.toRustPartialOrd] }
+  , { cratePrefix := "PCG", rustModule := "validityconditions"
+    , uses := [ "formal_mir::body::BasicBlockIdx"
+              , "std::collections::HashSet" ]
+    , items := [.raw
+"pub use formal_runtime::map::*;
+pub use formal_runtime::set::*;
+"] }
+  , { cratePrefix := "OpSem", rustModule := "address"
+    , items := [.raw
 "impl PartialOrd for Address {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
@@ -181,31 +166,20 @@ impl PartialOrd<&Address> for Address {
 impl PartialOrd<Address> for &Address {
     fn partial_cmp(&self, other: &Address) -> Option<std::cmp::Ordering> { Some(self.addr.cmp(&other.addr)) }
 }
-")
-  , ("OpSem", "abstractbyte", .raw
+"] }
+  , { cratePrefix := "OpSem", rustModule := "abstractbyte"
+    , items := [.raw
 "#[allow(non_upper_case_globals)]
 pub const uninit: AbstractByte = AbstractByte::Uninit;
-")
-  , ("OpSem", "allocation", .raw
-"pub fn last<T: Clone>(xs: &[T]) -> Option<T> { xs.last().cloned() }
-pub fn replicate<T: Clone>(n: &usize, x: &T) -> Vec<T> { vec![x.clone(); *n] }
-pub fn list_set<T: Clone>(xs: &[T], i: &usize, x: &T) -> Vec<T> {
-    let mut v: Vec<T> = xs.to_vec();
-    if *i < v.len() { v[*i] = x.clone(); }
-    v
-}
-pub fn list_take<T: Clone>(n: &usize, xs: &[T]) -> Vec<T> {
-    xs.iter().take(*n).cloned().collect()
-}
-pub fn list_drop<T: Clone>(n: &usize, xs: &[T]) -> Vec<T> {
-    xs.iter().skip(*n).cloned().collect()
-}
-")
-  , ("OpSem", "decode", .raw
-"use formal_mir::ty::{size_bytes, IntType, IntValue, Ty};
-use formal_mir::constvalue::*;
-
-pub fn encode_le_unsigned(n: &usize, num_bytes: &usize) -> Vec<AbstractByte> {
+"] }
+  , { cratePrefix := "OpSem", rustModule := "allocation"
+    , items := [.raw "pub use formal_runtime::list::*;\n"] }
+  , { cratePrefix := "OpSem", rustModule := "decode"
+    , uses := [ "formal_mir::ty::{size_bytes, IntType, \
+                 IntValue, Ty}"
+              , "formal_mir::constvalue::*" ]
+    , items := [.raw
+"pub fn encode_le_unsigned(n: &usize, num_bytes: &usize) -> Vec<AbstractByte> {
     let mut out = Vec::with_capacity(*num_bytes);
     let mut cur = *n;
     for _ in 0..*num_bytes {
@@ -224,81 +198,39 @@ pub fn int_value_of_nat(nbytes: &usize, n: &usize) -> Option<IntValue> {
         _ => None,
     }
 }
-")
-  , ("OpSem", "pointer", .raw
-"use formal_mir::ty::Mutability;
-")
-  , ("OpSem", "value", .raw
-"use formal_mir::ty::*;
-")
-  , ("OpSem", "expressions", .raw
-"use formal_mir::ty::Ty;
-")
-  , ("OpSem", "place", .raw
-"use formal_mir::place::*;
-use formal_mir::ty::Ty;
-
-pub fn map_get<'a, K: Eq + std::hash::Hash, V>(m: &'a std::collections::HashMap<K, V>, k: &K) -> Option<&'a V> {
-    m.get(k)
-}
-")
-  , ("OpSem", "machine", .raw
-"use formal_mir::body::*;
-use formal_mir::constvalue::*;
-use formal_mir::place::*;
-use formal_mir::ty::Ty;
-
-pub fn map_empty<K: Eq + std::hash::Hash, V>()
-    -> std::collections::HashMap<K, V> {
-    std::collections::HashMap::new()
-}
-")
-  , ("OpSem", "stackframe", .raw
-"use formal_mir::body::*;
-use formal_mir::place::*;
-
-pub fn map_insert<K: Eq + std::hash::Hash + Clone, V: Clone>(
-    m: &std::collections::HashMap<K, V>, k: &K, v: &V,
-) -> std::collections::HashMap<K, V> {
-    let mut out = m.clone();
-    out.insert(k.clone(), v.clone());
-    out
-}
-
-pub fn map_remove<K: Eq + std::hash::Hash + Clone, V: Clone>(
-    m: &std::collections::HashMap<K, V>, k: &K,
-) -> std::collections::HashMap<K, V> {
-    let mut out = m.clone();
-    out.remove(k);
-    out
-}
-
-pub fn map_values<K: Eq + std::hash::Hash, V: Clone>(
-    m: &std::collections::HashMap<K, V>,
-) -> Vec<V> {
-    m.values().cloned().collect()
-}
-")
-  , ("OpSem", "program", .raw
-"use formal_mir::body::{Body, valid_body};
-
-pub fn map_at<K: Eq + std::hash::Hash, V: Clone>(
-    m: &std::collections::HashMap<K, V>, k: &K,
-) -> V {
-    m[k].clone()
-}
-")
-  , ("OpSem", "layout", .raw
-"use formal_mir::ty::*;
-use formal_mir::issized::is_sized;
-")
-  , ("OpSem", "statements", .raw
-"use formal_mir::constvalue::ConstValue;
-use formal_mir::place::Place;
-use formal_mir::region::Region;
-use formal_mir::statements::*;
-use formal_mir::ty::{Mutability, Ty};
-")
+"] }
+  , { cratePrefix := "OpSem", rustModule := "pointer"
+    , uses := [ "formal_mir::ty::Mutability" ] }
+  , { cratePrefix := "OpSem", rustModule := "value"
+    , uses := [ "formal_mir::ty::*" ] }
+  , { cratePrefix := "OpSem", rustModule := "expressions"
+    , uses := [ "formal_mir::ty::Ty" ] }
+  , { cratePrefix := "OpSem", rustModule := "place"
+    , uses := [ "formal_mir::place::*"
+              , "formal_mir::ty::Ty" ]
+    , items := [.raw "pub use formal_runtime::map::*;\n"] }
+  , { cratePrefix := "OpSem", rustModule := "machine"
+    , uses := [ "formal_mir::body::*"
+              , "formal_mir::constvalue::*"
+              , "formal_mir::place::*"
+              , "formal_mir::ty::Ty" ]
+    , items := [.raw "pub use formal_runtime::map::*;\n"] }
+  , { cratePrefix := "OpSem", rustModule := "stackframe"
+    , uses := [ "formal_mir::body::*"
+              , "formal_mir::place::*" ]
+    , items := [.raw "pub use formal_runtime::map::*;\n"] }
+  , { cratePrefix := "OpSem", rustModule := "program"
+    , uses := [ "formal_mir::body::{Body, valid_body}" ]
+    , items := [.raw "pub use formal_runtime::map::*;\n"] }
+  , { cratePrefix := "OpSem", rustModule := "layout"
+    , uses := [ "formal_mir::ty::*"
+              , "formal_mir::issized::is_sized" ] }
+  , { cratePrefix := "OpSem", rustModule := "statements"
+    , uses := [ "formal_mir::constvalue::ConstValue"
+              , "formal_mir::place::Place"
+              , "formal_mir::region::Region"
+              , "formal_mir::statements::*"
+              , "formal_mir::ty::{Mutability, Ty}" ] }
   ]
 
 /-- Build a `RustCrate` from the registry for a given Lean
@@ -354,8 +286,13 @@ def buildCrate
     p.leanModule.getRoot.toString == prefix_ &&
       !rustUnsupported.contains
         (p.leanModule, p.propertyDef.fnDef.name)
-  let extras := extraItems.filterMap fun (p, m, item) =>
-    if p == prefix_ then some (m, item) else none
+  let crateExtras := extras.filter (·.cratePrefix == prefix_)
+  let extraItems : List (String × RustItem) :=
+    crateExtras.flatMap fun e =>
+      e.items.map fun it => (e.rustModule, it)
+  let extraUses : List (String × String) :=
+    crateExtras.flatMap fun e =>
+      e.uses.map fun u => (e.rustModule, u)
   let crateCtx := { ctx with currentPrefix := prefix_ }
   { name := crateNameOf prefix_
     version := "0.1.0"
@@ -368,12 +305,20 @@ def buildCrate
     deps := deps
     reexports := reexports
     modules := buildModules crateEnums crateStructs
-      crateAliases crateFns crateProps extras crateCtx }
+      crateAliases crateFns crateProps extraItems extraUses
+      crateCtx }
 
 /-- The workspace containing all generated crates. -/
 def workspace : RustWorkspace :=
-  { members := ["formal-mir", "formal-opsem",
-                 "formal-pcg"] }
+  { members := ["formal-runtime", "formal-mir",
+                 "formal-opsem", "formal-pcg"] }
+
+/-- Path-dep on the shared `formal-runtime` crate, added to
+    every generated crate so DSL-emitted helper calls
+    (`map_empty`, `last`, …) resolve through one source of
+    truth. -/
+def runtimeDep : RustCrateDep :=
+  { name := "formal-runtime", path := "../formal-runtime" }
 
 /-- Write a file, creating parent directories as needed. -/
 private def writeFile
@@ -384,6 +329,27 @@ private def writeFile
   IO.FS.writeFile ⟨path⟩ contents
   IO.println s!"  wrote {path}"
 
+/-- Recursively copy every regular file under `srcDir` into
+    `dstDir`, preserving relative paths. Used to mirror the
+    hand-written `RuntimeRust/` source crate verbatim into
+    the generated workspace, analogous to the `Runtime/`
+    copy in `LeanExport.main`. Skips build-artefact and
+    hidden directories (`target*`, `.git`, etc.). -/
+private partial def copyDir
+    (srcDir dstDir : System.FilePath) : IO Unit := do
+  IO.FS.createDirAll dstDir
+  for entry in ← srcDir.readDir do
+    let name := entry.fileName
+    if name.startsWith "target" || name.startsWith "."
+        || name == "Cargo.lock" then
+      continue
+    let dstEntry := dstDir / name
+    if ← entry.path.isDir then
+      copyDir entry.path dstEntry
+    else
+      let contents ← IO.FS.readFile entry.path
+      writeFile dstEntry.toString contents
+
 def main (args : List String) : IO Unit := do
   let outDir := args.head? |>.getD "generated/rust"
   let enums ← getRegisteredEnums
@@ -393,20 +359,25 @@ def main (args : List String) : IO Unit := do
   let props ← getRegisteredProperties
   let ctx := buildRustExprCtxt enums structs fns props
   let mirCrate := buildCrate "MIR" enums structs aliases
-    fns props (ctx := ctx)
+    fns props (deps := [runtimeDep]) (ctx := ctx)
   let opSemCrate := buildCrate "OpSem" enums structs
     aliases fns props
-    (deps := [{ name := "formal-mir"
+    (deps := [runtimeDep,
+              { name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])
     (ctx := ctx)
   let pcgCrate := buildCrate "PCG" enums structs aliases
     fns props
-    (deps := [{ name := "formal-mir"
+    (deps := [runtimeDep,
+              { name := "formal-mir"
                 path := "../formal-mir" }])
     (reexports := ["formal_mir"])
     (ctx := ctx)
   writeFile s!"{outDir}/Cargo.toml" workspace.cargoToml
+  -- Mirror the hand-written `RuntimeRust/` crate into the
+  -- generated workspace as `formal-runtime/`.
+  copyDir "RuntimeRust" s!"{outDir}/formal-runtime"
   for c in [mirCrate, opSemCrate, pcgCrate] do
     for (path, contents) in c.files do
       writeFile s!"{outDir}/{c.name}/{path}" contents

@@ -1456,7 +1456,10 @@ def groupStructsByCrate
   groups
 
 /-- Build Rust modules from registered enums, structs,
-    functions, and properties sharing a crate prefix. -/
+    functions, and properties sharing a crate prefix.
+    `extraItems` and `extraUses` are keyed by Rust module name
+    and merged into the corresponding `RustModule.items` /
+    `RustModule.extraUses`. -/
 def buildModules
     (enums : List RegisteredEnum)
     (structs : List RegisteredStruct)
@@ -1464,6 +1467,7 @@ def buildModules
     (fns : List RegisteredFn)
     (properties : List RegisteredProperty)
     (extraItems : List (String × RustItem))
+    (extraUses : List (String × String) := [])
     (ctx : RustExprCtxt := default)
     : List RustModule :=
   let allModNames :=
@@ -1525,6 +1529,8 @@ def buildModules
       (rustModuleNameOf ·.leanModule == modName)
     let modExtras := extraItems.filter
       (·.1 == modName) |>.map (·.2)
+    let modExtraUses := extraUses.filter
+      (·.1 == modName) |>.map (·.2)
     let structFieldLookup : String → Option (List String) :=
       fun name => structs.findSome? fun s =>
         if s.structDef.name == name then
@@ -1561,7 +1567,7 @@ def buildModules
     let usesMap := modStructs.any fun s =>
       s.structDef.fields.any fun f =>
         match f.ty with | .map .. => true | _ => false
-    let extraUses :=
+    let autoUses :=
       let needsHashSet := usesSet || usesSetProp
       let needsHashMap := usesMap ||
         modFns.any fun f =>
@@ -1574,8 +1580,11 @@ def buildModules
       | true, true =>
         [ "std::collections::HashSet"
         , "std::collections::HashMap" ]
+    let combinedUses :=
+      (autoUses ++ modExtraUses).foldl (init := [])
+        fun acc u => if acc.contains u then acc else acc ++ [u]
     { name := ⟨modName⟩, doc := doc, items := items,
-      extraUses := extraUses }
+      extraUses := combinedUses }
 
 namespace OrderDef
 
