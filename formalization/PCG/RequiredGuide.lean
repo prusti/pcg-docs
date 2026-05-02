@@ -16,14 +16,10 @@ where
     "An enum downcast."
   | constantIndex (offset : Nat) (data : D)
     "A constant array index."
-    (.doc (.code "constIdx "), #offset (.raw "n"),
-     .text " ", #data (.text "D"))
+    (mathdoc! "{(MathDoc.doc (.code "constIdx "))}n D")
   | index (loc : Local) (data : D)
     "A variable array index."
   | subslice (from_ : Nat) (to_ : Nat) (fromEnd : Bool)
       (data : D)
     "An array subslice."
-    (.doc (.code "subslice "), #from_ (.raw "n"),
-     .text "..", #to_ (.raw "n"),
-     .text " ", #fromEnd (.text "B"),
-     .text " ", #data (.text "D"))
+    (mathdoc! "{(MathDoc.doc (.code "subslice "))}n..n B D")

@@ -22,8 +22,7 @@ defEnum PlaceExpansion {D}
 where
   | fields (children : List (FieldIdx × Ty × D))
     "A struct/tuple field expansion."
-    (.doc (.code "fields "),
-     #children (.text "fs"))
+    (mathdoc! "{(MathDoc.doc (.code "fields "))}#fs")
   | deref (data : D)
     "A dereference."
   | guided (guide : RequiredGuide D)

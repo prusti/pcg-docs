@@ -7,12 +7,22 @@ structure ArgDef where
   name : String
   /-- The argument type (e.g. `RegionVid`). -/
   type : DSLType
+  /-- The argument's auto-looked-up `MathDoc` symbol (the
+      registered `symbolDoc` of its type, or
+      `MathDoc.text "<name>"` for primitive containers /
+      type-parameter slots that have no registered symbol).
+      Used as the default substitution for the matching
+      argument slot in `VariantDef.display`. -/
+  symbolDoc : MathDoc
   deriving Repr
 
 /-- A part of a variant's display template. Either a literal
     `MathDoc` fragment or a reference to an argument with its
     own display symbol. Display parts always appear in math
-    context. -/
+    context. Retained for use by `defStruct` / `defFn` /
+    `defProperty` display templates; `defEnum` variants now
+    use the more flexible `MathDoc`-valued display function
+    on `VariantDef.display`. -/
 inductive DisplayPart where
   /-- Literal math content. -/
   | lit (d : MathDoc)
@@ -22,16 +32,31 @@ inductive DisplayPart where
   | arg (name : String) (symbolDoc : MathDoc)
   deriving Repr
 
+/-- The `Repr` instance is a stub: the function value carried
+    by `VariantDef.display` is opaque. The instance exists so
+    `EnumDef` (which contains `List VariantDef`) can continue
+    to derive `Repr`; only debug-printing of `EnumDef`s would
+    notice the placeholder, and no production code does that. -/
+instance : Repr (List MathDoc → MathDoc) :=
+  ⟨fun _ _ => Std.Format.text "<displayFn>"⟩
+
 /-- A single variant in an exportable enum definition. -/
 structure VariantDef where
   /-- The variant name (e.g. `"exclusive"`). -/
   name : DSLIdent
   /-- Documentation for this variant. -/
   doc : Doc
-  /-- Display template: a list of literal fragments and
-      argument references that together form the
-      mathematical notation for this variant. -/
-  display : List DisplayPart
+  /-- Display template as a function from per-argument
+      `MathDoc` values (positional, matching `args`) to a
+      `MathDoc` rendering. The `defEnum` elaborator builds
+      this by wrapping the user-written display expression
+      in a function over the variant's arguments — a free
+      identifier `idx` inside the user expression resolves to
+      the bound `idx : MathDoc` parameter at rendering time,
+      and callers (default rendering, named-form rendering,
+      `DslExpr` call-site substitution) supply different
+      argument lists to drive the matching MathDoc output. -/
+  display : List MathDoc → MathDoc
   /-- Arguments of this variant (empty for nullary). -/
   args : List ArgDef
   deriving Repr
@@ -123,10 +148,14 @@ end
 
 namespace VariantDef
 
-/-- Render the variant's display template as a `Doc`
-    (using the symbolic form of each argument). -/
+/-- Apply the variant's display function with each argument
+    bound to its auto-looked-up `symbolDoc`. -/
+def displayMathDoc (v : VariantDef) : MathDoc :=
+  v.display (v.args.map (·.symbolDoc))
+
+/-- Render the variant's display as a `Doc`. -/
 def displayDoc (v : VariantDef) : Doc :=
-  .seq (v.display.map DisplayPart.toDoc)
+  .math v.displayMathDoc
 
 end VariantDef
 
@@ -165,25 +194,18 @@ end DisplayPart
 
 namespace VariantDef
 
-/-- Render the variant's display template to `LatexMath`. -/
+/-- Render the variant's display template to `LatexMath`,
+    with each argument substituted by its auto-looked-up
+    `symbolDoc`. -/
 def displayLatexMath (v : VariantDef) : LatexMath :=
-  .seq (v.display.map DisplayPart.toLatexMath)
+  v.displayMathDoc.toLatexMath
 
 /-- Like `displayLatexMath`, but renders argument references
     using the argument's declared name rather than its
     auto-looked-up `symbolDoc`. Used for the long form, where
     the subsequent `where`-block binds each name explicitly. -/
 def displayLatexMathNamed (v : VariantDef) : LatexMath :=
-  .seq (v.display.map fun
-    | .lit d => d.toLatexMath
-    | .arg name _ => .escaped name)
-
-/-- Render the variant's display template as a `MathDoc`
-    (using the symbolic form of each argument). -/
-def displayMathDoc (v : VariantDef) : MathDoc :=
-  .seq (v.display.map fun
-    | .lit d => d
-    | .arg _ sym => sym)
+  (v.display (v.args.map fun a => MathDoc.text a.name)).toLatexMath
 
 end VariantDef
 

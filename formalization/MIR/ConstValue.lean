@@ -6,17 +6,17 @@ defEnum ConstValue (.raw "cv", .cal (.raw "CV"))
 where
   | bool (val : Bool)
     "A boolean value."
-    (.text "bool ", #val (.raw "b"))
+    (mathdoc! "#bool b")
   | int (val : IntValue)
     "An integer value."
   | tuple (elems : List ConstValue)
     "A tuple value."
-    (.text "tuple ", #elems (.raw "\\bar{cv}"))
+    (mathdoc! "#tuple {(MathDoc.raw "\\bar{cv}")}")
   | array (elems : List ConstValue)
     "An array value."
-    (.text "array ", #elems (.raw "\\bar{cv}"))
+    (mathdoc! "#array {(MathDoc.raw "\\bar{cv}")}")
   | fnPtr (name : String)
     "A function pointer, naming a function in the program's \
      `functions` map."
-    (.text "fn ", #name (.raw "f"))
+    (mathdoc! "#fn f")
   deriving Repr, BEq, Hashable

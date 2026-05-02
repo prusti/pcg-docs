@@ -17,9 +17,9 @@ where
   | fnCall (source : LifetimeProjection (PcgPlace P) Nat)
       (target : LifetimeProjection (PcgPlace P) Nat)
     "A function call abstraction edge."
-    (#source, .text " → ", #target)
+    (mathdoc! "{source}→{target}")
   | loop (source : LifetimeProjection (PcgPlace P) Nat)
       (target : PcgNode P)
     "A loop abstraction edge."
-    (#source, .text " → ", #target)
+    (mathdoc! "{source}→{target}")
   deriving BEq, Repr, Hashable

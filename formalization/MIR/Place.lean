@@ -49,22 +49,16 @@ defEnum ProjElem (.raw "π", .raw "Π")
 where
   | deref
     "Dereference a pointer or reference."
-    (.doc (.code "*"))
+    (MathDoc.doc (.code "*"))
   | field (idx : FieldIdx) (ty : Ty)
     "Access a field by index."
-    (.text ".",
-     #idx,
-     .text " : ",
-     #ty)
+    (mathdoc! ".{idx} : {ty}")
   | index (idx : Local)
     "Index into an array or slice."
-    (.sym .lbracket,
-     #idx,
-     .sym .rbracket)
+    (mathdoc! "[{idx}]")
   | downcast (variant : VariantIdx)
     "Downcast an enum to a specific variant."
-    (.text "@",
-     #variant)
+    (mathdoc! "@{variant}")
   deriving Repr, BEq, Hashable
 
 defStruct Place (.raw "p", .raw "P")

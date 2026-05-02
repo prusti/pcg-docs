@@ -29,7 +29,7 @@ defEnum PointerMeta (.raw "meta", .text "PointerMeta")
 where
   | elementCount (count : Nat)
     "Element count for slice-like wide pointers."
-    (.text "elemCount ", #count (.raw "n"))
+    (mathdoc! "#elemCount n")
   deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited PointerMeta where
@@ -63,10 +63,10 @@ defEnum LayoutStrategy (.raw "ls", .text "LayoutStrategy")
 where
   | sized (size : Nat)
     "A value of statically known size (in bytes)."
-    (.text "sized ", #size (.raw "n"))
+    (mathdoc! "#sized n")
   | slice (elemSize : Nat)
     "A slice whose element has a statically known size (in bytes)."
-    (.text "slice ", #elemSize (.raw "n"))
+    (mathdoc! "#slice n")
   | tuple (head : TupleHeadLayout) (tail : LayoutStrategy)
     "A tuple layout: a head layout followed by a tail layout."
   deriving Repr, BEq, Hashable
@@ -95,7 +95,7 @@ where
     "No metadata (thin pointer)."
   | elementCount
     "Element-count metadata (for slice-like wide pointers)."
-    (.text "elemCount")
+    (MathDoc.text "elemCount")
   deriving Repr, BEq, Hashable, Inhabited
 
 defEnum PtrType (.raw "pt", .text "PtrType")
@@ -106,7 +106,7 @@ defEnum PtrType (.raw "pt", .text "PtrType")
 where
   | ref (mutbl : Mutability) (pointee : PointeeInfo)
     "A reference, tracking mutability and pointee information."
-    (.text "&", #mutbl, .text " ", #pointee)
+    (mathdoc! "&{mutbl} {pointee}")
   | box (pointee : PointeeInfo)
     "An owned box pointer."
   | raw (metaKind : PointerMetaKind)

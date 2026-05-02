@@ -11,22 +11,22 @@ defEnum Value (.raw "v", .cal (.raw "V"))
 where
   | bool (val : Bool)
     "A boolean."
-    (.text "bool ", #val (.raw "b"))
+    (mathdoc! "#bool b")
   | int (val : IntValue)
     "An integer."
   | tuple (elems : List Value)
     "A tuple."
-    (.text "tuple ", #elems (.raw "\\bar{v}"))
+    (mathdoc! "#tuple {(MathDoc.raw "\\bar{v}")}")
   | array (elems : List Value)
     "An array."
-    (.text "array ", #elems (.raw "\\bar{v}"))
+    (mathdoc! "#array {(MathDoc.raw "\\bar{v}")}")
   | ptr (ptr : ThinPointer)
     "A pointer (the runtime value of a reference or `Box`)."
-    (.text "ptr ", #ptr)
+    (mathdoc! "#ptr {ptr}")
   | fnPtr (name : String)
     "A function pointer, naming a function in the program's \
      `functions` map."
-    (.text "fn ", #name (.raw "f"))
+    (mathdoc! "#fn f")
   deriving Repr, BEq, Hashable
 
 defFn valueToPtr (.plain "valueToPtr")

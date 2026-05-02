@@ -17,12 +17,12 @@ defEnum MaterializedTreeLeaf
 where
   | uninit
     "Uninitialised or moved-out."
-    (.bold (.raw "U"))
+    (MathDoc.bold (.raw "U"))
   | shallow
     "Shallowly initialised."
-    (.bold (.raw "S"))
+    (MathDoc.bold (.raw "S"))
   | tree (ext : AbstractInitTree Unit)
     "A fully initialised leaf together with its materialised \
      extension (trivial when the subtree is a single leaf)."
-    (#ext)
+    (ext)
   deriving Repr

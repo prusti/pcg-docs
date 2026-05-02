@@ -22,7 +22,7 @@ defEnum Size (.raw "sz", .raw "Size")
 where
   | bits (n : Nat)
     "A fixed bit width."
-    (.text "bits ", #n (.raw "n"))
+    (mathdoc! "#bits n")
   | ptrSize
     "Pointer-sized."
 
@@ -50,7 +50,7 @@ where
     "Shared"
   | mutable
     "Mutable"
-    (.text "mut")
+    (MathDoc.text "mut")
 
 defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
@@ -60,34 +60,26 @@ where
     "The boolean type."
   | int (it : IntType)
     "An integer type."
-    (.text "intTy ", #it (.raw "it"))
+    (mathdoc! "#intTy it")
   | param (index : Nat)
     "A type parameter."
-    (.text "param ",
-     #index (.raw "i"))
+    (mathdoc! "#param i")
   | alias (base : Ty) (name : AliasTyName)
       (args : List Ty)
     "An alias type."
-    (#base, .text "::", #name,
-     .sym .langle,
-     #args (.raw "τ̄"),
-     .sym .rangle)
+    (mathdoc! "{base}::{name}⟨τ̄⟩")
   | ctor (name : TyCtorName) (args : List Ty)
     "A type constructor application."
-    (#name, .sym .langle,
-     #args (.raw "τ̄"),
-     .sym .rangle)
+    (mathdoc! "{name}⟨τ̄⟩")
   | ref (region : Region) (mutability : Mutability)
       (pointee : Ty)
     "A reference type."
-    (.text "&", #region, .text " ",
-     #mutability, .text " ", #pointee)
+    (mathdoc! "&{region} {mutability} {pointee}")
   | box (inner : Ty)
     "A box type."
   | array (elem : Ty) (len : Nat)
     "A fixed-size array type."
-    (.text "[", #elem, .text "; ",
-     #len (.raw "n"), .text "]")
+    (mathdoc! "[{elem}; n]")
   deriving Repr, BEq, Hashable
 
 -- `bool` rather than `.param 0` because the operational
@@ -106,19 +98,19 @@ defEnum IntValue (.raw "iv", .cal (.raw "IV"))
 where
   | u8 (val : UInt8)
     "An 8-bit unsigned integer."
-    (.text "u8 ", #val (.raw "n"))
+    (mathdoc! "#u8 n")
   | u16 (val : UInt16)
     "A 16-bit unsigned integer."
-    (.text "u16 ", #val (.raw "n"))
+    (mathdoc! "#u16 n")
   | u32 (val : UInt32)
     "A 32-bit unsigned integer."
-    (.text "u32 ", #val (.raw "n"))
+    (mathdoc! "#u32 n")
   | u64 (val : UInt64)
     "A 64-bit unsigned integer."
-    (.text "u64 ", #val (.raw "n"))
+    (mathdoc! "#u64 n")
   | usize (val : USize)
     "A pointer-sized unsigned integer."
-    (.text "usize ", #val (.raw "n"))
+    (mathdoc! "#usize n")
   deriving Repr, BEq, Hashable
 
 

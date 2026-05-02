@@ -12,7 +12,7 @@ where
     "An uninitialized byte."
   | init (value : UInt8)
     "An initialized byte with a concrete value."
-    (.text "init ", #value (.raw "v"))
+    (mathdoc! "#init v")
   | ptrFragment (provIdx : Option Nat) (addr : Nat)
       (offset : Nat)
     "One byte of a pointer value: each fragment redundantly \
@@ -21,6 +21,4 @@ where
      position within the 8-byte pointer encoding (0–7). The \
      redundancy lets `decode` reconstruct the pointer from \
      any single fragment without scanning all eight."
-    (.text "ptrFragment ", #provIdx (.raw "p"),
-     .text " ", #addr (.raw "a"), .text " ",
-     #offset (.raw "i"))
+    (mathdoc! "#ptrFragment p a i")

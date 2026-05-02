@@ -13,8 +13,8 @@ defEnum PcgLifetimeProjectionBase {P}
 where
   | const (cv : ConstValue)
     "A constant value."
-    (#cv)
+    (cv)
   | place (p : PcgPlace P)
     "A PCG place."
-    (#p)
+    (p)
   deriving BEq, Repr, Hashable

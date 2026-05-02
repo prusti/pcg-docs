@@ -638,7 +638,58 @@ private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
 def parseSegs (s : String) : List ChunkSeg :=
   annotateOffsets (parseSegsAux s.toList) 0
 
+/-- Parse an entire string as math content (the same grammar as
+    the body of a `$...$` block in `doc!`). Differs from the
+    `$...$` parse only at the boundary: a stray `$` inside the
+    string is treated as a literal character (since there is no
+    enclosing math delimiter to terminate). Used by the
+    `mathdoc!` macro to share its parser with `doc!`. -/
+partial def parseMathString (s : String) : List MathChunkSeg :=
+  let rec loop (chars : List Char) : List MathChunkSeg :=
+    match chars with
+    | [] => []
+    | _ =>
+      let (segs, rest, closed) := parseMathSegsAux chars
+      if closed then segs ++ consMathLitStr "$" (loop rest)
+      else segs
+  loop s.toList
+
 end Doc.Interp
+
+open Lean Elab Term in
+/-- Build a `MathDoc.seq` term from a list of math segments.
+    Shared by the `$...$` case in `doc!` and the `mathdoc!`
+    macro: a stable mapping from each `MathChunkSeg` variant to
+    the corresponding `MathDoc` constructor. -/
+def Doc.Interp.mathSegsToTerm (segs : List Doc.Interp.MathChunkSeg) :
+    TermElabM (TSyntax `term) := do
+  let mut mdParts : Array (TSyntax `term) := #[]
+  for s in segs do
+    match s with
+    | .mathLit t =>
+      if t.isEmpty then continue
+      let lit := Syntax.mkStrLit t
+      mdParts := mdParts.push (← `(MathDoc.raw $lit))
+    | .mathSym symName =>
+      let symId := mkIdent (Name.mkSimple symName)
+      mdParts := mdParts.push (← `(MathDoc.sym .$symId))
+    | .mathRef name =>
+      let lit := Syntax.mkStrLit name
+      mdParts := mdParts.push (← `(MathDoc.text $lit))
+    | .mathBold t =>
+      let lit := Syntax.mkStrLit t
+      mdParts := mdParts.push
+        (← `(MathDoc.bold (MathDoc.raw $lit)))
+    | .mathItalic t =>
+      -- `_X_` inside math content lowers to `MathDoc.raw X`:
+      -- the LatexMath renderer already wraps multi-character
+      -- `escaped` strings in `\mathit{...}` (and a single
+      -- character is auto-italicised by math mode itself), so
+      -- explicit `MathDoc.italic` would double-wrap as
+      -- `\mathit{\mathit{X}}`.
+      let lit := Syntax.mkStrLit t
+      mdParts := mdParts.push (← `(MathDoc.raw $lit))
+  `(MathDoc.seq [$mdParts,*])
 
 /-- Interpolated-string literal that desugars to a `Doc` value.
 
@@ -758,50 +809,14 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
             let lit := Syntax.mkStrLit s
             parts := parts.push (← `((Doc.code $lit : Doc)))
           | .mathBlock segs =>
-            -- Build a `MathDoc.seq` of the math segments. Each
-            -- `mathLit` becomes `MathDoc.raw` (already
-            -- Unicode-translated to LaTeX), each `mathRef`
-            -- becomes `MathDoc.text` (a math-mode text rendering
-            -- of the identifier name; consumers like
-            -- `defInductiveProperty`'s `displayed` repurpose
-            -- these as parameter slots), each `mathBold` becomes
-            -- `MathDoc.bold (MathDoc.raw "X")` — the way `$__X__$`
-            -- gets its bold rendering.
-            let mut mdParts : Array (TSyntax `term) := #[]
-            for s in segs do
-              match s with
-              | .mathLit t =>
-                if t.isEmpty then continue
-                let lit := Syntax.mkStrLit t
-                mdParts := mdParts.push (← `(MathDoc.raw $lit))
-              | .mathSym symName =>
-                -- Build `MathDoc.sym .<symName>` by parsing
-                -- the unqualified identifier we recorded at
-                -- chunk-parse time. The `MathSym.<name>`
-                -- enum is fixed at `Core.Doc`'s import
-                -- boundary, so there's no risk of resolving
-                -- to an unintended namespace.
-                let symId := mkIdent (Name.mkSimple symName)
-                mdParts := mdParts.push (← `(MathDoc.sym .$symId))
-              | .mathRef name =>
-                let lit := Syntax.mkStrLit name
-                mdParts := mdParts.push (← `(MathDoc.text $lit))
-              | .mathBold t =>
-                let lit := Syntax.mkStrLit t
-                mdParts := mdParts.push
-                  (← `(MathDoc.bold (MathDoc.raw $lit)))
-              | .mathItalic t =>
-                -- `_X_` inside a `$...$` block is just
-                -- `MathDoc.raw X`: the LatexMath renderer
-                -- already wraps multi-character `escaped`
-                -- strings in `\mathit{...}` (and a single
-                -- character is auto-italicised by math mode
-                -- itself), so explicit `MathDoc.italic`
-                -- would double-wrap as `\mathit{\mathit{X}}`.
-                let lit := Syntax.mkStrLit t
-                mdParts := mdParts.push (← `(MathDoc.raw $lit))
+            -- Build a `MathDoc.seq` of the math segments via
+            -- the shared `mathSegsToTerm` helper (also used
+            -- by the `mathdoc!` macro), then wrap in
+            -- `Doc.math` so the math block fits into the
+            -- enclosing `Doc.seq`.
+            let mdTerm ← Doc.Interp.mathSegsToTerm segs
             parts := parts.push
-              (← `((Doc.math (MathDoc.seq [$mdParts,*]) : Doc)))
+              (← `((Doc.math $mdTerm : Doc)))
           | .bold s =>
             -- `__X__` outside a math block: emit
             -- `Doc.bold (Doc.plain "X")`.
@@ -818,5 +833,46 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))
     let body ← `(Doc.seq [$parts,*])
+    Lean.Elab.Term.elabTerm body expectedType?
+  | _ => Lean.Elab.throwUnsupportedSyntax
+
+/-- Interpolated-string literal that desugars to a `MathDoc`
+    value. The string contents are parsed with the same
+    grammar used inside a `$...$` block of a `doc!` literal:
+    Unicode math characters with a `MathSym` equivalent
+    become `MathDoc.sym`, the rest become `MathDoc.raw`,
+    `#identifier` becomes `MathDoc.text "<name>"` (a
+    math-mode text rendering), and `__X__` / `_X_` produce
+    bold / italic spans. Each `{expr}` interpolation hole
+    becomes a `MathDoc`-typed term that is concatenated into
+    the surrounding sequence.
+
+    Used both standalone and as the canonical way to write
+    enum-variant / struct / function display templates: the
+    `defEnum` elaborator wraps a `mathdoc!` value in a
+    function over the variant's arguments, so a free
+    identifier `idx` inside the literal resolves to the
+    bound `idx : MathDoc` parameter at rendering time. -/
+syntax (name := mathdocInterp) "mathdoc! "
+    interpolatedStr(term) : term
+
+open Lean Elab Term in
+@[term_elab mathdocInterp]
+def elabMathDocInterp : Term.TermElab := fun stx expectedType? => do
+  match stx with
+  | `(mathdoc! $i:interpolatedStr) =>
+    let chunks := i.raw.getArgs
+    let mut parts : Array (TSyntax `term) := #[]
+    for chunk in chunks do
+      match chunk.isInterpolatedStrLit? with
+      | some str =>
+        if str.isEmpty then continue
+        let segs := Doc.Interp.parseMathString str
+        let mdTerm ← Doc.Interp.mathSegsToTerm segs
+        parts := parts.push (← `(($mdTerm : MathDoc)))
+      | none =>
+        let term : Term := ⟨chunk⟩
+        parts := parts.push (← `(($term : MathDoc)))
+    let body ← `(MathDoc.seq [$parts,*])
     Lean.Elab.Term.elabTerm body expectedType?
   | _ => Lean.Elab.throwUnsupportedSyntax

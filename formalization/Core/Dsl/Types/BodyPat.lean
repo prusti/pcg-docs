@@ -184,15 +184,14 @@ partial def toDoc
         -- fully-qualified identifier of the variant.
         match lookupVariant variants resolveVariant n args.length with
         | some v =>
-          let argMap : List (String × BodyPat) :=
-            (v.args.map (·.name)).zip args
-          let parts : List MathDoc := v.display.map fun
-            | .lit d => d
-            | .arg name _ =>
-              match argMap.find? (·.1 == name) with
-              | some (_, p) => renderInJuxtaposition p
-              | none => MathDoc.text name
-          .seq parts
+          -- Render each pattern positionally and apply the
+          -- variant's display function. Compound patterns are
+          -- juxtaposition-paren'd ahead of time so that a
+          -- substituted argument like `currBody m` doesn't
+          -- collide with surrounding lits.
+          let argDocs : List MathDoc :=
+            args.map renderInJuxtaposition
+          v.display argDocs
         | none =>
           let argParts :=
             args.map (toDoc ctorDisplay resolveCtor

@@ -11,8 +11,8 @@ defEnum PcgNode {P}
 where
   | place (p : PcgPlace P)
     "A PCG place."
-    (#p)
+    (p)
   | lifetimeProjection (lp : PcgLifetimeProjection P)
     "A PCG lifetime projection."
-    (#lp)
+    (lp)
   deriving BEq, Repr, Hashable

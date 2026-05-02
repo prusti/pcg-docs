@@ -654,13 +654,12 @@ partial def toDoc
         match findVariant lookup with
         | some v =>
           if v.args.length == visibleArgs.length then
-            let argMap : List (String × DslExpr) :=
-              (v.args.map (·.name)).zip visibleArgs
-            let resolveArg (name : String) :
-                Option (DslExpr × MathDoc) :=
-              argMap.find? (·.1 == name) |>.map
-                fun (_, e) => (e, go e)
-            some (renderDisplayParts v.display resolveArg)
+            -- Render each visible arg with paren-handling
+            -- (so e.g. an `add l r` argument substituted into
+            -- a unary constructor's slot doesn't collapse the
+            -- surrounding juxtaposition), then apply the
+            -- variant's display function positionally.
+            some (v.display (visibleArgs.map renderArg))
           else none
         | none => none
       | _ => none

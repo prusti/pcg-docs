@@ -13,7 +13,7 @@ defEnum LPLabel
 where
   | location (sl : SnapshotLocation)
     "A snapshot location."
-    (#sl)
+    (sl)
   | future
     "The FUTURE placeholder."
-    (.doc (.code "FUTURE"))
+    (MathDoc.doc (.code "FUTURE"))

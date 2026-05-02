@@ -63,7 +63,7 @@ where
      for the first match."
   | return_
     "Return from the function."
-    (.text "return")
+    (MathDoc.text "return")
   | unreachable
     "Marks unreachable code."
   | drop (place : Place) (target : BasicBlockIdx)
@@ -74,10 +74,8 @@ where
     "Call a function: the callee operand evaluates to a \
      function pointer (`Value.fnPtr name`) which names a \
      function in the program's function map."
-    (#callee, .sym .lparen,
-     #args (.raw "\\bar{o}"),
-     .sym .rparen, .text " → ",
-     #targetPlace, .text ", ", #nextBlock)
+    (mathdoc! "{callee}({(MathDoc.raw "\\bar{o}")}) → \
+               {targetPlace}, {nextBlock}")
   deriving Repr, BEq, Hashable
 
 instance : Inhabited Terminator where

@@ -35,8 +35,7 @@ where
   | ref (region : Region) (mutability : Mutability)
       (place : Place)
     "Create a reference to a place."
-    (.doc (.code "&"), #region, .text " ",
-     #mutability, .text " ", #place)
+    (mathdoc! "{(MathDoc.doc (.code "&"))}{region} {mutability} {place}")
   deriving Repr, BEq, Hashable
 
 namespace Rvalue
@@ -63,7 +62,7 @@ defEnum Statement (.raw "s", .raw "S")
 where
   | assign (lhs : Place) (rhs : Rvalue)
     "Assign an rvalue to a place."
-    (#lhs, .text " := ", #rhs)
+    (mathdoc! "{lhs}{(MathDoc.sym .assign)}{rhs}")
   | storageLive (lcl : Local)
     "Mark a local's storage as live."
   | storageDead (lcl : Local)

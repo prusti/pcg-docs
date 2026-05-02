@@ -13,9 +13,8 @@ defEnum MaybeLabelled {P}
 where
   | current (p : P)
     "A current (unlabelled) place."
-    (#p (.raw "p"))
+    (MathDoc.raw "p")
   | labelled (p : P) (sl : SnapshotLocation)
     "A labelled place."
-    (#p (.raw "p"), .text " ",
-     .doc (.code "at"), .text " ", #sl)
+    (mathdoc! "p {(MathDoc.doc (.code "at"))} {sl}")
   deriving DecidableEq, BEq, Repr, Hashable

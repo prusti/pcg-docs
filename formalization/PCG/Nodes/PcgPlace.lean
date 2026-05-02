@@ -13,7 +13,7 @@ defEnum PcgPlace {P}
 where
   | maybeLabelled (mlp : MaybeLabelled P)
     "A maybe-labelled place."
-    (#mlp (.widetilde (.raw "p")))
+    (MathDoc.widetilde (.raw "p"))
   | remote (l : Local)
     "A remote place."
   deriving DecidableEq, BEq, Repr, Hashable
