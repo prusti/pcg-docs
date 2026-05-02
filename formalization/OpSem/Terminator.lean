@@ -1,4 +1,5 @@
 import Core.Dsl.DefFn
+import Core.Dsl.DefRaw
 import MIR.StmtOrTerminator
 import OpSem.Expressions.Place
 import OpSem.Machine
@@ -33,6 +34,33 @@ defFn fnFromPtr (.plain "fnFromPtr")
   : Option Body where
   | m ; .fnPtr name => mapGet (m↦program↦functions) name
   | _ ; _ => None
+
+-- A body resolved through `fnFromPtr` is one of the bodies
+-- registered in the program's function map, so the
+-- whole-program `validProgram` invariant — projected through
+-- `Runnable` — gives `validBody` directly. Used to discharge
+-- `createFrame`'s `validBody` precondition at the `.call`
+-- terminator's call site below; emitted via `defRaw inFns`
+-- so it lands between `fnFromPtr` and `evalTerminator` in the
+-- generated module rather than after every `defFn`.
+defRaw inFns =>
+theorem validBody_of_fnFromPtr_eq_some
+    (m : Machine) (h_R : Machine.Runnable m)
+    (v : Value) (b : Body)
+    (h : Machine.fnFromPtr m v = some b) :
+    validBody b := by
+  cases v with
+  | fnPtr name =>
+    -- `Machine.fnFromPtr m (.fnPtr name)` reduces to
+    -- `mapGet m.program.functions name`, so `h` directly
+    -- witnesses membership in `mapValues`.
+    unfold Machine.fnFromPtr at h
+    exact h_R.2.1.2 b (mem_mapValues_of_mapGet_eq_some h)
+  | bool _ | int _ | tuple _ | array _ | ptr _ =>
+    -- Non-`fnPtr` values fall into the catch-all `none`
+    -- branch of `Machine.fnFromPtr`, contradicting
+    -- `… = some b`.
+    all_goals (unfold Machine.fnFromPtr at h; simp at h)
 
 defFn evalArgs (.plain "evalArgs")
   (doc! "Evaluate a list of operand arguments left-to-right. Returns `Some` of the resulting value \
@@ -155,7 +183,7 @@ defFn evalTerminator (.plain "evalTerminator")
           m calleeOp proof[h_Runnable] with
       | .none => StepResult.done .error
       | .some calleeVal =>
-          match fnFromPtr m calleeVal with
+          match h_fnFrom : fnFromPtr m calleeVal with
           | .none => StepResult.done .error
           | .some calleeBody =>
               match evalArgs
@@ -163,7 +191,10 @@ defFn evalTerminator (.plain "evalTerminator")
               | .none => StepResult.done .error
               | .some argVals =>
                   StepResult.ok (createFrame
-                    m calleeBody argVals)
+                    m calleeBody argVals
+                    proof[validBody_of_fnFromPtr_eq_some
+                      m h_Runnable calleeVal calleeBody
+                      h_fnFrom])
               end
           end
       end

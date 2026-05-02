@@ -149,16 +149,17 @@ defFn createFrame (.plain "createFrame")
   (doc! "Build a fresh stack frame for a call into `body` and push it onto the thread's call stack. \
     Allocates the return place (local 0) and each argument local via `StackFrame.storageLive`, then \
     writes the caller-provided argument values into those allocations with `typedStore`. The program \
-    counter starts at statement 0 of basic block 0. ABI, calling convention, and stack-pop-action \
-    handling from MiniRust's `create_frame` are intentionally not modelled here. `storageLive`'s \
-    `validStackFrame` precondition is discharged here with `sorry` until `createFrame` itself takes \
-    a `validBody body` precond and we derive `validLocation body initFrame.pc` formally.")
+    counter starts at #START — statement 0 of basic block 0. ABI, calling convention, and \
+    stack-pop-action handling from MiniRust's `create_frame` are intentionally not modelled here. The \
+    #validBody precondition will let a follow-up derive `validLocation body initFrame.pc` \
+    formally and discharge `storageLive`'s `validStackFrame` requirement; for now that proof is left \
+    as `sorry`.")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
+  requires validBody body
   : Machine :=
-    let initFrame := StackFrame⟨body,
-      Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
+    let initFrame := StackFrame⟨body, START, mapEmpty‹›⟩ ;
     let ⟨frame1, mem1⟩ := StackFrame.storageLive
       initFrame m↦mem Local⟨0⟩
       proof[sorry] proof[sorry] ;
@@ -172,9 +173,11 @@ defFn initialMachine (.plain "initialMachine")
   (doc! "Build the initial machine state for `program`: look up the start function body via \
     `startProgram`, allocate an empty memory and thread, and push an initial stack frame for the \
     start body via `createFrame` with no caller-supplied argument values. The #validProgram \
-    precondition guarantees the start function is registered in the program. Mirrors MiniRust's \
-    `Machine::new`, with globals, function pointers, vtables, lock state, additional threads, and \
-    I/O streams stripped — this model is single-threaded and ignores those concerns.")
+    precondition guarantees the start function is registered in the program *and* that its body is \
+    valid; the latter discharges `createFrame`'s #validBody precondition via \
+    `validBody_startProgram`. Mirrors MiniRust's `Machine::new`, with globals, function pointers, \
+    vtables, lock state, additional threads, and I/O streams stripped — this model is \
+    single-threaded and ignores those concerns.")
   (program "The program to initialise." : Program)
   requires validProgram program
   : Machine :=
@@ -182,5 +185,6 @@ defFn initialMachine (.plain "initialMachine")
     let blank :=
       Machine⟨program, Thread⟨[]⟩, Memory⟨[]⟩⟩ ;
     createFrame blank body []
+      proof[validBody_startProgram program h_validProgram]
 
 end Machine

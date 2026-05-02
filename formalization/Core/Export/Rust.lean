@@ -564,8 +564,18 @@ def toSnakeCase (s : String) : String := Id.run do
   return result
 
 /-- Map a Lean identifier to a Rust-safe snake_case
-    identifier. -/
+    identifier. SCREAMING_SNAKE_CASE inputs (all uppercase
+    letters / digits / underscores) are preserved as-is so
+    that `defAlias`-defined constants — emitted by the Rust
+    exporter as `pub const NAME: …` — keep their names at
+    use sites; otherwise `START` would silently become
+    `start` and fail to resolve. -/
 private def leanToRustIdent (s : String) : RustIdent :=
+  let isScreamingSnake :=
+    !s.isEmpty &&
+    s.toList.all fun c =>
+      (c.isUpper || c.isDigit || c == '_')
+  if isScreamingSnake then ⟨s⟩ else
   let mapped := match s with
     | "τ" => "ty"
     | "τ₀" => "ty0"

@@ -2,6 +2,7 @@ import MIR.IsSized
 import MIR.Place
 import MIR.ConstValue
 import MIR.Statements
+import Core.Dsl.DefAlias
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
 import Core.Dsl.DefRaw
@@ -40,6 +41,11 @@ defStruct Location (.raw "\\ell", .text "Location")
 where
   | block "The basic block." : BasicBlockIdx
   | stmtIdx "The statement index within the block." : Nat
+
+-- The entry location of a freshly-created stack frame:
+-- statement 0 of basic block 0. Used by `Machine.createFrame`
+-- when initialising a new frame's program counter.
+defAlias START = Location⟨BasicBlockIdx⟨0⟩, 0⟩
 
 defEnum Terminator (.raw "t",
     .text "Term")

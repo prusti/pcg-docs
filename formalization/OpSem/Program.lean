@@ -1,5 +1,6 @@
 import Core.Dsl.DefFn
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
 import Core.Dsl.DefStruct
 import MIR.Body
 
@@ -40,3 +41,26 @@ defFn startProgram (.plain "startProgram")
     mapAt program↦functions program↦start
 
 end Program
+
+-- The validity invariant of a program propagates from the
+-- whole-program level (#validProgram) to the start function
+-- body. The chain is: `validProgram` says the start name is
+-- registered in `functions` and that every body in
+-- `mapValues functions` is valid; `mapAt functions start`
+-- (which is what `startProgram` returns) is therefore in
+-- `mapValues functions`, so the second conjunct applies.
+defRaw after =>
+theorem validBody_startProgram
+    (program : Program) (h : validProgram program) :
+    validBody (Program.startProgram program h) := by
+  unfold Program.startProgram
+  apply h.2
+  -- Goal: `mapAt program.functions program.start ∈
+  --        mapValues program.functions`. Bridge through
+  -- `mapGet …` so we can reuse the existing
+  -- `mem_mapValues_of_mapGet_eq_some` helper.
+  have hget : mapGet program.functions program.start =
+      some (mapAt program.functions program.start) := by
+    unfold mapGet mapAt
+    exact Std.HashMap.getElem?_eq_some_getElem! h.1
+  exact mem_mapValues_of_mapGet_eq_some hget
