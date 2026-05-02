@@ -128,6 +128,51 @@ defFn storageLive (.plain "storageLive")
       StackFrame⟨frame1↦body, frame1↦pc, newLocals⟩ ;
     ⟨newFrame, mem2⟩
 
+/-! ## Body / pc preservation lemmas
+
+`storageDead` and `storageLive` only mutate the `locals` map: the
+underlying body and the program counter are unchanged. Tagging the
+following equations as `@[simp]` lets the auto-discharge tactic at
+recursive callers (`simp_all [validStackFrame]`) re-prove
+`validStackFrame` after the frame has been threaded through one of
+these helpers without needing a manual proof argument. -/
+
+@[simp] theorem storageDeadPtr_body
+    (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
+    (h : Memory.validPtr mem ptr) :
+    (storageDeadPtr frame mem l ptr h).fst.body = frame.body := by
+  unfold storageDeadPtr; split <;> rfl
+
+@[simp] theorem storageDeadPtr_pc
+    (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
+    (h : Memory.validPtr mem ptr) :
+    (storageDeadPtr frame mem l ptr h).fst.pc = frame.pc := by
+  unfold storageDeadPtr; split <;> rfl
+
+@[simp] theorem storageDead_body
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h : validLocal frame.body l) :
+    (storageDead frame mem l h).fst.body = frame.body := by
+  unfold storageDead; split <;> simp [storageDeadPtr_body]
+
+@[simp] theorem storageDead_pc
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h : validLocal frame.body l) :
+    (storageDead frame mem l h).fst.pc = frame.pc := by
+  unfold storageDead; split <;> simp [storageDeadPtr_pc]
+
+@[simp] theorem storageLive_body
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame frame) (h₂ : validLocal frame.body l) :
+    (storageLive frame mem l h₁ h₂).fst.body = frame.body := by
+  unfold storageLive; simp
+
+@[simp] theorem storageLive_pc
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame frame) (h₂ : validLocal frame.body l) :
+    (storageLive frame mem l h₁ h₂).fst.pc = frame.pc := by
+  unfold storageLive; simp
+
 end StackFrame
 
 defFn ptrAllocations (.plain "ptrAllocations")

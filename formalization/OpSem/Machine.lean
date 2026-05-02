@@ -124,26 +124,36 @@ defFn typedStore (.plain "typedStore")
   : Memory :=
     Memory.store m ptr (encode v)
 
+open StackFrame in
 defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   (doc! "Per-argument helper for `createFrame`: iterate the caller-provided value list with `k` \
     tracking the current callee local index (starting at 1 for the first argument). For each value, \
     allocate the local's backing storage via `StackFrame.storageLive` and write the value into that \
     allocation with `typedStore`. The locals-map lookup is total because `StackFrame.storageLive` \
-    always inserts an entry for the local it was just called with. `storageLive`'s `validStackFrame` \
-    precondition is currently discharged with `sorry` here — propagating frame validity through the \
-    recursion would need an `ensures` clause on `storageLive`, deferred to a follow-up.")
+    always inserts an entry for the local it was just called with. The `validStackFrame` \
+    precondition is preserved across `storageLive` (it leaves the frame's body and program counter \
+    untouched), so the recursive call discharges its own `validStackFrame frame1` obligation.")
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
   (mem "The memory state." : Memory)
+  requires validStackFrame frame
   : StackFrame × Memory where
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
-      let ⟨frame1, mem1⟩ :=
-        StackFrame.storageLive frame mem Local⟨k⟩
-          proof[sorry] proof[sorry] ;
+      let ⟨frame1, mem1⟩ := StackFrame.storageLive frame mem Local⟨k⟩
+        proof[h_validStackFrame] proof[sorry] ;
+      -- Re-pack the frame with the original body and program counter so
+      -- the recursive call's `validStackFrame` precondition discharges
+      -- definitionally — `storageLive` only changes `locals`, but
+      -- threading `frame1` directly hides that fact behind a let-binding
+      -- the auto-tactic can't see through. The `validLocal` precondition
+      -- on `storageLive` is still discharged with `sorry`; threading
+      -- `k < frame.body.decls.length` through the recursion is left to a
+      -- follow-up.
+      let frame2 := StackFrame⟨frame↦body, frame↦pc, frame1↦locals⟩ ;
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
-      liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
+      liveAndStoreArgs rest (k + 1) frame2 (typedStore mem1 ptr v)
 
 defFn createFrame (.plain "createFrame")
   (doc! "Build a fresh stack frame for a call into `body` and push it onto the thread's call stack. \
@@ -164,7 +174,7 @@ defFn createFrame (.plain "createFrame")
       initFrame m↦mem Local⟨0⟩
       proof[sorry] proof[sorry] ;
     let ⟨frame2, mem2⟩ :=
-      liveAndStoreArgs args 1 frame1 mem1 ;
+      liveAndStoreArgs args 1 frame1 mem1 proof[sorry] ;
     Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩
