@@ -119,8 +119,16 @@ private partial def collectBanned
     -- to this same `Doc.code` Expr. In either case `#x` should
     -- be used instead, since it produces the same monospace
     -- visible label *and* a hyperlink to the definition.
+    --
+    -- Exempt site: a constant's own `<NAME>.aliasDef`, whose
+    -- `symbolDoc := MathDoc.doc (Doc.code "<NAME>")` is the
+    -- monospace label rendered at the very anchor `#<NAME>`
+    -- would point at. A self-link there would be circular.
     | .app (.const ``Doc.code _) (.lit (.strVal s)) =>
-      if isHyperlinkedIdent env s then
+      let isOwnAliasDef : Bool := match declName with
+        | .str p sfx => sfx == "aliasDef" && p == .mkSimple s
+        | _ => false
+      if isHyperlinkedIdent env s && !isOwnAliasDef then
         [s!"`Doc.code \"{s}\"` (or backtick `\\`{s}\\`` inside a \
             `doc!` literal) names a registered DSL identifier — \
             replace with `#{s}` so the rendered output also \

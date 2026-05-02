@@ -157,15 +157,16 @@ elab_rules : command
     let dslExprTerm : TSyntax `term := quote dslExpr
     let ns : TSyntax `term := quote nameStr
     let adId := mkIdent (cName ++ `aliasDef)
-    -- Value aliases have no `symbolDoc` / `setDoc` (they're
-    -- not types), so we leave both as empty `MathDoc`s.
-    -- `checkSymbolUnique` ignores empty rendered symbols, so
-    -- this also keeps the duplicate-symbol warning quiet for
-    -- repeated value aliases.
+    -- Value aliases name a constant rather than a type, so
+    -- the "symbol" is just the constant's name rendered in
+    -- monospace (`\mathtt{NAME}` in LaTeX, via `Doc.code`).
+    -- `setDoc` doesn't apply to constants — there's no "set
+    -- of all values of this type" to name — so leave it as
+    -- an empty `MathDoc` (which `checkSymbolUnique` ignores).
     elabCommand (← `(command|
       def $adId : AliasDef :=
         { name := $ns,
-          symbolDoc := MathDoc.raw "",
+          symbolDoc := MathDoc.doc (Doc.code $ns),
           setDoc := MathDoc.raw "",
           docParam := $ns,
           doc := Doc.plain "",

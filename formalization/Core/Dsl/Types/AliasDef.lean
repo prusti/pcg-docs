@@ -62,13 +62,13 @@ def formalDefLatex (a : AliasDef)
   let typeParamsLM : LatexMath :=
     .seq (a.typeParams.flatMap fun p =>
       [.raw "~", .var p])
-  -- For type aliases, the LHS reads the type's symbol /
-  -- set name from `setDoc`. For value aliases the user
-  -- supplies no symbol, so we fall back to the alias name
-  -- itself so the equation reads `RETURN = …` instead of
-  -- a leading-bare `=`.
+  -- For type aliases, the LHS reads the type's set name
+  -- from `setDoc`. For value aliases (constants) the LHS is
+  -- the constant's `symbolDoc`, which `defAlias` sets to
+  -- `Doc.code <name>` so the equation reads
+  -- `\mathtt{RETURN} = …` rather than plain `RETURN = …`.
   let lhsHead : LatexMath :=
-    if a.value.isSome then .escaped a.name
+    if a.value.isSome then a.symbolDoc.toLatexMath
     else a.setDoc.toLatexMath
   let lhs : LatexMath := .seq [lhsHead, typeParamsLM]
   let tyLM : LatexMath := a.aliased.toLatexMath knownTypes
