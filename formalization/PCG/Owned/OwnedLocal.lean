@@ -5,7 +5,7 @@ defEnum OwnedLocal
     (.text "ol", .text "OwnedLocal")
   "Owned Locals"
   (doc! "An owned local \
-    {.math (.seq [.text "ol", .sym .setContains, .text "OwnedLocal"])} is either \
+    $_ol_ ∈ _OwnedLocal_$ is either \
     unallocated, or allocated and carrying an initialisation \
     tree describing the initialisation state of its \
     sub-places.")

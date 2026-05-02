@@ -7,7 +7,7 @@ defEnum PlaceExpansion {D}
     (.text "xp", .text "PlaceExpansion")
   "Place Expansions"
   (doc! "A place expansion \
-    {.math (.seq [(.text "xp"), .sym .setContains, (.text "PlaceExpansion"), .sym .space, .raw "D"])} \
+    $_xp_ ∈ _PlaceExpansion_ _D_$ \
     describes the projections produced by expanding a place: \
     either a set of struct/tuple fields, a deref, or a \
     guided expansion (enum downcast, array index, or \

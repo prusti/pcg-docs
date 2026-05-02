@@ -8,7 +8,7 @@ defAlias PcgDomainData
      .text "PcgDomainData")
   "PCG Domain Data"
   (doc! "PCG domain data \
-    {.math (.seq [(.text "pdd"), .sym .setContains, (.text "PcgDomainData")])} \
+    $_pdd_ ∈ _PcgDomainData_$ \
     is the dataflow record carried by the PCG analysis at \
     each basic block: a #DomainData whose payload at every \
     program point is a #PcgData over MIR places.")

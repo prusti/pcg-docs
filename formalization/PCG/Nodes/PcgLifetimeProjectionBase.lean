@@ -7,7 +7,7 @@ defEnum PcgLifetimeProjectionBase {P}
      .text "PcgLifetimeProjectionBase")
   "PCG Lifetime Projection Bases"
   (doc! "A PCG lifetime projection base \
-    {.math (.seq [(.text "b"), .sym .setContains, (.text "PcgLifetimeProjectionBase"), .sym .space, .raw "P"])} \
+    $_b_ ∈ _PcgLifetimeProjectionBase_ _P_$ \
     is either a constant value or a PCG place over the \
     place set $#P$.")
 where

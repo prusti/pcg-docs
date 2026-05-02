@@ -10,7 +10,7 @@ defEnum PcgEdge {P}
     (.text "e", .text "PcgEdge")
   "PCG Edges"
   (doc! "A PCG edge \
-    {.math (.seq [(.text "e"), .sym .setContains, (.text "PcgEdge"), .sym .space, .raw "P"])} \
+    $_e_ ∈ _PcgEdge_ _P_$ \
     is one of the edge kinds that may appear in a PCG \
     hypergraph: an unpack edge on owned nodes, a deref edge \
     through a reference or box, a borrow edge created by a \

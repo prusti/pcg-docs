@@ -6,7 +6,7 @@ defEnum PcgNode {P}
     (.text "n", .text "PcgNode")
   "PCG Nodes"
   (doc! "A PCG node \
-    {.math (.seq [(.text "n"), .sym .setContains, (.text "PcgNode"), .sym .space, .raw "P"])} \
+    $_n_ ∈ _PcgNode_ _P_$ \
     is either a PCG place or a PCG lifetime projection.")
 where
   | place (p : PcgPlace P)

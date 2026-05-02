@@ -84,7 +84,28 @@ doc! "Pointer #[m'->next] is owned by #[ProjectionElem.Field]'s parent"
 The bracketed body is *not* validated as a Lean identifier (the
 elaborator does not push a `@<ident>` reference for it), so typos
 surface only as broken hyperlinks at render time, not as compile
-errors. -/
+errors.
+
+## Italic and bold shorthand
+
+`_X_` produces italic content; `__X__` produces bold. Both
+forms also work inside a `$...$` math block:
+
+```lean
+doc! "An allocation $_alpha_ ∈ _Allocation_$ is __live__ when…"
+```
+
+renders as:
+
+* `_alpha_` / `_Allocation_` → `\mathit{alpha}` / `\mathit{Allocation}`
+  in math mode, or `\textit{...}` in text mode (outside `$...$`);
+* `__live__` → `\textbf{live}` in text mode, or `\mathbf{live}` in math mode.
+
+The body must be non-empty and may not contain `$`; bodies inside
+`__X__` may not contain `_` either (`_X_X_` is therefore parsed as
+two italic spans, not as a bold span). The bold case is matched
+*before* italic in the parser, so `__X__` always wins over a
+hypothetical `_(_X_)_`. -/
 
 namespace Doc
 
@@ -138,15 +159,27 @@ namespace Doc.Interp
 
 /-- A segment of a math sub-chunk inside a `$...$` block of a
     `doc!` literal. `mathLit` carries already-translated LaTeX
-    (Unicode math characters like `≐` are mapped to
-    `\doteq` etc. at parse time); `mathRef` carries a
-    `#identifier` reference, rendered in math text mode;
-    `mathBold` carries the body of a `__X__` span and renders
-    as `MathDoc.bold (MathDoc.raw "X")`. -/
+    (Unicode math characters that don't have a matching
+    `MathSym` are mapped to `\doteq` etc. at parse time);
+    `mathSym` carries the unqualified name of a `MathSym`
+    constructor that the unicode char *did* match (so the
+    char can render via the structured `MathDoc.sym` path,
+    which bypasses the multi-character `\mathit{…}`
+    auto-wrap that `MathDoc.raw` performs on text); `mathRef`
+    carries a `#identifier` reference, rendered in math text
+    mode; `mathBold` carries the body of a `__X__` span and
+    renders as `MathDoc.bold (MathDoc.raw "X")`; `mathItalic`
+    carries the body of a `_X_` span and renders as
+    `MathDoc.raw "X"` (which is already `\mathit{X}` for
+    multi-character bodies thanks to the LatexMath escaping
+    rule, and a single character is auto-italicised by math
+    mode itself). -/
 inductive MathChunkSeg where
   | mathLit (s : String)
+  | mathSym (symName : String)
   | mathRef (name : String)
   | mathBold (s : String)
+  | mathItalic (s : String)
   deriving Inhabited
 
 /-- A segment of a `doc!` literal chunk: a run of plain text,
@@ -195,7 +228,18 @@ inductive MathChunkSeg where
     (text mode) or the regular math segment list (math mode).
     The same source spelling `__X__` therefore acts as
     `MathDoc.bold` inside `$...$` and `Doc.bold` everywhere
-    else, so `$__X__$` is just `$...$` wrapping `__X__`. -/
+    else, so `$__X__$` is just `$...$` wrapping `__X__`.
+
+    `italic` is the `_X_` (single-underscore) sibling of
+    `bold`: outside a `$...$` block it carries the body
+    verbatim and renders as `Doc.italic (.plain "X")`, which
+    is `\textit{X}` in LaTeX text mode; inside a `$...$`
+    block (where the body is captured as
+    `MathChunkSeg.mathItalic` instead) it renders as
+    `MathDoc.italic (MathDoc.raw "X")`, i.e. `\mathit{X}`.
+    The body shape rules match `bold`: non-empty and no `$`.
+    The bold case is matched *before* italic in the parser,
+    so `__X__` always wins over a hypothetical `_(_X_)_`. -/
 inductive ChunkSeg where
   | literal (s : String)
   | ref (parts : List String) (startOff endOff : Nat)
@@ -203,39 +247,56 @@ inductive ChunkSeg where
   | code (s : String)
   | mathBlock (segs : List MathChunkSeg)
   | bold (s : String)
+  | italic (s : String)
   deriving Inhabited
 
-/-- Map a Unicode math character to its LaTeX command form.
+/-- Map a Unicode math character to a `MathSym` constructor
+    name when one applies. The structured `MathSym` route
+    renders via `LatexMath.raw` (no `\mathit{…}` auto-wrap)
+    and also stays meaningful for the Typst / HTML backends,
+    which translate each `MathSym` separately. Returns
+    `none` for characters that have no `MathSym` equivalent;
+    callers fall back to `unicodeMathToLatex` for those. -/
+def unicodeMathToSym (c : Char) : Option String :=
+  match c with
+  | '∈' => some "setContains"
+  | '≤' => some "le"
+  | '≠' => some "neq"
+  | '∧' => some "land"
+  | '∨' => some "lor"
+  | '→' => some "implies"
+  | '⇒' => some "fatArrow"
+  | '∀' => some "forall_"
+  | '∃' => some "exists_"
+  | '∅' => some "emptySet"
+  | '↦' => some "mapsto"
+  | '⟨' => some "langle"
+  | '⟩' => some "rangle"
+  | '⊥' => some "bot"
+  | '⊤' => some "top"
+  | '∪' => some "cup"
+  | '∩' => some "cap"
+  | _ => none
+
+/-- Map a Unicode math character to its raw LaTeX command
+    form. Used as a fallback for characters that don't have a
+    `MathSym` equivalent (`unicodeMathToSym` returns `none`).
     Each translation is followed by `{}` so the command stays
     a separate token from a following alphabetic character —
     e.g. `≐y` becomes `\doteq{}y` rather than the undefined
-    `\doteqy` — without inserting a non-breaking space. The
-    user typically writes a space around binary relations,
-    so the empty group is invisible in the common case.
-    Returns `none` for characters that pass through verbatim.
-    Used inside `$...$` blocks of a `doc!` literal. -/
+    `\doteqy`. The trailing `{}` is invisible in the common
+    case where the user writes a space around the operator.
+    Note: text emitted via this fallback ends up wrapped in
+    `\mathit{…}` by the `MathDoc.raw → LatexMath.escaped`
+    lowering when it accumulates with neighbouring literal
+    characters, since the resulting `mathLit` segment has
+    length > 1; that's a known wart for the chars handled
+    here (e.g. `≐`) but the math-mode visual is acceptable. -/
 def unicodeMathToLatex (c : Char) : Option String :=
   match c with
   | '≐' => some "\\doteq{}"
-  | '→' => some "\\rightarrow{}"
-  | '⇒' => some "\\Rightarrow{}"
-  | '≠' => some "\\neq{}"
-  | '≤' => some "\\le{}"
   | '≥' => some "\\ge{}"
-  | '∈' => some "\\in{}"
   | '∉' => some "\\notin{}"
-  | '∪' => some "\\cup{}"
-  | '∩' => some "\\cap{}"
-  | '∧' => some "\\land{}"
-  | '∨' => some "\\lor{}"
-  | '∀' => some "\\forall{}"
-  | '∃' => some "\\exists{}"
-  | '∅' => some "\\emptyset{}"
-  | '↦' => some "\\mapsto{}"
-  | '⟨' => some "\\langle{}"
-  | '⟩' => some "\\rangle{}"
-  | '⊥' => some "\\bot{}"
-  | '⊤' => some "\\top{}"
   | _ => none
 
 private def renderMathChar (c : Char) : String :=
@@ -335,6 +396,23 @@ private partial def consumeBoldBody :
   | _, [] => none
   | acc, c :: rest => consumeBoldBody (c :: acc) rest
 
+/-- Read the body of a `_X_` italic span whose opening `_`
+    has already been consumed. Accepts characters up to the
+    next `_`, but rejects bodies that contain `$`. The body
+    must be non-empty. Returns the consumed body and the
+    remainder after the closing `_`, or `none` to defer to the
+    surrounding parser (which then treats the leading `_` as
+    literal). -/
+private partial def consumeItalicBody :
+    List Char → List Char →
+    Option (String × List Char)
+  | acc, '_' :: rest =>
+    if acc.isEmpty then none
+    else some (String.ofList acc.reverse, rest)
+  | _, '$' :: _ => none
+  | _, [] => none
+  | acc, c :: rest => consumeItalicBody (c :: acc) rest
+
 /-- Parse the body of a `$...$` math block. Returns the parsed
     segments, the remainder after the closing `$`, and whether
     a closing `$` was actually found. If unclosed, the caller
@@ -355,6 +433,19 @@ private partial def parseMathSegsAux :
     | none =>
       let (more, restFinal, closed) := parseMathSegsAux rest
       (consMathLitStr "__" more, restFinal, closed)
+  | '_' :: rest =>
+    -- `_X_` inside a `$...$` math block: emit a `mathItalic`
+    -- segment (rendered as `MathDoc.italic (.raw "X")`,
+    -- which is `\mathit{X}` in LaTeX). Falls back to a literal
+    -- underscore when the body is empty or contains `$`. The
+    -- bold case above is matched first so `__X__` always wins.
+    match consumeItalicBody [] rest with
+    | some (name, after) =>
+      let (more, restFinal, closed) := parseMathSegsAux after
+      (.mathItalic name :: more, restFinal, closed)
+    | none =>
+      let (more, restFinal, closed) := parseMathSegsAux rest
+      (consMathLitStr "_" more, restFinal, closed)
   | '#' :: '[' :: rest =>
     -- `#[name]` form: any chars up to the closing `]` form
     -- the name. Falls back to a literal `#` when no closing
@@ -385,7 +476,18 @@ private partial def parseMathSegsAux :
     | [] => ([.mathLit "#"], [], false)
   | c :: rest =>
     let (more, restFinal, closed) := parseMathSegsAux rest
-    (consMathLitStr (renderMathChar c) more, restFinal, closed)
+    match unicodeMathToSym c with
+    | some symName =>
+      -- Unicode char with a structured `MathSym` equivalent:
+      -- emit it as a separate `mathSym` segment. This keeps
+      -- it from getting auto-wrapped in `\mathit{…}` along
+      -- with any neighbouring literal characters (the
+      -- multi-character `mathLit " ∈ "` accumulator would
+      -- otherwise lower to `LatexMath.escaped " \in{} "`
+      -- and then to `\mathit{ \in{} }`).
+      (.mathSym symName :: more, restFinal, closed)
+    | none =>
+      (consMathLitStr (renderMathChar c) more, restFinal, closed)
 
 /-- Consume characters up to (but not including) the next
     backtick. Returns the consumed prefix and the remainder
@@ -411,6 +513,17 @@ private partial def parseSegsAux : List Char → List ChunkSeg
       .bold name :: parseSegsAux after
     | none =>
       consLitChar '_' (consLitChar '_' (parseSegsAux rest))
+  | '_' :: rest =>
+    -- `_X_` outside a math block: emit an `italic` segment
+    -- (rendered as `Doc.italic (.plain "X")`). Falls back to
+    -- a literal underscore when the body is empty or contains
+    -- `$`. The bold case above is matched first so `__X__`
+    -- always wins.
+    match consumeItalicBody [] rest with
+    | some (name, after) =>
+      .italic name :: parseSegsAux after
+    | none =>
+      consLitChar '_' (parseSegsAux rest)
   | '$' :: rest =>
     let (segs, rest', closed) := parseMathSegsAux rest
     if closed then
@@ -488,6 +601,10 @@ private def annotateOffsets : List ChunkSeg → Nat → List ChunkSeg
     -- Source bytes consumed by the `__X__` form: leading
     -- `__` (2) + body bytes + trailing `__` (2).
     .bold s :: annotateOffsets rest (off + 4 + s.utf8ByteSize)
+  | .italic s :: rest, off =>
+    -- Source bytes consumed by the `_X_` form: leading
+    -- `_` (1) + body bytes + trailing `_` (1).
+    .italic s :: annotateOffsets rest (off + 2 + s.utf8ByteSize)
 
 /-- Split a literal `doc!` chunk into segments: `.literal` runs of
     plain text, `.ref parts startOff endOff` for each
@@ -633,6 +750,15 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
                 if t.isEmpty then continue
                 let lit := Syntax.mkStrLit t
                 mdParts := mdParts.push (← `(MathDoc.raw $lit))
+              | .mathSym symName =>
+                -- Build `MathDoc.sym .<symName>` by parsing
+                -- the unqualified identifier we recorded at
+                -- chunk-parse time. The `MathSym.<name>`
+                -- enum is fixed at `Core.Doc`'s import
+                -- boundary, so there's no risk of resolving
+                -- to an unintended namespace.
+                let symId := mkIdent (Name.mkSimple symName)
+                mdParts := mdParts.push (← `(MathDoc.sym .$symId))
               | .mathRef name =>
                 let lit := Syntax.mkStrLit name
                 mdParts := mdParts.push (← `(MathDoc.text $lit))
@@ -640,6 +766,16 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
                 let lit := Syntax.mkStrLit t
                 mdParts := mdParts.push
                   (← `(MathDoc.bold (MathDoc.raw $lit)))
+              | .mathItalic t =>
+                -- `_X_` inside a `$...$` block is just
+                -- `MathDoc.raw X`: the LatexMath renderer
+                -- already wraps multi-character `escaped`
+                -- strings in `\mathit{...}` (and a single
+                -- character is auto-italicised by math mode
+                -- itself), so explicit `MathDoc.italic`
+                -- would double-wrap as `\mathit{\mathit{X}}`.
+                let lit := Syntax.mkStrLit t
+                mdParts := mdParts.push (← `(MathDoc.raw $lit))
             parts := parts.push
               (← `((Doc.math (MathDoc.seq [$mdParts,*]) : Doc)))
           | .bold s =>
@@ -648,6 +784,12 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
             let lit := Syntax.mkStrLit s
             parts := parts.push
               (← `((Doc.bold (Doc.plain $lit) : Doc)))
+          | .italic s =>
+            -- `_X_` outside a math block: emit
+            -- `Doc.italic (Doc.plain "X")`.
+            let lit := Syntax.mkStrLit s
+            parts := parts.push
+              (← `((Doc.italic (Doc.plain $lit) : Doc)))
       | none =>
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))

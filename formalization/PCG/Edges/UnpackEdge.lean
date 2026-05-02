@@ -4,7 +4,7 @@ defStruct UnpackEdge {N}
     (.text "ue", .text "UnpackEdge")
   "Unpack Edges"
   (doc! "An unpack edge \
-    {.math (.seq [(.text "ue"), .sym .setContains, (.text "UnpackEdge"), .sym .space, .raw "N"])} \
+    $_ue_ ∈ _UnpackEdge_ _N_$ \
     connects an owned base place to its expansion: a list \
     of owned places corresponding to the components of the \
     base. Each place in the expansion is itself owned. For \

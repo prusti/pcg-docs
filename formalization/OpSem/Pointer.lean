@@ -4,7 +4,7 @@ import MIR.Ty
 defStruct Provenance (.raw "\\pi", .text "Provenance")
   "Provenances"
   (doc! "A pointer provenance \
-    {.math (.seq [(.raw "\\pi"), .sym .setContains, (.text "Provenance")])}, \
+    $\\pi ∈ _Provenance_$, \
     identifying the allocation.")
 where
   | id "The allocation identifier." : AllocId
@@ -13,7 +13,7 @@ where
 defStruct ThinPointer (.raw "ptr", .text "ThinPointer")
   "Thin Pointers"
   (doc! "A thin pointer \
-    {.math (.seq [(.raw "ptr"), .sym .setContains, (.text "ThinPointer")])}: \
+    $_ptr_ ∈ _ThinPointer_$: \
     an address together with optional provenance.")
 where
   | addr "The address." : Address
@@ -23,7 +23,7 @@ where
 defEnum PointerMeta (.raw "meta", .text "PointerMeta")
   "Pointer Metadata"
   (doc! "Wide-pointer metadata \
-    {.math (.seq [(.raw "meta"), .sym .setContains, (.text "PointerMeta")])}. \
+    $_meta_ ∈ _PointerMeta_$. \
     Only the element-count case is modelled; vtable pointers \
     are not supported.")
 where
@@ -48,7 +48,7 @@ defStruct TupleHeadLayout (.raw "thl",
     .text "TupleHeadLayout")
   "Tuple Head Layouts"
   (doc! "The layout of the head of a tuple type \
-    {.math (.seq [(.raw "thl"), .sym .setContains, (.text "TupleHeadLayout")])}. \
+    $_thl_ ∈ _TupleHeadLayout_$. \
     Alignment information is omitted.")
 where
   | endOffset "Offset at which the tuple head ends (in bytes)." : Nat
@@ -56,7 +56,7 @@ where
 
 defEnum LayoutStrategy (.raw "ls", .text "LayoutStrategy")
   "Layout Strategies"
-  (doc! "A {.math (.seq [(.raw "ls"), .sym .setContains, (.text "LayoutStrategy")])} \
+  (doc! "A $_ls_ ∈ _LayoutStrategy_$ \
     describes how the size of a value can be determined. \
     Alignment is not tracked and trait objects are not \
     supported.")
@@ -77,7 +77,7 @@ instance : Inhabited LayoutStrategy where
 defStruct PointeeInfo (.raw "pi", .text "PointeeInfo")
   "Pointee Information"
   (doc! "Information about a pointer's pointee \
-    {.math (.seq [(.raw "pi"), .sym .setContains, (.text "PointeeInfo")])}. \
+    $_pi_ ∈ _PointeeInfo_$. \
     Only the layout is modelled; other fields from minirust \
     are omitted.")
 where
@@ -88,7 +88,7 @@ defEnum PointerMetaKind (.raw "mk",
     .text "PointerMetaKind")
   "Pointer Metadata Kinds"
   (doc! "The statically known kind of metadata stored in a \
-    pointer {.math (.seq [(.raw "mk"), .sym .setContains, (.text "PointerMetaKind")])}. \
+    pointer $_mk_ ∈ _PointerMetaKind_$. \
     The vtable-pointer case is omitted.")
 where
   | none
@@ -101,7 +101,7 @@ where
 defEnum PtrType (.raw "pt", .text "PtrType")
   "Pointer Types"
   (doc! "Static type information about a pointer \
-    {.math (.seq [(.raw "pt"), .sym .setContains, (.text "PtrType")])}. \
+    $_pt_ ∈ _PtrType_$. \
     The vtable-pointer case is omitted.")
 where
   | ref (mutbl : Mutability) (pointee : PointeeInfo)

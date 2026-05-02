@@ -8,7 +8,7 @@ defAlias AnalysisResults
      .text "AnalysisResults")
   "Per-body Analysis Results"
   (doc! "Analysis results \
-    {.math (.seq [(.text "ar"), .sym .setContains, (.text "AnalysisResults")])} \
+    $_ar_ ∈ _AnalysisResults_$ \
     bundle the per-block #PcgDomainData lists produced by a \
     single sweep of `PcgData.analyzeBody`: one entry per \
     basic block, keyed by #BasicBlockIdx.")
@@ -35,7 +35,7 @@ defAlias ProgAnalysisResults
      .text "ProgAnalysisResults")
   "Whole-program Analysis Results"
   (doc! "Program analysis results \
-    {.math (.seq [(.text "par"), .sym .setContains, (.text "ProgAnalysisResults")])} \
+    $_par_ ∈ _ProgAnalysisResults_$ \
     bundle the per-body #AnalysisResults produced by \
     running #[analyzeBody] on every function in a program: \
     one entry per #Body.")

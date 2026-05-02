@@ -13,7 +13,7 @@ defStruct PcgData {P}
     (.text "pd", .text "PcgData")
   "PCG Data"
   (doc! "The PCG data \
-    {.math (.seq [(.text "pd"), .sym .setContains, (.text "PcgData"), .sym .space, .raw "P"])} \
+    $_pd_ ∈ _PcgData_ _P_$ \
     bundles the per-program-point state tracked by the PCG: \
     the borrows graph, the owned state, the current basic \
     block, and an optional #TransientState carrying either \

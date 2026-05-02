@@ -6,7 +6,7 @@ defEnum PcgPlace {P}
     (.hat (.raw "p"), .text "PcgPlace")
   "PCG Places"
   (doc! "A PCG place \
-    {.math (.seq [(.hat (.raw "p")), .sym .setContains, (.text "PcgPlace"), .sym .space, .raw "P"])} \
+    $\\hat\{p} ∈ _PcgPlace_ _P_$ \
     is either a maybe-labelled place over the place set \
     $#P$, or a remote place naming a MIR local from the \
     caller.")

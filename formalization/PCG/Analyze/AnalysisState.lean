@@ -9,7 +9,7 @@ defStruct AnalysisState
      .text "AnalysisState")
   "Per-body Analysis State"
   (doc! "An analysis state \
-    {.math (.seq [(.text "as"), .sym .setContains, (.text "AnalysisState")])} \
+    $_as_ ∈ _AnalysisState_$ \
     bundles the in-progress per-block analysis results with \
     the entry-state map populated by forward propagation. \
     When a block `bb` is processed, its result is recorded \

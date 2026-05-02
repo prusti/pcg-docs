@@ -7,7 +7,7 @@ defAlias MaterializedTree
      .text "MaterializedTree")
   "Materialised Trees"
   (doc! "A materialised tree \
-    {.math (.seq [(.text "mt"), .sym .setContains, (.text "MaterializedTree")])} \
+    $_mt_ ∈ _MaterializedTree_$ \
     is an abstract initialisation tree whose leaves are \
     materialised-tree leaves: either uninitialised, shallowly \
     initialised, or fully initialised together with an \

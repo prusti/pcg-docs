@@ -6,7 +6,7 @@ import MIR.Body
 defStruct Program (.text "prog",
     .text "Program")
   "Programs"
-  (doc! "A program {.math (.seq [(.text "prog"), .sym .setContains, (.text "Program")])} \
+  (doc! "A program $_prog_ ∈ _Program_$ \
     bundles every function known to the PCG together with the name \
     of the entry point. Each function is keyed by its name so calls \
     can be resolved by looking the callee's name up in the map.")

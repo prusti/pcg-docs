@@ -7,7 +7,7 @@ defAlias LocalLifetimeProjection {P}
      .text "LocalLifetimeProjection")
   "Local Lifetime Projections"
   (doc! "A local lifetime projection \
-    {.math (.seq [(.text "llp"), .sym .setContains, (.text "LocalLifetimeProjection"), .sym .space, .raw "P"])} \
+    $_llp_ ∈ _LocalLifetimeProjection_ _P_$ \
     is a lifetime projection whose base is a maybe-labelled \
     place drawn from the parameter set $#P$ and whose index \
     is a natural number.")

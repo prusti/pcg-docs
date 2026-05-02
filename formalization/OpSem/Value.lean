@@ -5,7 +5,7 @@ import Core.Dsl.DefFn
 defEnum Value (.raw "v", .cal (.raw "V"))
   "Values"
   (doc! "A runtime value \
-    {.math (.seq [(.raw "v"), .sym .setContains, (.cal (.raw "V"))])} \
+    $_v_ ∈ \\mathcal\{V}$ \
     is either a boolean, an integer, a tuple, an array, \
     a (data) pointer, or a function pointer.")
 where

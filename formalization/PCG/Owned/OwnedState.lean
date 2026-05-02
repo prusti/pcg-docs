@@ -8,7 +8,7 @@ defStruct OwnedState (.text "os",
     .text "OwnedState")
   "Owned States"
   (doc! "An owned state \
-    {.math (.seq [.text "os", .sym .setContains, .text "OwnedState"])} is the \
+    $_os_ ∈ _OwnedState_$ is the \
     collection of owned locals for a function, one per MIR \
     local, each describing the allocation and initialisation \
     state of that local.")

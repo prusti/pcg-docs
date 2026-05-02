@@ -4,7 +4,7 @@ import OpSem.Machine
 defEnum ExecutionResult (.raw "er", .text "ExecutionResult")
   "Execution Results"
   (doc! "An execution result \
-    {.math (.seq [(.raw "er"), .sym .setContains, (.text "ExecutionResult")])} \
+    $_er_ ∈ _ExecutionResult_$ \
     summarises the terminal status of a program: either it \
     ran to completion (`success`) or it stopped abnormally \
     (`error`).")

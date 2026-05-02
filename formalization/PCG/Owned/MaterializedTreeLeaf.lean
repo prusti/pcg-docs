@@ -6,7 +6,7 @@ defEnum MaterializedTreeLeaf
      .text "MaterializedTreeLeaf")
   "Materialised Tree Leaves"
   (doc! "A materialised tree leaf \
-    {.math (.seq [(.text "mtl"), .sym .setContains, (.text "MaterializedTreeLeaf")])} \
+    $_mtl_ ∈ _MaterializedTreeLeaf_$ \
     occupies one leaf slot in a \
     {Doc.math (.text "MaterializedTree")}. It is either an \
     uninitialised or shallowly initialised leaf (which \

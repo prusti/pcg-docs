@@ -5,7 +5,7 @@ defStruct LifetimeProjection {B I}
     (.text "lp", .text "LifetimeProjection")
   "Lifetime Projections"
   (doc! "A lifetime projection \
-    {.math (.seq [(.text "lp"), .sym .setContains, (.text "LifetimeProjection"), .sym .space, .raw "B", .sym .space, .raw "I"])} \
+    $_lp_ ∈ _LifetimeProjection_ _B_ _I_$ \
     consists of a base drawn from a parameter set $#B$, \
     an index drawn from a parameter set $#I$, and an optional \
     label identifying the snapshot location (or \

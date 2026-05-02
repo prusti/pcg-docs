@@ -5,7 +5,7 @@ import MIR.Body
 defEnum AnalysisObject (.raw "ao", .raw "AnalysisObject")
   "Analysis Objects"
   (doc! "An analysis object \
-    {.math (.seq [(.raw "ao"), .sym .setContains, (.raw "AnalysisObject")])} \
+    $_ao_ ∈ _AnalysisObject_$ \
     is the program element at which the PCG analysis \
     observes a basic block: either a MIR statement or a MIR \
     terminator.")

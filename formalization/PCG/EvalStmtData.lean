@@ -6,7 +6,7 @@ defStruct EvalStmtData {T}
      .text "EvalStmtData")
   "Evaluation Statement Data"
   (doc! "An evaluation-statement data record \
-    {.math (.seq [(.text "esd"), .sym .setContains, (.text "EvalStmtData"), .sym .space, .raw "T"])} \
+    $_esd_ ∈ _EvalStmtData_ _T_$ \
     bundles four values of type $#T$, one for each \
     #EvalStmtPhase: before and after the operands are \
     evaluated, and before and after the main effect of the \

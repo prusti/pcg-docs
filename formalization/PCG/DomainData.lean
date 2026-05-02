@@ -6,7 +6,7 @@ defStruct DomainData {T}
      .text "DomainData")
   "Domain Data"
   (doc! "A domain-data record \
-    {.math (.seq [(.text "dd"), .sym .setContains, (.text "DomainData"), .sym .space, .raw "T"])} \
+    $_dd_ ∈ _DomainData_ _T_$ \
     bundles the per-program-point dataflow state of a single \
     basic block: the value on entry, plus an #EvalStmtData \
     carrying the four per-phase values produced as the \

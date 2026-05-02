@@ -7,7 +7,7 @@ defAlias PcgLifetimeProjection {P}
      .text "PcgLifetimeProjection")
   "PCG Lifetime Projections"
   (doc! "A PCG lifetime projection \
-    {.math (.seq [(.text "plp"), .sym .setContains, (.text "PcgLifetimeProjection"), .sym .space, .raw "P"])} \
+    $_plp_ ∈ _PcgLifetimeProjection_ _P_$ \
     is a lifetime projection whose base is a PCG lifetime \
     projection base over the parameter set $#P$ and whose \
     index is a natural number.")

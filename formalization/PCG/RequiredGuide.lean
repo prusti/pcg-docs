@@ -5,7 +5,7 @@ defEnum RequiredGuide {D}
     (.text "rg", .text "RequiredGuide")
   "Required Guides"
   (doc! "A required guide \
-    {.math (.seq [(.text "rg"), .sym .setContains, (.text "RequiredGuide"), .sym .space, .raw "D"])} \
+    $_rg_ ∈ _RequiredGuide_ _D_$ \
     selects a non-default expansion variant: an enum \
     downcast, a constant array index, a variable array \
     index, or a subslice. Each variant carries a per-child \

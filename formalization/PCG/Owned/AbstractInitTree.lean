@@ -6,7 +6,7 @@ defEnum AbstractInitTree {D}
      .text "AbstractInitTree")
   "Abstract Initialisation Trees"
   (doc! "An abstract initialisation tree \
-    {.math (.seq [(.text "t"), .sym .setContains, (.text "AbstractInitTree"), .sym .space, .raw "D"])} \
+    $_t_ ∈ _AbstractInitTree_ _D_$ \
     is either a leaf carrying a value drawn from the \
     parameter set $#D$, or an internal (unpacked) node \
     whose place expansion stores each child's sub-tree as \

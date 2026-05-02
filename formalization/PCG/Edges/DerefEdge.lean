@@ -6,7 +6,7 @@ defStruct DerefEdge {P}
     (.text "de", .text "DerefEdge")
   "Deref Edges"
   (doc! "A deref edge \
-    {.math (.seq [(.text "de"), .sym .setContains, (.text "DerefEdge"), .sym .space, .raw "P"])} \
+    $_de_ ∈ _DerefEdge_ _P_$ \
     connects a reference-typed blocked place to the place \
     obtained by dereferencing it, together with the lifetime \
     projection of the blocked place that is blocked by this \

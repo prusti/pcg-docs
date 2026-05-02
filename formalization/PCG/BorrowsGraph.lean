@@ -9,7 +9,7 @@ defStruct BorrowsGraph {P}
      .text "BorrowsGraph")
   "Borrows Graphs"
   (doc! "A borrows graph \
-    {.math (.seq [(.text "bg"), .sym .setContains, (.text "BorrowsGraph"), .sym .space, .raw "P"])} \
+    $_bg_ ∈ _BorrowsGraph_ _P_$ \
     is the portion of the PCG that tracks borrow edges: it \
     maps each PCG edge to the validity conditions under \
     which the edge holds.") subscript

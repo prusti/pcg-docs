@@ -2,7 +2,7 @@ import MIR.Ty
 
 defStruct Local (.raw "l", .raw "L")
   "Locals"
-  (doc! "A local {.math (.seq [.raw "l", .sym .setContains, .raw "L"])} is a \
+  (doc! "A local $_l_ ∈ _L_$ is a \
     variable in the MIR, identified by index.")
   constructor "LocalIdx"
 where

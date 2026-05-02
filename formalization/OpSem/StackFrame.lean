@@ -11,7 +11,7 @@ defStruct StackFrame (.raw "\\phi",
     .text "StackFrame")
   "Stack Frames"
   (doc! "A stack frame \
-    {.math (.seq [(.raw "\\phi"), .sym .setContains, (.text "StackFrame")])} \
+    $\\phi ∈ _StackFrame_$ \
     records the per-call state of a single function \
     activation: the MIR body being executed, the current \
     program counter, and the map from each local of that body \

@@ -4,7 +4,7 @@ import OpSem.StackFrame
 defStruct Thread (.raw "\\theta", .text "Thread")
   "Threads"
   (doc! "A thread \
-    {.math (.seq [(.raw "\\theta"), .sym .setContains, (.text "Thread")])} \
+    $\\theta ∈ _Thread_$ \
     is the execution context of one strand of control flow. \
     Unlike MiniRust we only model a single thread, so the \
     full thread state is the call stack: a list of stack \

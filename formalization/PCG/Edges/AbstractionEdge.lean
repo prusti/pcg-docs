@@ -7,7 +7,7 @@ defEnum AbstractionEdge {P}
     (.text "a", .text "AbstractionEdge")
   "Abstraction Edges"
   (doc! "An abstraction edge \
-    {.math (.seq [(.text "a"), .sym .setContains, (.text "AbstractionEdge")])} \
+    $_a_ ∈ _AbstractionEdge_$ \
     represents the flow of borrows introduced due to a \
     function call or a loop. A function call abstraction \
     edge connects a source lifetime projection to a target \

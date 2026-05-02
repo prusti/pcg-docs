@@ -17,7 +17,7 @@ defStruct BranchChoice (.text "d",
     .text "BranchChoice")
   "Branch Choices"
   (doc! "A branch choice \
-    {.math (.seq [(.text "d"), .sym .setContains, (.text "BranchChoice")])} \
+    $_d_ ∈ _BranchChoice_$ \
     is an ordered pair of basic blocks representing a single \
     control-flow transition from a source block to a target \
     block.")
@@ -30,7 +30,7 @@ defStruct ExecutionPath (.text "p",
     .text "ExecutionPath")
   "Execution Paths"
   (doc! "An execution path \
-    {.math (.seq [(.text "p"), .sym .setContains, (.text "ExecutionPath")])} \
+    $_p_ ∈ _ExecutionPath_$ \
     is an ordered list of basic blocks leading to (and \
     ending at) a particular block.")
 where
@@ -65,7 +65,7 @@ defStruct ValidityConditions (.text "pc",
     .text "ValidityConditions")
   "Validity Conditions"
   (doc! "Validity conditions \
-    {.math (.seq [(.text "pc"), .sym .setContains, (.text "ValidityConditions")])} \
+    $_pc_ ∈ _ValidityConditions_$ \
     select the execution paths under which a borrow PCG \
     edge is valid: a partial map from each relevant source \
     block to the set of allowed target blocks at that \

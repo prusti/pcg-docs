@@ -9,7 +9,7 @@ defStruct BorrowEdge {P}
     (.text "be", .text "BorrowEdge")
   "Borrow Edges"
   (doc! "A borrow edge \
-    {.math (.seq [(.text "be"), .sym .setContains, (.text "BorrowEdge"), .sym .space, .raw "P"])} \
+    $_be_ ∈ _BorrowEdge_ _P_$ \
     records a borrow introduced by an `&`-expression: it \
     connects the `blocked` place (the place that is blocked \
     by the borrow — e.g. `y` in `let x = &mut y`) to the \

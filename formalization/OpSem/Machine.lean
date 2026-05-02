@@ -11,7 +11,7 @@ import Core.Dsl.DefProperty
 defStruct Machine (.raw "\\mu", .text "Machine")
   "Machines"
   (doc! "A machine state \
-    {.math (.seq [(.raw "\\mu"), .sym .setContains, (.text "Machine")])} \
+    $\\mu ∈ _Machine_$ \
     bundles the whole program being executed, the \
     single-threaded execution context, and the shared memory. \
     Per-call state — the function body, program counter, and \

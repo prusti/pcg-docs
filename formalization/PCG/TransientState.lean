@@ -5,7 +5,7 @@ defEnum TransientState {P}
     (.text "ts", .text "TransientState")
   "Transient States"
   (doc! "A transient state \
-    {.math (.seq [(.text "ts"), .sym .setContains, (.text "TransientState"), .sym .space, .raw "P"])} \
+    $_ts_ ∈ _TransientState_ _P_$ \
     describes a per-program-point read- or write-borrow side \
     condition tracked by the PCG: either a set of places that \
     are read at this point, or a single place that is the \
