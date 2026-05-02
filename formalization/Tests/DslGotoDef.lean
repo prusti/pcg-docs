@@ -625,8 +625,12 @@ run_cmd do
 --      global-ref `addConstInfo`).
 --   3. `graftLocalIdentsFromBuffers` builds a per-name FIFO
 --      queue from both buffers and, for each ident node in
---      the parsed-from-string defStr, replaces it with the
---      next user-source syntax for that name.
+--      the parsed-from-string defStr that is *not* inside a
+--      previously-spliced user `proof[…]` subtree, replaces
+--      it with the next user-source syntax for that name.
+--      The spliced-subtree skip prevents leftover queue
+--      entries from clobbering a `proof[…]` body's own
+--      reference to a `let`-bound name (e.g. `mPopped`).
 --   4. The elaborator processes the grafted syntax and emits
 --      `TermInfo` leaves at the user-source usage positions.
 --
@@ -727,6 +731,28 @@ elab "checkLocalIdentInfoAt" : command => do
        (n \"Test param.\" : Nat) \
        := n < 10"
     `n 1
+  -- Regression: a `let`-bound name referenced from inside a
+  -- `proof[…]` body must keep its user-source position so LSP
+  -- gotoDef on the in-proof reference jumps to the `let` binder.
+  -- Mirrors `Machine.evalTerminator`'s `.return_ ; .call …`
+  -- arm, where `let mPopped := …` is followed by
+  -- `proof[Machine.Runnable_after_mem_update mPopped …]` deep
+  -- inside the same arm. Without the splice-aware skip in
+  -- `graftLocalIdents`, leftover queue entries can clobber the
+  -- user-source `mPopped` ident inside the proof body.
+  -- Occurrence 4 below is the `x` inside the `proof[…]` body
+  -- (after binder, callee arg, and intervening let usages).
+  checkLocalIdentInfoAt
+    "defFn testLetInProofBody (.plain \"testLetInProofBody\") \
+       (.plain \"Tests gotoDef on a let-bound name in a proof body.\") \
+       (n \"Test param.\" : Nat) \
+       requires testGuard n \
+       : Nat := \
+         let x := n ; \
+         let y := x ; \
+         Wrap.testReqCallee x \
+           proof[(by have := y; have := x; exact h_testGuard)]"
+    `x 4
 
 namespace Wrap
 checkLocalIdentInfoAt

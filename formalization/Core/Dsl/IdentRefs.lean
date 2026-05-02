@@ -431,6 +431,21 @@ private def buildLocalIdentQueue
     user-source `n` ident (typically the binder), the second
     matches the next usage, etc.
 
+    Subtrees that have been spliced over a `dslProofMarker (…)`
+    placeholder by `graftDslProofMarkers` already carry user-
+    source positions for every ident inside them, so they must
+    be skipped: re-grafting would (a) waste queue entries on
+    already-correct user-source idents and (b) clobber a
+    user-source `proof[…]` body's reference to a `let`-bound
+    name (e.g. `proof[… mPopped …]` where `mPopped` was let-
+    bound in the surrounding scope) with whatever non-proof
+    queue entry happens to be next. `splicedRanges` records the
+    `(startByte, endByte)` of every spliced subtree (i.e. the
+    position ranges of the user-source `proof[…]` bodies
+    `graftDslProofMarkers` will splice in); any ident node
+    whose position falls inside one of those ranges is left
+    untouched.
+
     Used by `defFn`/`defProperty`/`defTheorem` after
     `Parser.runParserCategory` so LSP gotoDef on a parameter
     or `let`-bound usage in the DSL source navigates to its
@@ -439,26 +454,36 @@ private def buildLocalIdentQueue
     inside the rendered string and is invisible to the LSP. -/
 partial def graftLocalIdents
     (queue : Std.HashMap Lean.Name (Array Lean.Syntax))
+    (splicedRanges : Array (Nat × Nat))
     (stx : Lean.Syntax)
     : Lean.Syntax × Std.HashMap Lean.Name (Array Lean.Syntax) :=
-  match stx with
-  | .ident _ _ n _ =>
-    match queue.get? n with
-    | some pending =>
-      if h : pending.size > 0 then
-        let userStx := pending[0]
-        let rest := pending.extract 1 pending.size
-        (userStx, queue.insert n rest)
-      else (stx, queue)
-    | none => (stx, queue)
-  | .node info kind args =>
-    let (newArgs, finalQueue) := args.foldl
-      (fun (acc, q) child =>
-        let (newChild, q') := graftLocalIdents q child
-        (acc.push newChild, q'))
-      ((#[] : Array Lean.Syntax), queue)
-    (.node info kind newArgs, finalQueue)
-  | _ => (stx, queue)
+  let inSplicedRange (pos : Nat) : Bool :=
+    splicedRanges.any fun (a, b) => a ≤ pos ∧ pos < b
+  let isInSplicedSubtree : Bool :=
+    match stx.getPos? (canonicalOnly := true) with
+    | some p => inSplicedRange p.byteIdx
+    | none => false
+  if isInSplicedSubtree then
+    (stx, queue)
+  else
+    match stx with
+    | .ident _ _ n _ =>
+      match queue.get? n with
+      | some pending =>
+        if h : pending.size > 0 then
+          let userStx := pending[0]
+          let rest := pending.extract 1 pending.size
+          (userStx, queue.insert n rest)
+        else (stx, queue)
+      | none => (stx, queue)
+    | .node info kind args =>
+      let (newArgs, finalQueue) := args.foldl
+        (fun (acc, q) child =>
+          let (newChild, q') := graftLocalIdents q splicedRanges child
+          (acc.push newChild, q'))
+        ((#[] : Array Lean.Syntax), queue)
+      (.node info kind newArgs, finalQueue)
+    | _ => (stx, queue)
 
 /-- Combine the current `localBinderBuffer` (binders, in
     push order) with the current `identRefBuffer` snapshot
@@ -480,10 +505,22 @@ partial def graftLocalIdents
     syntax (the binder), the second to the next (a usage or
     a `(recv).n` field token), and so on.
 
+    `splicedProofs` is the list of user-source `proof[…]`
+    body syntaxes that `graftDslProofMarkers` has already
+    spliced into `stx` over their `dslProofMarker (…)`
+    placeholders. Their position ranges are computed and
+    handed to `graftLocalIdents` so it skips any ident node
+    inside a spliced subtree — those idents already have
+    correct user-source positions and must not be overwritten
+    by leftover queue entries (which would otherwise dead-end
+    LSP gotoDef on, e.g., a `let`-bound name referenced from
+    inside a `proof[…]` body).
+
     The local-binder and struct-field buffers are drained;
     the ident-ref buffer is left intact for the subsequent
     `flushIdentRefs` call. -/
 def graftLocalIdentsFromBuffers
+    (splicedProofs : Array Lean.Syntax)
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM Lean.Syntax := do
   let binders ← takeLocalBinders
@@ -493,7 +530,12 @@ def graftLocalIdentsFromBuffers
     ++ usages.map (fun (s, n) => (n, s))
     ++ fields.map (fun s => (s.getId, s))
   let queue := buildLocalIdentQueue entries
-  let (stx', _) := graftLocalIdents queue stx
+  let splicedRanges : Array (Nat × Nat) :=
+    splicedProofs.filterMap fun s => do
+      let p ← s.getPos? (canonicalOnly := true)
+      let e ← s.getTailPos? (canonicalOnly := true)
+      return (p.byteIdx, e.byteIdx)
+  let (stx', _) := graftLocalIdents queue splicedRanges stx
   return stx'
 
 open Lean Elab Command in

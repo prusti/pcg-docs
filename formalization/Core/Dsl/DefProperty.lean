@@ -92,8 +92,11 @@ private def elabPropertyDecl
     -- Splice each parameter binder, `let`-binding pat, and
     -- variable usage's user-source syntax over its rendered
     -- ident so LSP gotoDef on a local in the property body
-    -- navigates to its binder.
-    let stx ← graftLocalIdentsFromBuffers stx
+    -- navigates to its binder. Pass `userProofs` so spliced
+    -- proof-body subtrees are skipped (preserving e.g. the
+    -- user position of a `let`-bound name referenced from
+    -- inside a `proof[…]` body).
+    let stx ← graftLocalIdentsFromBuffers userProofs stx
     elabCommand stx
   | .error e =>
     drainAllParseBuffers

@@ -74,7 +74,7 @@ elab_rules : command
     | .ok stx =>
       let userProofs ← takeProofSyntaxes
       let (stx, _) := graftDslProofMarkers userProofs stx
-      let stx ← graftLocalIdentsFromBuffers stx
+      let stx ← graftLocalIdentsFromBuffers userProofs stx
       elabCommand stx
     | .error e =>
       drainAllParseBuffers

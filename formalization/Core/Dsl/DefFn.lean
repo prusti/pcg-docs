@@ -1108,7 +1108,9 @@ elab_rules : command
       -- corresponding rendered ident, so LSP gotoDef on a
       -- local-var usage in the DSL source navigates to its
       -- binder rather than dead-ending at synthetic positions.
-      let stx ← graftLocalIdentsFromBuffers stx
+      -- Pass `userProofs` so spliced proof-body subtrees are
+      -- skipped (see `graftLocalIdentsFromBuffers`).
+      let stx ← graftLocalIdentsFromBuffers userProofs stx
       elabCommand stx
     | .error e =>
       -- Drop any buffered parse-time entries so a later
@@ -1200,7 +1202,7 @@ elab_rules : command
       let stx := graftUserNameToken name.getId name.raw stx
       let userProofs ← takeProofSyntaxes
       let (stx, _) := graftDslProofMarkers userProofs stx
-      let stx ← graftLocalIdentsFromBuffers stx
+      let stx ← graftLocalIdentsFromBuffers userProofs stx
       elabCommand stx
     | .error e =>
       drainAllParseBuffers
@@ -1366,7 +1368,7 @@ elab_rules : command
         stx
       let userProofs ← takeProofSyntaxes
       let (stx, _) := graftDslProofMarkers userProofs stx
-      let stx ← graftLocalIdentsFromBuffers stx
+      let stx ← graftLocalIdentsFromBuffers userProofs stx
       elabCommand stx
     | .error e =>
       drainAllParseBuffers
