@@ -25,10 +25,13 @@ defProperty validProgram (.plain "validProgram")
     (doc! "{program} is a valid program")
   long
     (doc! "the start function name of {program} is registered \
-      in the function map of {program}")
+      in the function map of {program}, and every body \
+      registered in that map is itself a valid body")
   (program "The program." : Program)
   :=
-    program↦start ∈ program↦functions
+    program↦start ∈ program↦functions ∧
+    mapValues ‹program↦functions›·forAll fun b =>
+      validBody ‹b›
 
 namespace Program
 

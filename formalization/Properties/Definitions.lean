@@ -84,36 +84,39 @@ where
 
 namespace Program
 
-defFn insertAnalyzedBody (.plain "insertAnalyzedBody")
+defFn analyzeBodies (.plain "analyzeBodies")
   (.seq [
-    .plain "Fold step for ",
+    .plain "Recursive helper for ",
     Doc.refLinkByName "analyzeProgram",
-    .plain ": analyse a single body and insert the result \
-     into the accumulating ",
-    Doc.refLinkOf @ProgAnalysisResults "ProgAnalysisResults",
-    .plain ". Short-circuits to ", .code "None",
-    .plain " when ", Doc.refLinkOf @analyzeBody "analyzeBody",
-    .plain " fails on the body."])
+    .plain ": walk a list of bodies (all of which the caller \
+     must have established as valid via the precondition), \
+     analyse each one, and accumulate the results keyed by \
+     the body itself. Returns ", .code "None",
+    .plain " as soon as ",
+    Doc.refLinkOf @analyzeBody "analyzeBody",
+    .plain " fails on any body."])
   (acc "The accumulating per-body analysis results."
       : ProgAnalysisResults)
-  (b "The body to analyse." : Body)
-  : Option ProgAnalysisResults :=
-    -- The `analyzeBody` precondition `validBody b` should
-    -- ultimately be discharged by a program-level invariant
-    -- (e.g. a `validProgram` strengthened to require every
-    -- body to be valid). Until that lands, use a `sorry` so
-    -- the call site here matches the iterator shape that
-    -- `foldlM` expects (no precondition argument).
-    let ar ← analyzeBody ‹b, proof[sorry]› ;
-    Some (mapInsert ‹acc, b, ar›)
+  (bodies "The bodies still to analyse." : List Body)
+  requires bodies·forAll fun b => validBody ‹b›
+  : Option ProgAnalysisResults where
+  | acc ; [] => Some acc
+  | acc ; b :: rest =>
+      let ar ← analyzeBody
+        ‹b, proof[h_pre0 b (List.mem_cons_self ..)]› ;
+      analyzeBodies ‹mapInsert ‹acc, b, ar›, rest›
 
 defFn analyzeProgram (.plain "analyzeProgram")
   (doc! "Run #analyzeBody on every function body in the program, accumulating the per-body results \
     into a #ProgAnalysisResults. Returns `None` when #analyzeBody fails on any body.")
   (program "The program to analyse." : Program)
+  requires validProgram(program)
   : Option ProgAnalysisResults :=
-    let bodies := mapValues ‹program↦functions› ;
-    bodies·foldlM insertAnalyzedBody mapEmpty‹›
+    -- `validProgram` guarantees both clauses of `analyzeBodies`'s
+    -- precondition: the second conjunct of `validProgram` is
+    -- exactly `forAll b ∈ mapValues program.functions, validBody b`.
+    analyzeBodies ‹mapEmpty‹›, mapValues ‹program↦functions›,
+      proof[h_validProgram.2]›
 
 end Program
 
@@ -127,7 +130,9 @@ defInductiveProperty describes
   displayed doc! "$#par$ describes $#p$"
 where
   | analyzeOk {par : ProgAnalysisResults} {p : Program}
-      from (Program.analyzeProgram ‹p› = Some par)
+        {h_validProgram : validProgram p}
+      from (Program.analyzeProgram
+              ‹p, proof[h_validProgram]› = Some par)
       ⊢ describes ‹par, p›
 
 defProperty pcgAnalysisSucceeds
@@ -142,10 +147,19 @@ defProperty pcgAnalysisSucceeds
            .plain " returns ", .code "Some"])
   (program "The program to analyse." : Program)
   :=
-    match Program.analyzeProgram ‹program› with
-    | .some _ => true
-    | .none => false
-    end
+    -- `analyzeProgram` requires `validProgram program`, but
+    -- `defProperty` has no `requires` clause. Phrase the
+    -- precondition as an implication antecedent instead: the
+    -- DSL lowers a top-level `A → G` to a Pi binder named
+    -- `h_<head>`, so `h_validProgram : validProgram program`
+    -- is in scope on the goal side and discharges
+    -- `analyzeProgram`'s precondition without a `sorry`.
+    validProgram ‹program›
+    → match Program.analyzeProgram
+              ‹program, proof[h_validProgram]› with
+      | .some _ => true
+      | .none => false
+      end
 
 defFn entryStateAt (.plain "entryStateAt")
   (doc! "The PCG state on entry to the statement at location `l` in analysis results `ar`: indexes \

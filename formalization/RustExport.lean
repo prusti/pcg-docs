@@ -280,7 +280,7 @@ pub fn map_values<K: Eq + std::hash::Hash, V: Clone>(
 }
 ")
   , ("OpSem", "program", .raw
-"use formal_mir::body::Body;
+"use formal_mir::body::{Body, valid_body};
 
 pub fn map_at<K: Eq + std::hash::Hash, V: Clone>(
     m: &std::collections::HashMap<K, V>, k: &K,
