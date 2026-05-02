@@ -106,8 +106,9 @@ defFn jumpToBlock (.plain "jumpToBlock")
 defRaw middle =>
 /-- A stack frame that lives in the tail of `m`'s call stack
     has a valid program counter in its body. Follows from the
-    `validStack` clause of `Runnable m`: every frame in the
-    stack is `validStackFrame`, which includes
+    `validStack` clause of `Runnable m` via
+    `validStack.frame_valid`: every frame in the stack is
+    `validStackFrame`, which includes
     `validLocation frame.body frame.pc`. -/
 theorem Machine.tailFrame_validLocation
     (m : Machine) (h_Runnable : Machine.Runnable m)
@@ -126,108 +127,41 @@ theorem Machine.tailFrame_validLocation
       rw [hstk] at h_mem
       rw [List.tail!_cons] at h_mem
       exact List.mem_cons_of_mem hd h_mem
-  exact (h_Runnable.2.2.1 callerFrame h_inStack).2.1
+  exact (validStack.frame_valid h_Runnable.2.2 h_inStack).2.1
 
 defRaw middle =>
-open ThinPointer in
-/-- Concatenation lemma for `localAllocations`: the
-    allocations of a stack `head :: tail` decompose into
-    `head`'s allocations followed by the rest of the stack's
-    allocations. Used below to relate `validStack` on a stack
-    to `validStack` on its tail. -/
-private theorem localAllocations_cons (head : StackFrame)
-    (tail : List StackFrame) (mem : Memory) :
-    localAllocations (head :: tail) mem =
-      ((mapValues head.locals).flatMap (fun ptr =>
-        ptrAllocations ptr mem)) ++ localAllocations tail mem := by
-  unfold localAllocations
-  simp [List.flatMap]
-
-defRaw middle =>
-open ThinPointer in
 /-- `Runnable` is preserved by popping the topmost stack
     frame, *provided* the resulting tail is non-empty. The
     popped state's stack is `stackTail m h_Runnable`; the
     `validProgram` and `validStack` clauses of `Runnable`
     transfer through the pop because nothing about the
-    program or memory changes, and the tail is a sublist of
-    the original stack. -/
+    program or memory changes, and the new inductive
+    `validStack` exposes the tail's `validStack` directly via
+    `validStack.tail` after destructuring the original cons
+    case. -/
 theorem Machine.Runnable_after_pop
     (m : Machine) (h_Runnable : Machine.Runnable m)
     (h_tailNonEmpty : Machine.stackTail m h_Runnable ≠ []) :
     Machine.Runnable
       { m with
         thread := ⟨Machine.stackTail m h_Runnable⟩ } := by
-  refine ⟨h_tailNonEmpty, h_Runnable.2.1, ?_, ?_⟩
-  · -- `forAll validStackFrame` on the tail follows from the
-    -- same on the full stack.
-    intro f hf
-    -- `hf` arrives as `f ∈ ({ m with thread := ⟨stackTail …⟩ }).thread.stack`;
-    -- the structure projection reduces, but only after we
-    -- `change` past it.
-    change f ∈ Machine.stackTail m h_Runnable at hf
-    have h_inStack : f ∈ m.thread.stack := by
-      unfold Machine.stackTail at hf
-      match hstk : m.thread.stack, h_Runnable.1 with
-      | [], hne => exact absurd rfl hne
-      | hd :: tl, _ =>
-        rw [hstk] at hf
-        rw [List.tail!_cons] at hf
-        exact List.mem_cons_of_mem hd hf
-    exact h_Runnable.2.2.1 f h_inStack
-  · -- Non-overlapping pairs in the tail's allocations follow
-    -- from the same property on the full stack's allocations:
-    -- the tail's allocations form the suffix of the original
-    -- list, so every pair (i, j) in the tail corresponds to
-    -- the pair (i + L, j + L) in the full list (where L is
-    -- the head frame's allocation count) and the original
-    -- non-overlapping property covers it.
-    intro i j h_ij
-    obtain ⟨hij, hjlen⟩ := h_ij
-    -- The structure projection
-    -- `({ … with thread := ⟨stackTail …⟩ }).thread.stack`
-    -- reduces to `stackTail m h_Runnable` definitionally, so
-    -- `change` lets us replace the bulky form in the goal and
-    -- in `hjlen`.
-    change j < (localAllocations
-        (Machine.stackTail m h_Runnable) m.mem).length at hjlen
-    change Allocation.nonOverlapping
-        (localAllocations (Machine.stackTail m h_Runnable) m.mem)[i]!
-        (localAllocations (Machine.stackTail m h_Runnable) m.mem)[j]!
-      = true
-    cases hstk : m.thread.stack with
-    | nil => exact absurd hstk h_Runnable.1
-    | cons hd tl =>
-      have h_tail_eq : Machine.stackTail m h_Runnable = tl := by
-        unfold Machine.stackTail; rw [hstk]; rfl
-      rw [h_tail_eq] at hjlen ⊢
-      let headAllocs :=
-        (mapValues hd.locals).flatMap
-          (fun ptr => ptrAllocations ptr m.mem)
-      have h_concat : localAllocations m.thread.stack m.mem
-          = headAllocs ++ localAllocations tl m.mem := by
-        rw [hstk]; exact localAllocations_cons hd tl m.mem
-      have h_full := h_Runnable.2.2.2
-      have h_iL : i + headAllocs.length < j + headAllocs.length :=
-        Nat.add_lt_add_right hij _
-      have h_jL : j + headAllocs.length
-          < (localAllocations m.thread.stack m.mem).length := by
-        rw [h_concat, List.length_append]
-        omega
-      have h_pair := h_full _ _ ⟨h_iL, h_jL⟩
-      -- Translate the indices in the concatenation back to tail
-      -- indices: `(headAllocs ++ tailAllocs)[i + L]! = tailAllocs[i]!`.
-      rw [h_concat] at h_pair
-      have h_translate : ∀ (k : Nat),
-          (headAllocs ++ localAllocations tl m.mem)[k + headAllocs.length]!
-            = (localAllocations tl m.mem)[k]! := by
-        intro k
-        rw [List.getElem!_eq_getElem?_getD,
-            List.getElem!_eq_getElem?_getD,
-            List.getElem?_append_right (Nat.le_add_left _ _),
-            Nat.add_sub_cancel]
-      rw [h_translate, h_translate] at h_pair
-      exact h_pair
+  refine ⟨h_tailNonEmpty, h_Runnable.2.1, ?_⟩
+  -- The new state's `thread.stack` projects to
+  -- `Machine.stackTail m h_Runnable`; reduce the bulky
+  -- `{ … with … }.thread.stack` form first.
+  change validStack (Machine.stackTail m h_Runnable) m.mem
+  -- The original stack must be `head :: tail`; expose that
+  -- shape so we can apply `validStack.tail` to the cons-shaped
+  -- witness `h_Runnable.2.2 : validStack m.thread.stack m.mem`.
+  cases hstk : m.thread.stack with
+  | nil => exact absurd hstk h_Runnable.1
+  | cons hd tl =>
+    have h_tail_eq : Machine.stackTail m h_Runnable = tl := by
+      unfold Machine.stackTail; rw [hstk]; rfl
+    rw [h_tail_eq]
+    have h_vs := h_Runnable.2.2
+    rw [hstk] at h_vs
+    exact h_vs.tail
 
 defRaw middle =>
 /-- `Runnable` is preserved by overwriting `m.mem` with a

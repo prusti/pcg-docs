@@ -1,5 +1,7 @@
 import Core.Dsl.DefFn
+import Core.Dsl.DefInductiveProperty
 import Core.Dsl.DefProperty
+import Core.Dsl.DefRaw
 import Core.Dsl.DefStruct
 import MIR.Body
 import MIR.Place
@@ -210,19 +212,107 @@ defFn localAllocations (.plain "localAllocations")
       mapValues frame↦locals·flatMap fun ptr =>
         ptrAllocations ptr mem
 
-open StackFrame in
-defProperty validStack (.plain "validStack")
+defProperty headDisjointTail (.plain "headDisjointTail")
   short
-    (doc! "{stack} is a valid stack against {mem}")
+    (doc! "the local allocations of frame {h} are disjoint \
+      from those of stack {t} in {mem}")
   long
-    (doc! "every frame in {stack} is a valid stack frame, and \
-      the allocations backing the locals across all frames in \
-      {stack} are pairwise non-overlapping in {mem}")
-  (stack "The call stack." : List StackFrame)
+    (doc! "every allocation backing a local of {h} occupies an \
+      address range disjoint from every allocation backing a \
+      local of any frame in {t}, in {mem}")
+  (h "The head stack frame." : StackFrame)
+  (t "The tail call stack." : List StackFrame)
   (mem "The memory." : Memory)
   :=
-    let allocs := localAllocations stack mem ;
-    (stack·forAll fun frame => validStackFrame mem frame) ∧
-    (∀∀ i, j .
-      i < j < allocs·length →
-      Allocation.nonOverlapping (allocs ! i) (allocs ! j))
+    (localAllocations [h] mem)·forAll fun a =>
+      (localAllocations t mem)·forAll fun b =>
+        Allocation.nonOverlapping a b
+
+open StackFrame in
+defInductiveProperty validStack
+  "Valid Stack"
+  (doc! "Validity of a call stack against a memory, defined \
+    inductively over the stack: the empty stack is trivially \
+    valid; a non-empty stack `h :: t` is valid when `h` is a \
+    valid stack frame in the memory, the tail `t` is itself a \
+    valid stack in the memory, and the allocations backing \
+    `h`'s locals occupy address ranges disjoint from every \
+    allocation backing the locals of any frame in `t` (i.e. \
+    `headDisjointTail h t mem` holds).")
+  (stack "The call stack." : List StackFrame)
+  (mem "The memory." : Memory)
+where
+  | nil {mem : Memory}
+      ⊢ validStack [] mem
+  | cons {h : StackFrame} {t : List StackFrame} {mem : Memory}
+      from (validStackFrame mem h,
+            validStack t mem,
+            headDisjointTail h t mem)
+      ⊢ validStack (h :: t) mem
+
+-- The four `defRaw after` theorems below splice into both
+-- the in-tree elaboration and the generated Lean project.
+-- Each uses `open StackFrame Memory in theorem ...` so the
+-- unqualified `validStackFrame` resolves in either namespace:
+-- the in-tree source places it at `StackFrame.validStackFrame`
+-- (it's defined inside this file's
+-- `namespace StackFrame ... end StackFrame` block), while the
+-- Lean exporter lifts it into `Memory.validStackFrame` (its
+-- first param's type is `Memory`). The same dual-`open`
+-- pattern handles `headDisjointTail`, which is top-level
+-- in-tree but `StackFrame.headDisjointTail` in the generated
+-- project (its first param is `StackFrame`).
+defRaw after =>
+open StackFrame Memory in
+/-- The head of a non-empty `validStack` is itself a
+    `validStackFrame` against the same memory. Direct
+    projection of the cons rule's `validStackFrame mem h`
+    premise. -/
+theorem validStack.head
+    {h : StackFrame} {t : List StackFrame} {mem : Memory}
+    (hv : validStack (h :: t) mem) :
+    validStackFrame mem h := by
+  cases hv
+  assumption
+
+defRaw after =>
+/-- The tail of a `validStack` is itself a `validStack`
+    against the same memory. Direct projection of the cons
+    rule's `validStack t mem` premise. -/
+theorem validStack.tail
+    {h : StackFrame} {t : List StackFrame} {mem : Memory}
+    (hv : validStack (h :: t) mem) : validStack t mem := by
+  cases hv
+  assumption
+
+defRaw after =>
+open StackFrame in
+/-- The non-overlap premise of `validStack`'s cons rule:
+    `headDisjointTail h t mem` — every allocation in
+    `localAllocations [h] mem` is disjoint from every
+    allocation in `localAllocations t mem`. -/
+theorem validStack.head_disjoint_tail
+    {h : StackFrame} {t : List StackFrame} {mem : Memory}
+    (hv : validStack (h :: t) mem) :
+    headDisjointTail h t mem := by
+  cases hv
+  assumption
+
+defRaw after =>
+open StackFrame Memory in
+/-- Every frame appearing in a `validStack` is itself a
+    `validStackFrame` against the same memory. Recurses on the
+    list, peeling off the head with `validStack.head` and
+    delegating to the tail (a `validStack` by
+    `validStack.tail`) for the rest. -/
+theorem validStack.frame_valid
+    {stack : List StackFrame} {mem : Memory}
+    (h : validStack stack mem)
+    {f : StackFrame} (hf : f ∈ stack) :
+    validStackFrame mem f := by
+  induction stack with
+  | nil => exact absurd hf List.not_mem_nil
+  | cons hd tl ih =>
+    rcases List.mem_cons.mp hf with rfl | h_in_t
+    · exact validStack.head h
+    · exact ih (validStack.tail h) h_in_t

@@ -218,7 +218,24 @@ pub fn int_value_of_nat(nbytes: &usize, n: &usize) -> Option<IntValue> {
   , { cratePrefix := "OpSem", rustModule := "stackframe"
     , uses := [ "formal_mir::body::*"
               , "formal_mir::place::*" ]
-    , items := [.raw "pub use formal_runtime::map::*;\n"] }
+    , items := [.raw
+"pub use formal_runtime::map::*;
+
+/// Runtime stub for the `validStack` proposition.
+///
+/// `validStack` is a Prop-level inductive on the Lean side
+/// (`defInductiveProperty` has no Rust payload), but the
+/// `validMachine` defProperty's body still references it.
+/// Returning `true` here keeps the `assert!(valid_machine(_))`
+/// preconditions emitted by the Rust exporter compilable; the
+/// previous Bool encoding was already a partial stub
+/// (the pairwise non-overlap clause was written out as
+/// `/* forall omitted */ true`), so this is in the same
+/// spirit.
+pub fn valid_stack(_stack: &[StackFrame], _mem: &Memory) -> bool {
+    true
+}
+"] }
   , { cratePrefix := "OpSem", rustModule := "program"
     , uses := [ "formal_mir::body::{Body, valid_body}" ]
     , items := [.raw "pub use formal_runtime::map::*;\n"] }

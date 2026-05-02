@@ -43,22 +43,24 @@ defFn evalStatement (.plain "evalStatement")
         proof[(by
           -- `frame` is `currentFrame m _`, which unfolds to
           -- `m.thread.stack.head!`. `Runnable m` gives us
-          -- `stack ≠ [] ∧ validProgram ∧ validStack`, whose
-          -- third conjunct's first sub-conjunct is `∀ f ∈
-          -- stack, validStackFrame m.mem f`. Pull it out and
-          -- apply to the head, which is in the (cons-shaped)
-          -- stack.
+          -- `stack ≠ [] ∧ validProgram ∧ validStack`; the
+          -- inductive `validStack` then exposes
+          -- `validStackFrame m.mem f` for any `f ∈ stack`
+          -- via `validStack.frame_valid`.
           show validStackFrame m.mem
                   (currentFrame m h_Runnable)
           unfold currentFrame
           match hcase : m.thread.stack, h_Runnable.1 with
           | [], hne => exact absurd rfl hne
           | hd :: tl, _ =>
-            have hall : ∀ f ∈ m.thread.stack,
-                validStackFrame m.mem f :=
-              h_Runnable.2.2.1
-            rw [hcase] at hall
-            exact hall hd List.mem_cons_self)]
+            -- The match arm has substituted `m.thread.stack`
+            -- with `hd :: tl` in the goal; thread the same
+            -- substitution into `h_Runnable.2.2` via
+            -- `hcase ▸` so its type matches the cons-shaped
+            -- stack the frame_valid lookup expects.
+            exact validStack.frame_valid
+              (hcase ▸ h_Runnable.2.2)
+              List.mem_cons_self)]
         -- The `.storageLive lcl` case carries no syntactic
         -- guarantee that `lcl` is in range of the current
         -- body's `decls` — `validStatement` only constrains
@@ -82,11 +84,14 @@ defFn evalStatement (.plain "evalStatement")
           match hcase : m.thread.stack, h_Runnable.1 with
           | [], hne => exact absurd rfl hne
           | hd :: tl, _ =>
-            have hall : ∀ f ∈ m.thread.stack,
-                validStackFrame m.mem f :=
-              h_Runnable.2.2.1
-            rw [hcase] at hall
-            exact hall hd List.mem_cons_self)]
+            -- The match arm has substituted `m.thread.stack`
+            -- with `hd :: tl` in the goal; thread the same
+            -- substitution into `h_Runnable.2.2` via
+            -- `hcase ▸` so its type matches the cons-shaped
+            -- stack the frame_valid lookup expects.
+            exact validStack.frame_valid
+              (hcase ▸ h_Runnable.2.2)
+              List.mem_cons_self)]
         -- Same caveat as the `.storageLive` arm above.
         proof[sorry] ;
       let rest := stackTail
@@ -112,11 +117,10 @@ defFn step (.plain "step")
         proof[(by
           -- `frame` is `currentFrame m _`, which unfolds to
           -- `m.thread.stack.head!`. `Runnable m`'s third
-          -- conjunct is `validStack stack mem`, whose first
-          -- sub-conjunct is `∀ f ∈ stack, validStackFrame f`;
-          -- pull it out, apply to the head (in the cons-shaped
-          -- stack), and project the second component to get
-          -- `validLocation frame.body frame.pc`.
+          -- conjunct is `validStack stack mem`; for any
+          -- `f ∈ stack`, `validStack.frame_valid` gives back
+          -- `validStackFrame m.mem f`, and projecting `.2.1`
+          -- yields `validLocation frame.body frame.pc`.
           show validLocation
             (currentFrame m h_Runnable).body
             (currentFrame m h_Runnable).pc
@@ -124,14 +128,14 @@ defFn step (.plain "step")
           match hcase : m.thread.stack, h_Runnable.1 with
           | [], hne => exact absurd rfl hne
           | hd :: tl, _ =>
-            have hall : ∀ f ∈ m.thread.stack,
-                validStackFrame m.mem f :=
-              h_Runnable.2.2.1
-            rw [hcase] at hall
-            show validLocation
-              ((hd :: tl).head!).body
-              ((hd :: tl).head!).pc
-            exact (hall hd List.mem_cons_self).2.1)] with
+            -- The match arm has substituted `m.thread.stack`
+            -- with `hd :: tl` in the goal. Thread the same
+            -- substitution into `h_Runnable.2.2`'s type via
+            -- `hcase ▸` so `validStack.frame_valid` lines up
+            -- with the cons-shaped stack.
+            exact (validStack.frame_valid
+              (hcase ▸ h_Runnable.2.2)
+              List.mem_cons_self).2.1)] with
     | .terminator t =>
         evalTerminator m t proof[h_Runnable]
     | .stmt s =>

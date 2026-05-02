@@ -264,15 +264,10 @@ defFn initialMachine (.plain "initialMachine")
       proof[(by
         -- `validMachine blank` unfolds to
         -- `validProgram blank.program ∧ validStack [] blank.mem`.
-        -- The first is `h_validProgram`; the second's two
-        -- conjuncts (`forAll` over `[]`, and the pairwise
-        -- non-overlap quantifier whose universe is `[]`) are
-        -- both vacuously true.
-        refine ⟨h_validProgram, ?_, ?_⟩
-        · intro f hf
-          exact absurd hf (List.not_mem_nil)
-        · intro i j h_ij
-          exact absurd h_ij.2 (Nat.not_lt_zero _))]
+        -- The first conjunct is `h_validProgram`; the second
+        -- is the `validStack.nil` constructor applied at the
+        -- empty stack of `blank`.
+        exact ⟨h_validProgram, validStack.nil⟩)]
       proof[validBody_startProgram program h_validProgram]
 
 end Machine
