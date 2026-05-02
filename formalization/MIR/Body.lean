@@ -203,10 +203,10 @@ defProperty validPlace (.plain "valid")
 
 defProperty validStatement (.plain "validStatement")
   short
-    (.seq [s, .plain " is a valid statement in ", body])
+    (doc! "{s} is a valid statement in {body}")
   long
-    (.seq [.plain "every place referenced by ", s,
-           .plain " is a valid place in ", body])
+    (doc! "every place referenced by {s} is a valid place in \
+      {body}")
   (body "The function body." : Body)
   (s "The statement." : Statement)
   :=
@@ -214,10 +214,10 @@ defProperty validStatement (.plain "validStatement")
 
 defProperty validTerminator (.plain "validTerminator")
   short
-    (.seq [t, .plain " is a valid terminator in ", body])
+    (doc! "{t} is a valid terminator in {body}")
   long
-    (.seq [.plain "every place referenced by ", t,
-           .plain " is a valid place in ", body])
+    (doc! "every place referenced by {t} is a valid place in \
+      {body}")
   (body "The function body." : Body)
   (t "The terminator." : Terminator)
   :=

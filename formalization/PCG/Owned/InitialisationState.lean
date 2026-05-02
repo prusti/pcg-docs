@@ -3,19 +3,13 @@ import Core.Dsl.DefFn
 
 defEnum InitialisationState (.raw "i", .raw "I")
   "Initialisation States"
-  (.seq [
-    .plain "An initialisation state ",
-    Doc.defMath (.raw "i") (.raw "I"),
-    .plain " describes whether an owned place is \
-     uninitialised (",
-    .math (.bold (.raw "U")),
-    .plain "), shallowly initialised (",
-    .math (.bold (.raw "S")),
-    .plain "), or fully initialised (",
-    .math (.bold (.raw "D")),
-    .plain ") at a particular program point. Each leaf node \
-     in the initialisation state tree carries one of these \
-     values."])
+  (doc! "An initialisation state \
+    {Doc.defMath (.raw "i") (.raw "I")} describes whether an \
+    owned place is uninitialised ({Doc.m (.bold (.raw "U"))}), \
+    shallowly initialised ({Doc.m (.bold (.raw "S"))}), or \
+    fully initialised ({Doc.m (.bold (.raw "D"))}) at a \
+    particular program point. Each leaf node in the \
+    initialisation state tree carries one of these values.")
 where
   | uninit
     "Uninitialised or moved-out (no reads are permitted; \
@@ -35,23 +29,15 @@ where
 namespace InitialisationState
 
 defFn meet (.plain "meet")
-  (.seq [
-    .plain "Meet two initialisation states. This is the leaf \
-     case of the initialisation-tree meet described in ",
-    .code "owned-state.md",
-    .plain ": return the minimum of the two states under the \
-     order ",
-    .math (.seq [
-      .bold (.raw "D"), .sym .gt,
-      .bold (.raw "S"), .sym .gt,
-      .bold (.raw "U")]),
-    .plain ". In particular, the meet is ",
-    .math (.bold (.raw "U")),
-    .plain " if either side is uninitialised, ",
-    .math (.bold (.raw "S")),
-    .plain " if one side is shallow and the other is shallow \
-     or deep, and ", .math (.bold (.raw "D")),
-    .plain " only if both sides are deep."])
+  (doc! "Meet two initialisation states. This is the leaf \
+    case of the initialisation-tree meet described in \
+    `owned-state.md`: return the minimum of the two states \
+    under the order {Doc.m (.seq [.bold (.raw "D"), .sym .gt, .bold (.raw "S"), .sym .gt, .bold (.raw "U")])}. \
+    In particular, the meet is {Doc.m (.bold (.raw "U"))} if \
+    either side is uninitialised, {Doc.m (.bold (.raw "S"))} \
+    if one side is shallow and the other is shallow or deep, \
+    and {Doc.m (.bold (.raw "D"))} only if both sides are \
+    deep.")
   (a "The first state." : InitialisationState)
   (b "The second state." : InitialisationState)
   : InitialisationState where

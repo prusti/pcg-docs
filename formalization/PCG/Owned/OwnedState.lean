@@ -7,13 +7,11 @@ import PCG.Owned.OwnedLocal
 defStruct OwnedState (.text "os",
     .text "OwnedState")
   "Owned States"
-  (.seq [
-    .plain "An owned state ",
-    Doc.defMath (.text "os")
-      (.text "OwnedState"),
-    .plain " is the collection of owned locals for a \
-     function, one per MIR local, each describing the \
-     allocation and initialisation state of that local."])
+  (doc! "An owned state \
+    {Doc.defMath (.text "os") (.text "OwnedState")} is the \
+    collection of owned locals for a function, one per MIR \
+    local, each describing the allocation and initialisation \
+    state of that local.")
 where
   | locals "Owned locals, one per MIR local."
       : List OwnedLocal

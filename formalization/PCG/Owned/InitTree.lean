@@ -11,22 +11,18 @@ defAlias InitTree
     (.text "it",
      .text "InitTree")
   "Initialisation Trees"
-  (.seq [
-    .plain "An initialisation tree ",
-    Doc.defMath (.text "it")
-      (.text "InitTree"),
-    .plain " describes the initialisation state of an owned \
-     place: an abstract initialisation tree whose leaves each \
-     carry an initialisation state. By invariant, an internal \
-     node has at least one descendant leaf that is not fully \
-     initialised (otherwise the subtree collapses to a single ",
-    .math (.bold (.raw "D")),
-    .plain " leaf), and every place reachable from the root \
-     of the tree is owned — so any ",
-    .math (.doc (.code "*")),
-    .plain " step in the tree is a dereference of a ",
-    .code "Box",
-    .plain "-typed place rather than a reference."])
+  (doc! "An initialisation tree \
+    {Doc.defMath (.text "it") (.text "InitTree")} describes \
+    the initialisation state of an owned place: an abstract \
+    initialisation tree whose leaves each carry an \
+    initialisation state. By invariant, an internal node has \
+    at least one descendant leaf that is not fully \
+    initialised (otherwise the subtree collapses to a single \
+    {Doc.m (.bold (.raw "D"))} leaf), and every place \
+    reachable from the root of the tree is owned — so any \
+    {Doc.m (.doc (.code "*"))} step in the tree is a \
+    dereference of a `Box`-typed place rather than a \
+    reference.")
   := AbstractInitTree InitialisationState
 
 defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
@@ -146,24 +142,19 @@ defProperty ValidInitTree (.plain "ValidInitTree")
 namespace InitTree
 
 defFn meet (.plain "meet")
-  (.seq [
-    .plain "Meet two initialisation trees, implementing the \
-     recursive meet of ",
-    .code "owned-state.md", .plain ". At matching leaves we \
-     take the minimum via ", Doc.refLinkOf @InitialisationState.meet "InitialisationState.meet",
-    .plain ". When one side is a leaf and the other is \
-     internal, the uninitialised/shallow leaf dominates (its \
-     initialisation state covers every descendant place), \
-     while a fully-initialised leaf yields to the more \
-     precise internal expansion. When both sides are ",
-    .code "deref", .plain " nodes we recurse on the child. \
-     Other internal/internal cases (",
-    .code "fields", .plain " against ", .code "fields", .plain ", \
-     mismatched expansion shapes, or ", .code "guided",
-    .plain " expansions) conservatively collapse to ",
-    .math (.bold (.raw "U")),
-    .plain "; a faithful pointwise handling of those cases is \
-     a follow-up."])
+  (doc! "Meet two initialisation trees, implementing the \
+    recursive meet of `owned-state.md`. At matching leaves we \
+    take the minimum via #InitialisationState.meet. When one \
+    side is a leaf and the other is internal, the \
+    uninitialised/shallow leaf dominates (its initialisation \
+    state covers every descendant place), while a \
+    fully-initialised leaf yields to the more precise \
+    internal expansion. When both sides are `deref` nodes we \
+    recurse on the child. Other internal/internal cases \
+    (`fields` against `fields`, mismatched expansion shapes, \
+    or `guided` expansions) conservatively collapse to \
+    {Doc.m (.bold (.raw "U"))}; a faithful pointwise handling \
+    of those cases is a follow-up.")
   (a "The first tree." : InitTree)
   (b "The second tree." : InitTree)
   : InitTree where
