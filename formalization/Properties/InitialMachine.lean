@@ -331,20 +331,48 @@ theorem places_initialPcg_root
   -- `p.projection = []`.
   sorry
 
+/-- **Singleton lemma**: under the antecedents of
+    `ConnectedInvariant` for the initial machine, the set of
+    places `p` that satisfy `p ∈ places (initialPcg ..)` *and*
+    `Machine.placeAllocation (initialMachine ..) p _ = some _`
+    is the singleton `{⟨⟨0⟩, []⟩}`.
+
+    Combines `places_initialPcg_root` (the PCG side forces
+    `p.projection = []`, since the initial PCG has only
+    `.leaf` init trees and an empty borrows graph) with
+    `placeAllocation_initialMachine_local0` (the machine side
+    forces `p.local = ⟨0⟩`, since `Local 0` is the only
+    allocated local in the initial machine). -/
+theorem place_initialMachine_initialPcg_eq_root
+    (pr : Program) (h : validProgram pr)
+    (h_R : Runnable (initialMachine pr h))
+    (p : Place) (a : Allocation)
+    (h_places : p ∈
+      places (initialPcg (Program.startProgram pr h)))
+    (h_alloc : Machine.placeAllocation
+      (initialMachine pr h) p h_R = some a) :
+    p = ⟨⟨0⟩, []⟩ := by
+  cases p with
+  | mk loc projs =>
+    have h_proj : projs = [] :=
+      places_initialPcg_root (Program.startProgram pr h)
+        ⟨loc, projs⟩ h_places
+    have h_local : loc = ⟨0⟩ :=
+      placeAllocation_initialMachine_local0
+        pr h ⟨loc, projs⟩ a h_R h_alloc
+    cases h_proj
+    cases h_local
+    rfl
+
 /-- **The base-case connected invariant**: for every valid
     program, the strengthened `ConnectedInvariant` holds
     between the initial machine and the initial PCG state of
     the start function's body.
 
-    Proof: in the initial machine the *single allocation* is
-    backed by `Local 0`; `hasAllocation` therefore forces
-    `p.local = p'.local = ⟨0⟩`. The `p ∈ places pcg`
-    antecedents additionally force
-    `p.projection = p'.projection = []` (only bare locals
-    are tracked by the initial PCG, which has only `.leaf`
-    init trees and no edges). Combined,
-    `p = p' = ⟨⟨0⟩, []⟩` — contradicting the `p ≠ p'`
-    antecedent. -/
+    Proof: by the singleton lemma above, the conjunction of
+    the `p ∈ places pcg` and `hasAllocation _ p _`
+    antecedents pins both `p` and `p'` to `⟨⟨0⟩, []⟩`,
+    contradicting `p ≠ p'`. -/
 theorem connectedInvariant_initialMachine
     (pr : Program) (h : validProgram pr) :
     ConnectedInvariant
@@ -353,39 +381,20 @@ theorem connectedInvariant_initialMachine
   intro p p' a a' h_distinct h_Runnable _h_validPlace _h_validPlace'
         h_places h_places' h_alloc_p h_alloc_p'
   exfalso
-  -- Step 1: from `p ∈ places pcg`, both `p` and `p'` have
-  -- empty projection.
-  have h_proj_p : p.projection = [] :=
-    places_initialPcg_root (Program.startProgram pr h) p h_places
-  have h_proj_p' : p'.projection = [] :=
-    places_initialPcg_root (Program.startProgram pr h) p' h_places'
-  -- Step 2: from `hasAllocation`, both `p` and `p'` root at
-  -- `Local 0`.
+  -- Extract the underlying `Machine.placeAllocation` equations.
   have h_alloc_eq_p : Machine.placeAllocation
       (initialMachine pr h) p h_Runnable = some a := by
     cases h_alloc_p with | fromGet heq => exact heq
   have h_alloc_eq_p' : Machine.placeAllocation
       (initialMachine pr h) p' h_Runnable = some a' := by
     cases h_alloc_p' with | fromGet heq => exact heq
-  have h_local_p : p.local = ⟨0⟩ :=
-    placeAllocation_initialMachine_local0 pr h p a h_Runnable h_alloc_eq_p
-  have h_local_p' : p'.local = ⟨0⟩ :=
-    placeAllocation_initialMachine_local0 pr h p' a' h_Runnable h_alloc_eq_p'
-  -- Step 3: combine — both `p` and `p'` are `⟨⟨0⟩, []⟩`.
-  have hp : p = ⟨⟨0⟩, []⟩ := by
-    cases p with
-    | mk loc projs =>
-      simp at h_local_p h_proj_p
-      cases h_local_p
-      cases h_proj_p
-      rfl
-  have hp' : p' = ⟨⟨0⟩, []⟩ := by
-    cases p' with
-    | mk loc projs =>
-      simp at h_local_p' h_proj_p'
-      cases h_local_p'
-      cases h_proj_p'
-      rfl
+  -- Apply the singleton lemma to both `p` and `p'`.
+  have hp : p = ⟨⟨0⟩, []⟩ :=
+    place_initialMachine_initialPcg_eq_root
+      pr h h_Runnable p a h_places h_alloc_eq_p
+  have hp' : p' = ⟨⟨0⟩, []⟩ :=
+    place_initialMachine_initialPcg_eq_root
+      pr h h_Runnable p' a' h_places' h_alloc_eq_p'
   exact h_distinct (hp.trans hp'.symm)
 
 -- Register the connected-invariant theorem in the DSL.
