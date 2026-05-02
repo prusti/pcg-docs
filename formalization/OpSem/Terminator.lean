@@ -127,7 +127,7 @@ theorem Machine.tailFrame_validLocation
       rw [hstk] at h_mem
       rw [List.tail!_cons] at h_mem
       exact List.mem_cons_of_mem hd h_mem
-  exact (validStack.frame_valid h_Runnable.2.2 h_inStack).2.1
+  exact (validStack.frame_valid h_Runnable.2.2.2 h_inStack).2.1
 
 defRaw middle =>
 /-- `Runnable` is preserved by popping the topmost stack
@@ -145,37 +145,39 @@ theorem Machine.Runnable_after_pop
     Machine.Runnable
       { m with
         thread := ⟨Machine.stackTail m h_Runnable⟩ } := by
-  refine ⟨h_tailNonEmpty, h_Runnable.2.1, ?_⟩
+  refine ⟨h_tailNonEmpty, h_Runnable.2.1, h_Runnable.2.2.1, ?_⟩
   -- The new state's `thread.stack` projects to
   -- `Machine.stackTail m h_Runnable`; reduce the bulky
   -- `{ … with … }.thread.stack` form first.
   change validStack (Machine.stackTail m h_Runnable) m.mem
   -- The original stack must be `head :: tail`; expose that
   -- shape so we can apply `validStack.tail` to the cons-shaped
-  -- witness `h_Runnable.2.2 : validStack m.thread.stack m.mem`.
+  -- witness `h_Runnable.2.2.2 : validStack m.thread.stack m.mem`.
   cases hstk : m.thread.stack with
   | nil => exact absurd hstk h_Runnable.1
   | cons hd tl =>
     have h_tail_eq : Machine.stackTail m h_Runnable = tl := by
       unfold Machine.stackTail; rw [hstk]; rfl
     rw [h_tail_eq]
-    have h_vs := h_Runnable.2.2
+    have h_vs := h_Runnable.2.2.2
     rw [hstk] at h_vs
     exact h_vs.tail
 
 defRaw middle =>
 /-- `Runnable` is preserved by overwriting `m.mem` with a
-    fresh `Memory`, *provided* the call stack is still valid
-    against the new memory. The non-empty-stack and
-    `validProgram` clauses of `Runnable` are unaffected by a
-    memory swap; the precondition supplies the third clause
+    fresh `Memory`, *provided* the new memory is itself valid
+    and the call stack is still valid against it. The
+    non-empty-stack and `validProgram` clauses of `Runnable`
+    are unaffected by a memory swap; the two preconditions
+    supply the `validMemory` and `validStack` clauses
     directly. -/
 theorem Machine.Runnable_after_mem_update
     (m : Machine) (h_Runnable : Machine.Runnable m)
     (newMem : Memory)
+    (h_validMemory : Memory.validMemory newMem)
     (h_validStack : validStack m.thread.stack newMem) :
     Machine.Runnable { m with mem := newMem } :=
-  ⟨h_Runnable.1, h_Runnable.2.1, h_validStack⟩
+  ⟨h_Runnable.1, h_Runnable.2.1, h_validMemory, h_validStack⟩
 
 defFn evalTerminator (.plain "evalTerminator")
   (doc! "Evaluate a basic block terminator. The terminator is responsible for advancing the program \
@@ -291,7 +293,7 @@ defFn evalTerminator (.plain "evalTerminator")
                                 mPopped (Machine.Runnable_after_pop
                                   m h_Runnable
                                   (h_rest ▸ List.cons_ne_nil _ _)) mem'
-                                  sorry]))
+                                  sorry sorry]))
                       end
                   | _ => StepResult.done .error
                   end

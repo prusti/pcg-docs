@@ -55,11 +55,11 @@ defFn evalStatement (.plain "evalStatement")
           | hd :: tl, _ =>
             -- The match arm has substituted `m.thread.stack`
             -- with `hd :: tl` in the goal; thread the same
-            -- substitution into `h_Runnable.2.2` via
+            -- substitution into `h_Runnable.2.2.2` via
             -- `hcase ▸` so its type matches the cons-shaped
             -- stack the frame_valid lookup expects.
             exact validStack.frame_valid
-              (hcase ▸ h_Runnable.2.2)
+              (hcase ▸ h_Runnable.2.2.2)
               List.mem_cons_self)]
         -- The `.storageLive lcl` case carries no syntactic
         -- guarantee that `lcl` is in range of the current
@@ -86,11 +86,11 @@ defFn evalStatement (.plain "evalStatement")
           | hd :: tl, _ =>
             -- The match arm has substituted `m.thread.stack`
             -- with `hd :: tl` in the goal; thread the same
-            -- substitution into `h_Runnable.2.2` via
+            -- substitution into `h_Runnable.2.2.2` via
             -- `hcase ▸` so its type matches the cons-shaped
             -- stack the frame_valid lookup expects.
             exact validStack.frame_valid
-              (hcase ▸ h_Runnable.2.2)
+              (hcase ▸ h_Runnable.2.2.2)
               List.mem_cons_self)]
         -- Same caveat as the `.storageLive` arm above.
         proof[sorry] ;
@@ -130,11 +130,11 @@ defFn step (.plain "step")
           | hd :: tl, _ =>
             -- The match arm has substituted `m.thread.stack`
             -- with `hd :: tl` in the goal. Thread the same
-            -- substitution into `h_Runnable.2.2`'s type via
+            -- substitution into `h_Runnable.2.2.2`'s type via
             -- `hcase ▸` so `validStack.frame_valid` lines up
             -- with the cons-shaped stack.
             exact (validStack.frame_valid
-              (hcase ▸ h_Runnable.2.2)
+              (hcase ▸ h_Runnable.2.2.2)
               List.mem_cons_self).2.1)] with
     | .terminator t =>
         evalTerminator m t proof[h_Runnable]

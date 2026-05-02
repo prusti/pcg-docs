@@ -38,11 +38,13 @@ defProperty validMachine (.plain "validMachine")
   short
     (doc! "{m} is a valid machine")
   long
-    (doc! "the program of {m} is valid, and the call stack of \
-      {m} is a valid stack against the memory of {m}")
+    (doc! "the program of {m} is valid, the memory of {m} is \
+      a valid memory, and the call stack of {m} is a valid \
+      stack against the memory of {m}")
   (m "The machine state." : Machine)
   :=
     validProgram m↦program ∧
+    validMemory m↦mem ∧
     validStack (m↦thread↦stack) m↦mem
 
 defProperty Runnable (.plain "Runnable")
@@ -193,8 +195,9 @@ defFn createFrame (.plain "createFrame")
     writes the caller-provided argument values into those allocations with `typedStore`. The program \
     counter starts at #START — statement 0 of basic block 0. ABI, calling convention, and \
     stack-pop-action handling from MiniRust's `create_frame` are intentionally not modelled here. The \
-    #validMachine precondition gives #validStack m.thread.stack m.mem (carrying enough non-overlap \
-    structure to thread #validMemory m.mem into `liveAndStoreArgs`); the #validBody precondition \
+    #validMachine precondition gives both #validMemory m.mem and #validStack m.thread.stack m.mem \
+    directly (the former is now a conjunct of #validMachine, threaded into `liveAndStoreArgs`); the \
+    #validBody precondition \
     discharges both of `storageLive`'s obligations on the initial frame: the #validLocal \
     `initFrame.body Local⟨0⟩` requirement via the \"`decls ≠ []`\" conjunct, and the \
     #validStackFrame `m.mem initFrame` requirement via the \"`blocks ≠ []`\" conjunct (which closes \
@@ -250,8 +253,8 @@ defFn initialMachine (.plain "initialMachine")
     precondition guarantees the start function is registered in the program *and* that its body is \
     valid; the latter discharges `createFrame`'s #validBody precondition via \
     `validBody_startProgram`. The blank machine state vacuously satisfies #validMachine — its \
-    program is `program` (#validProgram directly), and the empty-stack #validStack forall and \
-    pairwise-non-overlap clauses are vacuously true. Mirrors MiniRust's `Machine::new`, \
+    program is `program` (#validProgram directly), and the empty-allocation list satisfies both \
+    #validMemory and the empty-stack #validStack vacuously. Mirrors MiniRust's `Machine::new`, \
     with globals, function pointers, vtables, lock state, additional threads, and I/O streams \
     stripped — this model is single-threaded and ignores those concerns.")
   (program "The program to initialise." : Program)
@@ -263,11 +266,16 @@ defFn initialMachine (.plain "initialMachine")
     createFrame blank body []
       proof[(by
         -- `validMachine blank` unfolds to
-        -- `validProgram blank.program ∧ validStack [] blank.mem`.
-        -- The first conjunct is `h_validProgram`; the second
-        -- is the `validStack.nil` constructor applied at the
-        -- empty stack of `blank`.
-        exact ⟨h_validProgram, validStack.nil⟩)]
+        -- `validProgram blank.program ∧ validMemory blank.mem ∧
+        --  validStack [] blank.mem`. The first conjunct is
+        -- `h_validProgram`; the middle conjunct is vacuous —
+        -- `blank.mem.allocs = []`, so the `j < 0` clause of the
+        -- universal is unsatisfiable; the third is the
+        -- `validStack.nil` constructor applied at the empty
+        -- stack of `blank`.
+        refine ⟨h_validProgram, ?_, validStack.nil⟩
+        intro _ _ h_pre0
+        exact absurd h_pre0.2 (Nat.not_lt_zero _))]
       proof[validBody_startProgram program h_validProgram]
 
 end Machine
