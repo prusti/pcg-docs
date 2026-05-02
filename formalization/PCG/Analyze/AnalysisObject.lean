@@ -120,6 +120,8 @@ defFn getAnalysisObject (.plain "getAnalysisObject")
    position, otherwise the basic block's terminator.")
   (body "The function body." : Body)
   (loc "The location." : Location)
+  requires validBody(body)
+  ensures validAnalysisObject(body, result)
   : AnalysisObject :=
     let bb := body↦blocks ! loc↦block↦index ;
     if loc↦stmtIdx < bb↦statements·length then

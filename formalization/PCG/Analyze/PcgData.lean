@@ -44,7 +44,8 @@ defFn analyze (.plain "analyze")
   (phase "The evaluation phase." : EvalStmtPhase)
   requires validBody(body)
   : Option (PcgData Place) :=
-    let ao := getAnalysisObject ‹body, loc› ;
+    let ao := getAnalysisObject ‹body, loc,
+      proof[h_validBody]› ·val ;
     let triples :=
       match phase with
         | .preOperands => operandTriples ‹ao›

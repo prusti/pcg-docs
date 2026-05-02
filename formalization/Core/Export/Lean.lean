@@ -733,7 +733,7 @@ private def calledNamesAlg :
   | .mkStruct _ args => (args.map Prod.snd).flatten
   | .cons (_, h) (_, t) => h ++ t
   | .append (_, l) (_, r) => l ++ r
-  | .dot _ method => [method]
+  | .dot (_, recv) method => method :: recv
   | .flatMap (_, list) (origFn, fn) =>
     let fnNames := match origFn with
       | .var n => [n] | _ => fn
