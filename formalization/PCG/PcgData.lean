@@ -12,14 +12,13 @@ import PCG.TransientState
 defStruct PcgData {P}
     (.text "pd", .text "PcgData")
   "PCG Data"
-  (.seq [
-    .plain "The PCG data ",
-    .math (.seq [.text "pd", .sym .setContains, .text "PcgData", .sym .space, .raw "P"]),
-    .plain " bundles the per-program-point state tracked by \
-     the PCG: the borrows graph, the owned state, the current \
-     basic block, and an optional ", Doc.refLinkOf @TransientState "TransientState",
-    .plain " carrying either the set of places read at this \
-     point or a single write-borrowed place."])
+  (doc! "The PCG data \
+    {.math (.seq [(.text "pd"), .sym .setContains, (.text "PcgData"), .sym .space, .raw "P"])} \
+    bundles the per-program-point state tracked by the PCG: \
+    the borrows graph, the owned state, the current basic \
+    block, and an optional #TransientState carrying either \
+    the set of places read at this point or a single \
+    write-borrowed place.")
 where
   | bg "The borrows portion of the PCG."
       : BorrowsGraph P

@@ -8,20 +8,17 @@ defStruct AnalysisState
     (.text "as",
      .text "AnalysisState")
   "Per-body Analysis State"
-  (.seq [
-    .plain "An analysis state ",
-    .math (.seq [.text "as", .sym .setContains, .text "AnalysisState"]),
-    .plain " bundles the in-progress per-block analysis \
-     results with the entry-state map populated by \
-     forward propagation. When a block ", .code "bb",
-    .plain " is processed, its result is recorded in ",
-    .code "results", .plain " and its post-main exit state \
-     is joined into ", .code "entryStates",
-    .plain " for every successor of ", .code "bb",
-    .plain ". Successor entries that have not yet received \
-     a contribution simply become that contribution; \
-     subsequent contributions are folded in via ",
-    .code "PcgData.join", .plain "."])
+  (doc! "An analysis state \
+    {.math (.seq [(.text "as"), .sym .setContains, (.text "AnalysisState")])} \
+    bundles the in-progress per-block analysis results with \
+    the entry-state map populated by forward propagation. \
+    When a block `bb` is processed, its result is recorded \
+    in `results` and its post-main exit state is joined \
+    into `entryStates` for every successor of `bb`. \
+    Successor entries that have not yet received a \
+    contribution simply become that contribution; \
+    subsequent contributions are folded in via \
+    `PcgData.join`.")
 where
   | results "Per-block analysis results recorded so far."
       : AnalysisResults

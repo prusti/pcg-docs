@@ -4,11 +4,10 @@ import Core.Dsl.DefFn
 
 defEnum Value (.raw "v", .cal (.raw "V"))
   "Values"
-  (.seq [
-    .plain "A runtime value ",
-    .math (.seq [.raw "v", .sym .setContains, .cal (.raw "V")]),
-    .plain " is either a boolean, an integer, a tuple, an \
-     array, a (data) pointer, or a function pointer."])
+  (doc! "A runtime value \
+    {.math (.seq [(.raw "v"), .sym .setContains, (.cal (.raw "V"))])} \
+    is either a boolean, an integer, a tuple, an array, \
+    a (data) pointer, or a function pointer.")
 where
   | bool (val : Bool)
     "A boolean."

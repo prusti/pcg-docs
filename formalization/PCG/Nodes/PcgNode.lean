@@ -5,11 +5,9 @@ import PCG.Nodes.PcgPlace
 defEnum PcgNode {P}
     (.text "n", .text "PcgNode")
   "PCG Nodes"
-  (.seq [
-    .plain "A PCG node ",
-    .math (.seq [.text "n", .sym .setContains, .text "PcgNode", .sym .space, .raw "P"]),
-    .plain " is either a PCG place or a PCG lifetime \
-     projection."])
+  (doc! "A PCG node \
+    {.math (.seq [(.text "n"), .sym .setContains, (.text "PcgNode"), .sym .space, .raw "P"])} \
+    is either a PCG place or a PCG lifetime projection.")
 where
   | place (p : PcgPlace P)
     "A PCG place."

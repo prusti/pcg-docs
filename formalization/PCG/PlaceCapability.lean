@@ -47,12 +47,11 @@ defFn currentPlace (.plain "currentPlace")
   | .labelled _ _ => None
 
 defFn placeIsMutablyBorrowed (.plain "placeIsMutablyBorrowed")
-  (.seq [.plain "Whether the current form of ",
-    .math (.raw "p"),
-    .plain " is the blocked side of a mutable deref edge in \
-      the graph. A deref edge is mutable when its blocked \
-      lifetime projection carries a label (the snapshot \
-      location at which the mutable reference was taken)."])
+  (doc! "Whether the current form of $p$ is the blocked side \
+    of a mutable deref edge in the graph. A deref edge is \
+    mutable when its blocked lifetime projection carries a \
+    label (the snapshot location at which the mutable \
+    reference was taken).")
   (bg "The borrows graph." : BorrowsGraph Place)
   (p "The target place." : Place)
   : Bool :=

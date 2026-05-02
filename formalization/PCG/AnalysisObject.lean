@@ -4,12 +4,11 @@ import MIR.Body
 
 defEnum AnalysisObject (.raw "ao", .raw "AnalysisObject")
   "Analysis Objects"
-  (.seq [
-    .plain "An analysis object ",
-    .math (.seq [.raw "ao", .sym .setContains, .raw "AnalysisObject"]),
-    .plain " is the program element at which the PCG \
-     analysis observes a basic block: either a MIR \
-     statement or a MIR terminator."])
+  (doc! "An analysis object \
+    {.math (.seq [(.raw "ao"), .sym .setContains, (.raw "AnalysisObject")])} \
+    is the program element at which the PCG analysis \
+    observes a basic block: either a MIR statement or a MIR \
+    terminator.")
 where
   | stmt (s : Statement)
     "A MIR statement."

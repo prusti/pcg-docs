@@ -10,13 +10,12 @@ import OpSem.Pointer
 defStruct StackFrame (.raw "\\phi",
     .text "StackFrame")
   "Stack Frames"
-  (.seq [
-    .plain "A stack frame ",
-    .math (.seq [.raw "\\phi", .sym .setContains, .text "StackFrame"]),
-    .plain " records the per-call state of a single function \
-     activation: the MIR body being executed, the current \
-     program counter, and the map from each local of that body \
-     to the thin pointer identifying its stack allocation."])
+  (doc! "A stack frame \
+    {.math (.seq [(.raw "\\phi"), .sym .setContains, (.text "StackFrame")])} \
+    records the per-call state of a single function \
+    activation: the MIR body being executed, the current \
+    program counter, and the map from each local of that body \
+    to the thin pointer identifying its stack allocation.")
 where
   | body "The function body being executed." : Body
   | pc "The current program counter." : Location

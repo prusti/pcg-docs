@@ -5,15 +5,14 @@ import PCG.Capability
 defStruct PlaceTriple
     (.text "pt", .text "PlaceTriple")
   "Place Triples"
-  (.seq [
-    .plain "A place triple ",
-    .math (.seq [.text "pt", .sym .setContains, .text "PlaceTriple"]),
-    .plain " bundles a place with the capability required for \
-     the place before a statement executes and the optional \
-     capability established for the place after the statement \
-     executes. A ", .code "None",
-    .plain " post indicates that the statement does not \
-     establish a post-condition capability on the place."])
+  (doc! "A place triple \
+    {.math (.seq [(.text "pt"), .sym .setContains, (.text "PlaceTriple")])} \
+    bundles a place with the capability required for the \
+    place before a statement executes and the optional \
+    capability established for the place after the statement \
+    executes. A `None` post indicates that the statement \
+    does not establish a post-condition capability on the \
+    place.")
   display
     (.sym .lbrace, #pre, .sym .rbrace, .sym .space,
     #place,

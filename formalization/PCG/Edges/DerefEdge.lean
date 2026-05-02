@@ -5,19 +5,18 @@ import PCG.Nodes.MaybeLabelled
 defStruct DerefEdge {P}
     (.text "de", .text "DerefEdge")
   "Deref Edges"
-  (.seq [
-    .plain "A deref edge ",
-    .math (.seq [.text "de", .sym .setContains, .text "DerefEdge", .sym .space, .raw "P"]),
-    .plain " connects a reference-typed blocked place to the \
-     place obtained by dereferencing it, together with the \
-     lifetime projection of the blocked place that is blocked \
-     by this edge. The blocked lifetime projection is \
-     generally unlabelled when the blocked place is a shared \
-     reference, and labelled with the MIR location of the \
-     dereference when the blocked place is a mutable \
-     reference. Deref edges are used for dereferences of \
-     reference-typed places; dereferences of Box-typed places \
-     use Unpack Edges instead."])
+  (doc! "A deref edge \
+    {.math (.seq [(.text "de"), .sym .setContains, (.text "DerefEdge"), .sym .space, .raw "P"])} \
+    connects a reference-typed blocked place to the place \
+    obtained by dereferencing it, together with the lifetime \
+    projection of the blocked place that is blocked by this \
+    edge. The blocked lifetime projection is generally \
+    unlabelled when the blocked place is a shared reference, \
+    and labelled with the MIR location of the dereference \
+    when the blocked place is a mutable reference. Deref \
+    edges are used for dereferences of reference-typed \
+    places; dereferences of Box-typed places use Unpack \
+    Edges instead.")
 where
   | blockedPlace "The reference-typed place that is blocked."
       : MaybeLabelled P

@@ -9,15 +9,14 @@ import PCG.Nodes.PcgNode
 defEnum PcgEdge {P}
     (.text "e", .text "PcgEdge")
   "PCG Edges"
-  (.seq [
-    .plain "A PCG edge ",
-    .math (.seq [.text "e", .sym .setContains, .text "PcgEdge", .sym .space, .raw "P"]),
-    .plain " is one of the edge kinds that may appear in \
-     a PCG hypergraph: an unpack edge on owned nodes, a \
-     deref edge through a reference or box, a borrow edge \
-     created by a reference-introduction, a borrow-flow \
-     edge between lifetime projections, or an abstraction \
-     edge introduced by a function call or loop."])
+  (doc! "A PCG edge \
+    {.math (.seq [(.text "e"), .sym .setContains, (.text "PcgEdge"), .sym .space, .raw "P"])} \
+    is one of the edge kinds that may appear in a PCG \
+    hypergraph: an unpack edge on owned nodes, a deref edge \
+    through a reference or box, a borrow edge created by a \
+    reference-introduction, a borrow-flow edge between \
+    lifetime projections, or an abstraction edge introduced \
+    by a function call or loop.")
 where
   | unpack (e : UnpackEdge (PcgNode P))
     "Unpack"

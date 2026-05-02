@@ -6,13 +6,10 @@ import MIR.Body
 defStruct Program (.text "prog",
     .text "Program")
   "Programs"
-  (.seq [
-    .plain "A program ",
-    .math (.seq [.text "prog", .sym .setContains, .text "Program"]),
-    .plain " bundles every function known to the PCG together \
-     with the name of the entry point. Each function is keyed \
-     by its name so calls can be resolved by looking the \
-     callee's name up in the map."])
+  (doc! "A program {.math (.seq [(.text "prog"), .sym .setContains, (.text "Program")])} \
+    bundles every function known to the PCG together with the name \
+    of the entry point. Each function is keyed by its name so calls \
+    can be resolved by looking the callee's name up in the map.")
 where
   | functions "The function bodies keyed by function name."
       : Map String Body

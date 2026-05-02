@@ -4,14 +4,12 @@ import PCG.Nodes.SnapshotLocation
 defEnum LPLabel
     (.cal (.raw "L"), .text "LPLabel")
   "Lifetime Projection Labels"
-  (.seq [
-    .plain "A lifetime projection label ",
-    .math (.seq [symDoc, .sym .setContains, setDoc]),
-    .plain " is either a snapshot location identifying when \
-     the projection was taken, or the placeholder ",
-    .math (.doc (.code "FUTURE")),
-    .plain " label, used for projections that refer to a \
-     future program point."])
+  (doc! "A lifetime projection label \
+    {.math (.seq [symDoc, .sym .setContains, setDoc])} \
+    is either a snapshot location identifying when the \
+    projection was taken, or the placeholder \
+    {Doc.math (.doc (.code "FUTURE"))} label, used for \
+    projections that refer to a future program point.")
 where
   | location (sl : SnapshotLocation)
     "A snapshot location."

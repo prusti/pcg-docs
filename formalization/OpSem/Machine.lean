@@ -10,14 +10,13 @@ import Core.Dsl.DefProperty
 
 defStruct Machine (.raw "\\mu", .text "Machine")
   "Machines"
-  (.seq [
-    .plain "A machine state ",
-    .math (.seq [.raw "\\mu", .sym .setContains, .text "Machine"]),
-    .plain " bundles the whole program being executed, the \
-     single-threaded execution context, and the shared memory. \
-     Per-call state — the function body, program counter, and \
-     local pointer map — lives on the thread's current stack \
-     frame."])
+  (doc! "A machine state \
+    {.math (.seq [(.raw "\\mu"), .sym .setContains, (.text "Machine")])} \
+    bundles the whole program being executed, the \
+    single-threaded execution context, and the shared memory. \
+    Per-call state — the function body, program counter, and \
+    local pointer map — lives on the thread's current stack \
+    frame.")
 where
   | program "The program being executed." : Program
   | thread "The single thread of execution." : Thread
@@ -49,15 +48,11 @@ private instance : Inhabited StackFrame :=
   ⟨⟨⟨[], 0, []⟩, ⟨⟨0⟩, 0⟩, ∅⟩⟩
 
 defFn prog (.plain "prog")
-  (.seq [.plain "The program a machine state is executing. \
-    Shorthand for the ", .code "program",
-    .plain " field — used by top-level properties (",
-    Doc.refLinkByName "Framing", .plain ", ",
-    Doc.refLinkByName "NoAlias", .plain ", ",
-    Doc.refLinkByName "Soundness",
-    .plain ") to refer to the program implicitly carried by \
-    the machine without a separate ", .code "pr",
-    .plain " quantifier."])
+  (doc! "The program a machine state is executing. \
+    Shorthand for the `program` field — used by top-level \
+    properties (#[Framing], #[NoAlias], #[Soundness]) to \
+    refer to the program implicitly carried by the machine \
+    without a separate `pr` quantifier.")
   (m "The machine state." : Machine)
   : Program :=
     Program⟨m↦program↦functions, m↦program↦start⟩

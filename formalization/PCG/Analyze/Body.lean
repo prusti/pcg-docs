@@ -192,21 +192,17 @@ defFn analyzeRpo (.plain "analyzeRpo")
 -- ══════════════════════════════════════════════
 
 defFn analyzeBody (.plain "analyzeBody")
-  (.seq [
-    .plain "Run a single forward dataflow pass of ",
-    .code "PcgData.analyzeBlock",
-    .plain " over every basic block of a function body in \
-     reverse postorder, returning the per-block analysis \
-     results. The entry state of block 0 is constructed from \
-     the body via ", Doc.refLinkOf @PcgData.init "init",
-    .plain "; every other block's entry state is the join of \
-     the post-main exit states of its already-analyzed \
-     predecessors. Back edges are ignored — predecessors \
-     reached only via a back edge do not contribute to the \
-     join, so the analysis runs once per block. Returns ",
-    .code "None", .plain " if ",
-    .code "PcgData.analyzeBlock",
-    .plain " fails on any block."])
+  (doc! "Run a single forward dataflow pass of \
+    `PcgData.analyzeBlock` over every basic block of a \
+    function body in reverse postorder, returning the \
+    per-block analysis results. The entry state of block 0 \
+    is constructed from the body via #PcgData.init; every other \
+    block's entry state is the join of the post-main exit \
+    states of its already-analyzed predecessors. Back edges \
+    are ignored — predecessors reached only via a back edge \
+    do not contribute to the join, so the analysis runs \
+    once per block. Returns `None` if \
+    `PcgData.analyzeBlock` fails on any block.")
   (body "The function body." : Body)
   requires validBody(body)
   : Option AnalysisResults :=

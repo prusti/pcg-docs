@@ -7,14 +7,11 @@ defAlias AnalysisResults
     (.text "ar",
      .text "AnalysisResults")
   "Per-body Analysis Results"
-  (.seq [
-    .plain "Analysis results ",
-    .math (.seq [.text "ar", .sym .setContains, .text "AnalysisResults"]),
-    .plain " bundle the per-block ", Doc.refLinkOf @PcgDomainData "PcgDomainData",
-    .plain " lists produced by a single sweep of ",
-    .code "PcgData.analyzeBody",
-    .plain ": one entry per basic block, keyed by ",
-    Doc.refLinkOf @BasicBlockIdx "BasicBlockIdx", .plain "."])
+  (doc! "Analysis results \
+    {.math (.seq [(.text "ar"), .sym .setContains, (.text "AnalysisResults")])} \
+    bundle the per-block #PcgDomainData lists produced by a \
+    single sweep of `PcgData.analyzeBody`: one entry per \
+    basic block, keyed by #BasicBlockIdx.")
   := Map BasicBlockIdx (List PcgDomainData)
 
 defProperty contains (.plain "contains")
@@ -37,13 +34,11 @@ defAlias ProgAnalysisResults
     (.text "par",
      .text "ProgAnalysisResults")
   "Whole-program Analysis Results"
-  (.seq [
-    .plain "Program analysis results ",
-    .math (.seq [.text "par", .sym .setContains, .text "ProgAnalysisResults"]),
-    .plain " bundle the per-body ", Doc.refLinkOf @AnalysisResults "AnalysisResults",
-    .plain " produced by running ", Doc.refLinkByName "analyzeBody",
-    .plain " on every function in a program: one entry per \
-     ", Doc.refLinkOf @Body "Body", .plain "."])
+  (doc! "Program analysis results \
+    {.math (.seq [(.text "par"), .sym .setContains, (.text "ProgAnalysisResults")])} \
+    bundle the per-body #AnalysisResults produced by \
+    running #[analyzeBody] on every function in a program: \
+    one entry per #Body.")
   := Map Body AnalysisResults
 
 defProperty programContains (.plain "programContains")

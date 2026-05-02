@@ -8,22 +8,17 @@ import PCG.Nodes.MaybeLabelled
 defStruct BorrowEdge {P}
     (.text "be", .text "BorrowEdge")
   "Borrow Edges"
-  (.seq [
-    .plain "A borrow edge ",
-    .math (.seq [.text "be", .sym .setContains, .text "BorrowEdge", .sym .space, .raw "P"]),
-    .plain " records a borrow introduced by an ",
-    .code "&",
-    .plain "-expression: it connects the ",
-    .code "blocked", .plain " place (the place that is \
-     blocked by the borrow — e.g. ",
-    .code "y", .plain " in ", .code "let x = &mut y",
-    .plain ") to the ", .code "assignedRef",
-    .plain " (the place the borrow is assigned to — e.g. ",
-    .code "x", .plain " in the same example). It also \
-     carries the mutability of the borrow, the MIR location \
-     at which it was reserved, the region (lifetime) of the \
-     resulting reference, and an optional label for the \
-     lifetime projection of the assigned reference."])
+  (doc! "A borrow edge \
+    {.math (.seq [(.text "be"), .sym .setContains, (.text "BorrowEdge"), .sym .space, .raw "P"])} \
+    records a borrow introduced by an `&`-expression: it \
+    connects the `blocked` place (the place that is blocked \
+    by the borrow — e.g. `y` in `let x = &mut y`) to the \
+    `assignedRef` (the place the borrow is assigned to — \
+    e.g. `x` in the same example). It also carries the \
+    mutability of the borrow, the MIR location at which it \
+    was reserved, the region (lifetime) of the resulting \
+    reference, and an optional label for the lifetime \
+    projection of the assigned reference.")
 where
   | blocked (doc! "The place that is blocked by the borrow (e.g. `y` in `let x = &mut y`).")
       : MaybeLabelled P

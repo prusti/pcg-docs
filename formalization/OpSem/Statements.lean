@@ -5,11 +5,8 @@ import Core.Dsl.Descr
 
 namespace Machine
 
-descr (.seq [
-  .plain "Based on statements as described ",
-  .link (.plain "here")
-    "https://github.com/minirust/minirust/\
-     blob/master/spec/lang/step/statements.md"])
+descr (doc! "Based on statements as described \
+  {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/lang/step/statements.md"}")
 
 defFn placeStore (.plain "placeStore")
   (doc! "Store a value into the location designated by a place pointer. Alignment and atomicity are \
