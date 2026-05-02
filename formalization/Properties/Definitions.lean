@@ -55,11 +55,22 @@ analysis-state lookup helpers, and the place-level
 bodies project through. The property statements themselves live
 in `Properties.Aliasing` and `Properties.Soundness`. -/
 
+defInductiveProperty Step
+  "Single-Step Transitions"
+  (doc! "Holds when `m'` is derivable from `m` by a single successful #step transition (one whose \
+    result is `.ok`). #[Reachable] then takes the reflexive-transitive closure of this relation.")
+  (m "The pre-step machine state." : Machine)
+  (m' "The post-step machine state." : Machine)
+  displayed doc! "$#m \\rightsquigarrow #m'$"
+where
+  | takeStep {m, m' : Machine} {h : Runnable m}
+      from (step ‹m, h› = StepResult.ok ‹m'›)
+      ⊢ Step ‹m, m'›
+
 defInductiveProperty Reachable
   "Reachable Machines"
-  (doc! "The set of machine states reachable from a starting state by zero or more successful \
-    `step` transitions. `Reachable m m'` holds when `m'` is derivable from `m` by repeated \
-    invocations of `step` whose results are `.ok`.")
+  (doc! "Reflexive-transitive closure of #Step: `Reachable m m'` holds when `m'` is derivable \
+    from `m` by zero or more successful `step` transitions.")
   (m "The starting machine state." : Machine)
   (m' "A machine state reachable from m." : Machine)
   displayed doc! "$#m \\rightsquigarrow^* #m'$"
@@ -67,9 +78,8 @@ where
   | refl {m : Machine}
       ⊢ Reachable ‹m, m›
   | stepOk {m, m', m'' : Machine}
-        {h : Runnable m''}
       from (Reachable ‹m, m''›,
-            step ‹m'', h› = StepResult.ok ‹m'›)
+            Step ‹m'', m'›)
       ⊢ Reachable ‹m, m'›
 
 namespace Program
