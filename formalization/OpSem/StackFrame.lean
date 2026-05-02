@@ -25,6 +25,18 @@ where
 
 namespace StackFrame
 
+defProperty validStackFrame (.plain "validStackFrame")
+  short
+    (doc! "{frame} is a valid stack frame")
+  long
+    (doc! "the body of {frame} is a valid body, and the \
+      program counter of {frame} is a valid location in that \
+      body")
+  (frame "The stack frame." : StackFrame)
+  :=
+    validBody frame↦body ∧
+    validLocation frame↦body frame↦pc
+
 open Memory in
 defFn storageDeadPtr (.plain "storageDeadPtr")
   (doc! "Helper for `storageDead`: given a live thin pointer already looked up in `locals`, \
@@ -73,14 +85,35 @@ defFn storageLive (.plain "storageLive")
   (doc! "Allocate stack storage for a local and bind the resulting thin pointer into `locals`. \
     First tears down any prior allocation for the same local via `storageDead`, then looks up the \
     local's type on the current body's declarations, computes its size via #Ty.sizeOf, and allocates \
-    that many bytes. #validBody guarantees every declared local type is sized, so this is total.")
+    that many bytes. The #validStackFrame precondition gives us #validBody on `frame.body`, which \
+    guarantees every declared local type is sized — so the size lookup is total. The local's type is \
+    looked up on the *original* `frame.body` (rather than `frame1.body`) so the precondition's \
+    #validBody directly discharges the #Ty.sizeOf obligation; `storageDead` doesn't change the \
+    body, so this is semantics-preserving.")
   (frame "The stack frame." : StackFrame)
   (mem "The memory." : Memory)
   (l "The local whose storage should be brought live." : Local)
+  requires validStackFrame frame
   : StackFrame × Memory :=
     let ⟨frame1, mem1⟩ := storageDead frame mem l ;
-    let ty := frame1↦body↦decls ! l↦index ;
-    let sz := Ty.sizeOf ty proof[sorry] ;
+    let ty := frame↦body↦decls ! l↦index ;
+    let sz := Ty.sizeOf ty
+      proof[(by
+        -- `h_validStackFrame.1.2 : ∀ t ∈ frame.body.decls, IsSized t`.
+        -- For an in-bounds index, `decls[i]!` is a real list
+        -- element and so `IsSized` follows directly. The
+        -- out-of-bounds case is left as `sorry`; it's only
+        -- reachable when the operational semantics try to
+        -- bring storage live for a local that's not declared
+        -- — which a proper `validStackFrame` formulation
+        -- (with a `validLocal` clause) would rule out
+        -- statically.
+        if hlt : l.index < frame.body.decls.length then
+          show Ty.IsSized (frame.body.decls[l.index]!)
+          rw [getElem!_pos frame.body.decls l.index hlt]
+          exact h_validStackFrame.1.2 _ (List.getElem_mem hlt)
+        else
+          exact sorry)] ;
     let addr := Memory.top mem1 ;
     let ⟨mem2, aid⟩ := Memory.allocate mem1 sz ;
     let ptr :=
@@ -92,18 +125,6 @@ defFn storageLive (.plain "storageLive")
     ⟨newFrame, mem2⟩
 
 end StackFrame
-
-defProperty validStackFrame (.plain "validStackFrame")
-  short
-    (doc! "{frame} is a valid stack frame")
-  long
-    (doc! "the body of {frame} is a valid body, and the \
-      program counter of {frame} is a valid location in that \
-      body")
-  (frame "The stack frame." : StackFrame)
-  :=
-    validBody frame↦body ∧
-    validLocation frame↦body frame↦pc
 
 defFn ptrAllocations (.plain "ptrAllocations")
   (.plain "The singleton list containing the allocation \
@@ -137,7 +158,7 @@ defProperty validStack (.plain "validStack")
   (mem "The memory." : Memory)
   :=
     let allocs := localAllocations stack mem ;
-    (stack·forAll fun frame => validStackFrame frame) ∧
+    (stack·forAll fun frame => StackFrame.validStackFrame frame) ∧
     (∀∀ i, j .
       i < j < allocs·length →
       Allocation.nonOverlapping (allocs ! i) (allocs ! j))

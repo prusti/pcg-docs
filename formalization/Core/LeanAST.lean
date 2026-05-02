@@ -288,15 +288,26 @@ partial def LeanExpr.toString : LeanExpr → String
     s!"{fn} {argStr}"
   | .binop op l r =>
     let isArith := op == "+" || op == "-" || op == "/"
-    let wrapIfNeeded (e : LeanExpr) :=
+    let isLogical := op == "∧" || op == "∨" || op == "→"
+    -- `∀`/`∀ x ∈ s,` extend their body as far right as the
+    -- parser can grab, swallowing any trailing `∧`/`∨`/`→`
+    -- chains. Wrap a forall- or arrow-shaped LEFT operand of
+    -- a logical binop in parens so e.g.
+    -- `(∀ bb ∈ blocks, P) ∧ Q` doesn't silently re-parse as
+    -- `∀ bb ∈ blocks, (P ∧ Q)`.
+    let wrapIfNeeded (e : LeanExpr) (isLeft : Bool) : String :=
       match e with
       | .binop op' .. =>
         let childArith := op' == "+" || op' == "-"
             || op' == "/"
-        if isArith && childArith
-        then s!"({e.toString})" else e.toString
+        if isArith && childArith then s!"({e.toString})"
+        else if isLogical && isLeft && op' == "→" then
+          s!"({e.toString})"
+        else e.toString
+      | .forall_ .. | .forallIn .. =>
+        if isLeft then s!"({e.toString})" else e.toString
       | _ => e.toString
-    s!"{wrapIfNeeded l} {op} {wrapIfNeeded r}"
+    s!"{wrapIfNeeded l true} {op} {wrapIfNeeded r false}"
   | .ineqChain ops es =>
     let opStr : IneqOp → String
       | .lt => "<" | .le => "≤"

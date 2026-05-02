@@ -271,7 +271,7 @@ defProperty validBody (.plain "validBody")
     (body↦blocks·forAll fun bb =>
       (bb↦statements·forAll fun s => validStatement body s) ∧
       validTerminator body bb↦terminator) ∧
-    (body↦decls·forAll fun t => IsSized t)
+    (body↦decls·forAll fun t => Ty.IsSized t)
 
 defFn placeTy (.plain "ty")
   (doc! "Compute the type of a place: look up the base local \

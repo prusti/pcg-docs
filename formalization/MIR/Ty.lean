@@ -90,8 +90,14 @@ where
      #len (.raw "n"), .text "]")
   deriving Repr, BEq, Hashable
 
+-- `bool` rather than `.param 0` because the operational
+-- semantics' size lookup (`Ty.sizeOf`) requires `IsSized`,
+-- and `bool` is sized while `param` is not. Using a sized
+-- default lets out-of-bounds `decls[i]!` accesses (the
+-- pessimistic fallback) discharge the `IsSized` precondition
+-- trivially in proofs that come from `validBody`.
 instance : Inhabited Ty where
-  default := .param 0
+  default := .bool
 
 defEnum IntValue (.raw "iv", .cal (.raw "IV"))
   "Integer Values"

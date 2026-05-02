@@ -31,7 +31,26 @@ defFn evalStatement (.plain "evalStatement")
       let frame := currentFrame
         m proof[h_Runnable] ;
       let ⟨frame', mem'⟩ := StackFrame.storageLive
-        frame m↦mem lcl ;
+        frame m↦mem lcl
+        proof[(by
+          -- `frame` is `currentFrame m _`, which unfolds to
+          -- `m.thread.stack.head!`. `Runnable m` gives us
+          -- `stack ≠ [] ∧ validProgram ∧ validStack`, whose
+          -- third conjunct's first sub-conjunct is `∀ f ∈
+          -- stack, validStackFrame f`. Pull it out and apply
+          -- to the head, which is in the (cons-shaped) stack.
+          show StackFrame.validStackFrame
+            (currentFrame m h_Runnable)
+          unfold currentFrame
+          match hcase : m.thread.stack, h_Runnable.1 with
+          | [], hne => exact absurd rfl hne
+          | hd :: tl, _ =>
+            have hall : ∀ f ∈ m.thread.stack,
+                StackFrame.validStackFrame f :=
+              h_Runnable.2.2.1
+            rw [hcase] at hall
+            show StackFrame.validStackFrame ((hd :: tl).head!)
+            exact hall hd List.mem_cons_self)] ;
       let rest := stackTail
         m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]

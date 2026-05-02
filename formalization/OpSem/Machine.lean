@@ -129,7 +129,9 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
     tracking the current callee local index (starting at 1 for the first argument). For each value, \
     allocate the local's backing storage via `StackFrame.storageLive` and write the value into that \
     allocation with `typedStore`. The locals-map lookup is total because `StackFrame.storageLive` \
-    always inserts an entry for the local it was just called with.")
+    always inserts an entry for the local it was just called with. `storageLive`'s `validStackFrame` \
+    precondition is currently discharged with `sorry` here — propagating frame validity through the \
+    recursion would need an `ensures` clause on `storageLive`, deferred to a follow-up.")
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
@@ -138,7 +140,8 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
       let ⟨frame1, mem1⟩ :=
-        StackFrame.storageLive frame mem Local⟨k⟩ ;
+        StackFrame.storageLive frame mem Local⟨k⟩
+          proof[sorry] ;
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
       liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
 
@@ -147,7 +150,9 @@ defFn createFrame (.plain "createFrame")
     Allocates the return place (local 0) and each argument local via `StackFrame.storageLive`, then \
     writes the caller-provided argument values into those allocations with `typedStore`. The program \
     counter starts at statement 0 of basic block 0. ABI, calling convention, and stack-pop-action \
-    handling from MiniRust's `create_frame` are intentionally not modelled here.")
+    handling from MiniRust's `create_frame` are intentionally not modelled here. `storageLive`'s \
+    `validStackFrame` precondition is discharged here with `sorry` until `createFrame` itself takes \
+    a `validBody body` precond and we derive `validLocation body initFrame.pc` formally.")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
@@ -155,7 +160,8 @@ defFn createFrame (.plain "createFrame")
     let initFrame := StackFrame⟨body,
       Location⟨BasicBlockIdx⟨0⟩, 0⟩, mapEmpty‹›⟩ ;
     let ⟨frame1, mem1⟩ := StackFrame.storageLive
-      initFrame m↦mem Local⟨0⟩ ;
+      initFrame m↦mem Local⟨0⟩
+      proof[sorry] ;
     let ⟨frame2, mem2⟩ :=
       liveAndStoreArgs args 1 frame1 mem1 ;
     Machine⟨m↦program,
