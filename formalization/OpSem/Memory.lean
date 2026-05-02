@@ -4,9 +4,7 @@ import Core.Dsl.DefRaw
 
 defStruct Memory (.cal (.raw "M"), .text "Mem")
   "Memory"
-  (.seq [.plain "A memory ",
-    .math (.seq [.cal (.raw "M"), .sym .setContains, .text "Mem"]),
-    .plain " is a list of allocations."])
+  (doc! "A memory $\\mathcal\{M} ∈ _Mem_$ is a list of allocations.")
 where
   | allocs "The allocations." : List Allocation
 
@@ -52,12 +50,10 @@ defFn allocate (.plain "allocate")
 
 defProperty validAllocId (.plain "validAllocId")
   short
-    (.seq [id, .plain " is a valid allocation id in ",
-           m])
+    (doc! "{id} is a valid allocation id in {m}")
   long
-    (.seq [.plain "the index of ", id,
-           .plain " is less than the number of allocations \
-           in ", m])
+    (doc! "the index of {id} is less than the number of \
+      allocations in {m}")
   (m "The memory." : Memory)
   (id "The allocation identifier." : AllocId)
   := id↦index < m↦allocs·length
@@ -78,13 +74,12 @@ open Allocation in
 
 defProperty validMemory (.plain "validMemory")
   short
-    (.seq [m, .plain " is a valid memory"])
+    (doc! "{m} is a valid memory")
   long
-    (.seq [.plain "the allocations of ", m,
-           .plain " are non-overlapping and sorted by \
-           address: for every pair of indices i < j, the \
-           end address of allocation i is strictly less \
-           than the start address of allocation j"])
+    (doc! "the allocations of {m} are non-overlapping and \
+      sorted by address: for every pair of indices i < j, \
+      the end address of allocation i is strictly less than \
+      the start address of allocation j")
   (m "The memory." : Memory)
   := ∀∀ i, j . i < j < m↦allocs·length → endAddr ‹m↦allocs ! i› < (m↦allocs ! j)↦address
 
@@ -128,13 +123,11 @@ defFn checkPtr (.plain "check_ptr")
 
 open Allocation in
 defFn store (.plain "store")
-  (.seq [.plain "Store a byte sequence into memory at \
-    the given pointer. If the pointer does not point to \
-    a live, in-bounds allocation, the memory is returned \
-    unchanged. Behaviour is based on the logic defined ",
-    .link (.plain "here")
-      "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations",
-    .plain "."])
+  (doc! "Store a byte sequence into memory at the given \
+    pointer. If the pointer does not point to a live, \
+    in-bounds allocation, the memory is returned unchanged. \
+    Behaviour is based on the logic defined \
+    {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations"}.")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (bytes "The bytes to store." : List AbstractByte)
@@ -151,14 +144,11 @@ defFn store (.plain "store")
 
 open Allocation in
 defFn load (.plain "load")
-  (.seq [.plain "Load a byte sequence of length ",
-    .code "len", .plain " from memory at the given \
-    pointer. If the pointer does not point to a live, \
-    in-bounds allocation, the empty list is returned. \
-    Behaviour is based on the logic defined ",
-    .link (.plain "here")
-      "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations",
-    .plain "."])
+  (doc! "Load a byte sequence of length `len` from memory at \
+    the given pointer. If the pointer does not point to a \
+    live, in-bounds allocation, the empty list is returned. \
+    Behaviour is based on the logic defined \
+    {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/mem/basic.md#operations"}.")
   (m "The memory." : Memory)
   (ptr "The pointer." : ThinPointer)
   (len "The number of bytes to load." : Nat)

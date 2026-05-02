@@ -44,22 +44,17 @@ defFn evalField (.plain "evalField")
   | _ ; _ ; _ => None
 
 defFn evalProjs (.plain "evalProjs")
-  (.seq [.plain "Evaluate a sequence of projection \
-    elements, threading a place pointer and type \
-    through each step. ", .code ".field",
-    .plain " advances the place by the field's byte offset \
-    and updates the type to the field's type; ",
-    .code ".downcast",
-    .plain " is a no-op on the place pointer — variant \
-    selection only affects subsequent typed access. ",
-    .code ".deref",
-    .plain " loads the pointer stored at the current place \
-    via ", Doc.refLinkOf @decodePtr "decodePtr",
-    .plain " and continues evaluation at the loaded \
-    pointer's address (the new type is the pointee). ",
-    .code ".index",
-    .plain " loads the index local's value and advances the \
-     address by ", .code "index * elemSize", .plain "."])
+  (doc! "Evaluate a sequence of projection elements, threading \
+    a place pointer and type through each step. \
+    `.field` advances the place by the field's byte offset \
+    and updates the type to the field's type; `.downcast` is \
+    a no-op on the place pointer — variant selection only \
+    affects subsequent typed access. `.deref` loads the \
+    pointer stored at the current place via #decodePtr and \
+    continues evaluation at the loaded pointer's address \
+    (the new type is the pointee). `.index` loads the index \
+    local's value and advances the address by \
+    `index * elemSize`.")
   (m "The machine state." : Machine)
   (place "The current place pointer." : PlacePtr)
   (ty "The current type." : Ty)

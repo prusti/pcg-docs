@@ -85,16 +85,9 @@ where
 namespace Program
 
 defFn analyzeBodies (.plain "analyzeBodies")
-  (.seq [
-    .plain "Recursive helper for ",
-    Doc.refLinkByName "analyzeProgram",
-    .plain ": walk a list of bodies (all of which the caller \
-     must have established as valid via the precondition), \
-     analyse each one, and accumulate the results keyed by \
-     the body itself. Returns ", .code "None",
-    .plain " as soon as ",
-    Doc.refLinkOf @analyzeBody "analyzeBody",
-    .plain " fails on any body."])
+  (doc! "Recursive helper for #[analyzeProgram]: walk a list of bodies (all of which the caller \
+    must have established as valid via the precondition), analyse each one, and accumulate the \
+    results keyed by the body itself. Returns `None` as soon as #analyzeBody fails on any body.")
   (acc "The accumulating per-body analysis results."
       : ProgAnalysisResults)
   (bodies "The bodies still to analyse." : List Body)
@@ -138,13 +131,10 @@ where
 defProperty pcgAnalysisSucceeds
     (.plain "pcgAnalysisSucceeds")
   short
-    (.seq [.plain "the PCG analysis succeeds for program ",
-           program])
+    (doc! "the PCG analysis succeeds for program {program}")
   long
-    (.seq [.plain "the PCG analysis succeeds for program ",
-           program, .plain ": ",
-           .code "analyzeProgram",
-           .plain " returns ", .code "Some"])
+    (doc! "the PCG analysis succeeds for program {program}: \
+      `analyzeProgram` returns `Some`")
   (program "The program to analyse." : Program)
   :=
     -- `analyzeProgram` requires `validProgram program`, but

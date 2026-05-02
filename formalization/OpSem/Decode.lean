@@ -5,14 +5,10 @@ import Core.Dsl.DefRaw
 
 open AbstractByte in
 defFn decodeBool (.plain "decode_bool")
-  (.seq [.plain "Decode a byte sequence as a boolean value. \
-    Returns ", .code "None", .plain " if the sequence is \
-    not exactly one byte, or if the byte is not ",
-    .code "0", .plain " or ", .code "1", .plain ". Based \
-    on the logic defined ",
-    .link (.plain "here")
-      "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool",
-    .plain "."])
+  (doc! "Decode a byte sequence as a boolean value. Returns \
+    `None` if the sequence is not exactly one byte, or if the \
+    byte is not `0` or `1`. Based on the logic defined \
+    {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"}.")
   (bytes "The bytes to decode." : List AbstractByte)
   : Option Bool where
   | [.init 0] => Some false
@@ -142,11 +138,9 @@ defFn decode (.plain "decode")
 
 open AbstractByte in
 defFn encodeBool (.plain "encode_bool")
-  (.seq [.plain "Encode a boolean value as a byte \
-    sequence. Based on the logic defined ",
-    .link (.plain "here")
-      "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool",
-    .plain "."])
+  (doc! "Encode a boolean value as a byte sequence. Based on \
+    the logic defined \
+    {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"}.")
   (b "The boolean to encode." : Bool)
   : List AbstractByte where
   | true => [AbstractByte.init‹1›]
