@@ -348,9 +348,6 @@ end MathDoc
 
 namespace Doc
 
-def brackets (d: MathDoc) : MathDoc :=
-  .seq [.sym .lbracket, d, .sym .rbracket]
-
 /-- Unicode-to-LaTeX replacement pairs. Each pair is
     `(unicode, textMode, mathMode)`. -/
 private def latexReplacements :
