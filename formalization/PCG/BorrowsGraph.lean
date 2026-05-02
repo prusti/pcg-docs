@@ -27,7 +27,7 @@ defFn join (.plain "join")
     validity conditions unchanged; for edges present in both \
     graphs the validity conditions are combined with \
     `ValidityConditions.join` (pointwise \
-    {Doc.math (.sym .cup)} of the allowed-target sets per \
+    ∪ of the allowed-target sets per \
     source block).")
   (bg1 "First borrows graph." : BorrowsGraph Place)
   (bg2 "Second borrows graph." : BorrowsGraph Place)

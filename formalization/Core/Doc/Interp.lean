@@ -560,7 +560,22 @@ private partial def parseSegsAux : List Char → List ChunkSeg
       .code codeStr :: parseSegsAux after
     | _ =>
       consLitChar '`' (parseSegsAux rest)
-  | c :: rest => consLitChar c (parseSegsAux rest)
+  | c :: rest =>
+    -- A Unicode math character with a known `MathSym` name —
+    -- e.g. `∅` / `∪` / `∩` — that appears outside any `$…$`
+    -- block is rendered as a one-segment math block, just as
+    -- if it had been written `$∅$`. Without this, the
+    -- character would coerce through `Doc.plain` and reach
+    -- LaTeX as a Unicode literal, which leaves authors
+    -- writing the more verbose `{Doc.m (.sym .emptySet)}`
+    -- interpolation hole instead. The `MathDoc.seq` wrap
+    -- mirrors how a `$…$` block lowers and lets the
+    -- banned-pattern checker distinguish the auto-wrapped
+    -- form from a hand-written `Doc.math (MathDoc.sym …)`.
+    match unicodeMathToSym c with
+    | some symName =>
+      .mathBlock [.mathSym symName] :: parseSegsAux rest
+    | none => consLitChar c (parseSegsAux rest)
 
 /-- Annotate each `.ref` segment with the byte offset of its
     `#identifier` substring inside the decoded chunk string.

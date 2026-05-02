@@ -126,7 +126,7 @@ theorem Machine.tailFrame_validLocation
       rw [hstk] at h_mem
       rw [List.tail!_cons] at h_mem
       exact List.mem_cons_of_mem hd h_mem
-  exact (h_Runnable.2.2.1 callerFrame h_inStack).2
+  exact (h_Runnable.2.2.1 callerFrame h_inStack).2.1
 
 defRaw middle =>
 open ThinPointer in

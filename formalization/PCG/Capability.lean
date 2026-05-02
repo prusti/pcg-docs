@@ -4,7 +4,7 @@ defEnum Capability (.raw "c", .raw "C")
   "Capabilities"
   (doc! "A capability $_c_ ∈ _C_$ \
     describes the actions permitted on a place at a particular \
-    program point: either no capability ({Doc.m (.sym .emptySet)}), \
+    program point: either no capability (∅), \
     exclusive ($__E__$), read ($__R__$), write ($__W__$), or \
     shallow exclusive ($__e__$).")
 where

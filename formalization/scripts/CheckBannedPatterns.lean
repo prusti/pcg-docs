@@ -1,5 +1,6 @@
 import Lean.Elab.Frontend
 import Core.Doc
+import Core.Doc.Interp
 import Core.Export.Latex
 import Core.Dsl.Types.EnumDef
 
@@ -123,6 +124,35 @@ private partial def collectBanned
             `doc!` literal) names a registered DSL identifier — \
             replace with `#{s}` so the rendered output also \
             hyperlinks to the definition."]
+      else []
+    -- `Doc.math (MathDoc.sym _)` (or its `Doc.m` reducible
+    -- shorthand) — a hand-written math symbol splice such as
+    -- `{Doc.m (.sym .emptySet)}` inside a `doc!` literal.
+    -- Authors should write the matching Unicode character
+    -- (`∅`, `∪`, `∩`, …) directly in the prose: the `doc!`
+    -- interpolator wraps such characters in
+    -- `Doc.math (MathDoc.seq [MathDoc.sym …])` automatically,
+    -- which keeps the source readable and (because of the
+    -- `MathDoc.seq` envelope) is structurally distinct from the
+    -- pattern we're banning here. `defEnum` variant displays
+    -- and `MathDoc.seq`-internal uses bypass this since they
+    -- never wrap a bare `Doc.math` (or `Doc.m`) around a bare
+    -- `MathDoc.sym`. The pattern matches both `Doc.math` and
+    -- `Doc.m`: the latter is a reducible abbreviation but Lean
+    -- still records the surface name in elaborated `Expr`s
+    -- before reduction.
+    | .app (.const head _)
+        (.app (.const symHead _) (.const symName _)) =>
+      if (head == ``Doc.math || head == ``Doc.m)
+          && symHead == ``MathDoc.sym then
+        let unqual := symName.componentsRev.head?.getD .anonymous
+        let symStr := match unqual with
+          | .str _ s => s | _ => toString unqual
+        [s!"`Doc.math (MathDoc.sym .{symStr})` (or the equivalent \
+            shorthand `Doc.m (.sym .{symStr})`) inside a `doc!` \
+            literal — write the matching Unicode character \
+            directly (e.g. `∅`, `∪`, `∩`) and let the \
+            interpolator wrap it in a one-segment math block."]
       else []
     | _ => []
   let kids : List String := match e with

@@ -21,7 +21,7 @@ defFn borrowTriple (.plain "borrowTriple")
   (doc! "The place triple implied by a borrow of a place at \
     the given mutability: shared yields a $__R__$ triple with \
     no post-condition, mutable yields an $__E__$ triple with \
-    post {Doc.m (.sym .emptySet)}.")
+    post ∅.")
   (m "The borrow's mutability." : Mutability)
   (p "The borrowed place." : Place)
   : PlaceTriple where
@@ -69,7 +69,7 @@ defFn operandTriples (.plain "operandTriples")
     operand or shared borrow yields a $__R__$ triple with no \
     post-condition; a `move` operand yields an $__E__$ triple \
     with post $__W__$; a mutable borrow yields an $__E__$ \
-    triple with post {Doc.m (.sym .emptySet)}.")
+    triple with post ∅.")
   (ao "The analysis object." : AnalysisObject)
   : Set PlaceTriple where
   | .stmt s => statementTriples s
@@ -79,10 +79,10 @@ defFn mainTriples (.plain "mainTriples")
   (doc! "The set of place triples implied by the main effect \
     of an analysis object. An assignment requires $__W__$ on \
     its destination and establishes $__E__$; `StorageLive` \
-    transitions the local from {Doc.m (.sym .emptySet)} to \
+    transitions the local from ∅ to \
     $__E__$; `StorageDead` transitions it from $__E__$ back \
-    to {Doc.m (.sym .emptySet)}; a `drop` consumes $__E__$ \
-    and leaves {Doc.m (.sym .emptySet)}; a `call` requires \
+    to ∅; a `drop` consumes $__E__$ \
+    and leaves ∅; a `call` requires \
     $__W__$ on its destination and establishes $__E__$; other \
     terminators contribute nothing.")
   (ao "The analysis object." : AnalysisObject)
