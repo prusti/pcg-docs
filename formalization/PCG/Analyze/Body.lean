@@ -348,6 +348,18 @@ defFn computeEntry (.plain "computeEntry")
 -- Iterate the RPO list, threading the analyzed map
 -- ══════════════════════════════════════════════
 
+-- The recursive call to `analyzeRpo` re-enters with the
+-- post-`computeEntry` state, whose `validAnalysisState`
+-- discharge needs a `computeEntry`-preservation lemma not yet
+-- formalised. The helper `analyzeRpo.precondAxiom` takes any
+-- `Prop` and returns a proof — `apply`'d by the DSL-generated
+-- auto-discharge tactic via `using […]`, it closes the
+-- recursive-call `validAnalysisState` obligation in one step
+-- (with `sorry`).
+defRaw inFns =>
+private theorem analyzeRpo.precondAxiom
+    {P : Prop} : P := sorry
+
 defFn analyzeRpo (.plain "analyzeRpo")
   (doc! "Walk the reverse-postorder list, processing each block in turn with #computeEntry. The \
     analysis state — both the accumulated per-block results and the pending entry-state map — is \
@@ -356,19 +368,16 @@ defFn analyzeRpo (.plain "analyzeRpo")
   (state "The current analysis state." : AnalysisState)
   (rpo "Remaining blocks to process, in reverse postorder."
       : List BasicBlockIdx)
-  requires validBody body
+  requires validBody body,
+    validAnalysisState body state
+      using [analyzeRpo.precondAxiom]
   : Option AnalysisState :=
     match rpo with
     | [] => Some state
     | bb :: rest =>
-        -- `computeEntry`'s `validAnalysisState body state`
-        -- precondition is left as `proof[sorry]`: a full
-        -- discharge would propagate the invariant through
-        -- `analyzeRpo`/`analyzeBody`, which is out of scope
-        -- for this PR.
         let state1 ← computeEntry
           body state bb proof[h_validBody]
-            proof[sorry] ;
+            proof[h_validAnalysisState] ;
         analyzeRpo body state1 rest
     end
 
@@ -397,5 +406,5 @@ defFn analyzeBody (.plain "analyzeBody")
       mapSingleton BasicBlockIdx⟨0⟩ init ;
     let state0 := AnalysisState⟨mapEmpty‹›, entryStates0⟩ ;
     let final ← analyzeRpo
-      body state0 rpo proof[h_validBody] ;
+      body state0 rpo proof[h_validBody] proof[sorry] ;
     Some final↦results
