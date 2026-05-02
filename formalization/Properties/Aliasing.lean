@@ -137,21 +137,23 @@ defProperty ConnectedInvariant (.plain "ConnectedInvariant")
     (doc! "the connected invariant holds between {m} and {pcg}")
   long
     (doc! "Holds when, for every pair of distinct valid \
-           places in {m}'s current body whose #[placeNode]'s \
-           are tracked by {pcg} and which are backed by \
-           allocations in {m}, either their PCG nodes are \
-           connected in {pcg} or the backing allocations \
-           have non-overlapping address ranges. The \
-           conclusion is phrased as a disjunction so its \
+           places in {m}'s current body that the PCG \
+           actually tracks (i.e. that lie in #places of \
+           {pcg}) and which are backed by allocations in \
+           {m}, either their PCG nodes are connected in \
+           {pcg} or the backing allocations have \
+           non-overlapping address ranges. The conclusion \
+           is phrased as a disjunction so its \
            contrapositive reads as the \
            disconnected-implies-disjoint statement without \
-           needing a negation operator in the DSL.\n\nThe \
-           #inPcg antecedents constrain the property to \
-           places the PCG actually tracks: places with no \
-           corresponding node in {pcg} carry no analysis \
-           guarantee, and the invariant holds for them \
-           vacuously (the standard pattern when the PCG \
-           hasn't yet unpacked far enough to mention them).")
+           needing a negation operator in the DSL. The \
+           `p ∈ places pcg` antecedents constrain the \
+           property to places the PCG actually tracks: \
+           places that don't appear in #places of {pcg} \
+           carry no analysis guarantee, and the invariant \
+           holds for them vacuously (the standard pattern \
+           when the PCG hasn't yet unpacked far enough to \
+           mention them).")
   (m "The machine state." : Machine)
   (pcg "The PCG data, interpreted in m's current body."
       : PcgData Place)
@@ -162,8 +164,8 @@ defProperty ConnectedInvariant (.plain "ConnectedInvariant")
          ‹currBody ‹m, proof[h_Runnable]›, p› ∧
        ‹break› validPlace
          ‹currBody ‹m, proof[h_Runnable]›, p'› ∧
-       ‹break› inPcg ‹pcg, placeNode ‹p›› ∧
-       ‹break› inPcg ‹pcg, placeNode ‹p'›› ∧
+       ‹break› p ∈ places ‹pcg› ∧
+       ‹break› p' ∈ places ‹pcg› ∧
        ‹break› hasAllocation ‹m, p, a› ∧
        ‹break› hasAllocation ‹m, p', a'›
        → ‹break› connected

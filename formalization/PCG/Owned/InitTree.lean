@@ -92,13 +92,6 @@ defFn placesFromFields (.plain "placesFromFields")
       placesFromFields ‹rest, base, projAcc›
 end
 
-defFn places (.plain "places")
-  (doc! "All MIR places covered by an initialisation tree rooted at a given base local, with the \
-    empty projection.")
-  (it "The initialisation tree." : InitTree)
-  (base "The base local the tree is rooted at." : Local)
-  : Set Place :=
-    itPlaces ‹it, base, []›
 
 -- The DSL has no surface syntax for an unconditional bundled
 -- `Prop` helper that hides a `validPlace` precondition, so
@@ -121,7 +114,7 @@ defProperty AllPlacesOwned (.plain "AllPlacesOwned")
   (base "The base local the tree is rooted at." : Local)
   (it "The initialisation tree." : InitTree)
   :=
-    places ‹it, base› ·forAll fun p =>
+    itPlaces ‹it, base, []›·forAll fun p =>
       placeIsOwnedIn ‹body, p›
 
 defProperty ValidInitTree (.plain "ValidInitTree")

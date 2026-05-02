@@ -296,18 +296,17 @@ defTheorem framingInvariantInitial
 
 /-! ## Connected-invariant base case
 
-The strengthened `ConnectedInvariant` carries `inPcg pcg
-(placeNode p)` and `inPcg pcg (placeNode p')` antecedents.
-`inPcg` includes every place along an allocated local's init
-tree (`ownedTreePlaceNodes`) as well as every edge endpoint.
+The strengthened `ConnectedInvariant` carries `p ∈ places pcg`
+and `p' ∈ places pcg` antecedents. `places` includes every
+place along an allocated local's init tree (via `itPlaces`)
+together with every place endpoint of a deref or borrow edge
+in the borrows graph.
 
 For the initial PCG, `OwnedState.initial body` assigns each
 allocated local a `.leaf` init tree, so `itPlaces` produces a
 single root place `⟨local, []⟩` per allocated local. The borrows
-graph is empty and the only edges come from internal init-tree
-expansions (none here, since every tree is a leaf). So
-`inPcg (initialPcg body) (placeNode p) = true` forces
-`p.projection = []`.
+graph is empty (no deref or borrow edges contribute). So
+`p ∈ places (initialPcg body)` forces `p.projection = []`.
 
 Combined with `hasAllocation_initialMachine` (which forces
 `p.local = ⟨0⟩`), the antecedent collapses both `p` and `p'`
@@ -315,24 +314,22 @@ to `⟨⟨0⟩, []⟩` — contradicting the `p ≠ p'` antecedent of
 `ConnectedInvariant`. -/
 
 /-- A place tracked by the initial PCG must be a bare local
-    (empty projection): the only nodes in the initial PCG are
-    the roots of each allocated local's `.leaf` init tree. -/
-theorem inPcg_initialPcg_root
+    (empty projection): the only places in the initial PCG
+    are the roots of each allocated local's `.leaf` init
+    tree. -/
+theorem places_initialPcg_root
     (body : Body) (p : Place)
-    (h_inPcg : inPcg (initialPcg body) (placeNode p) = true) :
+    (h_places : p ∈ places (initialPcg body)) :
     p.projection = [] := by
-  -- `inPcg` for `initialPcg` reduces to `ownedTreePlaceNodes
-  -- ... |>.any ...` (the `edges`-side disjunct is `false`
-  -- for the initial PCG). For each allocated local, the init
-  -- tree is `.leaf _`, and `itPlaces (.leaf _) base [] =
-  -- {⟨base, []⟩}`. So the only place nodes in `inPcg` are
-  -- `⟨⟨i⟩, []⟩` for allocated locals; finding `placeNode p`
-  -- among them forces `p.projection = []`.
-  --
-  -- Discharging the cascade through `ownedTreePlaceNodes`,
-  -- `itPlaces` on `.leaf`, the `Set.toList` of a singleton,
-  -- and the empty-borrows-graph edge fact is left as routine
-  -- bookkeeping.
+  -- `places` for `initialPcg` is the union of the
+  -- owned-state walk and the deref/borrow edge walk. The
+  -- initial borrows graph is empty, so the edge-side
+  -- contribution is empty. The owned-state walk runs
+  -- `itPlaces` on each allocated local's `.leaf` init tree;
+  -- `itPlaces (.leaf _) base [] = {⟨base, []⟩}`. So the
+  -- only places in `places (initialPcg body)` are
+  -- `⟨⟨i⟩, []⟩` for allocated locals, forcing
+  -- `p.projection = []`.
   sorry
 
 /-- **The base-case connected invariant**: for every valid
@@ -342,10 +339,11 @@ theorem inPcg_initialPcg_root
 
     Proof: in the initial machine the *single allocation* is
     backed by `Local 0`; `hasAllocation` therefore forces
-    `p.local = p'.local = ⟨0⟩`. The `inPcg` antecedents
-    additionally force `p.projection = p'.projection = []`
-    (only bare locals are tracked by the initial PCG, which
-    has only `.leaf` init trees and no edges). Combined,
+    `p.local = p'.local = ⟨0⟩`. The `p ∈ places pcg`
+    antecedents additionally force
+    `p.projection = p'.projection = []` (only bare locals
+    are tracked by the initial PCG, which has only `.leaf`
+    init trees and no edges). Combined,
     `p = p' = ⟨⟨0⟩, []⟩` — contradicting the `p ≠ p'`
     antecedent. -/
 theorem connectedInvariant_initialMachine
@@ -354,14 +352,14 @@ theorem connectedInvariant_initialMachine
       (initialMachine pr h)
       (initialPcg (Program.startProgram pr h)) := by
   intro p p' a a' h_distinct h_Runnable _h_validPlace _h_validPlace'
-        h_inPcg h_inPcg' h_alloc_p h_alloc_p'
+        h_places h_places' h_alloc_p h_alloc_p'
   exfalso
-  -- Step 1: from `inPcg`, both `p` and `p'` have empty
-  -- projection.
+  -- Step 1: from `p ∈ places pcg`, both `p` and `p'` have
+  -- empty projection.
   have h_proj_p : p.projection = [] :=
-    inPcg_initialPcg_root (Program.startProgram pr h) p h_inPcg
+    places_initialPcg_root (Program.startProgram pr h) p h_places
   have h_proj_p' : p'.projection = [] :=
-    inPcg_initialPcg_root (Program.startProgram pr h) p' h_inPcg'
+    places_initialPcg_root (Program.startProgram pr h) p' h_places'
   -- Step 2: from `hasAllocation`, both `p` and `p'` root at
   -- `Local 0`.
   have h_alloc_eq_p : Machine.placeAllocation
