@@ -52,15 +52,12 @@ defFn meet (.plain "meet")
       ‹os1↦locals, os2↦locals, lean_proof("sorry")›⟩
 
 defFn initial (.plain "initial")
-  (.seq [.plain "The initial owned state at the entry of a MIR \
-    body. Local 0 (the return place) starts allocated and \
-    uninitialised (",
-    .math (.bold (.raw "U")),
-    .plain "); each argument local (locals 1 through ",
-    .code "numArgs",
-    .plain ") starts allocated and fully initialised (",
-    .math (.bold (.raw "D")),
-    .plain "); every other local starts unallocated."])
+  (doc! "The initial owned state at the entry of a MIR body. \
+         Local 0 (the return place) starts allocated and \
+         uninitialised ({Doc.m (.bold (.raw "U"))}); each argument \
+         local (locals 1 through `numArgs`) starts allocated \
+         and fully initialised ({Doc.m (.bold (.raw "D"))}); \
+         every other local starts unallocated.")
   (body "The MIR function body." : Body)
   : OwnedState :=
     OwnedState⟨body↦decls·zipIdx·map fun ⟨_, i⟩ =>
