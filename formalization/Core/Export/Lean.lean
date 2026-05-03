@@ -10,9 +10,7 @@ import Core.LeanAST
 
 open LeanAST
 
--- ══════════════════════════════════════════════
 -- DSLPrimTy / DSLType → LeanAST
--- ══════════════════════════════════════════════
 
 namespace DSLPrimTy
 
@@ -92,9 +90,7 @@ def typeName (f : FieldDef) : String :=
 
 end FieldDef
 
--- ══════════════════════════════════════════════
 -- BodyPat → LeanPat
--- ══════════════════════════════════════════════
 
 namespace BodyPat
 
@@ -112,9 +108,7 @@ partial def toLean (p : BodyPat) : String :=
 
 end BodyPat
 
--- ══════════════════════════════════════════════
 -- DslExpr → LeanExpr
--- ══════════════════════════════════════════════
 
 namespace DslExpr
 
@@ -246,9 +240,7 @@ partial def toLean (e : DslExpr) : String :=
 
 end DslExpr
 
--- ══════════════════════════════════════════════
 -- StructDef / EnumDef → LeanDecl
--- ══════════════════════════════════════════════
 
 namespace StructDef
 
@@ -308,9 +300,7 @@ def toLeanASTWith (e : EnumDef)
 
 end EnumDef
 
--- ══════════════════════════════════════════════
 -- FnDef / PropertyDef → LeanDecl
--- ══════════════════════════════════════════════
 
 /-- Build precondition binders for a generated def. A named
     `prop(a, b)` becomes `(h_prop : prop a b)`; an
@@ -685,9 +675,7 @@ def toLeanAST (p : InductivePropertyDef) : LeanDecl :=
 
 end InductivePropertyDef
 
--- ══════════════════════════════════════════════
 -- Type-name extraction for import computation
--- ══════════════════════════════════════════════
 
 namespace StructDef
 

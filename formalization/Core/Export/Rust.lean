@@ -9,9 +9,7 @@ import Core.Dsl.Types.PropertyDef
 import Core.Registry
 import Core.Export.Lean
 
--- ══════════════════════════════════════════════
 -- DSLPrimTy / DSLType → Rust conversions
--- ══════════════════════════════════════════════
 
 namespace DSLPrimTy
 
@@ -86,8 +84,6 @@ partial def containsArrow : DSLType → Bool
 
 end DSLType
 
--- ══════════════════════════════════════════════
-
 /-- Capitalise the first character of a string. -/
 def capitalise (s : String) : String :=
   match s.toList with
@@ -97,8 +93,6 @@ def capitalise (s : String) : String :=
 /-- Indentation string for a given depth (4 spaces per level). -/
 private def ind (n : Nat) : String :=
   String.ofList (List.replicate (n * 4) ' ')
-
-
 
 namespace RustBinOp
 

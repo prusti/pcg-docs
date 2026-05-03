@@ -47,9 +47,7 @@ import PCG.PcgData
 ")
   ]
 
--- ══════════════════════════════════════════════
 -- Definition items
--- ══════════════════════════════════════════════
 
 /-- A tagged definition with its Lean module origin. -/
 private inductive LeanDefItem where
@@ -175,9 +173,7 @@ private def LeanDefItem.definedTypeName
   | .property_ p => some p.fnDef.name
   | .inductiveProperty_ p => some p.name
 
--- ══════════════════════════════════════════════
 -- Module grouping and import computation
--- ══════════════════════════════════════════════
 
 /-- Convert a Lean module name to a file path
     (e.g. `MIR.Body` → `MIR/Body.lean`). -/
@@ -590,9 +586,7 @@ private def renderModule
   s!"{importStr}\n{beforeStr}\n{typeStr}\n\
      {openStr}{middleStr}{codeBlock}{afterStr}\n"
 
--- ══════════════════════════════════════════════
 -- Project scaffolding
--- ══════════════════════════════════════════════
 
 private def leanToolchain : String :=
   "leanprover/lean4:v4.30.0-rc2\n"
@@ -612,9 +606,7 @@ private def genLakefile
      \n\
      {"\n\n".intercalate libDecls}\n"
 
--- ══════════════════════════════════════════════
 -- File I/O
--- ══════════════════════════════════════════════
 
 private def writeFile
     (path : String) (contents : String) : IO Unit := do
@@ -624,9 +616,7 @@ private def writeFile
   IO.FS.writeFile ⟨path⟩ contents
   IO.println s!"  wrote {path}"
 
--- ══════════════════════════════════════════════
 -- Main
--- ══════════════════════════════════════════════
 
 def main (args : List String) : IO Unit := do
   let outDir := args.head? |>.getD "generated/lean"
