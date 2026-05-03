@@ -256,7 +256,95 @@ def toPlainText : MathSym → String
   | .lparenAuto => "("
   | .rparenAuto => ")"
 
+/-- Render to HTML. -/
+def toHTML : MathSym → String
+  | .langle => "&langle;"
+  | .rangle => "&rangle;"
+  | .lbracket => "&lbrack;"
+  | .rbracket => "&rbrack;"
+  | .lparen => "("
+  | .rparen => ")"
+  | .lbrace => "{"
+  | .rbrace => "}"
+  | .emptySet => "&empty;"
+  | .setContains => "&isin;"
+  | .space => "&nbsp;"
+  | .lt => " &lt; "
+  | .gt => " &gt; "
+  | .le => " &le; "
+  | .neq => " &ne; "
+  | .eq => " = "
+  | .exists_ => "&exist; "
+  | .add => " + "
+  | .sub => " - "
+  | .mul => " * "
+  | .div => " / "
+  | .land => " &and; "
+  | .lor => " &or; "
+  | .implies => " &rarr; "
+  | .forall_ => "&forall; "
+  | .top => "&top;"
+  | .bot => "&perp;"
+  | .comma => ", "
+  | .dot => "."
+  | .cons => " :: "
+  | .underscore => "_"
+  | .mapsto => " &mapsto; "
+  | .fatArrow => " &rArr; "
+  | .cup => " &cup; "
+  | .cap => " &cap; "
+  | .leftarrow => " &larr; "
+  | .assign => " := "
+  | .append => " ++ "
+  | .pipe => "|"
+  | .lambda => "&lambda; "
+  | .pi => "&pi;"
+  | .mu => "&mu;"
+  | .alpha => "&alpha;"
+  | .theta => "&theta;"
+  | .phi => "&phi;"
+  | .varphi => "&phi;"
+  | .semicolon => ";"
+  | .lparenAuto => "("
+  | .rparenAuto => ")"
+
 end MathSym
+
+mutual
+  /-- True iff `m` satisfies `mathPred` itself or transitively
+      contains a `MathDoc`/`Doc` subterm satisfying it.
+      `docPred` is used at every embedded `Doc` leaf the walk
+      reaches, mirroring `mathPred` for the cross-language
+      cases (e.g. a `Doc.raw` inside `MathDoc.doc`). -/
+  partial def MathDoc.any (mathPred : MathDoc → Bool)
+      (docPred : Doc → Bool) : MathDoc → Bool
+    | m@(.raw _) | m@(.sym _) | m@(.space) | m@(.break_) =>
+      mathPred m
+    | .doc d => Doc.any mathPred docPred d
+    | m@(.seq ds) =>
+      mathPred m || ds.any (MathDoc.any mathPred docPred)
+    | m@(.bb d) | m@(.bold d) | m@(.italic d) | m@(.cal d)
+    | m@(.widetilde d) | m@(.hat d) | m@(.indent _ d) =>
+      mathPred m || MathDoc.any mathPred docPred d
+    | m@(.sub b s) =>
+      mathPred m
+        || MathDoc.any mathPred docPred b
+        || MathDoc.any mathPred docPred s
+
+  /-- Companion of `MathDoc.any` for the `Doc` side of the
+      mutual tree. `docPred d = true` short-circuits to true;
+      otherwise we descend into substructure. -/
+  partial def Doc.any (mathPred : MathDoc → Bool)
+      (docPred : Doc → Bool) : Doc → Bool
+    | d@(.plain _) | d@(.code _) | d@(.line) | d@(.raw ..) =>
+      docPred d
+    | d@(.bold inner) | d@(.italic inner)
+    | d@(.underline _ inner) | d@(.link inner _) =>
+      docPred d || Doc.any mathPred docPred inner
+    | d@(.seq ds) | d@(.itemize ds) =>
+      docPred d || ds.any (Doc.any mathPred docPred)
+    | d@(.math m) => docPred d || MathDoc.any mathPred docPred m
+end
 
 namespace MathDoc
 
@@ -267,38 +355,23 @@ def text (s : String) : MathDoc := .doc (.plain s)
     (`\begin{array}` or `\left…`) that forces its surrounding
     delimiters to grow. Used by `paren` to choose between
     fixed-size `(`/`)` and auto-sized `\left(`/`\right)`. -/
-partial def containsAutoSize : MathDoc → Bool
-  | .raw s =>
-    let hasSubstr (needle : String) : Bool :=
-      (s.splitOn needle).length > 1
-    hasSubstr "\\begin{array}" || hasSubstr "\\left"
-  | .space => false
-  | .doc d =>
-    -- `rawMath s` (used by `match_` etc.) wraps the LaTeX
-    -- through `.doc (.raw …)`, so descend into `Doc.raw`
-    -- to spot `\begin{array}` and friends.
-    let rec docHasAutoSize : Doc → Bool
-      | .raw latex _ _ =>
-        let hasSubstr (needle : String) : Bool :=
-          (latex.splitOn needle).length > 1
-        hasSubstr "\\begin{array}" || hasSubstr "\\left"
-      | .seq ds => ds.any docHasAutoSize
-      | .bold d | .italic d
-      | .underline _ d => docHasAutoSize d
-      | .link t _ => docHasAutoSize t
-      | .itemize ds => ds.any docHasAutoSize
-      | .math m => m.containsAutoSize
-      | .plain _ | .code _ | .line => false
-    docHasAutoSize d
-  | .seq ds => ds.any containsAutoSize
-  | .bb d | .bold d | .italic d | .cal d
-  | .widetilde d | .hat d => d.containsAutoSize
-  | .sub b s => b.containsAutoSize || s.containsAutoSize
-  | .sym _ => false
-  -- A `seq` containing `.break_` lifts to `\begin{array}`,
-  -- so its surrounding parens must grow.
-  | .break_ => true
-  | .indent _ body => body.containsAutoSize
+def containsAutoSize : MathDoc → Bool :=
+  let needsAutoSize (s : String) : Bool :=
+    (s.find? "\\begin{array}").isSome
+      || (s.find? "\\left").isSome
+  -- `rawMath s` (used by `match_` etc.) wraps the LaTeX
+  -- through `.doc (.raw …)`, so descend into `Doc.raw` to
+  -- spot `\begin{array}` and friends. A `seq` containing
+  -- `.break_` lifts to `\begin{array}`, so its surrounding
+  -- parens must grow.
+  let mathPred : MathDoc → Bool
+    | .raw s => needsAutoSize s
+    | .break_ => true
+    | _ => false
+  let docPred : Doc → Bool
+    | .raw latex _ _ => needsAutoSize latex
+    | _ => false
+  MathDoc.any mathPred docPred
 
 /-- Whether a math doc contains a `Doc.link` anywhere within
     its sub-tree. Used at hyperlink-wrapping sites (e.g. the
@@ -309,23 +382,10 @@ partial def containsAutoSize : MathDoc → Bool
     *outer* annotation, swallowing clicks on the inner one.
     Skipping the outer wrap when an inner link is present
     leaves the more-specific link clickable. -/
-partial def containsLink : MathDoc → Bool
-  | .doc d =>
-    let rec docHasLink : Doc → Bool
-      | .link _ _ => true
-      | .seq ds => ds.any docHasLink
-      | .bold d | .italic d => docHasLink d
-      | .underline _ d => docHasLink d
-      | .itemize ds => ds.any docHasLink
-      | .math m => m.containsLink
-      | .plain _ | .code _ | .line | .raw .. => false
-    docHasLink d
-  | .seq ds => ds.any containsLink
-  | .bb d | .bold d | .italic d | .cal d
-  | .widetilde d | .hat d => d.containsLink
-  | .sub b s => b.containsLink || s.containsLink
-  | .indent _ body => body.containsLink
-  | .raw _ | .sym _ | .space | .break_ => false
+def containsLink : MathDoc → Bool :=
+  MathDoc.any (fun _ => false) (fun
+    | .link _ _ => true
+    | _ => false)
 
 /-- Wrap a math doc in parentheses. Switches to LaTeX
     `\left(`/`\right)` when the content contains a
@@ -530,55 +590,7 @@ mutual
     | .space => "&nbsp;"
     | .raw s => s!"<i>{s}</i>"
     | .doc d => d.toHTML
-    | .sym .langle => "&langle;"
-    | .sym .rangle => "&rangle;"
-    | .sym .lbracket => "&lbrack;"
-    | .sym .rbracket => "&rbrack;"
-    | .sym .lparen => "("
-    | .sym .rparen => ")"
-    | .sym .lbrace => "{"
-    | .sym .rbrace => "}"
-    | .sym .emptySet => "&empty;"
-    | .sym .setContains => "&isin;"
-    | .sym .space => "&nbsp;"
-    | .sym .lt => " &lt; "
-    | .sym .gt => " &gt; "
-    | .sym .le => " &le; "
-    | .sym .neq => " &ne; "
-    | .sym .eq => " = "
-    | .sym .exists_ => "&exist; "
-    | .sym .add => " + "
-    | .sym .sub => " - "
-    | .sym .mul => " * "
-    | .sym .div => " / "
-    | .sym .land => " &and; "
-    | .sym .lor => " &or; "
-    | .sym .implies => " &rarr; "
-    | .sym .forall_ => "&forall; "
-    | .sym .top => "&top;"
-    | .sym .bot => "&perp;"
-    | .sym .comma => ", "
-    | .sym .dot => "."
-    | .sym .cons => " :: "
-    | .sym .underscore => "_"
-    | .sym .mapsto => " &mapsto; "
-    | .sym .fatArrow => " &rArr; "
-    | .sym .cup => " &cup; "
-    | .sym .cap => " &cap; "
-    | .sym .leftarrow => " &larr; "
-    | .sym .assign => " := "
-    | .sym .append => " ++ "
-    | .sym .pipe => "|"
-    | .sym .lambda => "&lambda; "
-    | .sym .pi => "&pi;"
-    | .sym .mu => "&mu;"
-    | .sym .alpha => "&alpha;"
-    | .sym .theta => "&theta;"
-    | .sym .phi => "&phi;"
-    | .sym .varphi => "&phi;"
-    | .sym .semicolon => ";"
-    | .sym .lparenAuto => "("
-    | .sym .rparenAuto => ")"
+    | .sym s => s.toHTML
     | .bb d | .bold d => s!"<b>{mathToHTML d}</b>"
     | .italic d => s!"<i>{mathToHTML d}</i>"
     | .cal d => mathToHTML d

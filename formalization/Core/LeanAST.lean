@@ -540,87 +540,73 @@ private def renderDef (d : LeanDef) : String :=
   | .expr body =>
     s!"def {d.name} {allBinds} : {d.retType} :=\n  {body}"
 
+/-- Render a leading type-parameter binder list (with a leading
+    space) for a generic declaration. When `withHashBounds` is
+    true, each parameter binder also carries `[BEq …]
+    [Hashable …]` constraints; otherwise the binder is bare.
+    Returns the empty string for non-generic declarations. -/
+private def renderTypeParams (typeParams : List String)
+    (withHashBounds : Bool) : String :=
+  if typeParams.isEmpty then ""
+  else
+    let binders := typeParams.map fun p =>
+      if withHashBounds then
+        s!"({p} : Type) [BEq {p}] [Hashable {p}]"
+      else s!"({p} : Type)"
+    " " ++ " ".intercalate binders
+
+/-- The `deriving …` clause for a generic data declaration whose
+    body either does (`usesHash = true`) or does not transitively
+    contain a `HashMap` / `HashSet`. `HashSet` / `HashMap` don't
+    themselves derive `BEq`/`Hashable`, so an outer type that
+    holds them must omit those derives. Generic types in turn
+    can't derive `Inhabited` without knowing their parameters
+    are inhabited. -/
+private def derivesClause (typeParams : List String)
+    (usesHash : Bool) : String :=
+  match usesHash, typeParams.isEmpty with
+  | true,  true  => "Repr, Inhabited"
+  | true,  false => "Repr"
+  | false, true  => "Repr, BEq, Hashable, Inhabited"
+  | false, false => "Repr, BEq, Hashable"
+
 partial def LeanDecl.toString : LeanDecl → String
   | .structure_ name typeParams fields =>
     let fieldStrs := fields.map renderField
     let usesMap := fields.any fun f =>
-      f.usesMapSet ||
-      ((f.type.toString).find? "HashMap" |>.isSome)
+      f.usesMapSet
+        || ((f.type.toString).find? "HashMap" |>.isSome)
     let usesSet := fields.any fun f =>
-      if f.usesMapSet then true
-      else
-        let s := f.type.toString
+      f.usesMapSet ||
         -- `HashSet T` from Runtime.Set; surface tokens match
         -- the `Set T`/`HashSet T` forms we may render.
-        s.splitOn " " |>.any fun tok =>
-          tok == "HashSet" || tok == "Set"
-    let needsHashBounds := usesMap || usesSet
-    -- Generic structs may hold fields whose types are generic
-    -- inductives that don't derive `Inhabited` (e.g.
-    -- `MaybeLabelled P`), so omit `Inhabited` when the
-    -- struct is itself generic. Matches the behaviour used
-    -- for generic inductives below. Also skip `BEq`/`Hashable`
-    -- when the struct stores a `HashMap`/`HashSet` — those
-    -- underlying types don't derive `BEq`/`Hashable`, so the
-    -- outer struct can't either.
-    let derives := if usesMap || usesSet then
-        if typeParams.isEmpty then "Repr, Inhabited" else "Repr"
-      else
-        if typeParams.isEmpty
-          then "Repr, BEq, Hashable, Inhabited"
-          else "Repr, BEq, Hashable"
-    let tpStr :=
-      if typeParams.isEmpty then ""
-      else
-        let binders := typeParams.map fun p =>
-          if needsHashBounds then
-            s!"({p} : Type) [BEq {p}] [Hashable {p}]"
-          else
-            s!"({p} : Type)"
-        " " ++ " ".intercalate binders
+        ((f.type.toString.splitOn " ").any fun tok =>
+          tok == "HashSet" || tok == "Set")
+    let usesHash := usesMap || usesSet
+    let tpStr := renderTypeParams typeParams usesHash
+    let derives := derivesClause typeParams usesHash
     s!"structure {name}{tpStr} where\n\
        {"\n".intercalate fieldStrs}\n\
        deriving {derives}"
   | .inductive_ name typeParams ctors =>
     let ctorStrs := ctors.map renderCtor
-    -- A ctor whose argument type mentions `Map`/`Set` (or
-    -- their `Std.HashMap`/`Std.HashSet` runtime forms) drags
-    -- `BEq`/`Hashable` constraints onto every type parameter,
-    -- so the type-parameter binders must reflect that — and
-    -- the `Repr` derive can't piggy-back on `BEq` because
-    -- `HashSet`/`HashMap` themselves don't derive it.
     -- A ctor flagged `usesMapSet` (set by the export when an
     -- arg's type names a struct that transitively holds a
-    -- `Map`/`Set`) is treated the same way.
+    -- `Map`/`Set`) is treated the same way as one whose
+    -- argument type directly names a `Map`/`Set`/`HashMap`/
+    -- `HashSet`.
     let usesHash := ctors.any fun c =>
-      c.usesMapSet ||
-        c.args.any fun a => a.type.usesHashContainer
-    let tpStr :=
-      if typeParams.isEmpty then ""
-      else
-        let binders := typeParams.map fun p =>
-          if usesHash then
-            s!"({p} : Type) [BEq {p}] [Hashable {p}]"
-          else s!"({p} : Type)"
-        " " ++ " ".intercalate binders
-    -- Generic inductives can't derive `Inhabited` without
-    -- knowing the parameters are inhabited, so omit it.
-    let derives :=
-      if usesHash then
-        if typeParams.isEmpty then "Repr, Inhabited" else "Repr"
-      else if typeParams.isEmpty then
-        "Repr, BEq, Hashable, Inhabited"
-      else "Repr, BEq, Hashable"
+      c.usesMapSet
+        || c.args.any fun a => a.type.usesHashContainer
+    let tpStr := renderTypeParams typeParams usesHash
+    let derives := derivesClause typeParams usesHash
     s!"inductive {name}{tpStr} where\n\
        {"\n".intercalate ctorStrs}\n\
        deriving {derives}"
   | .def_ d => renderDef d
   | .abbrev_ name typeParams body =>
-    let tpStr :=
-      if typeParams.isEmpty then ""
-      else " " ++ " ".intercalate
-        (typeParams.map fun p => s!"({p} : Type)")
-    s!"abbrev {name}{tpStr} := {body.toString}"
+    s!"abbrev {name}{renderTypeParams typeParams false} \
+       := {body.toString}"
   | .namespaced ns inner =>
     s!"namespace {ns}\n\n{inner.toString}\n\nend {ns}"
   | .raw_ source => source

@@ -163,47 +163,54 @@ private def emitInductive (fName : String) (ctors : List CtorInfo) : String :=
   let body := joinLines (ctors.map ctorLine)
   s!"{header}\n{body}\n  deriving Inhabited"
 
+/-- Emit a one-to-one constructor-rewrap function with the given
+    `signature` (the full `def NAME : SRC → TGT` line). The body
+    is `match` arms that rebuild every constructor with the same
+    arg names — used by both `T.project` (`T → TF T`) and
+    `TF.embed` (`TF T → T`). -/
+private def emitCtorRewrap (signature : String)
+    (ctors : List CtorInfo) : String :=
+  let armOf (c : CtorInfo) : String :=
+    let args := String.join (c.args.map fun (n, _, _) => s!" {n}")
+    s!"  | .{c.short}{args} => .{c.short}{args}"
+  s!"{signature}\n{joinLines (ctors.map armOf)}"
+
 /-- Emit `T.project : T → TF T`. -/
 private def emitProject (tName : String) (fName : String)
     (ctors : List CtorInfo) : String :=
-  let armOf (c : CtorInfo) : String :=
-    let patArgs := String.join (c.args.map fun (n, _, _) => s!" {n}")
-    let appArgs := patArgs
-    s!"  | .{c.short}{patArgs} => .{c.short}{appArgs}"
-  let arms := joinLines (ctors.map armOf)
-  s!"def {tName}.project : {tName} → {fName} {tName}\n{arms}"
+  emitCtorRewrap
+    s!"def {tName}.project : {tName} → {fName} {tName}" ctors
 
 /-- Emit `TF.embed : TF T → T`. -/
 private def emitEmbed (tName : String) (fName : String)
     (ctors : List CtorInfo) : String :=
-  let armOf (c : CtorInfo) : String :=
-    let patArgs := String.join (c.args.map fun (n, _, _) => s!" {n}")
-    let appArgs := patArgs
-    s!"  | .{c.short}{patArgs} => .{c.short}{appArgs}"
-  let arms := joinLines (ctors.map armOf)
-  s!"def {fName}.embed : {fName} {tName} → {tName}\n{arms}"
+  emitCtorRewrap
+    s!"def {fName}.embed : {fName} {tName} → {tName}" ctors
 
 private def ob : String := "{"
 private def cb : String := "}"
 
+/-- Render the pattern part of a constructor arm: the unchanged
+    sequence of arg names. -/
+private def ctorPatArgs (c : CtorInfo) : String :=
+  String.join (c.args.map fun (n, _, _) => s!" {n}")
+
 /-- Emit `TF.fmap : (α → β) → TF α → TF β`. -/
 private def emitMap (fName : String) (ctors : List CtorInfo) : String :=
   let armOf (c : CtorInfo) : String :=
-    let patArgs := String.join (c.args.map fun (n, _, _) => s!" {n}")
     let appArgs := String.join (c.args.map fun (n, s, _) =>
       match s with
       | .noSelf => s!" {n}"
       | _       => " " ++ renderLift "f" n 0 s)
-    s!"  | .{c.short}{patArgs} => .{c.short}{appArgs}"
+    s!"  | .{c.short}{ctorPatArgs c} => .{c.short}{appArgs}"
   let arms := joinLines (ctors.map armOf)
-  let sig := "def " ++ fName ++ ".fmap " ++ ob ++ "α β : Type" ++ cb
-    ++ " (f : α → β) : " ++ fName ++ " α → " ++ fName ++ " β"
-  sig ++ "\n" ++ arms
+  let sig := s!"def {fName}.fmap {ob}α β : Type{cb} (f : α → β) : \
+    {fName} α → {fName} β"
+  s!"{sig}\n{arms}"
 
 /-- Emit `TF.fmapM [Monad m] (α → m β) → TF α → m (TF β)`. -/
 private def emitMapM (fName : String) (ctors : List CtorInfo) : String :=
   let armOf (c : CtorInfo) : String :=
-    let patArgs := String.join (c.args.map fun (n, _, _) => s!" {n}")
     -- Emit a `do` block: bind non-noSelf args via ←, pass noSelf args through.
     let binds : List String := c.args.filterMap fun (n, s, _) =>
       match s with
@@ -213,66 +220,69 @@ private def emitMapM (fName : String) (ctors : List CtorInfo) : String :=
       match s with
       | .noSelf => s!" {n}"
       | _       => s!" {n}_")
+    let pat := ctorPatArgs c
     if binds.isEmpty then
-      s!"  | .{c.short}{patArgs} => pure (.{c.short}{appArgs})"
+      s!"  | .{c.short}{pat} => pure (.{c.short}{appArgs})"
     else
       let bindBlock := joinLines binds
-      s!"  | .{c.short}{patArgs} => do\n{bindBlock}\n      return .{c.short}{appArgs}"
+      s!"  | .{c.short}{pat} => do\n{bindBlock}\n      \
+        return .{c.short}{appArgs}"
   let arms := joinLines (ctors.map armOf)
-  let sig := "def " ++ fName ++ ".fmapM " ++ ob ++ "m : Type → Type" ++ cb
-    ++ " [Monad m] " ++ ob ++ "α β : Type" ++ cb
-    ++ " (f : α → m β) : " ++ fName ++ " α → m (" ++ fName ++ " β)"
-  sig ++ "\n" ++ arms
+  let sig := s!"def {fName}.fmapM {ob}m : Type → Type{cb} [Monad m] \
+    {ob}α β : Type{cb} (f : α → m β) : {fName} α → m ({fName} β)"
+  s!"{sig}\n{arms}"
 
 /-- Emit the `Functor` instance. -/
 private def emitFunctorInstance (fName : String) : String :=
-  "instance : Functor " ++ fName ++ " where map := " ++ fName ++ ".fmap"
+  s!"instance : Functor {fName} where map := {fName}.fmap"
+
+/-- Emit a pure recursion-scheme combinator (`cata` or `para`).
+    The combinator name is `combName`; `algInputTy` is the type
+    `fmap` lifts `β` into for `alg` (`β` for cata, `T × β` for
+    para); `subTerm` is the value passed at each recursive
+    position (`T.cata alg` for cata; the `fun sub => …` sharing
+    needed for para). -/
+private def emitPureCombinator (tName fName combName : String)
+    (algInputTy subTerm : String) : String :=
+  joinLines [
+    s!"partial def {tName}.{combName} {ob}β : Type{cb} [Inhabited β]",
+    s!"    (alg : {fName} ({algInputTy}) → β) : {tName} → β :=",
+    s!"  fun e => alg ({fName}.fmap ({subTerm}) ({tName}.project e))"
+  ]
+
+/-- Emit a monadic recursion-scheme combinator (`cataM` or
+    `paraM`). See `emitPureCombinator` for the parameter
+    meanings; `subBindTerm` is the body passed at each recursive
+    position under `fmapM`. -/
+private def emitMonadicCombinator (tName fName combName : String)
+    (algInputTy subBindTerm : String) : String :=
+  joinLines [
+    s!"partial def {tName}.{combName} {ob}m : Type → Type{cb} \
+       [Monad m] {ob}β : Type{cb} [Inhabited (m β)]",
+    s!"    (alg : {fName} ({algInputTy}) → m β) : {tName} → m β :=",
+    "  fun e => do",
+    s!"    let mapped ← {fName}.fmapM ({subBindTerm}) \
+       ({tName}.project e)",
+    "    alg mapped"
+  ]
 
 /-- Emit `T.cata`. -/
 private def emitCata (tName fName : String) : String :=
-  joinLines [
-    "partial def " ++ tName ++ ".cata " ++ ob ++ "β : Type" ++ cb
-      ++ " [Inhabited β] (alg : " ++ fName ++ " β → β) : "
-      ++ tName ++ " → β :=",
-    "  fun e => alg (" ++ fName ++ ".fmap (" ++ tName
-      ++ ".cata alg) (" ++ tName ++ ".project e))"
-  ]
+  emitPureCombinator tName fName "cata" "β" s!"{tName}.cata alg"
 
 /-- Emit `T.cataM`. -/
 private def emitCataM (tName fName : String) : String :=
-  joinLines [
-    "partial def " ++ tName ++ ".cataM " ++ ob ++ "m : Type → Type" ++ cb
-      ++ " [Monad m] " ++ ob ++ "β : Type" ++ cb ++ " [Inhabited (m β)]",
-    "    (alg : " ++ fName ++ " β → m β) : " ++ tName ++ " → m β :=",
-    "  fun e => do",
-    "    let mapped ← " ++ fName ++ ".fmapM (" ++ tName
-      ++ ".cataM alg) (" ++ tName ++ ".project e)",
-    "    alg mapped"
-  ]
+  emitMonadicCombinator tName fName "cataM" "β" s!"{tName}.cataM alg"
 
 /-- Emit `T.para`. -/
 private def emitPara (tName fName : String) : String :=
-  joinLines [
-    "partial def " ++ tName ++ ".para " ++ ob ++ "β : Type" ++ cb ++ " [Inhabited β]",
-    "    (alg : " ++ fName ++ " (" ++ tName ++ " × β) → β) : "
-      ++ tName ++ " → β :=",
-    "  fun e => alg (" ++ fName ++ ".fmap (fun sub => (sub, "
-      ++ tName ++ ".para alg sub)) (" ++ tName ++ ".project e))"
-  ]
+  emitPureCombinator tName fName "para" s!"{tName} × β"
+    s!"fun sub => (sub, {tName}.para alg sub)"
 
 /-- Emit `T.paraM`. -/
 private def emitParaM (tName fName : String) : String :=
-  joinLines [
-    "partial def " ++ tName ++ ".paraM " ++ ob ++ "m : Type → Type" ++ cb
-      ++ " [Monad m] " ++ ob ++ "β : Type" ++ cb ++ " [Inhabited (m β)]",
-    "    (alg : " ++ fName ++ " (" ++ tName ++ " × β) → m β) : "
-      ++ tName ++ " → m β :=",
-    "  fun e => do",
-    "    let mapped ← " ++ fName
-      ++ ".fmapM (fun sub => do return (sub, ← " ++ tName
-      ++ ".paraM alg sub)) (" ++ tName ++ ".project e)",
-    "    alg mapped"
-  ]
+  emitMonadicCombinator tName fName "paraM" s!"{tName} × β"
+    s!"fun sub => do return (sub, ← {tName}.paraM alg sub)"
 
 /-- Parse and elaborate a generated command source (exactly one command). -/
 private def elabSource (src : String) : CommandElabM Unit := do

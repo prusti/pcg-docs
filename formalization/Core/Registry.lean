@@ -70,18 +70,24 @@ private def checkSymbolUnique
   | none => pure ()
   symbolRegistry.modify (· ++ [(rendered, typeName)])
 
+/-- Run `checkSymbolUnique` for both the display symbol and set
+    symbol of a named type. Used by `registerEnumDef`,
+    `registerStructDef`, and `registerAliasDef`. -/
+private def checkTypeSymbols
+    (symbolDoc setDoc : MathDoc) (typeName : String) : IO Unit := do
+  checkSymbolUnique symbolDoc typeName
+  checkSymbolUnique setDoc typeName
+
 /-- Register an enum definition from the given module. -/
 def registerEnumDef
     (e : EnumDef) (mod : Lean.Name) : IO Unit := do
-  checkSymbolUnique e.symbolDoc e.name.name
-  checkSymbolUnique e.setDoc e.name.name
+  checkTypeSymbols e.symbolDoc e.setDoc e.name.name
   enumRegistry.modify (· ++ [⟨e, mod⟩])
 
 /-- Register a struct definition from the given module. -/
 def registerStructDef
     (s : StructDef) (mod : Lean.Name) : IO Unit := do
-  checkSymbolUnique s.symbolDoc s.name
-  checkSymbolUnique s.setDoc s.name
+  checkTypeSymbols s.symbolDoc s.setDoc s.name
   structRegistry.modify (· ++ [⟨s, mod⟩])
 
 /-- Retrieve all registered enum definitions. -/
@@ -107,8 +113,7 @@ initialize aliasRegistry : IO.Ref (List RegisteredAlias) ←
 /-- Register a type-alias definition from the given module. -/
 def registerAliasDef
     (a : AliasDef) (mod : Lean.Name) : IO Unit := do
-  checkSymbolUnique a.symbolDoc a.name
-  checkSymbolUnique a.setDoc a.name
+  checkTypeSymbols a.symbolDoc a.setDoc a.name
   aliasRegistry.modify (· ++ [⟨a, mod⟩])
 
 /-- Retrieve all registered type-alias definitions. -/
