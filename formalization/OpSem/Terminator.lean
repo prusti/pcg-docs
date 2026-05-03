@@ -248,12 +248,31 @@ defFn evalTerminator (.plain "evalTerminator")
                   m args proof[h_Runnable] with
               | .none => StepResult.done .error
               | .some argVals =>
-                  StepResult.ok (createFrame
-                    m calleeBody argVals
-                    proof[h_Runnable.2]
-                    proof[validBody_of_fnFromPtr_eq_some
-                      m h_Runnable calleeVal calleeBody
-                      h_fnFrom])
+                  -- `createFrame` now requires
+                  -- `argVals.length ≤ calleeBody.numArgs`
+                  -- (so that combined with the new
+                  -- `validBody.numArgs < decls.length` invariant,
+                  -- the inner `liveAndStoreArgs` call can establish
+                  -- `1 + argVals.length ≤ calleeBody.decls.length`).
+                  -- Discharge the precondition with a runtime check
+                  -- on the decidable comparison: drop into
+                  -- `done .error` when the caller passed too many
+                  -- arguments for the callee. The captured
+                  -- `decide _ = true` equation is unfolded via
+                  -- `of_decide_eq_true` to the underlying
+                  -- `Nat.le` proof.
+                  match h_le : decide
+                      (argVals·length ≤ calleeBody↦numArgs) with
+                  | true =>
+                      StepResult.ok (createFrame
+                        m calleeBody argVals
+                        proof[h_Runnable.2]
+                        proof[validBody_of_fnFromPtr_eq_some
+                          m h_Runnable calleeVal calleeBody
+                          h_fnFrom]
+                        proof[of_decide_eq_true h_le])
+                  | false => StepResult.done .error
+                  end
               end
           end
       end

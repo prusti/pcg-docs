@@ -284,8 +284,11 @@ defProperty validBody (.plain "validBody")
     (doc! "{body} declares at least one local (its return \
       slot), {body} contains at least one basic block (its \
       entry block), every statement and terminator in {body} \
-      is valid against {body}, and every local declaration of \
-      {body} is a sized type")
+      is valid against {body}, every local declaration of \
+      {body} is a sized type, and {body}'s argument count is \
+      less than its local count (so the return slot at index 0 \
+      and the argument locals at indices 1 through `numArgs` \
+      all sit inside `decls`)")
   (body "The function body." : Body)
   :=
     body↦decls ≠ [] ∧
@@ -293,7 +296,8 @@ defProperty validBody (.plain "validBody")
     (body↦blocks·forAll fun bb =>
       (bb↦statements·forAll fun s => validStatement body s) ∧
       validTerminator body bb↦terminator) ∧
-    (body↦decls·forAll fun t => Ty.IsSized t)
+    (body↦decls·forAll fun t => Ty.IsSized t) ∧
+    body↦numArgs < body↦decls·length
 
 defFn placeTy (.plain "ty")
   (doc! "Compute the type of a place: look up the base local \

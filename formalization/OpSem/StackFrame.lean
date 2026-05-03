@@ -134,20 +134,20 @@ defFn storageLive (.plain "storageLive")
     let ty := frame↦body↦decls ! l↦index ;
     let sz := Ty.sizeOf ty
       proof[(by
-        -- `h_validStackFrame.1.2.2.2 : ∀ t ∈ frame.body.decls, IsSized t`
+        -- `h_validStackFrame.1.2.2.2.1 : ∀ t ∈ frame.body.decls, IsSized t`
         -- (`validBody = decls ≠ [] ∧ blocks ≠ [] ∧ … ∧
-        -- decls.forAll IsSized`, so `.1.2.2.2` reaches the
-        -- `IsSized` clause through the `validBody` outer
-        -- conjunct of the mem-threaded `validStackFrame`), and
-        -- `h_pre1 : validLocal frame.body l` (the second
-        -- precondition, named positionally because its argument
-        -- list isn't a bare-var sequence the DSL can name as
-        -- `h_validLocal`) pins the index in range, so
+        -- decls.forAll IsSized ∧ numArgs < decls.length`, so
+        -- `.1.2.2.2.1` reaches the `IsSized` clause through the
+        -- `validBody` outer conjunct of the mem-threaded
+        -- `validStackFrame`), and `h_pre1 : validLocal frame.body l`
+        -- (the second precondition, named positionally because its
+        -- argument list isn't a bare-var sequence the DSL can name
+        -- as `h_validLocal`) pins the index in range, so
         -- `decls[l.index]!` reduces to `decls[l.index]` — in
         -- the list, discharging `IsSized` directly.
         show Ty.IsSized (frame.body.decls[l.index]!)
         rw [getElem!_pos frame.body.decls l.index h_pre1]
-        exact h_validStackFrame.1.2.2.2 _
+        exact h_validStackFrame.1.2.2.2.1 _
           (List.getElem_mem h_pre1))] ;
     let addr := Memory.top mem1 ;
     let ⟨mem2, aid⟩ := Memory.allocate mem1 sz ;
@@ -158,51 +158,6 @@ defFn storageLive (.plain "storageLive")
     let newFrame :=
       StackFrame⟨frame1↦body, frame1↦pc, newLocals⟩ ;
     ⟨newFrame, mem2⟩
-
-/-! ## Body / pc preservation lemmas
-
-`storageDead` and `storageLive` only mutate the `locals` map: the
-underlying body and the program counter are unchanged. Tagging the
-following equations as `@[simp]` lets the auto-discharge tactic at
-recursive callers (`simp_all [validStackFrame]`) re-prove
-`validStackFrame` after the frame has been threaded through one of
-these helpers without needing a manual proof argument. -/
-
-@[simp] theorem storageDeadPtr_body
-    (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
-    (h : Memory.validPtr mem ptr) :
-    (storageDeadPtr frame mem l ptr h).fst.body = frame.body := by
-  unfold storageDeadPtr; split <;> rfl
-
-@[simp] theorem storageDeadPtr_pc
-    (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
-    (h : Memory.validPtr mem ptr) :
-    (storageDeadPtr frame mem l ptr h).fst.pc = frame.pc := by
-  unfold storageDeadPtr; split <;> rfl
-
-@[simp] theorem storageDead_body
-    (frame : StackFrame) (mem : Memory) (l : Local)
-    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
-    (storageDead frame mem l h₁ h₂).fst.body = frame.body := by
-  unfold storageDead; split <;> simp [storageDeadPtr_body]
-
-@[simp] theorem storageDead_pc
-    (frame : StackFrame) (mem : Memory) (l : Local)
-    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
-    (storageDead frame mem l h₁ h₂).fst.pc = frame.pc := by
-  unfold storageDead; split <;> simp [storageDeadPtr_pc]
-
-@[simp] theorem storageLive_body
-    (frame : StackFrame) (mem : Memory) (l : Local)
-    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
-    (storageLive frame mem l h₁ h₂).fst.body = frame.body := by
-  unfold storageLive; simp
-
-@[simp] theorem storageLive_pc
-    (frame : StackFrame) (mem : Memory) (l : Local)
-    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
-    (storageLive frame mem l h₁ h₂).fst.pc = frame.pc := by
-  unfold storageLive; simp
 
 end StackFrame
 
@@ -264,6 +219,67 @@ where
             validStack t mem,
             headDisjointTail h t mem)
       ⊢ validStack (h :: t) mem
+
+/-! ## Body / pc preservation lemmas
+
+`storageDead` and `storageLive` only mutate the `locals` map: the
+underlying body and the program counter are unchanged. Tagging the
+following equations as `@[simp]` lets the auto-discharge tactic at
+recursive callers (`simp_all [validStackFrame]`) re-prove
+`validStackFrame` after the frame has been threaded through one of
+these helpers without needing a manual proof argument. The lemmas
+sit in `defRaw after` blocks so they appear in the generated Lean
+project alongside the source build (downstream proofs in
+`createFrame` use them to discharge the `validBody.numArgs <
+decls.length` bound on `liveAndStoreArgs`'s precondition). -/
+
+defRaw after =>
+open StackFrame Memory in
+@[simp] theorem StackFrame.storageDeadPtr_body
+    (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
+    (h : Memory.validPtr mem ptr) :
+    (StackFrame.storageDeadPtr frame mem l ptr h).fst.body = frame.body := by
+  unfold StackFrame.storageDeadPtr; split <;> rfl
+
+defRaw after =>
+open StackFrame Memory in
+@[simp] theorem StackFrame.storageDeadPtr_pc
+    (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
+    (h : Memory.validPtr mem ptr) :
+    (StackFrame.storageDeadPtr frame mem l ptr h).fst.pc = frame.pc := by
+  unfold StackFrame.storageDeadPtr; split <;> rfl
+
+defRaw after =>
+open StackFrame Memory in
+@[simp] theorem StackFrame.storageDead_body
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    (StackFrame.storageDead frame mem l h₁ h₂).fst.body = frame.body := by
+  unfold StackFrame.storageDead; split <;> simp [StackFrame.storageDeadPtr_body]
+
+defRaw after =>
+open StackFrame Memory in
+@[simp] theorem StackFrame.storageDead_pc
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    (StackFrame.storageDead frame mem l h₁ h₂).fst.pc = frame.pc := by
+  unfold StackFrame.storageDead; split <;> simp [StackFrame.storageDeadPtr_pc]
+
+defRaw after =>
+open StackFrame Memory in
+@[simp] theorem StackFrame.storageLive_body
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    (StackFrame.storageLive frame mem l h₁ h₂).fst.body = frame.body := by
+  unfold StackFrame.storageLive; simp
+
+defRaw after =>
+open StackFrame Memory in
+@[simp] theorem StackFrame.storageLive_pc
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    (StackFrame.storageLive frame mem l h₁ h₂).fst.pc = frame.pc := by
+  unfold StackFrame.storageLive; simp
 
 -- The four `defRaw after` theorems below splice into both
 -- the in-tree elaboration and the generated Lean project.

@@ -266,7 +266,7 @@ defFn createFrame (.plain "createFrame")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
-  requires validMachine m, validBody body
+  requires validMachine m, validBody body, args·length ≤ body↦numArgs
   : Machine :=
     let initFrame := StackFrame⟨body, START, mapEmpty‹›⟩ ;
     -- `storageLive`'s result is bound to a single name and accessed
@@ -319,15 +319,23 @@ defFn createFrame (.plain "createFrame")
           intro i hlo hhi
           omega)]
         proof[(by
-          -- Discharging `1 + args.length ≤ frame1.body.decls.length`
-          -- requires `body.numArgs = args.length` plus a
-          -- `numArgs < decls.length` conjunct on `validBody`;
-          -- neither invariant is propagated from `evalTerminator`
-          -- through `evalArgs` today, so left as `sorry`. The
-          -- bound is now an explicit precondition on
-          -- `liveAndStoreArgs` (no longer hidden inside its
-          -- body), so this is the single tracked obligation.
-          sorry)] ;
+          -- Discharge `1 + args.length ≤ frame1.body.decls.length`.
+          -- `frame1.body = body` because `storageLive` does not
+          -- modify the body (witnessed by `StackFrame.storageLive_body`).
+          -- With `frame1.body = body` in hand, combine:
+          --   * `args.length ≤ body.numArgs`         (h_pre2, the
+          --     new precondition added to `createFrame`)
+          --   * `body.numArgs < body.decls.length`   (the new
+          --     `validBody` conjunct, projected as
+          --     `h_validBody.2.2.2.2`)
+          -- to conclude `1 + args.length ≤ body.decls.length`.
+          have h_body :
+              (Prod.fst storageLive_initLocal0).body = body := by
+            unfold storageLive_initLocal0
+            exact StackFrame.storageLive_body initFrame m.mem ⟨0⟩ _ _
+          rw [h_body]
+          have h_numArgs := h_validBody.2.2.2.2
+          omega)] ;
     -- Witness: every argument local is allocated in the
     -- post-call frame. The bound name is unused at runtime
     -- (prefixed with `_` to silence the unused-let warning);
@@ -382,5 +390,9 @@ defFn initialMachine (.plain "initialMachine")
         intro _ _ h_pre0
         exact absurd h_pre0.2 (Nat.not_lt_zero _))]
       proof[validBody_startProgram program h_validProgram]
+      proof[(by
+        -- `args = []`: `[].length = 0 ≤ body.numArgs` is trivial.
+        show ([] : List Value).length ≤ body.numArgs
+        simp)]
 
 end Machine

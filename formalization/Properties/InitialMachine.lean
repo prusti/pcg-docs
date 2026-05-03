@@ -291,7 +291,7 @@ private theorem initialMachine_alloc_data_eq_replicate
   · show Ty.IsSized ((Program.startProgram pr h).decls[0]!)
     rw [getElem!_pos (Program.startProgram pr h).decls 0
       (List.length_pos_iff.mpr hvb.1)]
-    exact hvb.2.2.2 _ (List.getElem_mem _)
+    exact hvb.2.2.2.1 _ (List.getElem_mem _)
   · rw [ha]; rfl
 
 private theorem initialMachine_alloc_data_uninit
