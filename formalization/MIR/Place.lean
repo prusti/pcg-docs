@@ -49,9 +49,6 @@ where
 defRaw after => {
 deriving instance ReflBEq for FieldIdx
 deriving instance LawfulBEq for FieldIdx
-}
-
-defRaw after => {
 deriving instance ReflBEq for VariantIdx
 deriving instance LawfulBEq for VariantIdx
 }
@@ -94,21 +91,21 @@ where
 -- `LawfulBEq (List ProjElem)` is provided by stdlib whenever
 -- `LawfulBEq ProjElem` is in scope; combined with `LawfulBEq
 -- Local`, that gives `LawfulBEq Place`.
-defRaw after => {
-deriving instance ReflBEq for Place
-deriving instance LawfulBEq for Place
-}
-
+--
 -- `LawfulHashable Place` lets `Std.HashSet`/`Std.HashMap` lemmas
 -- (`mem_insert`, `mem_union_iff`, `mem_toList`, …) discharge
 -- against a `Set Place` or `Map _ Place`. The standard "two
 -- equal-by-`BEq` values hash the same" proof goes via
 -- `LawfulBEq.eq_of_beq` followed by `rfl` on the now-equal
 -- inputs.
-defRaw after =>
+defRaw after => {
+deriving instance ReflBEq for Place
+deriving instance LawfulBEq for Place
+
 instance : LawfulHashable Place where
   hash_eq {a b} h := by
     have heq : a = b := LawfulBEq.eq_of_beq h
     subst heq; rfl
+}
 
 defAlias RETURN = Place⟨Local⟨0⟩, []⟩

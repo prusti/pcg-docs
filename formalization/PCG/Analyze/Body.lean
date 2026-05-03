@@ -55,7 +55,7 @@ defFn bbContains (.plain "bbContains")
 -- DSL-generated function definitions.
 -- ══════════════════════════════════════════════
 
-defRaw middle =>
+defRaw middle => {
 /-- DFS-postorder walk of the CFG rooted at `curr`. The
     successor list is inlined to avoid a forward reference
     to `Terminator.termSuccessors`, which is generated
@@ -85,11 +85,11 @@ private partial def dfsVisit
       (visited1, post)
     (r.1, r.2 ++ [curr])
 
-defRaw middle =>
 /-- Reverse postorder of the CFG starting from block 0. -/
 private def reversePostorder (body : Body)
     : List BasicBlockIdx :=
   (dfsVisit body [] [] ⟨0⟩).2.reverse
+}
 
 -- ══════════════════════════════════════════════
 -- Pushing a block's exit state to its successors

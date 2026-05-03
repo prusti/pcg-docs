@@ -196,12 +196,12 @@ allocation's `data.length` all survive the update — which
 is enough to lift `validMemory` and (in `StackFrame`)
 `validStack` through a store. The public lemmas below name
 the per-field preservation facts (`store_alloc_*_unchanged`)
-and combine them into `store_preserves_validMemory`. Each
-declaration sits in its own `defRaw after` block so the
-export pipeline copies it verbatim into the generated
-project (each `defRaw` carries exactly one Lean command). -/
+and combine them into `store_preserves_validMemory`. The
+declarations all sit inside one `defRaw after => { ... }`
+block so the export pipeline copies each verbatim into the
+generated project. -/
 
-defRaw after =>
+defRaw after => {
 /-- `writeBytesAt` preserves length when the slice fits inside
     the original sequence: `take offset ++ bytes ++ drop
     (offset + bytes.length)` rebuilds a list of the same length
@@ -215,7 +215,7 @@ private theorem Memory.writeBytesAt_length_eq
   simp only [List.length_append, List.length_take, List.length_drop]
   omega
 
-defRaw after =>
+
 /-- From `checkPtr m ptr len = some (aid, offset)` recover the
     `canAccess` predicate on the looked-up allocation: this is
     the only branch of `checkPtr` that returns `some`. -/
@@ -238,7 +238,7 @@ private theorem Memory.canAccess_of_checkPtr_eq_some
       rw [← h_aid]; exact h_can
     · simp at h
 
-defRaw after =>
+
 /-- From `checkPtr m ptr len = some (aid, offset)` recover the
     relation `offset = ptr.addr - alloc.address` between the
     returned offset and the looked-up allocation. -/
@@ -262,7 +262,7 @@ private theorem Memory.offset_of_checkPtr_eq_some
       rw [← h_aid]; exact h_off_p
     · simp at h
 
-defRaw after =>
+
 /-- The overwritten allocation produced by `Memory.store` (in
     its `some` branch) keeps the original allocation's
     `address` and `data.length`. The latter rests on
@@ -299,7 +299,7 @@ private theorem Memory.store_overwritten_data_length_eq
   apply Memory.writeBytesAt_length_eq
   omega
 
-defRaw after =>
+
 /-- The shape of the new allocation list produced by
     `Memory.store` in its `some` branch. Centralises the
     repeated `m.allocs.set aid.index { id := …, data :=
@@ -325,7 +325,7 @@ private theorem Memory.store_allocs_set_getElem!
     rw [if_pos rfl, List.getElem_set_self]
   · rw [if_neg hi, List.getElem_set_ne (Ne.symm hi), getElem!_pos _ i h]
 
-defRaw after =>
+
 /-- `Memory.store` preserves `endAddr` for every allocation.
     Either branch of `Memory.store` (no-op or in-place
     overwrite at `aid.index`) leaves every allocation's
@@ -354,7 +354,7 @@ theorem Memory.store_alloc_endAddr_unchanged
       simp only [h_new]
     · simp only [if_neg hi]
 
-defRaw after =>
+
 /-- `Memory.store` preserves the `address` field of every
     existing allocation. Either branch of `Memory.store` (no-op
     or in-place overwrite) leaves the address alone. -/
@@ -374,7 +374,7 @@ theorem Memory.store_alloc_address_unchanged
     · subst hi; simp only [if_true]
     · simp only [if_neg hi]
 
-defRaw after =>
+
 /-- `Memory.store` preserves the number of allocations: either
     branch leaves the list length alone (`List.set` has the
     same length). -/
@@ -388,7 +388,7 @@ theorem Memory.store_allocs_length_unchanged
     obtain ⟨aid, offset⟩ := p
     unfold listSet; simp
 
-defRaw after =>
+
 /-- `Memory.store` preserves `Memory.validMemory`. The
     overwritten allocation keeps its `address` and (under
     `canAccess`) its `data.length`, so every `endAddr` is
@@ -417,7 +417,7 @@ preservation lemmas below let consumers (`StackFrame.storageLive`,
 `StackFrame.storageDead`) lift `validMemory` and `validPtr` through
 either operation. -/
 
-defRaw after =>
+
 /-- `Memory.allocate` increases `allocs.length` by exactly one.
     `Memory.allocate` appends a single fresh allocation onto the
     `allocs` list. -/
@@ -426,7 +426,7 @@ theorem Memory.allocate_allocs_length
     (Memory.allocate m size).fst.allocs.length = m.allocs.length + 1 := by
   unfold Memory.allocate; simp
 
-defRaw after =>
+
 /-- `Memory.allocate` returns the next allocation id, equal to
     the count of allocations already in the input memory. -/
 theorem Memory.allocate_aid_index
@@ -434,7 +434,7 @@ theorem Memory.allocate_aid_index
     (Memory.allocate m size).snd.index = m.allocs.length := by
   unfold Memory.allocate; rfl
 
-defRaw after =>
+
 /-- `Memory.allocate` preserves the list-prefix of allocations:
     every existing allocation index `i` retains its identity. -/
 theorem Memory.allocate_alloc_unchanged
@@ -447,7 +447,7 @@ theorem Memory.allocate_alloc_unchanged
   unfold Memory.allocate
   exact List.getElem_append_left h
 
-defRaw after =>
+
 /-- `Memory.allocate` preserves the `address` field of every
     existing allocation: the appended new allocation does not
     disturb earlier indices. -/
@@ -457,7 +457,7 @@ theorem Memory.allocate_alloc_address_unchanged
       = (m.allocs[i]!).address := by
   rw [Memory.allocate_alloc_unchanged m size i h]
 
-defRaw after =>
+
 /-- `Memory.allocate` preserves `endAddr` for every existing
     allocation. -/
 theorem Memory.allocate_alloc_endAddr_unchanged
@@ -466,7 +466,7 @@ theorem Memory.allocate_alloc_endAddr_unchanged
       = Allocation.endAddr (m.allocs[i]!) := by
   rw [Memory.allocate_alloc_unchanged m size i h]
 
-defRaw after =>
+
 /-- The new allocation produced by `Memory.allocate` sits at index
     `m.allocs.length` and has address `Memory.top m`. -/
 theorem Memory.allocate_new_alloc_address
@@ -486,7 +486,7 @@ theorem Memory.allocate_new_alloc_address
   rw [List.getElem_append_right (Nat.le_refl _)]
   simp
 
-defRaw after =>
+
 /-- For a `validMemory` `m`, the next free address `top m` is
     strictly above every existing allocation's `endAddr`. This is
     the key fact making `Memory.allocate` preserve `validMemory`:
@@ -532,7 +532,7 @@ theorem Memory.endAddr_lt_top
         < (m.allocs[m.allocs.length - 1]!).address.addr := h_pair
     omega
 
-defRaw after =>
+
 /-- `Memory.allocate` preserves `Memory.validMemory`. Existing
     pairs of allocations keep their addresses (and hence their
     strict ordering); the new allocation appended at the end has
@@ -562,7 +562,7 @@ theorem Memory.allocate_preserves_validMemory
         Memory.allocate_new_alloc_address]
     exact Memory.endAddr_lt_top m hvm i hi_old
 
-defRaw after =>
+
 /-- `Memory.allocate` preserves `validPtr`: pointer validity only
     depends on the allocation count of the memory, which only
     grows. -/
@@ -580,7 +580,7 @@ theorem Memory.allocate_preserves_validPtr
     rw [Memory.allocate_allocs_length]
     omega
 
-defRaw after =>
+
 /-- The freshly minted allocation id from `Memory.allocate` is a
     valid id in the post-allocate memory: its index equals the
     pre-allocate length, and the post-allocate length is
@@ -593,7 +593,7 @@ theorem Memory.validAllocId_allocate_snd
   rw [Memory.allocate_aid_index, Memory.allocate_allocs_length]
   omega
 
-defRaw after =>
+
 /-- `Memory.deallocate` preserves `allocs.length`: it replaces one
     allocation in-place via `listSet`. -/
 theorem Memory.deallocate_allocs_length_unchanged
@@ -602,7 +602,7 @@ theorem Memory.deallocate_allocs_length_unchanged
   unfold Memory.deallocate
   unfold listSet; simp
 
-defRaw after =>
+
 /-- `Memory.deallocate` preserves the `address` field of every
     allocation. The "dead" allocation produced inside copies the
     original's address; `List.set` leaves every other index
@@ -627,7 +627,7 @@ theorem Memory.deallocate_alloc_address_unchanged
     rfl
   · rw [List.getElem_set_ne (Ne.symm hi)]
 
-defRaw after =>
+
 /-- `Memory.deallocate` preserves `endAddr` for every allocation:
     same argument as `address`-preservation — the dead replacement
     allocation copies both `address` and `data` from the original. -/
@@ -649,7 +649,7 @@ theorem Memory.deallocate_alloc_endAddr_unchanged
     rfl
   · rw [List.getElem_set_ne (Ne.symm hi)]
 
-defRaw after =>
+
 /-- `Memory.deallocate` preserves `Memory.validMemory`: every
     allocation's `address` and `endAddr` are unchanged, so the
     strict-ordering invariant carries through pointwise. -/
@@ -668,7 +668,7 @@ theorem Memory.deallocate_preserves_validMemory
       Memory.deallocate_alloc_address_unchanged m id h j hjlen']
   exact hvm i j ⟨hij, hjlen'⟩
 
-defRaw after =>
+
 /-- `Memory.deallocate` preserves `validPtr`: only the
     allocation count enters `validPtr`, and it is unchanged. -/
 theorem Memory.deallocate_preserves_validPtr
@@ -685,3 +685,5 @@ theorem Memory.deallocate_preserves_validPtr
     unfold Memory.validProvenance Memory.validAllocId at *
     rw [Memory.deallocate_allocs_length_unchanged]
     exact h_ptr
+
+}

@@ -40,7 +40,7 @@ defFn obtainTriples (.plain "obtainTriples")
 -- module (in source they live at top level). Open all of them
 -- here so the helper proofs below can refer to the unqualified
 -- names in both builds.
-defRaw inFns =>
+defRaw inFns => {
 open Operand Mutability Statement Terminator Rvalue AnalysisObject Ty Body
 
 -- Lawful-equality / hashable instances on `Capability` and
@@ -51,25 +51,20 @@ open Operand Mutability Statement Terminator Rvalue AnalysisObject Ty Body
 -- spelled out by hand: each `==` case either reduces to `rfl`
 -- (matching constructors) or contradicts the `h : a == b`
 -- hypothesis (mismatched constructors give `h : false = true`).
-defRaw inFns =>
 private instance instReflBEqCapability : ReflBEq Capability where
   rfl := by intro c; cases c <;> rfl
 
-defRaw inFns =>
 private instance instLawfulBEqCapability : LawfulBEq Capability where
   eq_of_beq {a b} h := by
     cases a <;> cases b <;> first | rfl | cases h
 
-defRaw inFns =>
 private instance instLawfulHashableCapability : LawfulHashable Capability where
   hash_eq {a b} h := by
     have : a = b := LawfulBEq.eq_of_beq h
     subst this; rfl
 
-defRaw inFns =>
 deriving instance ReflBEq, LawfulBEq for PlaceTriple
 
-defRaw inFns =>
 private instance instLawfulHashablePlaceTriple : LawfulHashable PlaceTriple where
   hash_eq {a b} h := by
     have : a = b := LawfulBEq.eq_of_beq h
@@ -80,12 +75,10 @@ private instance instLawfulHashablePlaceTriple : LawfulHashable PlaceTriple wher
 -- `Runtime/Set.lean`) so they only impose `LawfulBEq` /
 -- `LawfulHashable` requirements where the consumers actually
 -- need them.
-defRaw inFns =>
 private theorem not_mem_empty_toList {α} [BEq α] [Hashable α]
     {t : α} : t ∉ (∅ : Set α).toList := by
   rw [Std.HashSet.toList_empty]; exact List.not_mem_nil
 
-defRaw inFns =>
 private theorem mem_singleton_toList {α} [BEq α] [LawfulBEq α]
     [Hashable α] [LawfulHashable α] {a t : α}
     (h : t ∈ (Set.singleton a).toList) : t = a := by
@@ -95,21 +88,18 @@ private theorem mem_singleton_toList {α} [BEq α] [LawfulBEq α]
   · exact (LawfulBEq.eq_of_beq h).symm
   · exact absurd h Std.HashSet.not_mem_empty
 
-defRaw inFns =>
 private theorem mem_set_singleton {α} [BEq α] [Hashable α]
     [EquivBEq α] [LawfulHashable α] (a : α) :
     a ∈ (Set.singleton a) := by
   unfold Set.singleton
   exact Std.HashSet.mem_insert_self
 
-defRaw inFns =>
 private theorem mem_option_some_toSet {α} [BEq α] [Hashable α]
     [EquivBEq α] [LawfulHashable α] (a : α) :
     a ∈ ((some a : Option α).toSet) := by
   unfold Option.toSet Set.ofOption
   exact mem_set_singleton a
 
-defRaw inFns =>
 private theorem mem_union_toList {α} [BEq α] [LawfulBEq α]
     [Hashable α] [LawfulHashable α] {s₁ s₂ : Set α} {t : α}
     (h : t ∈ (s₁ ++ s₂).toList) :
@@ -124,7 +114,6 @@ private theorem mem_union_toList {α} [BEq α] [LawfulBEq α]
     rw [Std.HashSet.mem_toList]
     exact Std.HashSet.mem_of_mem_union_of_not_mem_left h h1
 
-defRaw inFns =>
 private theorem foldl_union_mem_split {α β} [BEq β] [Hashable β]
     [EquivBEq β] [LawfulHashable β] (f : α → Std.HashSet β) (l : List α) (t : β) :
     ∀ acc : Std.HashSet β,
@@ -144,7 +133,6 @@ private theorem foldl_union_mem_split {α β} [BEq β] [Hashable β]
         exact Std.HashSet.mem_of_mem_union_of_not_mem_left hAcc h1
     · exact Or.inr ⟨a, List.mem_cons_of_mem _ ha, hb⟩
 
-defRaw inFns =>
 private theorem mem_flatMapList_toList {α β} [BEq β] [LawfulBEq β]
     [Hashable β] [LawfulHashable β] {l : List α} {f : α → Set β} {t : β}
     (h : t ∈ (Set.flatMapList l f).toList) :
@@ -155,7 +143,6 @@ private theorem mem_flatMapList_toList {α β} [BEq β] [LawfulBEq β]
   · exact absurd h Std.HashSet.not_mem_empty
   · exact ⟨a, ha, by rw [Std.HashSet.mem_toList]; exact hb⟩
 
-defRaw inFns =>
 private theorem foldl_union_mem_introduce {α β} [BEq β] [Hashable β]
     [EquivBEq β] [LawfulHashable β] (f : α → Set β) (b : β) :
     ∀ (l : List α) (acc : Std.HashSet β),
@@ -182,7 +169,6 @@ private theorem foldl_union_mem_introduce {α β} [BEq β] [Hashable β]
         exact Std.HashSet.mem_union_of_right hb
       · right; exact ⟨a, hx, hb⟩
 
-defRaw inFns =>
 private theorem mem_flatMapList_of_mem {α β} [BEq β] [Hashable β]
     [EquivBEq β] [LawfulHashable β] {l : List α} {f : α → Set β}
     {a : α} {b : β} (ha : a ∈ l) (hb : b ∈ f a) :
@@ -190,7 +176,6 @@ private theorem mem_flatMapList_of_mem {α β} [BEq β] [Hashable β]
   unfold Set.flatMapList
   exact foldl_union_mem_introduce f b l ∅ (Or.inr ⟨a, ha, hb⟩)
 
-defRaw inFns =>
 /-- A nil-projection place is a valid place whenever the
     underlying local is a valid local (`validProjTy _ []` holds
     by definition). -/
@@ -202,7 +187,6 @@ private theorem validPlace_of_validLocal_nilProj
   unfold validProjTy
   trivial
 
-defRaw inFns =>
 /-- Every triple in `(operandTriple o).toList` carries the
     operand's place; if the operand's place is valid in `body`,
     so is the triple's. -/
@@ -225,7 +209,6 @@ private theorem operandTriple_validPlace
   | const _ =>
     exact absurd ht not_mem_empty_toList
 
-defRaw inFns =>
 /-- Every triple in `(statementTriples s).toList` has a valid
     place when `s` is a valid statement. -/
 private theorem statementTriples_validPlace
@@ -279,7 +262,6 @@ private theorem statementTriples_validPlace
   | storageDead _ =>
     exact absurd ht not_mem_empty_toList
 
-defRaw inFns =>
 /-- Every triple in `(terminatorTriples term).toList` has a
     valid place when `term` is a valid terminator. -/
 private theorem terminatorTriples_validPlace
@@ -347,7 +329,6 @@ private theorem terminatorTriples_validPlace
       rw [hp]
       exact mem_option_some_toSet p
 
-defRaw inFns =>
 /-- Every triple in `(operandTriples ao).toList` has a valid
     place when `ao` is a valid analysis object. -/
 private theorem operandTriples_validPlace
@@ -365,7 +346,6 @@ private theorem operandTriples_validPlace
     have hs : validTerminator body term := h
     exact terminatorTriples_validPlace body term hs t ht
 
-defRaw inFns =>
 /-- Every triple in `(mainTriples ao).toList` has a valid place
     when `ao` is a valid analysis object. -/
 private theorem mainTriples_validPlace
@@ -435,7 +415,6 @@ private theorem mainTriples_validPlace
       apply Std.HashSet.mem_union_of_left
       exact mem_set_singleton dest
 
-defRaw inFns =>
 /-- The combined precondition `analyze` discharges for its
     `obtainTriples` call: every triple produced by the phase's
     `match` over `operandTriples ao` / `mainTriples ao` / `∅`
@@ -469,6 +448,8 @@ private theorem analyze_triples_validPlace
     exact absurd ht not_mem_empty_toList
   | postMain =>
     exact absurd ht not_mem_empty_toList
+
+}
 
 defFn analyze (.plain "analyze")
   (doc! "Step the PCG state across a single statement evaluation phase. First looks up the analysis \

@@ -233,7 +233,20 @@ project alongside the source build (downstream proofs in
 `createFrame` use them to discharge the `validBody.numArgs <
 decls.length` bound on `liveAndStoreArgs`'s precondition). -/
 
-defRaw after =>
+-- The body/pc-preservation simp lemmas and the `validStack`
+-- projection theorems below splice into both the in-tree
+-- elaboration and the generated Lean project. Each uses
+-- `open StackFrame Memory in theorem ...` so the unqualified
+-- `validStackFrame` resolves in either namespace: the in-tree
+-- source places it at `StackFrame.validStackFrame` (it's
+-- defined inside this file's `namespace StackFrame ... end
+-- StackFrame` block), while the Lean exporter lifts it into
+-- `Memory.validStackFrame` (its first param's type is
+-- `Memory`). The same dual-`open` pattern handles
+-- `headDisjointTail`, which is top-level in-tree but
+-- `StackFrame.headDisjointTail` in the generated project
+-- (its first param is `StackFrame`).
+defRaw after => {
 open StackFrame Memory in
 @[simp] theorem StackFrame.storageDeadPtr_body
     (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
@@ -241,7 +254,6 @@ open StackFrame Memory in
     (StackFrame.storageDeadPtr frame mem l ptr h).fst.body = frame.body := by
   unfold StackFrame.storageDeadPtr; split <;> rfl
 
-defRaw after =>
 open StackFrame Memory in
 @[simp] theorem StackFrame.storageDeadPtr_pc
     (frame : StackFrame) (mem : Memory) (l : Local) (ptr : ThinPointer)
@@ -249,7 +261,6 @@ open StackFrame Memory in
     (StackFrame.storageDeadPtr frame mem l ptr h).fst.pc = frame.pc := by
   unfold StackFrame.storageDeadPtr; split <;> rfl
 
-defRaw after =>
 open StackFrame Memory in
 @[simp] theorem StackFrame.storageDead_body
     (frame : StackFrame) (mem : Memory) (l : Local)
@@ -257,7 +268,6 @@ open StackFrame Memory in
     (StackFrame.storageDead frame mem l h₁ h₂).fst.body = frame.body := by
   unfold StackFrame.storageDead; split <;> simp [StackFrame.storageDeadPtr_body]
 
-defRaw after =>
 open StackFrame Memory in
 @[simp] theorem StackFrame.storageDead_pc
     (frame : StackFrame) (mem : Memory) (l : Local)
@@ -265,7 +275,6 @@ open StackFrame Memory in
     (StackFrame.storageDead frame mem l h₁ h₂).fst.pc = frame.pc := by
   unfold StackFrame.storageDead; split <;> simp [StackFrame.storageDeadPtr_pc]
 
-defRaw after =>
 open StackFrame Memory in
 @[simp] theorem StackFrame.storageLive_body
     (frame : StackFrame) (mem : Memory) (l : Local)
@@ -273,7 +282,6 @@ open StackFrame Memory in
     (StackFrame.storageLive frame mem l h₁ h₂).fst.body = frame.body := by
   unfold StackFrame.storageLive; simp
 
-defRaw after =>
 open StackFrame Memory in
 @[simp] theorem StackFrame.storageLive_pc
     (frame : StackFrame) (mem : Memory) (l : Local)
@@ -281,19 +289,6 @@ open StackFrame Memory in
     (StackFrame.storageLive frame mem l h₁ h₂).fst.pc = frame.pc := by
   unfold StackFrame.storageLive; simp
 
--- The four `defRaw after` theorems below splice into both
--- the in-tree elaboration and the generated Lean project.
--- Each uses `open StackFrame Memory in theorem ...` so the
--- unqualified `validStackFrame` resolves in either namespace:
--- the in-tree source places it at `StackFrame.validStackFrame`
--- (it's defined inside this file's
--- `namespace StackFrame ... end StackFrame` block), while the
--- Lean exporter lifts it into `Memory.validStackFrame` (its
--- first param's type is `Memory`). The same dual-`open`
--- pattern handles `headDisjointTail`, which is top-level
--- in-tree but `StackFrame.headDisjointTail` in the generated
--- project (its first param is `StackFrame`).
-defRaw after => {
 open StackFrame Memory in
 /-- The head of a non-empty `validStack` is itself a
     `validStackFrame` against the same memory. Direct
@@ -344,9 +339,7 @@ theorem validStack.frame_valid
     rcases List.mem_cons.mp hf with rfl | h_in_t
     · exact validStack.head h
     · exact ih (validStack.tail h) h_in_t
-}
 
-defRaw after => {
 open Memory in
 /-- `Memory.store` preserves `validPtr`: pointer validity only
     depends on the allocation count of the memory, which
@@ -504,7 +497,6 @@ theorem validStack.store_preserves
     · exact StackFrame.validStackFrame_store_preserves _ _ h_vsf
     · exact ih
     · exact headDisjointTail_store_preserves _ _ h_disj
-}
 
 /-! ## Frame-preservation lemmas for `storageDead` and `storageLive`
 
@@ -516,7 +508,6 @@ to a pointer with that fresh provenance. The two preservation lemmas
 below let `createFrame` discharge `validMemory` / `validStackFrame` on
 the post-`storageLive` state. -/
 
-defRaw after => {
 open StackFrame Memory in
 /-- `storageDeadPtr` preserves `validMemory`: the only memory mutation
     is `Memory.deallocate`, which preserves `validMemory`. The proof
@@ -567,9 +558,7 @@ theorem StackFrame.storageLive_preserves_validMemory
   simp only
   exact Memory.allocate_preserves_validMemory _ _
     (storageDead_preserves_validMemory frame mem l h₁ h₂ hvm)
-}
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageDeadPtr` preserves `validPtr`: `Memory.deallocate`
     preserves `validPtr` (count-based) and the unchanged-memory arm
@@ -590,7 +579,6 @@ theorem StackFrame.storageDeadPtr_preserves_validPtr
     simp only
     exact h_p
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageDead` preserves `validPtr`: either the memory is
     unchanged or `storageDeadPtr_preserves_validPtr` applies. -/
@@ -604,7 +592,6 @@ theorem StackFrame.storageDead_preserves_validPtr
   · exact h_p
   · exact StackFrame.storageDeadPtr_preserves_validPtr _ h_p
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageDeadPtr` preserves `validStackFrame`: the dropped
     locals entry is the only locals-map change (via `mapRemove`),
@@ -635,7 +622,6 @@ theorem StackFrame.storageDeadPtr_preserves_validStackFrame
     simp only
     exact h₁
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageDead` preserves `validStackFrame`: either the
     memory and frame are returned unchanged (the `.none` arm)
@@ -650,7 +636,6 @@ theorem StackFrame.storageDead_preserves_validStackFrame
   · exact h₁
   · exact StackFrame.storageDeadPtr_preserves_validStackFrame _ h₁
 
-defRaw after =>
 open StackFrame Memory in
 /-- `Memory.allocate` preserves `validStackFrame`: body and pc are
     independent of memory; existing locals' validity (count-based)
@@ -663,7 +648,6 @@ theorem StackFrame.validStackFrame_allocate_preserves
   intro ptr hptr
   exact Memory.allocate_preserves_validPtr size (h.2.2 ptr hptr)
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageLive` preserves `validStackFrame`: body and pc are
     unchanged by construction; the new locals map's only fresh
@@ -713,7 +697,6 @@ theorem StackFrame.storageLive_preserves_validStackFrame
       have h_old := h_dd.2.2 ptr hptr_old
       exact Memory.allocate_preserves_validPtr _ h_old
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageLive frame mem ⟨k⟩ _ _` extends `localsAllocated`
     from the half-open range `[1, k)` to `[1, k+1)`: the
@@ -768,4 +751,4 @@ theorem StackFrame.storageLive_localsAllocated_extend
         · rfl
     rw [h_dd_lookup]
     exact h_alloc i hlo h_lt
-
+}

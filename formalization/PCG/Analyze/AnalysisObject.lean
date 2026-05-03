@@ -121,13 +121,9 @@ defFn mainTriples (.plain "mainTriples")
 -- below; later-declared instances take precedence in Lean's
 -- instance resolution, so they outrank the auto-derived
 -- defaults the exporter emits earlier in the file.
-defRaw inFns =>
+defRaw inFns => {
 instance : Inhabited Terminator := ⟨.unreachable⟩
-
-defRaw inFns =>
 instance : Inhabited Statement := ⟨.storageLive ⟨0⟩⟩
-
-defRaw inFns =>
 instance : Inhabited BasicBlock := ⟨⟨[], .unreachable⟩⟩
 
 -- Bridge from #validBody to the postcondition of
@@ -151,12 +147,10 @@ instance : Inhabited BasicBlock := ⟨⟨[], .unreachable⟩⟩
 --
 -- Stated and proved here so that #getAnalysisObject's
 -- `ensures` clause can attach it via the DSL's `via`
--- extension. Wrapped in `defRaw inFns =>` so the lemma is
--- declared in the in-tree build (for the `via` to typecheck)
--- and is also re-emitted into the generated Lean export
--- right before #getAnalysisObject (so the exported `via`
--- block can resolve the same name).
-defRaw inFns =>
+-- extension. The lemma is declared in the in-tree build
+-- (for the `via` to typecheck) and is also re-emitted into
+-- the generated Lean export right before #getAnalysisObject
+-- (so the exported `via` block can resolve the same name).
 theorem validAnalysisObject_of_getAnalysisObject_body
     (body : Body) (loc : Location)
     (h_validBody : validBody body) :
@@ -225,6 +219,7 @@ theorem validAnalysisObject_of_getAnalysisObject_body
     -- Goal: `∀ p ∈ ∅, validPlace body p`; vacuous.
     intro p hp
     exact (Std.HashSet.not_mem_empty hp).elim
+}
 
 defFn getAnalysisObject (.plain "getAnalysisObject")
   (.plain "Look up the analysis object at a location in a body: \

@@ -108,6 +108,16 @@ initialize rawBlockRegistry : IO.Ref (List RawBlock) ←
 initialize rawBlockNameCounter : IO.Ref Nat ←
   IO.mkRef 0
 
+/-- Per-module record of the most recent `defRaw` block's
+    source range and position, used by the adjacency lint
+    (`elab_rules : command` for `defRaw`) to detect two
+    same-`pos` blocks separated only by whitespace and
+    comments — those should be merged into one
+    `defRaw $pos => { ... }` brace form. -/
+initialize lastDefRawRef :
+    IO.Ref (Std.HashMap Lean.Name (Lean.Syntax.Range × ExtraPos)) ←
+  IO.mkRef ∅
+
 /-- Append a `RawBlock` to the registry. Idempotency is not
     enforced — re-running `defRaw` simply re-registers, the
     same way the existing DSL registries behave. -/
@@ -180,63 +190,183 @@ private def captureSource (stx : Lean.Syntax) :
     let fm ← Lean.MonadFileMap.getFileMap
     pure (String.Pos.Raw.extract fm.source range.start range.stop)
 
+section CommentSkip
+open String.Pos.Raw
+
+/-- Skip a Lean nested block comment starting just after the
+    opening slash-dash. Returns the position past the matching
+    closing dash-slash, or `none` if the comment is
+    unterminated. The depth parameter tracks unclosed openers;
+    the loop is `partial` because Lean cannot prove termination
+    without a measure on the input string. -/
+private partial def skipBlockComment
+    (src : String) (i : String.Pos.Raw) (depth : Nat) :
+    Option String.Pos.Raw :=
+  if depth = 0 then some i
+  else if atEnd src i then none
+  else
+    let i1 := next src i
+    if atEnd src i1 then none
+    else
+      let c := get src i
+      let c1 := get src i1
+      if c == '/' ∧ c1 == '-' then
+        skipBlockComment src (next src i1) (depth + 1)
+      else if c == '-' ∧ c1 == '/' then
+        skipBlockComment src (next src i1) (depth - 1)
+      else
+        skipBlockComment src i1 depth
+
+/-- Advance past characters up to and including the next
+    newline, used to skip a `--` line comment. Returns the
+    position of the first character on the following line
+    (or `src.endPos` when the comment runs to EOF). -/
+private partial def skipToNewline
+    (src : String) (i : String.Pos.Raw) : String.Pos.Raw :=
+  if atEnd src i then i
+  else if get src i == '\n' then next src i
+  else skipToNewline src (next src i)
+
+/-- Decide whether a slice of source text consists only of
+    whitespace and Lean comments (line comments and nested
+    block comments). Used by the adjacency lint to recognise
+    two `defRaw` blocks separated by nothing but blank lines
+    and explanatory comments. -/
+private partial def gapIsWhitespaceAndComments (gap : String) : Bool :=
+  go 0
+where
+  go (i : String.Pos.Raw) : Bool :=
+    if atEnd gap i then true
+    else
+      let c := get gap i
+      if c.isWhitespace then go (next gap i)
+      else
+        let i1 := next gap i
+        if atEnd gap i1 then false
+        else
+          let c1 := get gap i1
+          if c == '-' ∧ c1 == '-' then
+            go (skipToNewline gap (next gap i1))
+          else if c == '/' ∧ c1 == '-' then
+            match skipBlockComment gap (next gap i1) 1 with
+            | some j => go j
+            | none => false
+          else false
+
+end CommentSkip
+
+open Lean Elab Command in
+/-- Elaborate one inner `defRaw` command, capture its
+    verbatim source text, and emit the `initialize` call that
+    registers the resulting `RawBlock` with the export
+    pipeline. Shared by the single-command and brace forms of
+    `defRaw` so each registered block goes through identical
+    bookkeeping. -/
+private def elabSingleRawBlock
+    (posVal : ExtraPos) (cmd : TSyntax `command) :
+    CommandElabM Unit := do
+  -- Elaborate the inner command in the current scope so
+  -- the source build sees the declaration as written.
+  elabCommand cmd
+  -- Pull the body's verbatim source text out of the file
+  -- map. The trailing newline keeps successive blocks
+  -- separated when the export concatenates their entries
+  -- back into a single per-position chunk.
+  let raw := (← captureSource cmd.raw) ++ "\n"
+  -- Emit an `initialize` block that re-registers the
+  -- raw text every time this module is loaded. The
+  -- elab-time `registerRawBlock` invocation only persists
+  -- inside the build's `IO.Ref`, so without the
+  -- `initialize` the export executable wouldn't see the
+  -- block when it imports the compiled `.olean`.
+  let mod ← getMainModule
+  let modTerm : TSyntax `term := quote mod
+  let codeStr : TSyntax `term := quote raw
+  let posTerm : TSyntax `term ← match posVal with
+    | .before => `(ExtraPos.before)
+    | .middle => `(ExtraPos.middle)
+    | .inFns => `(ExtraPos.inFns)
+    | .beforeProperties =>
+      `(ExtraPos.beforeProperties)
+    | .after => `(ExtraPos.after)
+  -- Generate a unique constant name for this block via
+  -- the local counter; multiple `defRaw` calls in one
+  -- module bump it independently so the names don't
+  -- collide.
+  let counter ←
+    rawBlockNameCounter.modifyGet fun n => (n, n + 1)
+  let blockId : Lean.Ident :=
+    mkIdent (Name.mkSimple s!"_rawBlock_{counter}")
+  elabCommand (← `(command|
+    private def $blockId : RawBlock :=
+      { leanModule := $modTerm, pos := $posTerm,
+        code := $codeStr }))
+  -- For `inFns` blocks, register through the helper that
+  -- internally allocates a shared `defFn`/`defRaw inFns`
+  -- sequence number so the export can interleave the two
+  -- kinds of declarations. Other positions register
+  -- directly with `seqNum := 0` (the `RawBlock` default).
+  let registerName :=
+    if posVal == .inFns then
+      ``Core.Dsl.registerInFnsRawBlock
+    else
+      ``Core.Dsl.registerRawBlock
+  let registerIdent := mkIdent registerName
+  elabCommand (← `(command|
+    initialize ($registerIdent $blockId)))
+
+open Lean Elab Command in
+/-- Adjacency lint: error when the current `defRaw` block
+    shares its `pos` with the previous `defRaw` block in this
+    module and the gap between the two contains only
+    whitespace and comments. The fix is to merge the two
+    into a single `defRaw $pos => { ... }` brace form, which
+    keeps the same registered semantics (each inner command
+    is captured and registered separately). Updates the per-
+    module last-block tracker on the way out so the next
+    `defRaw` in this module sees the current one as its
+    predecessor. -/
+private def checkAdjacencyAndRecord
+    (posVal : ExtraPos) (errAt : Lean.Syntax) :
+    CommandElabM Unit := do
+  let stx ← getRef
+  let some curRange := stx.getRange? | return ()
+  let mod ← getMainModule
+  if let some (prevRange, prevPos) := (← lastDefRawRef.get)[mod]? then
+    if prevPos == posVal ∧ prevRange.stop ≤ curRange.start then
+      let fm ← MonadFileMap.getFileMap
+      let gap := String.Pos.Raw.extract fm.source
+        prevRange.stop curRange.start
+      if gapIsWhitespaceAndComments gap then
+        throwErrorAt errAt
+          (s!"adjacent `defRaw` blocks share the same"
+            ++ s!" position; merge them into a single"
+            ++ s!" `defRaw {posIdentOf posVal} => \{ ... }`"
+            ++ s!" brace form")
+  lastDefRawRef.modify fun m => m.insert mod (curRange, posVal)
+where
+  posIdentOf
+  | .before => "before"
+  | .middle => "middle"
+  | .inFns => "inFns"
+  | .beforeProperties => "beforeProperties"
+  | .after => "after"
+
 open Lean Elab Command in
 elab_rules : command
   | `(defRaw $pos:ident => $cmd:command) => do
     let posVal ← parseExtraPos pos
-    -- Elaborate the inner command in the current scope so
-    -- the source build sees the declaration as written.
-    elabCommand cmd
-    -- Pull the body's verbatim source text out of the file
-    -- map. The trailing newline keeps successive blocks
-    -- separated when the export concatenates their entries
-    -- back into a single per-position chunk.
-    let raw := (← captureSource cmd.raw) ++ "\n"
-    -- Emit an `initialize` block that re-registers the
-    -- raw text every time this module is loaded. The
-    -- elab-time `registerRawBlock` invocation only persists
-    -- inside the build's `IO.Ref`, so without the
-    -- `initialize` the export executable wouldn't see the
-    -- block when it imports the compiled `.olean`.
-    let mod ← getMainModule
-    let modTerm : TSyntax `term := quote mod
-    let codeStr : TSyntax `term := quote raw
-    let posTerm : TSyntax `term ← match posVal with
-      | .before => `(ExtraPos.before)
-      | .middle => `(ExtraPos.middle)
-      | .inFns => `(ExtraPos.inFns)
-      | .beforeProperties =>
-        `(ExtraPos.beforeProperties)
-      | .after => `(ExtraPos.after)
-    -- Generate a unique constant name for this block via
-    -- the local counter; multiple `defRaw` calls in one
-    -- module bump it independently so the names don't
-    -- collide.
-    let counter ←
-      rawBlockNameCounter.modifyGet fun n => (n, n + 1)
-    let blockId : Lean.Ident :=
-      mkIdent (Name.mkSimple s!"_rawBlock_{counter}")
-    elabCommand (← `(command|
-      private def $blockId : RawBlock :=
-        { leanModule := $modTerm, pos := $posTerm,
-          code := $codeStr }))
-    -- For `inFns` blocks, register through the helper that
-    -- internally allocates a shared `defFn`/`defRaw inFns`
-    -- sequence number so the export can interleave the two
-    -- kinds of declarations. Other positions register
-    -- directly with `seqNum := 0` (the `RawBlock` default).
-    let registerName :=
-      if posVal == .inFns then
-        ``Core.Dsl.registerInFnsRawBlock
-      else
-        ``Core.Dsl.registerRawBlock
-    let registerIdent := mkIdent registerName
-    elabCommand (← `(command|
-      initialize ($registerIdent $blockId)))
+    checkAdjacencyAndRecord posVal pos
+    elabSingleRawBlock posVal cmd
   | `(defRaw $pos:ident => { $cmds:command* }) => do
+    let posVal ← parseExtraPos pos
+    checkAdjacencyAndRecord posVal pos
     -- The brace form is sugar for one `defRaw` per inner
     -- command in source order, so each command keeps its own
     -- captured source range and (for `inFns`) its own
-    -- sequence number.
+    -- sequence number. We call `elabSingleRawBlock` directly
+    -- rather than re-emitting `defRaw $pos => $cmd` syntax so
+    -- the inner commands don't trip the adjacency lint
+    -- against each other.
     for cmd in cmds do
-      elabCommand (← `(command| defRaw $pos => $cmd))
+      elabSingleRawBlock posVal cmd

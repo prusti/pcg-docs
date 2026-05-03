@@ -104,21 +104,14 @@ instance : Inhabited Ty where
 -- structural `BEq` directly — matching what the export auto-adds
 -- — so the lawful derives below pick the same instance in both
 -- builds.
-defRaw after =>
+defRaw after => {
 deriving instance ReflBEq, LawfulBEq for RegionVid
-defRaw after =>
 deriving instance ReflBEq, LawfulBEq for EarlyBoundRegion
-defRaw after =>
 deriving instance ReflBEq, LawfulBEq for Region
-defRaw after =>
 deriving instance ReflBEq, LawfulBEq for TyCtorName
-defRaw after =>
 deriving instance ReflBEq, LawfulBEq for AliasTyName
-defRaw after =>
 deriving instance ReflBEq, LawfulBEq for Size
-defRaw after =>
 deriving instance ReflBEq, LawfulBEq for IntType
-defRaw after =>
 deriving instance ReflBEq, LawfulBEq for Mutability
 
 -- Structural `BEq` for `Ty`, defined mutually with the `List Ty`
@@ -127,7 +120,6 @@ deriving instance ReflBEq, LawfulBEq for Mutability
 -- blocks any `LawfulBEq` proof; this version is unfoldable
 -- and lets `LawfulBEq Ty` go through. Wrapped in `defRaw after`
 -- so the generated module gets the same instance.
-defRaw after =>
 mutual
 def Ty.beq : Ty → Ty → Bool
   | .bool, .bool => true
@@ -149,10 +141,8 @@ def Ty.beqList : List Ty → List Ty → Bool
   | _, _ => false
 end
 
-defRaw after =>
 instance : BEq Ty := ⟨Ty.beq⟩
 
-defRaw after =>
 mutual
 private theorem Ty.beq_self : ∀ (t : Ty), Ty.beq t t = true
   | .bool => rfl
@@ -175,7 +165,6 @@ private theorem Ty.beqList_self : ∀ (ts : List Ty), Ty.beqList ts ts = true
       simp [Ty.beqList, Ty.beq_self x, Ty.beqList_self xs]
 end
 
-defRaw after =>
 mutual
 private theorem Ty.eq_of_beq : ∀ {a b : Ty}, Ty.beq a b = true → a = b
   | .bool, .bool, _ => rfl
@@ -219,10 +208,9 @@ private theorem Ty.eq_of_beqList : ∀ {a b : List Ty}, Ty.beqList a b = true �
       subst hx; subst hxs; rfl
 end
 
-defRaw after =>
 instance : ReflBEq Ty where rfl := Ty.beq_self _
-defRaw after =>
 instance : LawfulBEq Ty where eq_of_beq := Ty.eq_of_beq
+}
 
 defEnum IntValue (.raw "iv", .cal (.raw "IV"))
   "Integer Values"
