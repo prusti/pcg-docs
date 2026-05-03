@@ -91,8 +91,11 @@ structure RenderCtx where
   /-- Whether the given feature is disabled in the current
       presentation. Variants tagged with a disabled feature
       are filtered out by `EnumDef.formalDefLatex`; match
-      arms tagged with a disabled feature are filtered out
-      by `FnDef.formalDefLatex`, `FnDef.exprLines`, and
-      `DslExpr.toDoc`'s `.match_` case. Defaults to
-      "everything enabled". -/
+      arms whose effective features (explicit `[feature …]`
+      flags plus features inherited from any variant their
+      patterns name — see `MatchArm.effectiveFeatures` /
+      `BodyArm.effectiveFeatures`) include a disabled
+      feature are filtered out by `FnDef.formalDefLatex`,
+      `FnDef.exprLines`, and `DslExpr.toDoc`'s `.match_`
+      case. Defaults to "everything enabled". -/
   isFeatureDisabled : Feature → Bool := fun _ => false

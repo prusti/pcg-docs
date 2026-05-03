@@ -91,6 +91,44 @@ private def lookupVariant
     | some v => some v
     | none => viaResolver
 
+/-- Features inherited by a pattern from the variants its
+    constructors resolve to. Used by the LaTeX exporter to
+    auto-elide a `match` arm whenever any constructor in its
+    pattern names a variant gated on a disabled feature: if
+    the variant is hidden, the arm that matches it is
+    unreachable and would otherwise render with a dangling
+    constructor name. The walk is recursive so that nested
+    patterns like `Some (.downcast x)` inherit `.downcast`'s
+    features even when the outer constructor itself is
+    feature-free. -/
+partial def inheritedFeatures
+    (variants : List VariantDef)
+    (resolveVariant : String → Option VariantDef) :
+    BodyPat → List Feature
+  | .ctor n args =>
+    let nested := args.flatMap
+      (inheritedFeatures variants resolveVariant)
+    match lookupVariant variants resolveVariant n args.length with
+    | some v => v.features ++ nested
+    | none   => nested
+  | .cons h t =>
+    inheritedFeatures variants resolveVariant h
+      ++ inheritedFeatures variants resolveVariant t
+  | .wild | .var _ | .nil | .natLit _ => []
+
+/-- The effective feature gates of a `match` arm: its
+    explicitly-declared `[feature …]` flags unioned with the
+    features inherited from any variant the arm's patterns
+    name (see `inheritedFeatures`). Both `MatchArm` (an
+    abbrev in `DslExpr.lean`) and `BodyArm` (a struct in
+    `FnDef.lean`) delegate here so the dual-arm-flavour
+    exporter has one source of truth. -/
+def armEffectiveFeatures
+    (variants : List VariantDef)
+    (resolveVariant : String → Option VariantDef)
+    (pats : List BodyPat) (explicit : List Feature) : List Feature :=
+  explicit ++ pats.flatMap (inheritedFeatures variants resolveVariant)
+
 /-- Strip the anonymous-constructor `.` prefix or the
     `Option.` qualifier from a constructor name, returning
     the bare short name. Used to detect `Option`'s

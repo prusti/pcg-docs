@@ -276,6 +276,15 @@ features appears in the active presentation's
 `disabledFeatures`. The Lean and Rust exports ignore the
 `features` field entirely — generated code stays exhaustive.
 
+Arm gating is **derived**: the LaTeX filter unions an arm's
+explicit `features` with the features inherited from any
+variant referenced by the arm's patterns (recursive over
+nested `BodyPat.ctor`s — see `BodyPat.inheritedFeatures`).
+So tagging a variant once auto-elides every arm whose
+pattern matches it; the explicit `[feature …]` arm prefix
+is only needed when an arm is gated on a feature *beyond*
+those of the variants it references.
+
 ```lean
 defEnum ProjElem (.raw "π", .raw "Π")
   "Projection Elements"
@@ -291,7 +300,10 @@ where
 defFn expansionOfStep …
   : PlaceExpansion InitTree where
   | .deref ; child => .deref child
-  | [feature ENUM_TYPES] .downcast v ; child =>
+  -- The `[feature ENUM_TYPES]` prefix below is now redundant:
+  -- `.downcast` resolves to a variant tagged ENUM_TYPES, so
+  -- the arm is auto-elided when the feature is disabled.
+  | .downcast v ; child =>
       .guided (.downcast v child)
   …
 ```

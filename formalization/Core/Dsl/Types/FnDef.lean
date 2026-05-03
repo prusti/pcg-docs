@@ -10,14 +10,29 @@ import Core.Dsl.DslType
 structure BodyArm where
   pat : List BodyPat
   rhs : DslExpr
-  /-- Feature flags this arm is gated on. The LaTeX
-      presentation omits the arm when any feature in this
-      list is disabled in the current presentation. Empty
-      (the default) means always rendered. The Lean and Rust
-      exports ignore this field — they always emit every
-      arm so the generated code stays exhaustive. -/
+  /-- Explicitly-declared `[feature …]` flags on this arm.
+      The LaTeX exporter actually filters on
+      `BodyArm.effectiveFeatures`, which unions this list
+      with the features inherited from variants the arm's
+      patterns name; it is the union — not this field alone —
+      that gets compared to the presentation's
+      `disabledFeatures`. Empty (the default) means the arm
+      contributes no extra gates beyond whatever its patterns
+      inherit. The Lean and Rust exports ignore feature
+      gating entirely — they always emit every arm so the
+      generated code stays exhaustive. -/
   features : List Feature := []
   deriving Repr
+
+namespace BodyArm
+
+/-- Effective feature gates of the arm under `ctx` — see
+    `BodyPat.armEffectiveFeatures`. -/
+def effectiveFeatures (ctx : RenderCtx) (a : BodyArm) : List Feature :=
+  BodyPat.armEffectiveFeatures ctx.variants ctx.resolveVariant
+    a.pat a.features
+
+end BodyArm
 
 /-- A function body: either pattern-matching arms or
     a direct expression. -/
@@ -251,12 +266,11 @@ private partial def exprLines
     -- aligned `{ll}` array and complex arms drop to a
     -- `\textbf{case} pat ⇒` header followed by the nested
     -- rhs lines.
-    -- Drop arms whose `features` list contains a feature
-    -- disabled in the current presentation. Lean and Rust
-    -- exports walk the unfiltered list elsewhere.
+    -- Drop arms gated on a disabled feature (explicit or
+    -- variant-inherited; see `MatchArm.effectiveFeatures`).
     let visibleArms : List MatchArm :=
       matchArms.filter fun a =>
-        !a.features.any ctx.isFeatureDisabled
+        !(a.effectiveFeatures ctx).any ctx.isFeatureDisabled
     let armEntry : MatchArm →
         Sum (LatexMath × LatexMath) (Latex × List Latex) :=
       fun (pats, rhs, _) =>
@@ -457,13 +471,11 @@ def formalDefLatex
           else [renderSimpleBatch batch.reverse]
         prefixLs ++ caseLine :: rhsLs ++ renderArms rest []
   let noDisp : String → Option MathDoc := fun _ => none
-  -- Drop arms whose `features` list contains a feature
-  -- disabled in the current presentation. Lean and Rust
-  -- exports walk `f.body` directly (no filter) so the
-  -- generated code stays exhaustive.
+  -- Drop arms gated on a disabled feature (explicit or
+  -- variant-inherited; see `BodyArm.effectiveFeatures`).
   let visibleArms (arms : List BodyArm) : List BodyArm :=
     arms.filter fun a =>
-      !a.features.any ctx.isFeatureDisabled
+      !(a.effectiveFeatures ctx).any ctx.isFeatureDisabled
   let bodyLines : List Latex := match f.body with
     | .matchArms arms => renderArms (visibleArms arms) []
     | .expr body => exprLines f.name ctx isProperty noDisp

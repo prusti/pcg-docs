@@ -172,11 +172,21 @@ def pat (a : MatchArm) : List BodyPat := a.1
 /-- Right-hand side evaluated when the patterns match. -/
 def rhs (a : MatchArm) : DslExpr := a.2.1
 
-/-- Feature flags this arm is gated on. The LaTeX
-    presentation omits the arm when any feature here is
-    disabled in the current presentation. The Lean and Rust
-    exports ignore this field. -/
+/-- Explicitly-declared `[feature …]` flags on this arm.
+    The LaTeX exporter actually filters on
+    `MatchArm.effectiveFeatures`, which unions this list
+    with the features inherited from variants the arm's
+    patterns name; it is the union — not this field alone —
+    that gets compared to the presentation's
+    `disabledFeatures`. The Lean and Rust exports ignore
+    feature gating entirely. -/
 def features (a : MatchArm) : List Feature := a.2.2
+
+/-- Effective feature gates of the arm under `ctx` — see
+    `BodyPat.armEffectiveFeatures`. -/
+def effectiveFeatures (ctx : RenderCtx) (a : MatchArm) : List Feature :=
+  BodyPat.armEffectiveFeatures ctx.variants ctx.resolveVariant
+    a.pat a.features
 
 end MatchArm
 
@@ -856,13 +866,11 @@ partial def toDoc
     -- their display template (e.g. `PreOperands`), matching
     -- how the same variant renders in value position via
     -- `varToVariantDoc`.
-    -- Drop arms whose `features` list contains a feature
-    -- disabled in the current presentation. The Lean and
-    -- Rust exporters ignore the `features` field, so the
-    -- generated code stays exhaustive.
+    -- Drop arms gated on a disabled feature (explicit or
+    -- variant-inherited; see `MatchArm.effectiveFeatures`).
     let visibleArms : List MatchArm :=
       arms.filter fun a =>
-        !a.features.any ctx.isFeatureDisabled
+        !(a.effectiveFeatures ctx).any ctx.isFeatureDisabled
     let rowsMath : List MathDoc :=
       visibleArms.map fun (pats, rhs, _) =>
         let patMath := mathIntercalate (.sym .comma)

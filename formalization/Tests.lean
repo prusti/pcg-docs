@@ -437,6 +437,38 @@ def presBodyTests : TestSeq :=
       (hasTwoDocs presBodyMultipleBlankLines) $
     .done
 
+/-- A `RenderCtx` that knows about `gatedEnum`'s variants
+    (no features disabled). The auto-elide tests start from
+    this and override `isFeatureDisabled` for the disabled
+    case so resolution stays identical across both. -/
+private def gatedRegistry : RenderCtx :=
+  { variants := gatedEnum.variants
+    resolveVariant := fun n =>
+      gatedEnum.variants.find? (·.name.name == n) }
+
+/-- Same registry, with `enumTypes` disabled. -/
+private def gatedDisabledCtx : RenderCtx :=
+  { gatedRegistry with isFeatureDisabled := fun f => f == .enumTypes }
+
+/-- Render an inline match against `gatedEnum`'s variants
+    where neither arm carries an explicit `[feature …]`
+    annotation. The first arm's patterns are expected to
+    auto-inherit features from `hidden`. -/
+private def renderAutoElide
+    (ctx : RenderCtx) (pats : BodyPat × BodyPat) : String :=
+  let m : DslExpr := .match_ (.var "x")
+    [([pats.fst], .var "alpha", []),
+     ([pats.snd], .var "beta",  [])]
+  let mathDoc := DslExpr.toDoc "fn" ctx (fun _ => none) false m
+  LatexMath.render (MathDoc.toLatexMath mathDoc)
+
+private def topLevelPats : BodyPat × BodyPat :=
+  (.ctor "hidden" [], .ctor "shown" [])
+
+private def nestedPats : BodyPat × BodyPat :=
+  (.ctor "Some" [.ctor "hidden" []],
+   .ctor "Some" [.ctor "shown"  []])
+
 def featureFlagTests : TestSeq :=
   group "Feature flag" $
     test "enum: tagged variant omitted when feature disabled"
@@ -465,6 +497,18 @@ def featureFlagTests : TestSeq :=
       (let p : Presentation :=
          { elems := [], filename := "t" }
        p.disabledFeatures == ([] : List Feature)) $
+    test "auto-elide: arm matching gated variant omitted"
+      (let rendered := renderAutoElide gatedDisabledCtx topLevelPats
+       !hasSubstr rendered "alpha" &&
+         hasSubstr rendered "beta") $
+    test "auto-elide: nested gated variant omits the arm"
+      (let rendered := renderAutoElide gatedDisabledCtx nestedPats
+       !hasSubstr rendered "alpha" &&
+         hasSubstr rendered "beta") $
+    test "auto-elide: no elision when feature is enabled"
+      (let rendered := renderAutoElide gatedRegistry topLevelPats
+       hasSubstr rendered "alpha" &&
+         hasSubstr rendered "beta") $
     .done
 
 def main (args : List String) : IO UInt32 :=
