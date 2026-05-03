@@ -49,18 +49,13 @@ theorem validBody_of_fnFromPtr_eq_some
     (v : Value) (b : Body)
     (h : Machine.fnFromPtr m v = some b) :
     validBody b := by
-  cases v with
-  | fnPtr name =>
-    -- `Machine.fnFromPtr m (.fnPtr name)` reduces to
-    -- `mapGet m.program.functions name`, so `h` directly
-    -- witnesses membership in `mapValues`.
-    unfold Machine.fnFromPtr at h
-    exact h_R.2.1.2 b (mem_mapValues_of_mapGet_eq_some h)
-  | bool _ | int _ | tuple _ | array _ | ptr _ =>
-    -- Non-`fnPtr` values fall into the catch-all `none`
-    -- branch of `Machine.fnFromPtr`, contradicting
-    -- `… = some b`.
-    all_goals (unfold Machine.fnFromPtr at h; simp at h)
+  -- The only `fnFromPtr` arm returning `some` is `.fnPtr name`,
+  -- which evaluates to `mapGet m.program.functions name` — so `h`
+  -- witnesses membership in `mapValues`. Other value shapes fall
+  -- into the catch-all `none` branch and contradict `h`.
+  cases v <;> unfold Machine.fnFromPtr at h
+  case fnPtr => exact h_R.2.1.2 b (mem_mapValues_of_mapGet_eq_some h)
+  all_goals simp at h
 
 defFn evalArgs (.plain "evalArgs")
   (doc! "Evaluate a list of operand arguments left-to-right. Returns `Some` of the resulting value \
@@ -115,19 +110,16 @@ theorem Machine.tailFrame_validLocation
     (callerFrame : StackFrame)
     (h_mem : callerFrame ∈ Machine.stackTail m h_Runnable) :
     validLocation callerFrame.body callerFrame.pc := by
-  -- `stackTail m h_Runnable` unfolds to `m.thread.stack.tail!`.
-  -- For a non-empty stack (guaranteed by `Runnable`'s first
-  -- conjunct), `tail!_cons` rewrites it to the regular tail,
-  -- so any frame in the tail is also in the original stack.
-  have h_inStack : callerFrame ∈ m.thread.stack := by
-    unfold Machine.stackTail at h_mem
-    match hstk : m.thread.stack, h_Runnable.1 with
-    | [], hne => exact absurd rfl hne
-    | hd :: tl, _ =>
-      rw [hstk] at h_mem
-      rw [List.tail!_cons] at h_mem
-      exact List.mem_cons_of_mem hd h_mem
-  exact (validStack.frame_valid h_Runnable.2.2.2 h_inStack).2.1
+  -- `stackTail m h_Runnable` unfolds to `m.thread.stack.tail!`. The
+  -- stack is non-empty (Runnable's first conjunct), so `tail!_cons`
+  -- exposes the tail as a sublist of the original stack.
+  unfold Machine.stackTail at h_mem
+  cases hstk : m.thread.stack with
+  | nil => exact absurd hstk h_Runnable.1
+  | cons hd tl =>
+    rw [hstk, List.tail!_cons] at h_mem
+    exact (validStack.frame_valid (hstk ▸ h_Runnable.2.2.2)
+      (List.mem_cons_of_mem hd h_mem)).2.1
 
 /-- `Runnable` is preserved by popping the topmost stack
     frame, *provided* the resulting tail is non-empty. The
@@ -145,22 +137,14 @@ theorem Machine.Runnable_after_pop
       { m with
         thread := ⟨Machine.stackTail m h_Runnable⟩ } := by
   refine ⟨h_tailNonEmpty, h_Runnable.2.1, h_Runnable.2.2.1, ?_⟩
-  -- The new state's `thread.stack` projects to
-  -- `Machine.stackTail m h_Runnable`; reduce the bulky
-  -- `{ … with … }.thread.stack` form first.
+  -- The new state's `thread.stack` projects to `stackTail m _`. With
+  -- the original stack exposed as `hd :: tl`, that tail is `tl`, and
+  -- `validStack.tail` peels the cons-shaped witness in `Runnable`.
   change validStack (Machine.stackTail m h_Runnable) m.mem
-  -- The original stack must be `head :: tail`; expose that
-  -- shape so we can apply `validStack.tail` to the cons-shaped
-  -- witness `h_Runnable.2.2.2 : validStack m.thread.stack m.mem`.
+  unfold Machine.stackTail
   cases hstk : m.thread.stack with
   | nil => exact absurd hstk h_Runnable.1
-  | cons hd tl =>
-    have h_tail_eq : Machine.stackTail m h_Runnable = tl := by
-      unfold Machine.stackTail; rw [hstk]; rfl
-    rw [h_tail_eq]
-    have h_vs := h_Runnable.2.2.2
-    rw [hstk] at h_vs
-    exact h_vs.tail
+  | cons hd tl => exact (hstk ▸ h_Runnable.2.2.2).tail
 
 /-- `Runnable` is preserved by overwriting `m.mem` with a
     fresh `Memory`, *provided* the new memory is itself valid
