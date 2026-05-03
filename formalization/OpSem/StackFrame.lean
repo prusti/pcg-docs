@@ -331,3 +331,166 @@ theorem validStack.frame_valid
     rcases List.mem_cons.mp hf with rfl | h_in_t
     · exact validStack.head h
     · exact ih (validStack.tail h) h_in_t
+
+defRaw after =>
+open Memory in
+/-- `Memory.store` preserves `validPtr`: pointer validity only
+    depends on the allocation count of the memory, which
+    `Memory.store` preserves. -/
+theorem Memory.validPtr_store_preserves
+    {m : Memory} {ptr : ThinPointer}
+    (storePtr : ThinPointer) (storeBytes : List AbstractByte)
+    (h : validPtr m ptr) :
+    validPtr (Memory.store m storePtr storeBytes) ptr := by
+  unfold validPtr at *
+  obtain ⟨addr, provOpt⟩ := ptr
+  cases provOpt with
+  | none => simp at *
+  | some prov =>
+    simp only at h
+    simp only
+    unfold validProvenance validAllocId at *
+    rw [Memory.store_allocs_length_unchanged]
+    exact h
+
+defRaw after =>
+open StackFrame Memory in
+/-- `Memory.store` preserves `validStackFrame`: the body and
+    program counter clauses are independent of memory; the
+    pointer-validity clause is preserved by
+    `validPtr_store_preserves`. -/
+theorem StackFrame.validStackFrame_store_preserves
+    {m : Memory} {frame : StackFrame}
+    (ptr : ThinPointer) (bytes : List AbstractByte)
+    (h : validStackFrame m frame) :
+    validStackFrame (Memory.store m ptr bytes) frame := by
+  unfold validStackFrame at *
+  refine ⟨h.1, h.2.1, ?_⟩
+  intro p hp
+  exact Memory.validPtr_store_preserves _ _ (h.2.2 p hp)
+
+defRaw after =>
+/-- `Memory.store` preserves `ptrAllocations`: the lookup uses
+    only the `address` and `data.length` of the targeted
+    allocation, both of which `Memory.store` leaves alone (its
+    `endAddr` is also preserved). The full equality follows
+    once we show the looked-up allocation matches structurally;
+    instead of equality on the lists, we record the pointwise
+    `endAddr`/`address` preservation needed by
+    `nonOverlapping`. -/
+theorem ptrAllocations_endAddr_address_preserved
+    {mem : Memory} (p : ThinPointer)
+    (storePtr : ThinPointer) (storeBytes : List AbstractByte) :
+    ∀ a ∈ ptrAllocations p (Memory.store mem storePtr storeBytes),
+      ∃ a' ∈ ptrAllocations p mem,
+        a.address = a'.address ∧ Allocation.endAddr a = Allocation.endAddr a' := by
+  intro a ha
+  unfold ptrAllocations at *
+  -- `ptrAllocations` matches on the pointer's provenance;
+  -- destructure `p` so the match arms reduce.
+  obtain ⟨addr, provOpt⟩ := p
+  cases provOpt with
+  | none => simp at ha
+  | some prov =>
+    simp at ha
+    -- `a` is the looked-up allocation in the stored memory at
+    -- index `prov.id.index`. Either that index is in range or
+    -- not.
+    -- Bridge `[..]?.getD default` with `[..]!` so the
+    -- store-preservation lemmas line up.
+    have h_bridge_lhs :
+        (Memory.store mem storePtr storeBytes).allocs[prov.id.index]?.getD default
+          = (Memory.store mem storePtr storeBytes).allocs[prov.id.index]! := by
+      cases h : (Memory.store mem storePtr storeBytes).allocs[prov.id.index]? <;> simp [h]
+    rw [h_bridge_lhs] at ha
+    by_cases h_idx : prov.id.index < mem.allocs.length
+    · refine ⟨mem.allocs[prov.id.index]!, by simp, ?_, ?_⟩
+      · rw [ha]
+        exact Memory.store_alloc_address_unchanged mem storePtr storeBytes
+          prov.id.index h_idx
+      · rw [ha]
+        exact Memory.store_alloc_endAddr_unchanged mem storePtr storeBytes
+          prov.id.index h_idx
+    · -- Out-of-range: `getElem!` returns `default`; the store
+      -- preserves list length, so both sides are `default`.
+      have h_eq_len :
+          (Memory.store mem storePtr storeBytes).allocs.length = mem.allocs.length :=
+        Memory.store_allocs_length_unchanged mem storePtr storeBytes
+      have h_idx' :
+          ¬ prov.id.index < (Memory.store mem storePtr storeBytes).allocs.length := by
+        rw [h_eq_len]; exact h_idx
+      have h_def_lhs :
+          (Memory.store mem storePtr storeBytes).allocs[prov.id.index]! =
+            (default : Allocation) :=
+        getElem!_neg _ prov.id.index h_idx'
+      refine ⟨mem.allocs[prov.id.index]!, by simp, ?_, ?_⟩
+      · rw [ha, h_def_lhs]
+        exact (getElem!_neg mem.allocs prov.id.index h_idx).symm ▸ rfl
+      · rw [ha, h_def_lhs]
+        exact (getElem!_neg mem.allocs prov.id.index h_idx).symm ▸ rfl
+
+defRaw after =>
+/-- `Memory.store` preserves `headDisjointTail`. This rests on
+    `nonOverlapping` only depending on each allocation's
+    `address` and `endAddr`, both of which `Memory.store`
+    preserves. -/
+theorem headDisjointTail_store_preserves
+    {h : StackFrame} {t : List StackFrame} {mem : Memory}
+    (ptr : ThinPointer) (bytes : List AbstractByte)
+    (hd : headDisjointTail h t mem) :
+    headDisjointTail h t (Memory.store mem ptr bytes) := by
+  unfold headDisjointTail localAllocations at *
+  -- `·forAll` lowers to `∀ x ∈ list, body`. Introduce `a` from
+  -- the head's allocations and `b` from the tail's, both
+  -- indexed in the *stored* memory; then track each one back
+  -- to a local allocation in the original `mem` via
+  -- `ptrAllocations_endAddr_address_preserved`. The head's
+  -- `[h].flatMap` collapses to a single `mem_flatMap` step;
+  -- the tail's `t.flatMap` is one `mem_flatMap` over the
+  -- frame, then another over the locals' pointers.
+  intro a ha b hb
+  -- Head: `a ∈ [h].flatMap (...)` collapses (one frame in the
+  -- list) to `a ∈ (mapValues h.locals).flatMap …`. Tail: `b ∈
+  -- t.flatMap …` is one `mem_flatMap` over the frame, then
+  -- another over the locals' pointers.
+  rw [List.flatMap_cons, List.flatMap_nil, List.append_nil,
+    List.mem_flatMap] at ha
+  rw [List.mem_flatMap] at hb
+  obtain ⟨pa, hpa, ha_in⟩ := ha
+  obtain ⟨frame_b, hframe_b, hb⟩ := hb
+  rw [List.mem_flatMap] at hb
+  obtain ⟨pb, hpb, hb_in⟩ := hb
+  obtain ⟨a', ha'_in, ha'_addr, ha'_end⟩ :=
+    ptrAllocations_endAddr_address_preserved pa ptr bytes a ha_in
+  obtain ⟨b', hb'_in, hb'_addr, hb'_end⟩ :=
+    ptrAllocations_endAddr_address_preserved pb ptr bytes b hb_in
+  have h_orig := hd a'
+    (by rw [List.flatMap_cons, List.flatMap_nil, List.append_nil,
+          List.mem_flatMap]
+        exact ⟨pa, hpa, ha'_in⟩)
+    b' (List.mem_flatMap.mpr ⟨frame_b, hframe_b,
+      List.mem_flatMap.mpr ⟨pb, hpb, hb'_in⟩⟩)
+  unfold Allocation.nonOverlapping at *
+  rw [ha'_end, hb'_addr, hb'_end, ha'_addr]
+  exact h_orig
+
+defRaw after =>
+/-- `Memory.store` preserves `validStack`. The three
+    constituents of `validStack` (`validStackFrame`,
+    `validStack` of the tail, `headDisjointTail`) are each
+    preserved by the matching `Memory.store_preserves` lemma:
+    `validStackFrame_store_preserves`, the inductive
+    hypothesis on the tail, and
+    `headDisjointTail_store_preserves`. -/
+theorem validStack.store_preserves
+    {stack : List StackFrame} {mem : Memory}
+    (ptr : ThinPointer) (bytes : List AbstractByte)
+    (h : validStack stack mem) :
+    validStack stack (Memory.store mem ptr bytes) := by
+  induction h with
+  | nil => exact validStack.nil
+  | cons h_vsf h_vs h_disj ih =>
+    apply validStack.cons
+    · exact StackFrame.validStackFrame_store_preserves _ _ h_vsf
+    · exact ih
+    · exact headDisjointTail_store_preserves _ _ h_disj

@@ -179,6 +179,29 @@ theorem Machine.Runnable_after_mem_update
     Machine.Runnable { m with mem := newMem } :=
   ⟨h_Runnable.1, h_Runnable.2.1, h_validMemory, h_validStack⟩
 
+defRaw middle =>
+/-- `placeStore` preserves `validMemory`: it delegates to
+    `typedStore`, which is `Memory.store` on the place's thin
+    pointer with `encode v` as the byte payload. Discharged by
+    `Memory.store_preserves_validMemory`. -/
+theorem Machine.placeStore_preserves_validMemory
+    (m : Memory) (pp : PlacePtr) (v : Value) :
+    Memory.validMemory m → Memory.validMemory (placeStore m pp v) := by
+  unfold placeStore typedStore
+  exact Memory.store_preserves_validMemory _ _ _
+
+defRaw middle =>
+/-- `placeStore` preserves `validStack`: it delegates to
+    `typedStore`, which is `Memory.store` on the place's thin
+    pointer with `encode v` as the byte payload. Discharged by
+    `validStack.store_preserves`. -/
+theorem Machine.placeStore_preserves_validStack
+    (stack : List StackFrame) (m : Memory)
+    (pp : PlacePtr) (v : Value) :
+    validStack stack m → validStack stack (placeStore m pp v) := by
+  unfold placeStore typedStore
+  exact validStack.store_preserves _ _
+
 defFn evalTerminator (.plain "evalTerminator")
   (doc! "Evaluate a basic block terminator. The terminator is responsible for advancing the program \
     counter — including switching to a new basic block when appropriate. `goto` jumps to its target \
@@ -274,26 +297,28 @@ defFn evalTerminator (.plain "evalTerminator")
                             mPopped↦mem pp retVal ;
                           let mWithMem :=
                             mPopped[mem => mem'] ;
-                          -- The `validStack mPopped.thread.stack
-                          -- mem'` obligation propagates to the
-                          -- `Runnable_after_mem_update`
-                          -- precondition. `placeStore` writes
-                          -- bytes via `Memory.store`, which
-                          -- preserves allocation count, addresses,
-                          -- and data lengths, so `localAllocations`
-                          -- is unchanged in shape and the
-                          -- non-overlapping property carries
-                          -- through. Discharging this rigorously
-                          -- needs frame-preservation lemmas about
-                          -- `Memory.store`; left as a sorry
-                          -- alongside the existing sorries in
-                          -- `OpSem/Step.lean`.
+                          -- `placeStore` writes bytes via
+                          -- `Memory.store`, which preserves
+                          -- allocation count, addresses, and (under
+                          -- `canAccess`) data lengths, so
+                          -- `localAllocations` is unchanged in shape
+                          -- and the non-overlapping property carries
+                          -- through. The two
+                          -- `placeStore_preserves_*` lemmas package
+                          -- the `validMemory` / `validStack`
+                          -- preservation, each delegating to the
+                          -- underlying `Memory.store_*` lemma.
                           StepResult.ok (jumpToBlock
                             mWithMem nextBlock (proof[Machine.Runnable_after_mem_update
                                 mPopped (Machine.Runnable_after_pop
                                   m h_Runnable
                                   (h_rest ▸ List.cons_ne_nil _ _)) mem'
-                                  sorry sorry]))
+                                  (Machine.placeStore_preserves_validMemory
+                                    _ _ _ h_Runnable.2.2.1)
+                                  (Machine.placeStore_preserves_validStack
+                                    _ _ _ _ (Machine.Runnable_after_pop
+                                      m h_Runnable
+                                      (h_rest ▸ List.cons_ne_nil _ _)).2.2.2)]))
                       end
                   | _ => StepResult.done .error
                   end
