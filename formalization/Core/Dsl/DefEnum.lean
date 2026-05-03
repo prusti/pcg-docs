@@ -1,7 +1,10 @@
 import Core.Doc.Interp
 import Core.Registry
+import Core.Dsl.ElabUtils
 import Core.Dsl.Lint
 import Lean
+
+open Core.Dsl.ElabUtils
 
 open Lean in
 
@@ -368,6 +371,32 @@ private def buildDefaultVariantDisplay
   let userTerm ← `(MathDoc.seq [$parts,*])
   buildVariantDisplayFn argIdents userTerm
 
+/-- The Lean-source rendering of every `($n : T)` argument's
+    type across all `varData` entries. Used by
+    `variantArgsUseHash` (and nowhere else) to feed the type
+    strings to `usesHashPropagating`. -/
+private def variantArgTypeStrs
+    (varData : Array
+      (Lean.TSyntax `ident × Array (Lean.TSyntax `enumVariantArg)
+        × Lean.TSyntax `term × Option (Lean.TSyntax `term)))
+    : List String :=
+  varData.toList.flatMap fun (_, args, _, _) =>
+    args.toList.filterMap fun (a : Lean.TSyntax _) =>
+      match a.raw with
+      | `(enumVariantArg| ($_:ident : $t:term)) =>
+        some (toTypeStr t.raw)
+      | _ => none
+
+/-- Whether any variant argument's type drags `BEq`/`Hashable`
+    constraints onto the enum's type parameters. Wraps
+    `usesHashPropagating` for the `defEnum`-specific shape. -/
+private def variantArgsUseHash
+    (varData : Array
+      (Lean.TSyntax `ident × Array (Lean.TSyntax `enumVariantArg)
+        × Lean.TSyntax `term × Option (Lean.TSyntax `term)))
+    : IO Bool :=
+  usesHashPropagating (variantArgTypeStrs varData)
+
 open Lean Elab Command in
 /-- Shared elaboration body for the `defEnum` forms.
     `longDefVal` controls the formal LaTeX rendering (short
@@ -391,9 +420,7 @@ private def elabDefEnum
               $vd:term $[( $disp:term )]?) =>
         pure (vn, args, vd, disp)
       | _ => throwError "invalid enum variant"
-    let typeParamNames : List String := match tps with
-      | some ids => ids.toList.map (toString ·.getId)
-      | none => []
+    let typeParamNames : List String := typeParamNames tps
     let isGeneric := !typeParamNames.isEmpty
     -- Build ctors using the user's original `argType`
     -- syntax so identifier source positions survive and
@@ -416,42 +443,12 @@ private def elabDefEnum
       -- `Hashable`), append `[BEq P] [Hashable P]` instance
       -- binders so the generated inductive type-checks under
       -- `autoImplicit := false` — mirroring `defStruct`.
-      let propagating ← hashPropagatingTypes.get
-      let argsUseHash := varData.any fun (_, args, _, _) =>
-        args.any fun a => match a with
-          | `(enumVariantArg| ($_:ident : $t:term)) =>
-            let typeStr :=
-              if t.raw.isIdent then toString t.raw.getId
-              else t.raw.reprint.getD (toString t)
-            let chars := typeStr.toList.map fun c =>
-              if c == '(' || c == ')' then ' ' else c
-            let tokens : List String :=
-              String.ofList chars
-                |>.splitOn " "
-                |>.filter (· != "")
-            tokens.any fun tok =>
-              tok == "Map" || tok == "Set" ||
-                propagating.contains tok
-          | _ => false
-      let tpBinders : Array (TSyntax ``Lean.Parser.Term.bracketedBinder)
-        ← typeParamNames.toArray.foldlM
-            (init := #[]) fun acc p => do
-              let pId := mkIdent (Name.mkSimple p)
-              let typeBinder ← `(Lean.Parser.Term.bracketedBinderF|
-                ($pId : Type))
-              if argsUseHash then
-                let beq ← `(Lean.Parser.Term.bracketedBinderF|
-                  [BEq $pId])
-                let hash ← `(Lean.Parser.Term.bracketedBinderF|
-                  [Hashable $pId])
-                pure (acc.push typeBinder |>.push beq
-                          |>.push hash)
-              else
-                pure (acc.push typeBinder)
+      let argsUseHash ← variantArgsUseHash varData
+      let tpBinders ←
+        mkTypeParamBinders typeParamNames argsUseHash
       let derivIds : Array Ident := match derivs with
         | some ds => ds.getElems
-        | none => #[mkIdent `DecidableEq,
-                    mkIdent `Repr, mkIdent `Hashable]
+        | none => defaultDerives
       let inductiveCmd ← `(command|
         inductive $name:ident $tpBinders:bracketedBinder*
           where
@@ -464,8 +461,7 @@ private def elabDefEnum
       elabCommand inductiveCmd
       let deriveNames : Array Ident := match derivs with
         | some ds => ds
-        | none => #[mkIdent `DecidableEq, mkIdent `Repr,
-                     mkIdent `Hashable]
+        | none => defaultDerives
       for d in deriveNames do
         let deriveCmd ← `(command|
           deriving instance $d:ident for $name)
@@ -478,10 +474,7 @@ private def elabDefEnum
         let argTypes ← args.toList.mapM
           fun (a : Lean.TSyntax `enumVariantArg) => do
           let (an, at_) ← parseVariantArg a.raw
-          let tn := if at_.isIdent
-            then toString at_.getId
-            else at_.reprint.getD (toString at_)
-          pure (toString an.getId, tn)
+          pure (toString an.getId, toTypeStr at_)
         let selfN := toString name.getId
         -- Per-arg `Ident`s used both as the binders in the
         -- variant's display function and as the argument-
@@ -494,12 +487,7 @@ private def elabDefEnum
           let (argName, argType) ← parseVariantArg a
           let an : TSyntax `term :=
             quote (toString argName.getId)
-          let typeStr :=
-            if argType.isIdent
-            then toString argType.getId
-            else argType.reprint.getD
-              (toString argType)
-          let tn : TSyntax `term := quote typeStr
+          let tn : TSyntax `term := quote (toTypeStr argType)
           let symDocTerm ← buildArgSymbolDoc
             (toString argName.getId) argTypes selfN
             symDoc typeParamNames
@@ -550,10 +538,7 @@ private def elabDefEnum
     let defName := mkIdent (name.getId ++ `enumDef)
     elabCommand (← `(command|
       def $defName : EnumDef := $enumDefVal))
-    let mod ← getMainModule
-    let modName : TSyntax `term := quote mod
-    elabCommand (← `(command|
-      initialize registerEnumDef $defName $modName))
+    registerInCurrentModule ``registerEnumDef defName
     -- A generic enum that uses `Map`/`Set` (directly or
     -- transitively, via a previously-registered hash-
     -- propagating type) propagates `BEq`/`Hashable`
@@ -563,23 +548,7 @@ private def elabDefEnum
     -- Recorded via an `initialize` block so the registration
     -- survives across module loads.
     if isGeneric then
-      let propagating ← hashPropagatingTypes.get
-      let argsUseHash := varData.any fun (_, args, _, _) =>
-        args.any fun a => match a with
-          | `(enumVariantArg| ($_:ident : $t:term)) =>
-            let typeStr :=
-              if t.raw.isIdent then toString t.raw.getId
-              else t.raw.reprint.getD (toString t)
-            let chars := typeStr.toList.map fun c =>
-              if c == '(' || c == ')' then ' ' else c
-            let tokens : List String :=
-              String.ofList chars
-                |>.splitOn " "
-                |>.filter (· != "")
-            tokens.any fun tok =>
-              tok == "Map" || tok == "Set" ||
-                propagating.contains tok
-          | _ => false
+      let argsUseHash ← variantArgsUseHash varData
       if argsUseHash then
         let nameTerm : TSyntax `term :=
           quote (toString name.getId)

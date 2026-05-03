@@ -1,7 +1,10 @@
 import Core.Dsl.DefFn
+import Core.Dsl.ElabUtils
 import Core.Dsl.IdentRefs
 
 open Core.Dsl.IdentRefs
+
+open Core.Dsl.ElabUtils
 
 open Lean in
 
@@ -47,10 +50,7 @@ syntax "defProperty " ident "(" term ")"
 open LeanAST in
 /-- Convert raw syntax type to a `LeanTy`. -/
 private def syntaxToLeanTy (pt : Lean.Syntax) : LeanTy :=
-  let raw :=
-    if pt.isIdent then toString pt.getId
-    else pt.reprint.getD (toString pt)
-  (DSLType.parse raw).toLeanAST
+  (DSLType.parse (toTypeStr pt)).toLeanAST
 
 open LeanAST in
 /-- Build `LeanBinder` list from parsed parameter data. -/
@@ -121,10 +121,7 @@ private def buildPropertyDef
     fun (pn, pd, pt) => do
       let ns : TSyntax `term :=
         quote (toString pn.getId)
-      let typeStr :=
-        if pt.isIdent then toString pt.getId
-        else pt.reprint.getD (toString pt)
-      let tyTerm ← `(DSLType.parse $(quote typeStr))
+      let tyTerm ← `(DSLType.parse $(quote (toTypeStr pt)))
       `({ name := $ns, ty := $tyTerm,
           doc := ($pd : Doc) : FieldDef })
   let ns : TSyntax `term :=
@@ -140,9 +137,7 @@ private def buildPropertyDef
       match ds with
       | [$[$shortBinders:ident],*] => ($shortExpr : Doc)
       | _ => Doc.plain "")
-  let displayTerm : TSyntax `term ← match display with
-    | some dpList => `((some $dpList : Option (List DisplayPart)))
-    | none => `((none : Option (List DisplayPart)))
+  let displayTerm ← buildDisplayTerm display
   elabCommand (← `(command|
     def $propDefId : PropertyDef :=
       { fnDef :=
@@ -155,10 +150,7 @@ private def buildPropertyDef
             display := $displayTerm },
         doc := $docFn,
         shortDoc := $shortFn }))
-  let mod ← getMainModule
-  let modName : TSyntax `term := quote mod
-  elabCommand (← `(command|
-    initialize registerPropertyDef $propDefId $modName))
+  registerInCurrentModule ``registerPropertyDef propDefId
 
 -- ══════════════════════════════════════════════
 -- Pattern-matching form
@@ -182,22 +174,8 @@ elab_rules : command
     for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := paramData.map (·.1)
     let docBinders := shortBinders
-    let displayTerm ← match dps with
-      | some d => Option.some <$>
-          parseFnDisplay paramData d.getElems
-      | none => pure none
-    let parsed ← arms.mapM fun arm => match arm with
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
-            => $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2,
-          ← parsePat p3], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
-            $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2],
-          ← parseExpr rhs)
-      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
-        pure (#[← parsePat p], ← parseExpr rhs)
-      | _ => throwError "invalid fnArm"
+    let displayTerm ← parseFnDisplayOpt paramData dps
+    let parsed ← arms.mapM parseFnArm
     let armsList : List (List BodyPat × DslExpr) :=
       parsed.toList.map fun (a, r) => (a.toList, r)
     if DslLint.matchIsIrrefutable armsList then
@@ -299,10 +277,7 @@ elab_rules : command
     for (_, _, ty) in paramData do recordTypeIdents ty
     let shortBinders := paramData.map (·.1)
     let docBinders := shortBinders
-    let displayTerm ← match dps with
-      | some d => Option.some <$>
-          parseFnDisplay paramData d.getElems
-      | none => pure none
+    let displayTerm ← parseFnDisplayOpt paramData dps
     let rhsAst ← match body with
       | `(propertyBody| := $rhs:fnExpr) => parseExpr rhs
       | `(propertyBody|

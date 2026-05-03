@@ -1,11 +1,14 @@
 import Core.Doc.Interp
 import Core.Registry
+import Core.Dsl.ElabUtils
 import Core.Dsl.IdentRefs
 import Core.Dsl.Lint
 import Core.Dsl.DefFn
 import Lean
 
 open Core.Dsl.IdentRefs
+
+open Core.Dsl.ElabUtils
 
 /-- Define a type alias with cross-language export metadata.
 
@@ -56,16 +59,9 @@ elab_rules : command
        $docParam:str ($doc:term) := $body:term)
     => do
     DslLint.lintDocTerm doc
-    let typeParamNames : List String := match tps with
-      | some ids => ids.toList.map (toString ·.getId)
-      | none => []
-    let tpStr :=
-      if typeParamNames.isEmpty then ""
-      else " " ++ " ".intercalate
-        (typeParamNames.map fun p => s!"({p} : Type)")
-    let bodyStr :=
-      if body.raw.isIdent then toString body.raw.getId
-      else body.raw.reprint.getD (toString body.raw)
+    let typeParamNames : List String := typeParamNames tps
+    let tpStr := renderTypeParamSig typeParamNames
+    let bodyStr := toTypeStr body.raw
     let abbrevStr :=
       s!"abbrev {name.getId}{tpStr} := {bodyStr}"
     let env ← getEnv
@@ -103,10 +99,7 @@ elab_rules : command
           typeParams := $typeParamsTerm,
           aliased := $bodyTyTerm,
           value := none }))
-    let mod ← getMainModule
-    let modName : TSyntax `term := quote mod
-    elabCommand (← `(command|
-      initialize registerAliasDef $adId $modName))
+    registerInCurrentModule ``registerAliasDef adId
 
 open Lean Elab Command Core.Dsl.IdentRefs in
 elab_rules : command
@@ -173,7 +166,4 @@ elab_rules : command
           typeParams := [],
           aliased := $bodyTyTerm,
           value := some $dslExprTerm }))
-    let mod ← getMainModule
-    let modName : TSyntax `term := quote mod
-    elabCommand (← `(command|
-      initialize registerAliasDef $adId $modName))
+    registerInCurrentModule ``registerAliasDef adId

@@ -1,6 +1,9 @@
 import Core.Registry
+import Core.Dsl.ElabUtils
 import Core.Order
 import Lean
+
+open Core.Dsl.ElabUtils
 
 open Lean Elab Command Term in
 
@@ -293,10 +296,7 @@ private def elabDefOrderCore
         facts := $factList'
         closure := $closureList
         chain := $chainExpr }))
-  let mod ← getMainModule
-  let modName : TSyntax `term := quote mod
-  elabCommand (← `(command|
-    initialize registerOrderDef $orderDefId $modName))
+  registerInCurrentModule ``registerOrderDef orderDefId
 
 open Lean Elab Command Term in
 elab_rules : command

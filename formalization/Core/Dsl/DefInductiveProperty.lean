@@ -1,11 +1,14 @@
 import Core.Registry
 import Core.Dsl.DefFn
+import Core.Dsl.ElabUtils
 import Core.Dsl.IdentRefs
 import Core.Dsl.Types.InductivePropertyDef
 import Core.Export.Lean
 import Lean
 
 open Core.Dsl.IdentRefs
+
+open Core.Dsl.ElabUtils
 
 open Lean in
 
@@ -75,10 +78,7 @@ private def parseRuleBinder
       (toString n.getId, none))
   | `(inductivePropBinder|
         { $ns:ident,* : $t:term }) =>
-    let typeStr :=
-      if t.raw.isIdent then toString t.raw.getId
-      else t.raw.reprint.getD (toString t.raw)
-    let ty := typeStr.trimAscii.toString
+    let ty := toTypeStrTrimmed t.raw
     pure (ns.getElems.toList.map fun n =>
       (toString n.getId, some ty))
   | _ => Lean.Elab.throwUnsupportedSyntax
@@ -141,9 +141,7 @@ elab_rules : command
     clearAllParseBuffers
     let parsedRules ← rs.mapM
       (parseInductivePropRule ∘ TSyntax.raw)
-    let typeParamNames : List String := match tps with
-      | some ids => ids.toList.map (toString ·.getId)
-      | none => []
+    let typeParamNames : List String := typeParamNames tps
     let paramData ← ps.mapM parseFnParam
     for (_, _, ty) in paramData do recordTypeIdents ty
     -- The `displayed` template is a single `Doc` value
@@ -169,15 +167,10 @@ elab_rules : command
     -- Build the `inductive` declaration as a string and reparse,
     -- since each rule's premises and conclusion are arbitrary
     -- Lean terms whose source we pass through verbatim.
-    let tpStr := if typeParamNames.isEmpty then ""
-      else " " ++ " ".intercalate
-        (typeParamNames.map fun p => s!"({p} : Type)")
+    let tpStr := renderTypeParamSig typeParamNames
     let paramItems := paramData.toList.map
       fun (pn, _, pt) =>
-        let typeStr :=
-          if pt.isIdent then toString pt.getId
-          else pt.reprint.getD (toString pt) |>.trimAscii.toString
-        s!"({pn.getId} : {typeStr})"
+        s!"({pn.getId} : {toTypeStrTrimmed pt})"
     let paramSig :=
       if paramItems.isEmpty then " : Prop"
       else s!" : {" → ".intercalate paramItems} → Prop"
@@ -207,10 +200,7 @@ elab_rules : command
     -- Build the InductivePropertyDef registry term.
     let paramDefs ← paramData.mapM fun (pn, pd, pt) => do
       let an : TSyntax `term := quote (toString pn.getId)
-      let typeStr :=
-        if pt.isIdent then toString pt.getId
-        else pt.reprint.getD (toString pt) |>.trimAscii.toString
-      let tnTerm : TSyntax `term := quote typeStr
+      let tnTerm : TSyntax `term := quote (toTypeStrTrimmed pt)
       `({ name := $an,
           ty := DSLType.parse $tnTerm,
           doc := ($pd : Doc) : FieldDef })
@@ -255,8 +245,5 @@ elab_rules : command
           rules := $rulesTerm,
           display := $displayTerm,
           leanSource := $leanSourceTerm }))
-    let mod ← getMainModule
-    let modName : TSyntax `term := quote mod
-    elabCommand (← `(command|
-      initialize registerInductivePropertyDef $ipDefId $modName))
+    registerInCurrentModule ``registerInductivePropertyDef ipDefId
     flushIdentRefs

@@ -1,8 +1,11 @@
 import Core.Dsl.DefFn
+import Core.Dsl.ElabUtils
 import Core.Dsl.IdentRefs
 import Core.Registry
 
 open Core.Dsl.IdentRefs
+
+open Core.Dsl.ElabUtils
 
 /-! # `defTheorem`: register a DSL-level theorem
 
@@ -93,8 +96,5 @@ elab_rules : command
           doc := ($doc : Doc),
           statement := $stmtTerm,
           proofIdent := $proofTerm }))
-    let mod ← getMainModule
-    let modName : TSyntax `term := quote mod
-    elabCommand (← `(command|
-      initialize registerTheoremDef $tdId $modName))
+    registerInCurrentModule ``registerTheoremDef tdId
     flushIdentRefs

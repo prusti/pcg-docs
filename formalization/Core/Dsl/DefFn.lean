@@ -2,6 +2,7 @@ import Core.Doc.Interp
 import Core.Registry
 import Core.Export.Lean
 import Core.Dsl.DefEnum
+import Core.Dsl.ElabUtils
 import Core.Dsl.IdentRefs
 import Core.Dsl.Lint
 import Core.Dsl.ProofFolding
@@ -9,6 +10,8 @@ import Runtime
 import Lean
 
 open Core.Dsl.IdentRefs
+
+open Core.Dsl.ElabUtils
 
 open Lean in
 
@@ -696,6 +699,35 @@ def parseFnParam
     pure (n, d, t)
   | _ => Lean.Elab.throwUnsupportedSyntax
 
+/-- Parse a `fnArm` (1–4 patterns separated by `;`) into the
+    pair `(patterns, RHS)`. Used by `defFn` /
+    `defProperty` / `defFnMutual` whose `where`-clauses share
+    the same arm shape. The arm form is the same one
+    `parseExpr` recognises inside `match …` expressions, but
+    extracted as its own helper so the four sites that want
+    `Array BodyPat` (rather than the `List BodyPat` form
+    `parseExpr` builds) don't repeat the four-arm match
+    boilerplate. -/
+def parseFnArm
+    (arm : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM (Array BodyPat × DslExpr) := do
+  match arm with
+  | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+        $p4:fnPat => $rhs:fnExpr) => do
+    pure (#[← parsePat p1, ← parsePat p2,
+      ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
+  | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+        => $rhs:fnExpr) => do
+    pure (#[← parsePat p1, ← parsePat p2,
+      ← parsePat p3], ← parseExpr rhs)
+  | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
+        $rhs:fnExpr) => do
+    pure (#[← parsePat p1, ← parsePat p2],
+      ← parseExpr rhs)
+  | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
+    pure (#[← parsePat p], ← parseExpr rhs)
+  | _ => throwError "invalid fnArm"
+
 def parsePrecond
     (stx : Lean.Syntax)
     : Lean.Elab.Command.CommandElabM Precondition := do
@@ -751,21 +783,26 @@ def parsePrecond
 private def normaliseLeanType (s : String) : String :=
   (DSLType.parse s).toLean
 
+/-- Render a `defFn` parameter list as the
+    `(p₁ : T₁) (p₂ : T₂) …` chunk spliced into the generated
+    Lean source. Each parameter's declared type is normalised
+    via `normaliseLeanType` so DSL-only types (`Set`, `Map`)
+    become their Lean equivalents. -/
+private def renderParamBinds
+    (paramData : Array (Lean.Ident × Lean.TSyntax `term
+      × Lean.Syntax)) : String :=
+  " ".intercalate (paramData.toList.map fun (pn, _, pt) =>
+    s!"({pn.getId} : {normaliseLeanType (toTypeStr pt)})")
+
 def buildFnType
     (paramData : Array (Lean.Ident × Lean.TSyntax `term
       × Lean.Syntax))
     (retTy : Lean.TSyntax `term)
     : Lean.Elab.Command.CommandElabM String := do
   let paramTypeStrs := paramData.map fun (_, _, pt) =>
-    let raw := if pt.isIdent then toString pt.getId
-      else pt.reprint.getD (toString pt)
-    normaliseLeanType raw
-  let retRepr :=
-    if retTy.raw.isIdent
-    then toString retTy.raw.getId
-    else retTy.raw.reprint.getD (toString retTy)
+    normaliseLeanType (toTypeStr pt)
   pure (" → ".intercalate paramTypeStrs.toList
-    ++ s!" → {normaliseLeanType retRepr}")
+    ++ s!" → {normaliseLeanType (toTypeStr retTy.raw)}")
 
 /-- Syntactic header for a `defFn`: the function name
     together with the user-supplied symbol and top-level
@@ -788,10 +825,7 @@ def parseFnDisplay
         (Lean.TSyntax `term) := do
   let argTypes : List (String × String) :=
     paramData.toList.map fun (pn, _, pt) =>
-      let tyStr :=
-        if pt.isIdent then toString pt.getId
-        else pt.reprint.getD (toString pt)
-      (toString pn.getId, tyStr)
+      (toString pn.getId, toTypeStr pt)
   -- A `defFn` is not self-referential in the way enum
   -- variants are, so `selfName`/`selfSym` are unused;
   -- pass dummy values that won't be matched.
@@ -800,6 +834,32 @@ def parseFnDisplay
   let dpDefs ← dps.mapM
     (parseDisplayPart argTypes "" dummySym [])
   `([$[$dpDefs],*])
+
+open Lean Elab Command in
+/-- Build the optional `display` term from a `defFn`-shaped
+    `(parameters, displayParts)` pair. Used by `defFn`,
+    `defProperty`, and the mutual-fn entry parser to keep
+    their `displayTerm ← match dps with …` blocks identical. -/
+def parseFnDisplayOpt
+    (paramData : Array (Lean.Ident × Lean.TSyntax `term
+      × Lean.Syntax))
+    (dps : Option (Lean.Syntax.TSepArray `displayPart ","))
+    : CommandElabM (Option (TSyntax `term)) :=
+  match dps with
+  | some d => Option.some <$> parseFnDisplay paramData d.getElems
+  | none => pure none
+
+open Lean Elab Command in
+/-- Build the `Option (List DisplayPart)` term spliced into a
+    `FnDef` / `PropertyDef`'s `display` field. `Some (← parsed)`
+    when the user supplied a `displayed (…)` clause; `none`
+    otherwise. -/
+def buildDisplayTerm
+    (display : Option (TSyntax `term))
+    : CommandElabM (TSyntax `term) :=
+  match display with
+  | some dpList => `((some $dpList : Option (List DisplayPart)))
+  | none => `((none : Option (List DisplayPart)))
 
 /-- Whether a free identifier reference to `name` appears
     anywhere inside `stx`. Used by `buildFnDef` to skip
@@ -850,26 +910,17 @@ def buildFnDef
     fun (pn, pd, pt) => do
       let ns : TSyntax `term :=
         quote (toString pn.getId)
-      let typeStr :=
-        if pt.isIdent then toString pt.getId
-        else pt.reprint.getD (toString pt)
-      let tyTerm ← `(DSLType.parse $(quote typeStr))
+      let tyTerm ← `(DSLType.parse $(quote (toTypeStr pt)))
       `({ name := $ns, ty := $tyTerm,
           doc := ($pd : Doc) : FieldDef })
   let ns : TSyntax `term :=
     quote (toString name.getId)
-  let retStr :=
-    if retTy.raw.isIdent
-    then toString retTy.raw.getId
-    else retTy.raw.reprint.getD (toString retTy)
-  let retTn ← `(DSLType.parse $(quote retStr))
+  let retTn ← `(DSLType.parse $(quote (toTypeStr retTy.raw)))
   let paramList ← `([$[$paramDefs],*])
   let precondList : TSyntax `term := quote preconds
   let postcondList : TSyntax `term := quote postconds
   let mutualGroupTerm : TSyntax `term := quote mutualGroup
-  let displayTerm : TSyntax `term ← match display with
-    | some dpList => `((some $dpList : Option (List DisplayPart)))
-    | none => `((none : Option (List DisplayPart)))
+  let displayTerm ← buildDisplayTerm display
   let isImplicitTerm : TSyntax `term := quote isImplicit
   -- Capture the last component of the source-level `namespace`
   -- enclosing this `defFn` so the Lean export can prefer it over
@@ -894,10 +945,7 @@ def buildFnDef
         display := $displayTerm,
         sourceNamespace := $sourceNsTerm,
         isImplicit := $isImplicitTerm }))
-  let mod ← getMainModule
-  let modName : TSyntax `term := quote mod
-  elabCommand (← `(command|
-    initialize registerFnDef $fnDefId $modName))
+  registerInCurrentModule ``registerFnDef fnDefId
 
 /-- Build precondition proof parameter strings for
     the generated Lean def. A named `prop(a, b)` becomes
@@ -939,6 +987,16 @@ private def wrapRetType
     : String :=
   if postconds.isEmpty then retTy
   else s!"\{ result : {retTy} // {postcondPredicate postconds} }"
+
+/-- Render the return type of a `defFn` as the Lean source
+    string spliced into the generated `def`'s signature.
+    Wraps the type in the postcondition subtype when there
+    are postconditions present. -/
+private def renderRetType
+    (retTy : Lean.TSyntax `term)
+    (postconds : List Postcondition) : String :=
+  wrapRetType (normaliseLeanType (toTypeStr retTy.raw))
+    postconds
 
 /-- Wrap a body expression with the subtype anonymous
     constructor `⟨body, <proof>⟩` when postconds are present;
@@ -1014,9 +1072,7 @@ elab_rules : command
       recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
-    let displayTerm ← match dps with
-      | some d => Option.some <$> parseFnDisplay paramData d.getElems
-      | none => pure none
+    let displayTerm ← parseFnDisplayOpt paramData dps
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -1029,22 +1085,7 @@ elab_rules : command
           pcs.getElems.toList.mapM
             (parsePrecond ·.raw)
       | none => pure []
-    let parsed ← arms.mapM fun arm => match arm with
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
-            $p4:fnPat => $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2,
-          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
-            => $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2,
-          ← parsePat p3], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
-            $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2],
-          ← parseExpr rhs)
-      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
-        pure (#[← parsePat p], ← parseExpr rhs)
-      | _ => throwError "invalid fnArm"
+    let parsed ← arms.mapM parseFnArm
     let armsList : List (List BodyPat × DslExpr) :=
       parsed.toList.map fun (a, r) => (a.toList, r)
     if DslLint.matchIsIrrefutable armsList then
@@ -1075,19 +1116,9 @@ elab_rules : command
         pure s!"{attrPrefix}{defKw} {name.getId} : {tyStr}\n\
           {"\n".intercalate armStrs}"
       else do
-        let paramBinds := " ".intercalate
-          (paramData.toList.map fun (pn, _, pt) =>
-            let tyStr :=
-              if pt.isIdent then toString pt.getId
-              else pt.reprint.getD (toString pt)
-            s!"({pn.getId} : {normaliseLeanType tyStr})")
+        let paramBinds := renderParamBinds paramData
         let precBinds := precondParamBinds preconds
-        let retRaw :=
-          if retTy.raw.isIdent
-          then toString retTy.raw.getId
-          else retTy.raw.reprint.getD (toString retTy)
-        let retRepr := wrapRetType
-          (normaliseLeanType retRaw) postconds
+        let retRepr := renderRetType retTy postconds
         let matchArgs := ", ".intercalate paramNames
         pure s!"{attrPrefix}{defKw} {name.getId} \
           {paramBinds} {precBinds} : {retRepr} :=\n\
@@ -1158,9 +1189,7 @@ elab_rules : command
       recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
-    let displayTerm ← match dps with
-      | some d => Option.some <$> parseFnDisplay paramData d.getElems
-      | none => pure none
+    let displayTerm ← parseFnDisplayOpt paramData dps
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM
@@ -1179,19 +1208,9 @@ elab_rules : command
     let rhsStr := wrapBody
       (rhsAst.toLeanWith fnNameStr precondProofs
         (withProofMarkers := true)) postconds
-    let paramBinds := " ".intercalate
-      (paramData.toList.map fun (pn, _, pt) =>
-        let tyStr :=
-          if pt.isIdent then toString pt.getId
-          else pt.reprint.getD (toString pt)
-        s!"({pn.getId} : {normaliseLeanType tyStr})")
+    let paramBinds := renderParamBinds paramData
     let precBinds := precondParamBinds preconds
-    let retRaw :=
-      if retTy.raw.isIdent
-      then toString retTy.raw.getId
-      else retTy.raw.reprint.getD (toString retTy)
-    let retRepr := wrapRetType
-      (normaliseLeanType retRaw) postconds
+    let retRepr := renderRetType retTy postconds
     let defStr :=
       s!"{attrPrefix}def {name.getId} {paramBinds} \
          {precBinds} : {retRepr} :=\n  {rhsStr}"
@@ -1271,9 +1290,7 @@ private def parseMutualEntry
       recordLocalBinder pn pn.getId
     for (_, _, ty) in paramData do recordTypeIdents ty
     recordTypeIdents retTy
-    let displayTerm ← match dps with
-      | some d => Option.some <$> parseFnDisplay paramData d.getElems
-      | none => pure none
+    let displayTerm ← parseFnDisplayOpt paramData dps
     let preconds ← match reqs with
       | some pcs =>
         pcs.getElems.toList.mapM (parsePrecond ·.raw)
@@ -1284,22 +1301,7 @@ private def parseMutualEntry
         (·.map Precondition.toPostcondition) <$>
           pcs.getElems.toList.mapM (parsePrecond ·.raw)
       | none => pure []
-    let parsed ← arms.mapM fun arm => match arm with
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
-            $p4:fnPat => $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2,
-          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
-            => $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2,
-          ← parsePat p3], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
-            $rhs:fnExpr) => do
-        pure (#[← parsePat p1, ← parsePat p2],
-          ← parseExpr rhs)
-      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
-        pure (#[← parsePat p], ← parseExpr rhs)
-      | _ => throwError "invalid fnArm"
+    let parsed ← arms.mapM parseFnArm
     let armsList : List (List BodyPat × DslExpr) :=
       parsed.toList.map fun (a, r) => (a.toList, r)
     if DslLint.matchIsIrrefutable armsList then
@@ -1320,19 +1322,9 @@ private def parseMutualEntry
         pure s!"def {name.getId} : {tyStr}\n\
           {"\n".intercalate armStrs}"
       else do
-        let paramBinds := " ".intercalate
-          (paramData.toList.map fun (pn, _, pt) =>
-            let tyStr :=
-              if pt.isIdent then toString pt.getId
-              else pt.reprint.getD (toString pt)
-            s!"({pn.getId} : {normaliseLeanType tyStr})")
+        let paramBinds := renderParamBinds paramData
         let precBinds := precondParamBinds preconds
-        let retRaw :=
-          if retTy.raw.isIdent
-          then toString retTy.raw.getId
-          else retTy.raw.reprint.getD (toString retTy)
-        let retRepr := wrapRetType
-          (normaliseLeanType retRaw) postconds
+        let retRepr := renderRetType retTy postconds
         let paramNames := paramData.toList.map
           fun (pn, _, _) => toString pn.getId
         let matchArgs := ", ".intercalate paramNames

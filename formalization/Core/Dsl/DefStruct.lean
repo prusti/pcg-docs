@@ -1,7 +1,10 @@
 import Core.Registry
 import Core.Dsl.DefEnum
+import Core.Dsl.ElabUtils
 import Core.Dsl.Lint
 import Lean
+
+open Core.Dsl.ElabUtils
 
 open Lean in
 
@@ -138,9 +141,7 @@ private def elabDefStruct
     (derivs : Option (Syntax.TSepArray `ident ","))
     : CommandElabM Unit := do
     let fieldData ← fs.mapM parseStructField
-    let typeParamNames : List String := match tps with
-      | some ids => ids.toList.map (toString ·.getId)
-      | none => []
+    let typeParamNames : List String := typeParamNames tps
     let isGeneric := !typeParamNames.isEmpty
     -- Build structure fields using the user's original
     -- type syntax so identifier source positions survive
@@ -158,45 +159,15 @@ private def elabDefStruct
     -- propagate those constraints — emit the same
     -- constraints on every type parameter so the generated
     -- structure type-checks under `autoImplicit := false`.
-    let propagating ← hashPropagatingTypes.get
-    let typeTokens (s : String) : List String :=
-      -- Split on spaces and parens so that `Option
-      -- (TransientState P)` produces `["Option",
-      -- "TransientState", "P"]`.
-      let chars := s.toList.map fun c =>
-        if c == '(' || c == ')' then ' ' else c
-      String.ofList chars
-        |>.splitOn " "
-        |>.filter (· != "")
-    let fieldsUseHash := fieldData.any fun (_, ft, _, _) =>
-      let typeStr :=
-        if ft.isIdent then toString ft.getId
-        else ft.reprint.getD (toString ft)
-      typeTokens typeStr |>.any fun tok =>
-        tok == "Map" || tok == "Set" ||
-          propagating.contains tok
+    let fieldsUseHash ← usesHashPropagating
+      (fieldData.toList.map fun (_, ft, _, _) => toTypeStr ft)
     -- Type-parameter binders for generic structures. When
     -- fields use `Map` / `Set`, append `[BEq P] [Hashable P]`
     -- instance binders after each `(P : Type)`.
-    let tpBinders : Array (TSyntax ``Lean.Parser.Term.bracketedBinder)
-      ← typeParamNames.toArray.foldlM
-          (init := #[]) fun acc p => do
-            let pId := mkIdent (Name.mkSimple p)
-            let typeBinder ← `(Lean.Parser.Term.bracketedBinderF|
-              ($pId : Type))
-            if fieldsUseHash then
-              let beq ← `(Lean.Parser.Term.bracketedBinderF|
-                [BEq $pId])
-              let hash ← `(Lean.Parser.Term.bracketedBinderF|
-                [Hashable $pId])
-              pure (acc.push typeBinder |>.push beq |>.push hash)
-            else
-              pure (acc.push typeBinder)
+    let tpBinders ← mkTypeParamBinders typeParamNames fieldsUseHash
     let deriveNames : Array Ident := match derivs with
       | some ds => ds
-      | none =>
-        #[mkIdent `DecidableEq, mkIdent `Repr,
-          mkIdent `Hashable]
+      | none => defaultDerives
     -- Generic structures embed `deriving` in the
     -- declaration; the monomorphic path uses separate
     -- `deriving instance` commands below.
@@ -221,9 +192,7 @@ private def elabDefStruct
       fun (fn, ft, fd, fsymOverride) => do
         let ns : TSyntax `term :=
           quote (toString fn.getId)
-        let typeStr :=
-          if ft.isIdent then toString ft.getId
-          else ft.reprint.getD (toString ft)
+        let typeStr := toTypeStr ft
         let tyTerm ← `(DSLType.parse $(quote typeStr))
         -- Without an explicit `symbol …` override, leave the
         -- symbolDoc unset so the LaTeX renderer falls back to
@@ -262,10 +231,7 @@ private def elabDefStruct
     let fieldEntries : List
         (String × String × Option (TSyntax `term)) :=
       fieldData.toList.map fun (fn, ft, _, fsymOverride) =>
-        let typeStr :=
-          if ft.isIdent then toString ft.getId
-          else ft.reprint.getD (toString ft)
-        (toString fn.getId, typeStr, fsymOverride)
+        (toString fn.getId, toTypeStr ft, fsymOverride)
     let selfNStr := toString name.getId
     let displayTerm : TSyntax `term ← match dps with
       | some parts => do
@@ -298,10 +264,7 @@ private def elabDefStruct
           subscriptTypeParams := $subscriptTerm,
           «display» := $displayTerm,
           fields := $fieldList }))
-    let mod ← getMainModule
-    let modName : TSyntax `term := quote mod
-    elabCommand (← `(command|
-      initialize registerStructDef $sdId $modName))
+    registerInCurrentModule ``registerStructDef sdId
     -- A generic struct that uses `Map`/`Set` (directly or
     -- transitively) propagates `BEq`/`Hashable` constraints
     -- to its type parameters, so anything mentioning this
