@@ -1,5 +1,6 @@
 import Presentation
 import Core.Dsl.RegisterPresentation
+import Core.Doc.PresInterp
 import MIR
 
 /-! # Example template presentation
@@ -14,7 +15,14 @@ registered definition that is *not* explicitly listed in
 
 The template is registered into the global presentation
 registry; the presentation exporter writes
-`generated/place.pdf` next to the full PDF on every export. -/
+`generated/place.pdf` next to the full PDF on every export.
+
+The body is written with the `presBody!` macro, which lets a
+template's prose be expressed as a markdown-like interpolated
+string: paragraph breaks split on blank lines, `# ` lines are
+section headings, and `[[Name]]` embeds the registered
+definition with that short name (rendered via `PresElement.defRef`).
+See `Core/Doc/PresInterp.lean` for the full body grammar. -/
 
 def placeTemplate : Presentation := {
   filename := "place"
@@ -24,14 +32,9 @@ def placeTemplate : Presentation := {
   -- template's appendix, so the focused PDF doesn't have to
   -- explain enum projections.
   disabledFeatures := [.enumTypes]
-  elems    := [
-    .doc (doc!
-      "A focused look at the `Place` definition and its \
-       transitive dependencies. Definitions referenced by \
-       `Place` but not embedded directly here are rendered \
-       in the Appendix below."),
-    .defRef "Place"
-  ]
-}
+  elems    := presBody!
+    "A focused look at the `Place` definition and its transitive dependencies. Definitions referenced by `Place` but not embedded directly here are rendered in the Appendix below.
 
+[[Place]]"
+}
 registerPresentation placeTemplate

@@ -2,6 +2,7 @@ import LSpec
 import Core.Dsl.DslType
 import Core.Doc
 import Core.Doc.Interp
+import Core.Doc.PresInterp
 import Core.Export.Latex
 import Core.Dsl.Lint
 import Core.Dsl.Types.EnumDef
@@ -270,6 +271,172 @@ private def renderInlineMatch (ctx : RenderCtx) : String :=
   let mathDoc := DslExpr.toDoc "fn" ctx (fun _ => none) false m
   LatexMath.render (MathDoc.toLatexMath mathDoc)
 
+/-! # `presBody!` tests
+
+`presBody!` is the markdown-like body builder for
+`Presentation.elems`. The tests below pin down the four
+non-trivial behaviours: paragraph splitting at blank lines,
+`[[Name]]` defRef extraction, `# ` headings, and inline-grammar
+parity with `doc!`. -/
+
+/-- Reduce a `PresElement` to a tag string for shape-level
+    assertions. The doc-content is rendered to LaTeX so a single
+    string captures the structure end-to-end. -/
+private def presTag : PresElement → String
+  | .doc (Doc.section title) =>
+    s!"section({title.toLatex.render})"
+  | .doc d => s!"doc({d.toLatex.render})"
+  | .defRef n => s!"defRef({n})"
+
+private def presTags (es : List PresElement) : List String :=
+  es.map presTag
+
+private def presBodySingleParagraph : List PresElement :=
+  presBody! "Just one paragraph of prose."
+
+private def presBodyDefRefSplit : List PresElement :=
+  presBody! "Before. [[Place]] After."
+
+private def presBodyTwoParagraphs : List PresElement :=
+  presBody! "first paragraph
+
+second paragraph"
+
+private def presBodyHeadingThenProse : List PresElement :=
+  presBody! "# A Heading
+
+paragraph body"
+
+private def presBodyDefRefBetweenParagraphs : List PresElement :=
+  presBody! "intro prose
+
+[[Place]]
+
+trailing prose"
+
+private def presBodyInlineParityProse : Doc :=
+  doc! "code `x` and __bold__ and _italic_ and $π$"
+
+private def presBodyInlineParityDoc :=
+  presBody! "code `x` and __bold__ and _italic_ and $π$"
+
+private def presBodyUnclosedBracket : List PresElement :=
+  presBody! "literal [[unclosed text"
+
+private def presBodyEmptyBrackets : List PresElement :=
+  presBody! "literal [[]] empty"
+
+private def docHoleX : Doc := .plain "X"
+
+private def presBodyHole : List PresElement :=
+  presBody! "before {docHoleX} after"
+
+private def presBodySoftLineBreak : List PresElement :=
+  presBody! "line one
+line two"
+
+private def presBodyDottedRef : List PresElement :=
+  presBody! "literal [[Foo.Bar]] dotted"
+
+private def presBodyHeadingMidBody : List PresElement :=
+  presBody! "first paragraph
+# A Heading
+second paragraph"
+
+private def presBodyHeadingNoDefRef : List PresElement :=
+  presBody! "# Heading [[NotARef]] tail"
+
+private def presBodyMultipleBlankLines : List PresElement :=
+  presBody! "alpha
+
+
+beta"
+
+private def docInPresFirst (es : List PresElement) : Option Doc :=
+  match es with
+  | .doc d :: _ => some d
+  | _ => none
+
+private def hasOneDoc (es : List PresElement) : Bool :=
+  match es with
+  | [.doc _] => true
+  | _ => false
+
+private def hasTwoDocs (es : List PresElement) : Bool :=
+  match es with
+  | [.doc _, .doc _] => true
+  | _ => false
+
+private def hasSectionThenDoc (es : List PresElement) : Bool :=
+  match es with
+  | [.doc (Doc.section _), .doc _] => true
+  | _ => false
+
+private def isOnlySection (es : List PresElement) : Bool :=
+  match es with
+  | [.doc (Doc.section _)] => true
+  | _ => false
+
+private def hasDocDefRefDoc (es : List PresElement)
+    (refName : String) : Bool :=
+  match es with
+  | [.doc _, .defRef n, .doc _] => n == refName
+  | _ => false
+
+private def firstDocLatex (es : List PresElement) : String :=
+  match es with
+  | .doc d :: _ => d.toLatex.render
+  | _ => ""
+
+private def firstDocPlain (es : List PresElement) : String :=
+  match es with
+  | .doc d :: _ => d.toPlainText
+  | _ => ""
+
+def presBodyTests : TestSeq :=
+  group "Doc.PresInterp" $
+    test "single-paragraph string yields one .doc element"
+      (hasOneDoc presBodySingleParagraph) $
+    test "[[Name]] mid-line splits prose into 3 elements"
+      (presTags presBodyDefRefSplit ==
+        ["doc(Before. )", "defRef(Place)", "doc( After.)"]) $
+    test "blank line breaks paragraphs"
+      (hasTwoDocs presBodyTwoParagraphs) $
+    test "# heading line yields a .doc Doc.section"
+      (hasSectionThenDoc presBodyHeadingThenProse) $
+    test "[[Name]] alone between paragraphs collapses blank \
+          lines"
+      (hasDocDefRefDoc presBodyDefRefBetweenParagraphs "Place") $
+    test "inline grammar matches doc! for code/bold/italic/math"
+      (firstDocLatex presBodyInlineParityDoc ==
+        presBodyInlineParityProse.toLatex.render) $
+    test "unclosed [[ falls back to literal characters"
+      (hasSubstr (firstDocPlain presBodyUnclosedBracket)
+        "[[unclosed") $
+    test "empty [[]] falls back to literal characters"
+      (firstDocPlain presBodyEmptyBrackets == "literal [[]] empty") $
+    test "{expr} hole splices into surrounding paragraph"
+      (hasSubstr (firstDocPlain presBodyHole)
+        "before X after") $
+    test "single newline collapses to space (soft line break)"
+      (firstDocPlain presBodySoftLineBreak ==
+        "line one line two") $
+    test "dotted [[Foo.Bar]] body falls back to literal"
+      (firstDocPlain presBodyDottedRef ==
+        "literal [[Foo.Bar]] dotted") $
+    test "heading mid-body flushes preceding paragraph"
+      (presTags presBodyHeadingMidBody ==
+        ["doc(first paragraph)",
+         "section(A Heading)",
+         "doc(second paragraph)"]) $
+    test "[[Name]] inside a heading stays literal"
+      (isOnlySection presBodyHeadingNoDefRef &&
+        hasSubstr (firstDocPlain presBodyHeadingNoDefRef)
+          "[[NotARef]]") $
+    test "multiple consecutive blank lines collapse to one break"
+      (hasTwoDocs presBodyMultipleBlankLines) $
+    .done
+
 def featureFlagTests : TestSeq :=
   group "Feature flag" $
     test "enum: tagged variant omitted when feature disabled"
@@ -306,6 +473,7 @@ def main (args : List String) : IO UInt32 :=
       ("DSLType", [dslTypeParseTests]),
       ("Doc", [docLinkTests]),
       ("DocInterp", [docInterpTests]),
+      ("PresInterp", [presBodyTests]),
       ("DslLint", [lintTests]),
       ("FeatureFlag", [featureFlagTests])])
     args

@@ -346,8 +346,9 @@ private partial def consumeDottedTail :
 
 /-- Try to consume a (possibly dotted) identifier from the head of
     `cs`. Returns `("", cs)` if `cs` does not start with an
-    identifier-start character. -/
-private def consumeRef (cs : List Char) : String × List Char :=
+    identifier-start character. Shared with the `presBody!`
+    chunk parser, which uses it to match `[[Name]]` bodies. -/
+def consumeRef (cs : List Char) : String × List Char :=
   match cs with
   | [] => ("", [])
   | c :: rest =>
@@ -711,6 +712,119 @@ def Doc.Interp.mathSegsToTerm (segs : List Doc.Interp.MathChunkSeg) :
 syntax (name := docInterp) "doc! " interpolatedStr(term) : term
 
 open Lean Elab Term in
+/-- Lower a list of `ChunkSeg`s — the inline-grammar segments
+    produced by `parseSegs` — into an array of `Doc`-typed
+    Lean term syntax. The result is intended to be inserted
+    into a surrounding `Doc.seq [...]` (or interleaved with
+    other Doc-typed terms produced by the caller).
+    `chunkPos?` is the source position of the chunk's leading
+    delimiter (used to wire `SourceInfo.original` onto
+    `#identifier` `Syntax.ident`s so the LSP can resolve them
+    for goto-def / hover / semantic highlighting).
+    Shared by the `doc!` and `presBody!` elaborators. -/
+def Doc.Interp.chunkSegsToDocTerms
+    (chunkPos? : Option String.Pos.Raw) (segs : List ChunkSeg) :
+    TermElabM (Array (TSyntax `term)) := do
+  let mut parts : Array (TSyntax `term) := #[]
+  for seg in segs do
+    match seg with
+    | .literal s =>
+      if s.isEmpty then continue
+      let lit := Syntax.mkStrLit s
+      parts := parts.push (← `((Doc.plain $lit : Doc)))
+    | .ref nameParts startOff endOff =>
+      let leanName := nameParts.foldl
+        (fun acc p => Name.mkStr acc p) Name.anonymous
+      let nameStr := ".".intercalate nameParts
+      -- Build the synthesised `Syntax.ident` with
+      -- `SourceInfo.original` pointing at the
+      -- `#identifier` substring's absolute file
+      -- position. With this info the LSP can resolve
+      -- the substring back to a known identifier for
+      -- goto-def, hover, and (after the explicit
+      -- `addConstInfo` below) semantic highlighting.
+      -- Falls back to `SourceInfo.none` for chunks
+      -- without source positions (e.g. macro-generated
+      -- callsites).
+      --
+      -- Note: byte offsets are computed in the
+      -- *decoded* chunk string, so a chunk containing
+      -- escape sequences (e.g. `\<newline>` line
+      -- continuations) yields positions that are off
+      -- by the escape's width-difference. In practice
+      -- `#refs` rarely sit after escapes within the
+      -- same chunk, and the IDE tolerates being a few
+      -- bytes off — typo errors from the elaborator
+      -- still surface unchanged regardless.
+      let info : SourceInfo := match chunkPos? with
+        | some chunkPos =>
+          let absStart : String.Pos.Raw :=
+            ⟨chunkPos.byteIdx + 1 + startOff⟩
+          let absEnd : String.Pos.Raw :=
+            ⟨chunkPos.byteIdx + 1 + endOff⟩
+          .original "".toRawSubstring absStart
+            "".toRawSubstring absEnd
+        | none => SourceInfo.none
+      let ident : Ident := ⟨Syntax.ident info
+        nameStr.toRawSubstring leanName []⟩
+      -- Push an explicit `TermInfo` at the ident's
+      -- substring range so `collectInfoBasedSemanticTokens`
+      -- emits a highlight token there. The elaborator
+      -- below also calls `addTermInfo` for the surrounding
+      -- `@<ident>` node, but its range covers the wider
+      -- expression rather than just the substring;
+      -- pushing this leaf ensures the highlight lands on
+      -- exactly the `#identifier` characters. Wrapped in
+      -- `try ... catch` so a typo still surfaces from the
+      -- elaboration of `@<ident>` below (with the same
+      -- error message as before this rewrite) instead of
+      -- being eaten here.
+      try addConstInfo ident leanName
+      catch _ => pure ()
+      let strLit := Syntax.mkStrLit nameStr
+      parts := parts.push
+        (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
+    | .refByName name =>
+      -- `#[name]` form: emit `Doc.refLinkByName "name"`.
+      -- Unlike `.ref`, the name is not validated as a
+      -- Lean identifier, so this admits labels whose
+      -- characters fall outside the unbracketed `#name`
+      -- form's accepted set or that need to abut
+      -- surrounding prose without a terminator. No
+      -- `addConstInfo` push: there is no resolved
+      -- declaration to point semantic-token
+      -- highlighting at.
+      let lit := Syntax.mkStrLit name
+      parts := parts.push
+        (← `((Doc.refLinkByName $lit : Doc)))
+    | .code s =>
+      if s.isEmpty then continue
+      let lit := Syntax.mkStrLit s
+      parts := parts.push (← `((Doc.code $lit : Doc)))
+    | .mathBlock mathSegs =>
+      -- Build a `MathDoc.seq` of the math segments via
+      -- the shared `mathSegsToTerm` helper (also used
+      -- by the `mathdoc!` macro), then wrap in
+      -- `Doc.math` so the math block fits into the
+      -- enclosing `Doc.seq`.
+      let mdTerm ← Doc.Interp.mathSegsToTerm mathSegs
+      parts := parts.push
+        (← `((Doc.math $mdTerm : Doc)))
+    | .bold s =>
+      -- `__X__` outside a math block: emit
+      -- `Doc.bold (Doc.plain "X")`.
+      let lit := Syntax.mkStrLit s
+      parts := parts.push
+        (← `((Doc.bold (Doc.plain $lit) : Doc)))
+    | .italic s =>
+      -- `_X_` outside a math block: emit
+      -- `Doc.italic (Doc.plain "X")`.
+      let lit := Syntax.mkStrLit s
+      parts := parts.push
+        (← `((Doc.italic (Doc.plain $lit) : Doc)))
+  return parts
+
+open Lean Elab Term in
 @[term_elab docInterp]
 def elabDocInterp : Term.TermElab := fun stx expectedType? => do
   match stx with
@@ -727,102 +841,9 @@ def elabDocInterp : Term.TermElab := fun stx expectedType? => do
         -- following an `{expr}` hole). The chunk's *content*
         -- begins one byte after that delimiter.
         let chunkPos? := chunk.getPos? (canonicalOnly := true)
-        for seg in Doc.Interp.parseSegs str do
-          match seg with
-          | .literal s =>
-            if s.isEmpty then continue
-            let lit := Syntax.mkStrLit s
-            parts := parts.push (← `((Doc.plain $lit : Doc)))
-          | .ref nameParts startOff endOff =>
-            let leanName := nameParts.foldl
-              (fun acc p => Name.mkStr acc p) Name.anonymous
-            let nameStr := ".".intercalate nameParts
-            -- Build the synthesised `Syntax.ident` with
-            -- `SourceInfo.original` pointing at the
-            -- `#identifier` substring's absolute file
-            -- position. With this info the LSP can resolve
-            -- the substring back to a known identifier for
-            -- goto-def, hover, and (after the explicit
-            -- `addConstInfo` below) semantic highlighting.
-            -- Falls back to `SourceInfo.none` for chunks
-            -- without source positions (e.g. macro-generated
-            -- callsites).
-            --
-            -- Note: byte offsets are computed in the
-            -- *decoded* chunk string, so a chunk containing
-            -- escape sequences (e.g. `\<newline>` line
-            -- continuations) yields positions that are off
-            -- by the escape's width-difference. In practice
-            -- `#refs` rarely sit after escapes within the
-            -- same chunk, and the IDE tolerates being a few
-            -- bytes off — typo errors from the elaborator
-            -- still surface unchanged regardless.
-            let info : SourceInfo := match chunkPos? with
-              | some chunkPos =>
-                let absStart : String.Pos.Raw :=
-                  ⟨chunkPos.byteIdx + 1 + startOff⟩
-                let absEnd : String.Pos.Raw :=
-                  ⟨chunkPos.byteIdx + 1 + endOff⟩
-                .original "".toRawSubstring absStart
-                  "".toRawSubstring absEnd
-              | none => SourceInfo.none
-            let ident : Ident := ⟨Syntax.ident info
-              nameStr.toRawSubstring leanName []⟩
-            -- Push an explicit `TermInfo` at the ident's
-            -- substring range so `collectInfoBasedSemanticTokens`
-            -- emits a highlight token there. The elaborator
-            -- below also calls `addTermInfo` for the surrounding
-            -- `@<ident>` node, but its range covers the wider
-            -- expression rather than just the substring;
-            -- pushing this leaf ensures the highlight lands on
-            -- exactly the `#identifier` characters. Wrapped in
-            -- `try ... catch` so a typo still surfaces from the
-            -- elaboration of `@<ident>` below (with the same
-            -- error message as before this rewrite) instead of
-            -- being eaten here.
-            try addConstInfo ident leanName
-            catch _ => pure ()
-            let strLit := Syntax.mkStrLit nameStr
-            parts := parts.push
-              (← `((Doc.refLinkOf @$ident:ident $strLit : Doc)))
-          | .refByName name =>
-            -- `#[name]` form: emit `Doc.refLinkByName "name"`.
-            -- Unlike `.ref`, the name is not validated as a
-            -- Lean identifier, so this admits labels whose
-            -- characters fall outside the unbracketed `#name`
-            -- form's accepted set or that need to abut
-            -- surrounding prose without a terminator. No
-            -- `addConstInfo` push: there is no resolved
-            -- declaration to point semantic-token
-            -- highlighting at.
-            let lit := Syntax.mkStrLit name
-            parts := parts.push
-              (← `((Doc.refLinkByName $lit : Doc)))
-          | .code s =>
-            if s.isEmpty then continue
-            let lit := Syntax.mkStrLit s
-            parts := parts.push (← `((Doc.code $lit : Doc)))
-          | .mathBlock segs =>
-            -- Build a `MathDoc.seq` of the math segments via
-            -- the shared `mathSegsToTerm` helper (also used
-            -- by the `mathdoc!` macro), then wrap in
-            -- `Doc.math` so the math block fits into the
-            -- enclosing `Doc.seq`.
-            let mdTerm ← Doc.Interp.mathSegsToTerm segs
-            parts := parts.push
-              (← `((Doc.math $mdTerm : Doc)))
-          | .bold s =>
-            -- `__X__` outside a math block: emit
-            -- `Doc.bold (Doc.plain "X")`.
-            let lit := Syntax.mkStrLit s
-            parts := parts.push
-              (← `((Doc.bold (Doc.plain $lit) : Doc)))
-          | .italic s =>
-            -- `_X_` outside a math block: emit
-            -- `Doc.italic (Doc.plain "X")`.
-            let lit := Syntax.mkStrLit s
-            parts := parts.push
-              (← `((Doc.italic (Doc.plain $lit) : Doc)))
+        let segs := Doc.Interp.parseSegs str
+        parts := parts ++
+          (← Doc.Interp.chunkSegsToDocTerms chunkPos? segs)
       | none =>
         let term : Term := ⟨chunk⟩
         parts := parts.push (← `(($term : Doc)))

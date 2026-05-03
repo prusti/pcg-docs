@@ -26,7 +26,10 @@ inductive PresElement where
     rendered in an "Appendix" section so the resulting PDF is
     self-contained. -/
 structure Presentation where
-  /-- Body content, rendered top-to-bottom. -/
+  /-- Body content, rendered top-to-bottom. New templates
+      should usually build this with the `presBody!` macro
+      (see `Core/Doc/PresInterp.lean`), which lets the body be
+      written as a markdown-like interpolated string. -/
   elems : List PresElement
   /-- Output filename stem (without extension). The presentation
       exporter writes `<filename>.tex` and `<filename>.pdf`
