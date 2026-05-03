@@ -2,6 +2,7 @@ import Core.Doc.Interp
 import Core.Registry
 import Core.Dsl.ElabUtils
 import Core.Dsl.Lint
+import Core.Dsl.Types.Feature
 import Lean
 
 open Core.Dsl.ElabUtils
@@ -41,7 +42,8 @@ declare_syntax_cat enumVariant
     `idx : MathDoc` parameter at rendering time. When
     omitted, the display defaults to the constructor name
     followed by each argument's symbol separated by spaces. -/
-syntax "| " ident enumVariantArg* term:max
+syntax "| " (atomic("[" "feature" ident,+ "]"))?
+    ident enumVariantArg* term:max
     ("(" term ")")? : enumVariant
 
 /-- Define an enum type with cross-language export and presentation
@@ -378,9 +380,10 @@ private def buildDefaultVariantDisplay
 private def variantArgTypeStrs
     (varData : Array
       (Lean.TSyntax `ident × Array (Lean.TSyntax `enumVariantArg)
-        × Lean.TSyntax `term × Option (Lean.TSyntax `term)))
+        × Lean.TSyntax `term × Option (Lean.TSyntax `term)
+        × List Feature))
     : List String :=
-  varData.toList.flatMap fun (_, args, _, _) =>
+  varData.toList.flatMap fun (_, args, _, _, _) =>
     args.toList.filterMap fun (a : Lean.TSyntax _) =>
       match a.raw with
       | `(enumVariantArg| ($_:ident : $t:term)) =>
@@ -393,7 +396,8 @@ private def variantArgTypeStrs
 private def variantArgsUseHash
     (varData : Array
       (Lean.TSyntax `ident × Array (Lean.TSyntax `enumVariantArg)
-        × Lean.TSyntax `term × Option (Lean.TSyntax `term)))
+        × Lean.TSyntax `term × Option (Lean.TSyntax `term)
+        × List Feature))
     : IO Bool :=
   usesHashPropagating (variantArgTypeStrs varData)
 
@@ -416,9 +420,15 @@ private def elabDefEnum
     : CommandElabM Unit := do
     let varData ← vs.mapM fun v => match v with
       | `(enumVariant|
+            | [feature $featIds:ident,*]
+              $vn:ident $args:enumVariantArg*
+              $vd:term $[( $disp:term )]?) => do
+        let feats ← parseFeatureIdents featIds.getElems
+        pure (vn, args, vd, disp, feats)
+      | `(enumVariant|
             | $vn:ident $args:enumVariantArg*
               $vd:term $[( $disp:term )]?) =>
-        pure (vn, args, vd, disp)
+        pure (vn, args, vd, disp, ([] : List Feature))
       | _ => throwError "invalid enum variant"
     let typeParamNames : List String := typeParamNames tps
     let isGeneric := !typeParamNames.isEmpty
@@ -427,7 +437,7 @@ private def elabDefEnum
     -- editor features like go-to-definition work on type
     -- references inside variant arguments.
     let ctors ← varData.mapM
-      fun (vn, args, _, _) => do
+      fun (vn, args, _, _, _) => do
         let binders ← args.mapM fun a => do
           let (argName, argType) ← parseVariantArg a
           let prefixed := mkIdent
@@ -467,7 +477,7 @@ private def elabDefEnum
           deriving instance $d:ident for $name)
         elabCommand deriveCmd
     let varDefs ←
-      varData.mapM fun (vn, args, vd, disp) => do
+      varData.mapM fun (vn, args, vd, disp, feats) => do
         let vnStr : TSyntax `term :=
           quote (toString vn.getId)
         let ns ← `(DSLIdent.mk $vnStr)
@@ -501,9 +511,11 @@ private def elabDefEnum
           | none =>
             buildDefaultVariantDisplay
               (toString vn.getId) argIdents
+        let featsTerm : TSyntax `term := quote feats
         `({ name := $ns, doc := ($vd : Doc),
             display := $displayFn,
-            args := $argList
+            args := $argList,
+            features := $featsTerm
             : VariantDef })
     let enumNameStr : TSyntax `term :=
       quote (toString name.getId)

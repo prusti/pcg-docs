@@ -3,12 +3,20 @@ import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.DslExpr
 import Core.Dsl.Types.RenderCtx
+import Core.Dsl.Types.Feature
 import Core.Dsl.DslType
 
 /-- A match arm: patterns → expression. -/
 structure BodyArm where
   pat : List BodyPat
   rhs : DslExpr
+  /-- Feature flags this arm is gated on. The LaTeX
+      presentation omits the arm when any feature in this
+      list is disabled in the current presentation. Empty
+      (the default) means always rendered. The Lean and Rust
+      exports ignore this field — they always emit every
+      arm so the generated code stays exhaustive. -/
+  features : List Feature := []
   deriving Repr
 
 /-- A function body: either pattern-matching arms or
@@ -243,10 +251,15 @@ private partial def exprLines
     -- aligned `{ll}` array and complex arms drop to a
     -- `\textbf{case} pat ⇒` header followed by the nested
     -- rhs lines.
-    let armEntry
-        : (List BodyPat × DslExpr)
-        → Sum (LatexMath × LatexMath) (Latex × List Latex) :=
-      fun (pats, rhs) =>
+    -- Drop arms whose `features` list contains a feature
+    -- disabled in the current presentation. Lean and Rust
+    -- exports walk the unfiltered list elsewhere.
+    let visibleArms : List MatchArm :=
+      matchArms.filter fun a =>
+        !a.features.any ctx.isFeatureDisabled
+    let armEntry : MatchArm →
+        Sum (LatexMath × LatexMath) (Latex × List Latex) :=
+      fun (pats, rhs, _) =>
         let patMath := LatexMath.intercalate
           (.raw ",~")
           (pats.map goPat)
@@ -286,7 +299,7 @@ private partial def exprLines
              , LatexMath.seq (rows.intersperse (.raw "\n"))
              , .raw "\n\\end{array}" ])) ]
     let rec renderArms
-        : List (List BodyPat × DslExpr)
+        : List MatchArm
         → List (LatexMath × LatexMath) → List Latex
       | [], [] => []
       | [], batch => [renderSimpleBatch batch.reverse]
@@ -299,7 +312,7 @@ private partial def exprLines
             if batch.isEmpty then []
             else [renderSimpleBatch batch.reverse]
           prefixLs ++ caseLine :: rhsLs ++ renderArms rest []
-    headerLine :: renderArms matchArms []
+    headerLine :: renderArms visibleArms []
   | e =>
     [.seq [ .raw "    "
           , Latex.state (.inlineMath (.seq [
@@ -444,8 +457,15 @@ def formalDefLatex
           else [renderSimpleBatch batch.reverse]
         prefixLs ++ caseLine :: rhsLs ++ renderArms rest []
   let noDisp : String → Option MathDoc := fun _ => none
+  -- Drop arms whose `features` list contains a feature
+  -- disabled in the current presentation. Lean and Rust
+  -- exports walk `f.body` directly (no filter) so the
+  -- generated code stays exhaustive.
+  let visibleArms (arms : List BodyArm) : List BodyArm :=
+    arms.filter fun a =>
+      !a.features.any ctx.isFeatureDisabled
   let bodyLines : List Latex := match f.body with
-    | .matchArms arms => renderArms arms []
+    | .matchArms arms => renderArms (visibleArms arms) []
     | .expr body => exprLines f.name ctx isProperty noDisp
         ctx.ctorDisplay ctx.resolveCtor ctx.resolveVariant
         body 0

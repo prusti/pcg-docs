@@ -1,4 +1,5 @@
 import Core.Doc
+import Core.Dsl.Types.Feature
 
 /-- A single element of a template `Presentation`: either
     free-form prose or a reference to a registered DSL
@@ -34,6 +35,12 @@ structure Presentation where
   /-- Optional document title, rendered via `\title{…}` /
       `\maketitle`. Empty disables the title block. -/
   title : String := ""
+  /-- Features disabled in this presentation. Variants and
+      match arms tagged with any of these features are
+      omitted from the LaTeX rendering. Empty (the default)
+      means every feature is enabled — the rendering matches
+      the source DSL exactly. -/
+  disabledFeatures : List Feature := []
   deriving Repr
 
 namespace PresElement

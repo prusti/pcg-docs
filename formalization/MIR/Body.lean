@@ -166,7 +166,7 @@ defProperty validProjTy (.plain "validProjTy")
       validProjTy τ π
   | .array elem _ ; (.index _) :: π =>
       validProjTy elem π
-  | τ ; (.downcast _) :: π =>
+  | [feature ENUM_TYPES] τ ; (.downcast _) :: π =>
       validProjTy τ π
 
 defFn isOwned' (.plain "isOwned'")
@@ -185,7 +185,7 @@ defFn isOwned' (.plain "isOwned'")
       isOwned' τ π
   | .array elem _ ; (.index _) :: π =>
       isOwned' elem π
-  | τ ; (.downcast _) :: π =>
+  | [feature ENUM_TYPES] τ ; (.downcast _) :: π =>
       isOwned' τ π
 
 defFn placeTy' (.plain "placeTy'")
@@ -205,7 +205,7 @@ defFn placeTy' (.plain "placeTy'")
       placeTy' τ None π
   | .array elem _ ; _ ; (.index _) :: π =>
       placeTy' elem None π
-  | τ ; _ ; (.downcast v) :: π =>
+  | [feature ENUM_TYPES] τ ; _ ; (.downcast v) :: π =>
       placeTy' τ (Some v) π
 
 defProperty validPlace (.plain "valid")

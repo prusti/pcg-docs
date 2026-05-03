@@ -232,7 +232,7 @@ def buildTemplatePresentationLatex
     appendixSortByKind reg
       (closed.filter (fun n => !included.contains n))
   let subReg : Registry := reg.restrictToNames closed
-  let ctx : RenderCtx := mkRenderCtx subReg
+  let ctx : RenderCtx := mkRenderCtx subReg p.disabledFeatures
   let titleBlock : Latex :=
     if p.title.isEmpty then .seq []
     else .seq [

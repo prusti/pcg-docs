@@ -255,6 +255,69 @@ appendix logic across `Local`, `ProjElem`, `FieldIdx`,
 dependencies. CI's existing `lake exe presentation_export`
 step builds this template on every push.
 
+### Feature flags
+
+A `Presentation` may opt out of selected DSL features for its
+own PDF via the `disabledFeatures : List Feature` field
+(empty by default → every feature enabled).
+
+```lean
+inductive Feature where
+  | enumTypes
+  -- new constructors land here
+  deriving Repr, BEq, DecidableEq, Hashable, Inhabited, Lean.Quote
+```
+
+Each `defEnum` variant and `defFn` / `defProperty` /
+inline-`match` arm may carry a `[feature ID, …]` prefix
+naming one or more features it is gated on. The LaTeX
+exporter drops the variant or arm whenever any of its
+features appears in the active presentation's
+`disabledFeatures`. The Lean and Rust exports ignore the
+`features` field entirely — generated code stays exhaustive.
+
+```lean
+defEnum ProjElem (.raw "π", .raw "Π")
+  "Projection Elements"
+  (doc! "…")
+where
+  | deref "Dereference."
+    (MathDoc.doc (.code "*"))
+  | [feature ENUM_TYPES] downcast (variant : VariantIdx)
+    "Downcast an enum to a specific variant."
+    (mathdoc! "@{variant}")
+  …
+
+defFn expansionOfStep …
+  : PlaceExpansion InitTree where
+  | .deref ; child => .deref child
+  | [feature ENUM_TYPES] .downcast v ; child =>
+      .guided (.downcast v child)
+  …
+```
+
+Feature names in the surface DSL are the upper-snake-case
+spelling of the constructor (`ENUM_TYPES → Feature.enumTypes`);
+the elaborator (`Core/Dsl/ElabUtils.lean :: identToFeature`)
+raises an error at the source position on an unknown spelling.
+Adding a new feature is therefore three steps: add a
+constructor to `Feature`, extend `identToFeature`, document
+the spelling here.
+
+The render-time filter lives at:
+
+* `EnumDef.formalDefLatex` (variants in the `definition`
+  block).
+* `FnDef.formalDefLatex` (top-level `defFn` / `defProperty`
+  arms) and `FnDef.exprLines` (nested-match arms in
+  complex RHSs).
+* `DslExpr.toDoc`'s `.match_` case (top-level
+  inline-match arms inside DSL expressions).
+
+`Presentation.mkRenderCtx` turns the presentation's
+`disabledFeatures` into the `RenderCtx.isFeatureDisabled`
+predicate that those filters consult.
+
 ## Adding a new definition
 
 The common case is adding or moving a `defFn`. For example, to

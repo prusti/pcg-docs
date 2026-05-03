@@ -12,7 +12,7 @@ defEnum RequiredGuide {D}
     payload drawn from a parameter set $#D$.")
   subscript
 where
-  | downcast (variant : VariantIdx) (data : D)
+  | [feature ENUM_TYPES] downcast (variant : VariantIdx) (data : D)
     "An enum downcast."
   | constantIndex (offset : Nat) (data : D)
     "A constant array index."

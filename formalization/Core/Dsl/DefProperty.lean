@@ -176,8 +176,8 @@ elab_rules : command
     let docBinders := shortBinders
     let displayTerm ← parseFnDisplayOpt paramData dps
     let parsed ← arms.mapM parseFnArm
-    let armsList : List (List BodyPat × DslExpr) :=
-      parsed.toList.map fun (a, r) => (a.toList, r)
+    let armsList : List MatchArm :=
+      parsed.toList.map fun (a, r, fs) => (a.toList, r, fs)
     if DslLint.matchIsIrrefutable armsList then
       Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     let params := paramToLeanBinders paramData
@@ -189,13 +189,13 @@ elab_rules : command
     -- `graftDslProofMarkers` pass in `elabPropertyDecl` can
     -- splice the user-source syntax back in.
     let armASTs : List LeanMatchArm :=
-      parsed.toList.map fun (patAst, rhsAst) =>
+      parsed.toList.map fun (patAst, rhsAst, _) =>
         .mk (patAst.toList.map BodyPat.toLeanAST)
             ((rhsAst.bindAntecedentNames
                 (withProofMarkers := true)).toLeanASTWith ""
               [] [] (withProofMarkers := true))
     let lastIsCatchAll := match parsed.back? with
-      | some (pats, _) => pats.all fun p =>
+      | some (pats, _, _) => pats.all fun p =>
           match p with
           | .wild | .var _ => true | _ => false
       | none => false
@@ -207,10 +207,12 @@ elab_rules : command
     elabPropertyDecl name params (.matchArms allArms)
     setUserDeclRanges name (← getRef)
     let armDefs ← parsed.mapM
-      fun (patAst, rhsAst) => do
+      fun (patAst, rhsAst, fs) => do
         let pq : TSyntax `term := quote patAst.toList
         let rq : TSyntax `term := quote rhsAst
-        `({ pat := $pq, rhs := $rq : BodyArm })
+        let fq : TSyntax `term := quote fs
+        `({ pat := $pq, rhs := $rq,
+            features := $fq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildPropertyDef name symDoc paramData

@@ -226,13 +226,16 @@ open Lean Parser in
   trailing_parser:leadPrec:maxPrec
     many1 (categoryParser `fnExpr maxPrec)
 
+declare_syntax_cat fnFeatureTag
+syntax atomic("[" "feature") ident,+ "]" : fnFeatureTag
+
 declare_syntax_cat fnArm
-syntax "| " fnPat " => " fnExpr : fnArm
-syntax "| " fnPat "; " fnPat " => " fnExpr : fnArm
-syntax "| " fnPat "; " fnPat "; " fnPat " => " fnExpr
+syntax "| " (fnFeatureTag)? fnPat " => " fnExpr : fnArm
+syntax "| " (fnFeatureTag)? fnPat "; " fnPat " => " fnExpr : fnArm
+syntax "| " (fnFeatureTag)? fnPat "; " fnPat "; " fnPat " => " fnExpr
     : fnArm
-syntax "| " fnPat "; " fnPat "; " fnPat "; " fnPat
-    " => " fnExpr : fnArm
+syntax "| " (fnFeatureTag)?
+    fnPat "; " fnPat "; " fnPat "; " fnPat " => " fnExpr : fnArm
 
 -- Match expression: match expr with | pat => expr end
 syntax "match " fnExpr " with" fnArm+ " end" : fnExpr
@@ -410,6 +413,31 @@ partial def parsePat
     pure (.cons (← parsePat h) (← parsePat t))
   | _ => Lean.Elab.throwUnsupportedSyntax
 end
+
+/-- Read the optional `fnFeatureTag` prefix from a `fnArm`
+    syntax node, returning the parsed `List Feature`. The prefix
+    sits at index 1 of the `fnArm` node — directly after the
+    leading `|` literal — as a `null` node holding 0 or 1
+    `fnFeatureTag` child. An absent prefix yields `[]`. -/
+def stripFeaturePrefix (arm : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM (List Feature × Lean.Syntax) := do
+  let optNode := arm.getArg 1
+  if optNode.getNumArgs == 0 then
+    pure ([], arm)
+  else
+    -- The `fnFeatureTag` shape is `[ feature ident,+ ]`; the
+    -- comma-separated idents are at index 2 (the `[` `feature`
+    -- pair is wrapped in `atomic` and so collapses into a
+    -- single positional slot at index 0).
+    let tag := optNode.getArg 0
+    -- `fnFeatureTag` shape is `[ feature ident,+ ]`; positional
+    -- children are: 0=`[`, 1=`feature`, 2=idents-sepBy, 3=`]`.
+    -- (`atomic(...)` does not introduce a wrapper node — it
+    -- only changes parser backtracking.)
+    let idents := tag.getArg 2 |>.getSepArgs.map
+      fun s => ⟨s⟩
+    let feats ← parseFeatureIdents idents
+    pure (feats, arm)
 
 partial def parseExpr
     (stx : Lean.Syntax)
@@ -612,22 +640,27 @@ partial def parseExpr
   | `(fnExpr| match $scrut:fnExpr with
         $arms:fnArm* end) => do
     let scrutAst ← parseExpr scrut
-    let parsedArms ← arms.mapM fun arm =>
-      match arm with
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+    let parsedArms ← arms.mapM fun arm => do
+      let (feats, body) ← stripFeaturePrefix arm
+      match body with
+      | `(fnArm| | $[$_:fnFeatureTag]?
+            $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
             $p4:fnPat => $rhs:fnExpr) => do
         pure ([← parsePat p1, ← parsePat p2,
-          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+          ← parsePat p3, ← parsePat p4], ← parseExpr rhs, feats)
+      | `(fnArm| | $[$_:fnFeatureTag]?
+            $p1:fnPat ; $p2:fnPat ; $p3:fnPat
             => $rhs:fnExpr) => do
         pure ([← parsePat p1, ← parsePat p2,
-          ← parsePat p3], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
+          ← parsePat p3], ← parseExpr rhs, feats)
+      | `(fnArm| | $[$_:fnFeatureTag]?
+            $p1:fnPat ; $p2:fnPat =>
             $rhs:fnExpr) => do
         pure ([← parsePat p1, ← parsePat p2],
-          ← parseExpr rhs)
-      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
-        pure ([← parsePat p], ← parseExpr rhs)
+          ← parseExpr rhs, feats)
+      | `(fnArm| | $[$_:fnFeatureTag]? $p:fnPat
+            => $rhs:fnExpr) => do
+        pure ([← parsePat p], ← parseExpr rhs, feats)
       | _ => Lean.Elab.throwUnsupportedSyntax
     let armsList := parsedArms.toList
     if DslLint.matchIsIrrefutable armsList then
@@ -636,22 +669,27 @@ partial def parseExpr
   | `(fnExpr| match $h:ident : $scrut:fnExpr with
         $arms:fnArm* end) => do
     let scrutAst ← parseExpr scrut
-    let parsedArms ← arms.mapM fun arm =>
-      match arm with
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+    let parsedArms ← arms.mapM fun arm => do
+      let (feats, body) ← stripFeaturePrefix arm
+      match body with
+      | `(fnArm| | $[$_:fnFeatureTag]?
+            $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
             $p4:fnPat => $rhs:fnExpr) => do
         pure ([← parsePat p1, ← parsePat p2,
-          ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+          ← parsePat p3, ← parsePat p4], ← parseExpr rhs, feats)
+      | `(fnArm| | $[$_:fnFeatureTag]?
+            $p1:fnPat ; $p2:fnPat ; $p3:fnPat
             => $rhs:fnExpr) => do
         pure ([← parsePat p1, ← parsePat p2,
-          ← parsePat p3], ← parseExpr rhs)
-      | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
+          ← parsePat p3], ← parseExpr rhs, feats)
+      | `(fnArm| | $[$_:fnFeatureTag]?
+            $p1:fnPat ; $p2:fnPat =>
             $rhs:fnExpr) => do
         pure ([← parsePat p1, ← parsePat p2],
-          ← parseExpr rhs)
-      | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
-        pure ([← parsePat p], ← parseExpr rhs)
+          ← parseExpr rhs, feats)
+      | `(fnArm| | $[$_:fnFeatureTag]? $p:fnPat
+            => $rhs:fnExpr) => do
+        pure ([← parsePat p], ← parseExpr rhs, feats)
       | _ => Lean.Elab.throwUnsupportedSyntax
     let armsList := parsedArms.toList
     if DslLint.matchIsIrrefutable armsList then
@@ -708,32 +746,32 @@ def parseFnParam
   | _ => Lean.Elab.throwUnsupportedSyntax
 
 /-- Parse a `fnArm` (1–4 patterns separated by `;`) into the
-    pair `(patterns, RHS)`. Used by `defFn` /
+    triple `(patterns, RHS, features)`. Used by `defFn` /
     `defProperty` / `defFnMutual` whose `where`-clauses share
-    the same arm shape. The arm form is the same one
-    `parseExpr` recognises inside `match …` expressions, but
-    extracted as its own helper so the four sites that want
-    `Array BodyPat` (rather than the `List BodyPat` form
-    `parseExpr` builds) don't repeat the four-arm match
-    boilerplate. -/
+    the same arm shape, and by the inline-`match` parsers in
+    `parseExpr`. The optional `[feature ID, …]` prefix gates
+    the arm on one or more presentation features (consumed by
+    the LaTeX renderer; ignored by Lean / Rust exports). -/
 def parseFnArm
     (arm : Lean.Syntax)
-    : Lean.Elab.Command.CommandElabM (Array BodyPat × DslExpr) := do
-  match arm with
-  | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
+    : Lean.Elab.Command.CommandElabM
+        (Array BodyPat × DslExpr × List Feature) := do
+  let (feats, body) ← stripFeaturePrefix arm
+  match body with
+  | `(fnArm| | $[$_:fnFeatureTag]? $p1:fnPat ; $p2:fnPat ; $p3:fnPat ;
         $p4:fnPat => $rhs:fnExpr) => do
     pure (#[← parsePat p1, ← parsePat p2,
-      ← parsePat p3, ← parsePat p4], ← parseExpr rhs)
-  | `(fnArm| | $p1:fnPat ; $p2:fnPat ; $p3:fnPat
+      ← parsePat p3, ← parsePat p4], ← parseExpr rhs, feats)
+  | `(fnArm| | $[$_:fnFeatureTag]? $p1:fnPat ; $p2:fnPat ; $p3:fnPat
         => $rhs:fnExpr) => do
     pure (#[← parsePat p1, ← parsePat p2,
-      ← parsePat p3], ← parseExpr rhs)
-  | `(fnArm| | $p1:fnPat ; $p2:fnPat =>
+      ← parsePat p3], ← parseExpr rhs, feats)
+  | `(fnArm| | $[$_:fnFeatureTag]? $p1:fnPat ; $p2:fnPat =>
         $rhs:fnExpr) => do
     pure (#[← parsePat p1, ← parsePat p2],
-      ← parseExpr rhs)
-  | `(fnArm| | $p:fnPat => $rhs:fnExpr) => do
-    pure (#[← parsePat p], ← parseExpr rhs)
+      ← parseExpr rhs, feats)
+  | `(fnArm| | $[$_:fnFeatureTag]? $p:fnPat => $rhs:fnExpr) => do
+    pure (#[← parsePat p], ← parseExpr rhs, feats)
   | _ => throwError "invalid fnArm"
 
 def parsePrecond
@@ -1157,8 +1195,8 @@ elab_rules : command
         parsePostconds name (pcs.getElems.toList.map (·.raw))
       | none => pure []
     let parsed ← arms.mapM parseFnArm
-    let armsList : List (List BodyPat × DslExpr) :=
-      parsed.toList.map fun (a, r) => (a.toList, r)
+    let armsList : List MatchArm :=
+      parsed.toList.map fun (a, r, fs) => (a.toList, r, fs)
     if DslLint.matchIsIrrefutable armsList then
       Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     -- Generate Lean def via string parsing.
@@ -1171,7 +1209,7 @@ elab_rules : command
     let fnNameStr := toString name.getId
     let precondProofs := preconds.map precondProof
     let armStrs := parsed.toList.map
-      fun (patAst, rhsAst) =>
+      fun (patAst, rhsAst, _) =>
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         let rhsStr := wrapBody
@@ -1223,10 +1261,12 @@ elab_rules : command
     setUserDeclRanges name (← getRef)
     -- Build FnBody metadata
     let armDefs ← parsed.mapM
-      fun (patAst, rhsAst) => do
+      fun (patAst, rhsAst, fs) => do
         let pq : TSyntax `term := quote patAst.toList
         let rq : TSyntax `term := quote rhsAst
-        `({ pat := $pq, rhs := $rq : BodyArm })
+        let fq : TSyntax `term := quote fs
+        `({ pat := $pq, rhs := $rq,
+            features := $fq : BodyArm })
     let armList ← `([$[$armDefs],*])
     let bodyTerm ← `(FnBody.matchArms $armList)
     buildFnDef ⟨name, symDoc, doc⟩ paramData retTy
@@ -1338,7 +1378,7 @@ private structure MutualEntryResult where
   retTy : Lean.TSyntax `term
   preconds : List Precondition
   postconds : List Postcondition
-  parsed : Array (Array BodyPat × DslExpr)
+  parsed : Array (Array BodyPat × DslExpr × List Feature)
   display : Option (Lean.TSyntax `term)
 
 open Lean Elab Command Term in
@@ -1370,14 +1410,14 @@ private def parseMutualEntry
         parsePostconds name (pcs.getElems.toList.map (·.raw))
       | none => pure []
     let parsed ← arms.mapM parseFnArm
-    let armsList : List (List BodyPat × DslExpr) :=
-      parsed.toList.map fun (a, r) => (a.toList, r)
+    let armsList : List MatchArm :=
+      parsed.toList.map fun (a, r, fs) => (a.toList, r, fs)
     if DslLint.matchIsIrrefutable armsList then
       Lean.throwErrorAt name DslLint.irrefutableWhereMessage
     let fnNameStr := toString name.getId
     let precondProofs := preconds.map precondProof
     let armStrs := parsed.toList.map
-      fun (patAst, rhsAst) =>
+      fun (patAst, rhsAst, _) =>
         let patStr := ", ".intercalate
           (patAst.toList.map BodyPat.toLean)
         let rhsStr := wrapBody
@@ -1443,10 +1483,12 @@ elab_rules : command
     for (entry, r) in entries.zip results do
       setUserDeclRanges r.name entry.raw
       let armDefs ← r.parsed.mapM
-        fun (patAst, rhsAst) => do
+        fun (patAst, rhsAst, fs) => do
           let pq : TSyntax `term := quote patAst.toList
           let rq : TSyntax `term := quote rhsAst
-          `({ pat := $pq, rhs := $rq : BodyArm })
+          let fq : TSyntax `term := quote fs
+          `({ pat := $pq, rhs := $rq,
+              features := $fq : BodyArm })
       let armList ← `([$[$armDefs],*])
       let bodyTerm ← `(FnBody.matchArms $armList)
       buildFnDef ⟨r.name, r.symDoc, r.doc⟩ r.paramData

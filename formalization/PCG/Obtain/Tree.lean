@@ -23,7 +23,7 @@ defFn expansionOfStep (.plain "expansionOfStep")
       .deref child
   | .field fi ty ; child =>
       .fields [⟨fi, ty, child⟩]
-  | .downcast v ; child =>
+  | [feature ENUM_TYPES] .downcast v ; child =>
       .guided (.downcast v child)
   | .index l ; child =>
       .guided (.index l child)
@@ -63,7 +63,8 @@ defFn obtainWriteInTree (.plain "obtainWriteInTree")
   | .internal (.fields fs) ; .field fi _ :: rest =>
       let newFs ← obtainWriteInFields fs fi rest ;
       Some (.internal (.fields newFs))
-  | .internal (.guided (.downcast v sub)) ; .downcast v' :: rest =>
+  | [feature ENUM_TYPES]
+      .internal (.guided (.downcast v sub)) ; .downcast v' :: rest =>
       if v == v' then
         let newSub ← obtainWriteInTree sub rest ;
         Some (.internal (.guided (.downcast v newSub)))

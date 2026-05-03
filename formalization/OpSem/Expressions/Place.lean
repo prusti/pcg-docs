@@ -65,7 +65,7 @@ defFn evalProjs (.plain "evalProjs")
   | m ; place ; ty ; (.field idx _) :: rest =>
       let ⟨fp, ft⟩ ← evalField place idx ty ;
       evalProjs m fp ft rest
-  | m ; place ; ty ; (.downcast _) :: rest =>
+  | [feature ENUM_TYPES] m ; place ; ty ; (.downcast _) :: rest =>
       evalProjs m place ty rest
   | m ; place ; .ref _ _ pointee ; .deref :: rest =>
       let bytes := Memory.load m↦mem place↦ptr 8 ;

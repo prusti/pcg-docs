@@ -1,5 +1,6 @@
 import Core.Registry
 import Core.Dsl.DslType
+import Core.Dsl.Types.Feature
 import Lean
 
 /-! # Shared elaboration helpers for DSL `def…` commands
@@ -127,5 +128,27 @@ def registerInCurrentModule
   let regIdent := mkIdent registerFn
   elabCommand (← `(command|
     initialize ($regIdent $defId $modName)))
+
+/-- Map an upper-snake-case identifier to its corresponding
+    `Feature` constructor, throwing at the source position on
+    an unknown spelling. The currently-supported spellings:
+
+    * `ENUM_TYPES` → `Feature.enumTypes`
+
+    Add a new line here whenever a new constructor is added to
+    `Feature`. -/
+def identToFeature (id : Lean.Ident) : CommandElabM Feature := do
+  match toString id.getId with
+  | "ENUM_TYPES" => pure .enumTypes
+  | other =>
+    Lean.throwErrorAt id
+      s!"unknown feature `{other}` — \
+         supported features: ENUM_TYPES"
+
+/-- Map an array of feature idents (the comma-separated list
+    inside a `[feature …]` prefix) to a `List Feature`. -/
+def parseFeatureIdents
+    (ids : Array Lean.Ident) : CommandElabM (List Feature) :=
+  ids.toList.mapM identToFeature
 
 end Core.Dsl.ElabUtils

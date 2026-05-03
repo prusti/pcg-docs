@@ -4,6 +4,11 @@ import Core.Doc
 import Core.Doc.Interp
 import Core.Export.Latex
 import Core.Dsl.Lint
+import Core.Dsl.Types.EnumDef
+import Core.Dsl.Types.FnDef
+import Core.Dsl.Types.PresentationDef
+import Core.Dsl.Types.RenderCtx
+import Core.Dsl.Types.Feature
 import Tests.DslGotoDef
 import Tests.ProofFolding
 
@@ -81,7 +86,7 @@ def docLinkTests : TestSeq :=
     scrutinee and rhs are arbitrary leaves so the match-shape
     check is what drives the lint outcome. -/
 private def matchWithPat (pat : BodyPat) : DslExpr :=
-  .match_ (.var "x") [([pat], .var "y")]
+  .match_ (.var "x") [([pat], .var "y", [])]
 
 def lintTests : TestSeq :=
   group "DslLint" $
@@ -117,12 +122,13 @@ def lintTests : TestSeq :=
         |>.isEmpty) $
     test "match on true/false arms not flagged"
       (let m := DslExpr.match_ (.var "b")
-        [([.var "true"], .true_), ([.var "false"], .false_)]
+        [([.var "true"], .true_, []),
+         ([.var "false"], .false_, [])]
        (DslLint.lintExpr m).isEmpty) $
     test "multi-arm match with one refutable arm not flagged"
       (let m := DslExpr.match_ (.var "x")
-        [([.ctor "Some" [.var "y"]], .var "y"),
-         ([.wild], .none_)]
+        [([.ctor "Some" [.var "y"]], .var "y", []),
+         ([.wild], .none_, [])]
        (DslLint.lintExpr m).isEmpty) $
     test "no backticks → not flagged"
       (DslLint.stringHasBacktickPair "plain text" == false) $
@@ -230,11 +236,76 @@ def docInterpTests : TestSeq :=
          greekInMathSpelled.toLatex.render) $
     .done
 
+/-! # Feature-flag tests
+
+A small two-variant enum and a small two-arm function used by
+the feature-flag tests below. The first variant / arm carries
+`features := [.enumTypes]`; the second is feature-free. Render
+both with and without `enumTypes` disabled and assert the
+tagged element appears (or doesn't) in the rendered LaTeX. -/
+
+private def mkVariant (n sym : String)
+    (feats : List Feature) : VariantDef :=
+  VariantDef.mk ⟨n⟩ (Doc.plain n)
+    (fun _ => MathDoc.text sym) [] feats
+
+private def gatedEnum : EnumDef :=
+  EnumDef.mk ⟨"GatedEnum"⟩ (MathDoc.text "ge")
+    (MathDoc.text "GatedEnum") "GatedEnum"
+    (Doc.plain "Gated test enum")
+    [] false false
+    [ mkVariant "hidden" "hiddenSym" [.enumTypes]
+    , mkVariant "shown" "shownSym" [] ]
+
+private def disabledCtx : RenderCtx :=
+  { isFeatureDisabled := fun f => f == .enumTypes }
+
+private def hasSubstr (haystack needle : String) : Bool :=
+  (haystack.splitOn needle).length > 1
+
+private def renderInlineMatch (ctx : RenderCtx) : String :=
+  let m : DslExpr := .match_ (.var "x")
+    [([.ctor "A" []], .var "alpha", [.enumTypes]),
+     ([.ctor "B" []], .var "beta", [])]
+  let mathDoc := DslExpr.toDoc "fn" ctx (fun _ => none) false m
+  LatexMath.render (MathDoc.toLatexMath mathDoc)
+
+def featureFlagTests : TestSeq :=
+  group "Feature flag" $
+    test "enum: tagged variant omitted when feature disabled"
+      (let rendered := (gatedEnum.formalDefLatex
+          (fun _ => false)
+          (fun f => f == .enumTypes)).render
+       !hasSubstr rendered "hiddenSym" &&
+         hasSubstr rendered "shownSym") $
+    test "enum: tagged variant present when feature enabled"
+      (let rendered := (gatedEnum.formalDefLatex).render
+       hasSubstr rendered "hiddenSym" &&
+         hasSubstr rendered "shownSym") $
+    test "inline match: tagged arm omitted when feature disabled"
+      (let rendered := renderInlineMatch disabledCtx
+       !hasSubstr rendered "alpha" &&
+         hasSubstr rendered "beta") $
+    test "inline match: tagged arm present when feature enabled"
+      (let rendered := renderInlineMatch {}
+       hasSubstr rendered "alpha" &&
+         hasSubstr rendered "beta") $
+    test "MatchArm accessors round-trip"
+      (let arm : MatchArm :=
+         ([.var "x"], .var "x", [.enumTypes])
+       arm.features == [.enumTypes] && arm.pat.length == 1) $
+    test "Presentation default: no features disabled"
+      (let p : Presentation :=
+         { elems := [], filename := "t" }
+       p.disabledFeatures == ([] : List Feature)) $
+    .done
+
 def main (args : List String) : IO UInt32 :=
   lspecIO
     (.ofList [
       ("DSLType", [dslTypeParseTests]),
       ("Doc", [docLinkTests]),
       ("DocInterp", [docInterpTests]),
-      ("DslLint", [lintTests])])
+      ("DslLint", [lintTests]),
+      ("FeatureFlag", [featureFlagTests])])
     args

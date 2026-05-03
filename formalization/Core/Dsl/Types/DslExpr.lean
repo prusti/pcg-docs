@@ -5,6 +5,7 @@ import Core.Dsl.Types.FormatHint
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.BodyPat
+import Core.Dsl.Types.Feature
 import Core.Dsl.Types.RenderCtx
 import Core.Dsl.DslType
 import Core.Meta.BaseFunctor
@@ -110,7 +111,7 @@ inductive DslExpr where
       A `none` value means the source used the plain
       `match scrut with` form. -/
   | match_ (scrutinee : DslExpr)
-      (arms : List (List BodyPat × DslExpr))
+      (arms : List (List BodyPat × DslExpr × List Feature))
       (eqName : Option String := none)
   /-- `let pat := val ; body`. The binder is a `BodyPat` so
       that tuple destructuring (`let ⟨a, b⟩ := …`) is expressible
@@ -152,6 +153,32 @@ inductive DslExpr where
 -- Generate `DslExprF`, `project`, `embed`, `map`, `mapM`, `cata`, `cataM`,
 -- `para`, `paraM`. See `Core.Meta.BaseFunctor` for details.
 derive_base_functor DslExpr
+
+/-- A `match` arm inside a `DslExpr.match_`. Stored as a triple
+    rather than a named record because `derive_base_functor`
+    only understands `noSelf`, `direct`, `List Shape`, and
+    `Prod (one side noSelf)` shapes — a custom record carrying
+    a `DslExpr` field would fail elaboration. The triple lowers
+    to `Prod noSelf (Prod direct noSelf)`, which the macro
+    accepts. -/
+abbrev MatchArm := List BodyPat × DslExpr × List Feature
+
+namespace MatchArm
+
+/-- Patterns to match against the scrutinee
+    (one entry per scrutinee column). -/
+def pat (a : MatchArm) : List BodyPat := a.1
+
+/-- Right-hand side evaluated when the patterns match. -/
+def rhs (a : MatchArm) : DslExpr := a.2.1
+
+/-- Feature flags this arm is gated on. The LaTeX
+    presentation omits the arm when any feature here is
+    disabled in the current presentation. The Lean and Rust
+    exports ignore this field. -/
+def features (a : MatchArm) : List Feature := a.2.2
+
+end MatchArm
 
 /-- A field/method access in the DSL. -/
 structure DslField where
@@ -228,7 +255,8 @@ def mapChildren (f : DslExpr → DslExpr)
   | .ineqChain ops es => .ineqChain ops (es.map f)
   -- Match (recurse into scrutinee and arm RHSs)
   | .match_ s arms eqName =>
-    .match_ (f s) (arms.map fun (p, rhs) => (p, f rhs)) eqName
+    .match_ (f s)
+      (arms.map fun (p, rhs, fs) => (p, f rhs, fs)) eqName
   | .structUpdate r fld v => .structUpdate (f r) fld (f v)
 
 /-- Bottom-up rewrite: recurse into all children first,
@@ -828,8 +856,15 @@ partial def toDoc
     -- their display template (e.g. `PreOperands`), matching
     -- how the same variant renders in value position via
     -- `varToVariantDoc`.
+    -- Drop arms whose `features` list contains a feature
+    -- disabled in the current presentation. The Lean and
+    -- Rust exporters ignore the `features` field, so the
+    -- generated code stays exhaustive.
+    let visibleArms : List MatchArm :=
+      arms.filter fun a =>
+        !a.features.any ctx.isFeatureDisabled
     let rowsMath : List MathDoc :=
-      arms.map fun (pats, rhs) =>
+      visibleArms.map fun (pats, rhs, _) =>
         let patMath := mathIntercalate (.sym .comma)
           (pats.map (BodyPat.toDoc ctx.ctorDisplay
             ctx.resolveCtor ctx.resolveVariant

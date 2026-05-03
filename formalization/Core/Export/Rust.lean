@@ -1074,7 +1074,7 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
   -- (see `.leanProof _ => false` above).
   | .leanProof _ => pure (.raw "unreachable!()")
   | .match_ (_, scrutExpr) arms _ => do
-    let rustArms := arms.map fun (pats, (origRhs, rustRhs)) =>
+    let rustArms := arms.map fun (pats, (origRhs, rustRhs), _) =>
       let pat := if pats.length == 1
         then pats.head!.toRustPat "" (fun _ => none) variantToEnum
         else .tuple (pats.map

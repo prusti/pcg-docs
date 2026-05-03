@@ -19,6 +19,11 @@ registry; the presentation exporter writes
 def placeTemplate : Presentation := {
   filename := "place"
   title    := "Places"
+  -- Disabling `ENUM_TYPES` hides every `downcast` variant
+  -- and every `.downcast` match arm reachable from this
+  -- template's appendix, so the focused PDF doesn't have to
+  -- explain enum projections.
+  disabledFeatures := [.enumTypes]
   elems    := [
     .doc (doc!
       "A focused look at the `Place` definition and its \

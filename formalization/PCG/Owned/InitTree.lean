@@ -40,7 +40,8 @@ defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
          HasNonDeepLeaf sub ∨
          HasNonDeepLeaf (.internal (.fields rest))
      | .internal (.deref d) => HasNonDeepLeaf d
-     | .internal (.guided (.downcast _ d)) =>
+     | [feature ENUM_TYPES]
+         .internal (.guided (.downcast _ d)) =>
          HasNonDeepLeaf d
      | .internal (.guided (.constantIndex _ d)) =>
          HasNonDeepLeaf d
@@ -67,7 +68,8 @@ defFn itPlaces (.plain "itPlaces")
       placesFromFields fs base projAcc
   | .internal (.deref d) ; base ; projAcc =>
       itPlaces d base (projAcc ++ [ProjElem.deref])
-  | .internal (.guided (.downcast v d)) ; base ; projAcc =>
+  | [feature ENUM_TYPES]
+      .internal (.guided (.downcast v d)) ; base ; projAcc =>
       itPlaces d base (projAcc ++ [ProjElem.downcast v])
   | .internal (.guided (.constantIndex _ d)) ; base ; projAcc =>
       itPlaces d base projAcc

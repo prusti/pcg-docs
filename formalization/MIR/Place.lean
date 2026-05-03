@@ -69,7 +69,7 @@ where
   | index (idx : Local)
     "Index into an array or slice."
     (mathdoc! "[{idx}]")
-  | downcast (variant : VariantIdx)
+  | [feature ENUM_TYPES] downcast (variant : VariantIdx)
     "Downcast an enum to a specific variant."
     (mathdoc! "@{variant}")
   deriving Repr, BEq, Hashable

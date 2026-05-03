@@ -100,7 +100,8 @@ defFn itUnpackEdges (.plain "itUnpackEdges")
       let childPlace := placeNode Place⟨base, proj⟩ ;
       let self := UnpackEdge⟨basePlace, [childPlace]⟩ ;
       self :: itUnpackEdges d base proj
-  | .internal (.guided (.downcast v d)) ; base ; projAcc =>
+  | [feature ENUM_TYPES]
+      .internal (.guided (.downcast v d)) ; base ; projAcc =>
       let proj := projAcc ++ [ProjElem.downcast v] ;
       let basePlace := placeNode Place⟨base, projAcc⟩ ;
       let childPlace := placeNode Place⟨base, proj⟩ ;

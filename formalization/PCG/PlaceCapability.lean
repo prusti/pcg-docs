@@ -171,7 +171,7 @@ defFn projectsSharedRef' (.plain "projectsSharedRef'")
       projectsSharedRef' τ π
   | .array elem _ ; (.index _) :: π =>
       projectsSharedRef' elem π
-  | τ ; (.downcast _) :: π =>
+  | [feature ENUM_TYPES] τ ; (.downcast _) :: π =>
       projectsSharedRef' τ π
 
 defFn projectsSharedRef (.plain "projectsSharedRef")

@@ -1,4 +1,5 @@
 import Core.Dsl.Types.EnumDef
+import Core.Dsl.Types.Feature
 
 /-- Lookup/resolver context threaded through LaTeX rendering
     of DSL definitions. -/
@@ -87,3 +88,11 @@ structure RenderCtx where
       LaTeX presentation. (The Lean and Rust outputs are
       unaffected; this flag only controls LaTeX rendering.) -/
   implicitFns : String → Bool := fun _ => false
+  /-- Whether the given feature is disabled in the current
+      presentation. Variants tagged with a disabled feature
+      are filtered out by `EnumDef.formalDefLatex`; match
+      arms tagged with a disabled feature are filtered out
+      by `FnDef.formalDefLatex`, `FnDef.exprLines`, and
+      `DslExpr.toDoc`'s `.match_` case. Defaults to
+      "everything enabled". -/
+  isFeatureDisabled : Feature → Bool := fun _ => false

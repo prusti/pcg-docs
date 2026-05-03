@@ -1,5 +1,6 @@
 import Core.Export.Latex
 import Core.Dsl.DslType
+import Core.Dsl.Types.Feature
 
 /-- An argument of an enum variant (e.g. `v : RegionVid`). -/
 structure ArgDef where
@@ -59,6 +60,13 @@ structure VariantDef where
   display : List MathDoc → MathDoc
   /-- Arguments of this variant (empty for nullary). -/
   args : List ArgDef
+  /-- Feature flags this variant is gated on. The LaTeX
+      presentation omits the variant when any feature in this
+      list is disabled in the current presentation. Empty (the
+      default) means always rendered. The Lean and Rust
+      exports ignore this field — they always emit every
+      variant. -/
+  features : List Feature := []
   deriving Repr
 
 /-- An exportable enum definition with metadata for cross-language
@@ -273,13 +281,23 @@ def formalSymbolLatexMath (d : EnumDef) : LatexMath :=
     form or — when `d.longDef` is set — the long form that
     also lists each variant's arguments in `where`-block
     style. The prose description preceding the environment is
-    the same in both cases. -/
+    the same in both cases.
+
+    Variants whose `features` list contains a feature disabled
+    in the current presentation are filtered out before
+    rendering. The Lean and Rust exports walk `d.variants`
+    directly elsewhere, so feature flags are presentation-only. -/
 def formalDefLatex (d : EnumDef)
-    (knownTypes : String → Bool := fun _ => false) : Latex :=
-  let sym := d.formalSymbolLatexMath
+    (knownTypes : String → Bool := fun _ => false)
+    (isFeatureDisabled : Feature → Bool := fun _ => false)
+    : Latex :=
+  let visible : EnumDef :=
+    { d with variants := d.variants.filter fun v =>
+        !v.features.any isFeatureDisabled }
+  let sym := visible.formalSymbolLatexMath
   let rows : List (List LatexMath) :=
-    if d.useLongForm then longRows d knownTypes
-    else shortRows d
+    if visible.useLongForm then longRows visible knownTypes
+    else shortRows visible
   -- Invisible hypertargets so cross-references to this type
   -- (e.g. from function signatures, or via the `doc!` macro's
   -- `#X` shorthand which resolves to `fn:X`) can link here via

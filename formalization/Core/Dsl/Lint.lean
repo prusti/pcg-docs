@@ -93,10 +93,9 @@ def mergeableBindersMessage (typeName : String) : String :=
     that is, the scrutinee is bound rather than analysed. An empty
     arm list is treated as refutable since the parser already
     guarantees `match` arms are non-empty. -/
-def matchIsIrrefutable
-    (arms : List (List BodyPat × DslExpr)) : Bool :=
+def matchIsIrrefutable (arms : List MatchArm) : Bool :=
   !arms.isEmpty &&
-    arms.all fun (pats, _) => pats.all BodyPat.isIrrefutable
+    arms.all fun a => a.pat.all BodyPat.isIrrefutable
 
 /-- Recursive children of a `DslExpr` node, in left-to-right
     order. Mirrors the structure-preserving `mapChildren` but
@@ -118,7 +117,7 @@ private def directChildren : DslExpr → List DslExpr
   | .mkStruct _ args => args
   | .call fn args => fn :: args
   | .ineqChain _ es => es
-  | .match_ s arms _ => s :: arms.map (·.2)
+  | .match_ s arms _ => s :: arms.map MatchArm.rhs
   | .structUpdate r _ v => [r, v]
   | .formatHint _ b => [b]
 

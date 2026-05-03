@@ -187,7 +187,8 @@ def renderRegistryItems
                .newline, .newline]
   let enumParts := reg.enums.flatMap fun e =>
     let def_ := Latex.seq
-      [e.enumDef.formalDefLatex ctx.knownTypes,
+      [e.enumDef.formalDefLatex ctx.knownTypes
+         ctx.isFeatureDisabled,
        .newline, .newline]
     let orderParts := reg.orders.filter
       (·.enumName == e.enumDef.name.name) |>.map
@@ -277,8 +278,15 @@ private def crateLatex
     presentations, callers pass a sub-registry containing only
     the curated subset of definitions, so unresolved
     references stay as plain text rather than dangling
-    hyperlinks. -/
-def mkRenderCtx (reg : Registry) : RenderCtx :=
+    hyperlinks.
+
+    `disabledFeatures` populates the resulting `RenderCtx`'s
+    `isFeatureDisabled` predicate. The full presentation
+    leaves it empty (every feature enabled); each registered
+    template passes its own
+    `Presentation.disabledFeatures`. -/
+def mkRenderCtx (reg : Registry)
+    (disabledFeatures : List Feature := []) : RenderCtx :=
   let fnNameSet : List String :=
     reg.fns.map (·.fnDef.name)
       ++ reg.properties.map (·.propertyDef.fnDef.name)
@@ -392,7 +400,9 @@ def mkRenderCtx (reg : Registry) : RenderCtx :=
         (reg.properties.find? (·.propertyDef.fnDef.name == n)).map
           fun p => p.propertyDef.fnDef.preconditions.length
       (fromFns.orElse fromProps).getD 0
-    implicitFns := fun n => fnImplicitSet.contains n }
+    implicitFns := fun n => fnImplicitSet.contains n
+    isFeatureDisabled := fun f =>
+      disabledFeatures.contains f }
 
 /-- Build the full presentation LaTeX body. -/
 def buildPresentationLatex (reg : Registry) : Latex :=

@@ -188,7 +188,7 @@ private def toLeanASTAlg
       .raw s!"(Core.Dsl.IdentRefs.dslProofMarker ({t}))"
     else .raw t
   | .match_ scrut arms eqName =>
-    .match_ scrut (arms.map fun (pats, rhs) =>
+    .match_ scrut (arms.map fun (pats, rhs, _) =>
       .mk (pats.map BodyPat.toLeanAST) rhs) eqName
   | .letIn pat val body => .letIn pat.toLeanAST val body
   | .letBindIn pat val body =>
@@ -542,7 +542,7 @@ private partial def hasHypothesisRef : DslExpr → Bool
     hasHypothesisRef fn || args.any hasHypothesisRef
   | .ineqChain _ es => es.any hasHypothesisRef
   | .match_ s arms _ =>
-    hasHypothesisRef s || arms.any (hasHypothesisRef ·.2)
+    hasHypothesisRef s || arms.any (hasHypothesisRef ·.2.1)
   | .structUpdate r _ v =>
     hasHypothesisRef r || hasHypothesisRef v
   | .formatHint _ b => hasHypothesisRef b
@@ -654,7 +654,8 @@ def toLeanAST (p : PropertyDef) : LeanDecl :=
   let curriedBody : FnBody := match p.fnDef.body with
     | .expr e => .expr e.bindAntecedentNames
     | .matchArms arms => .matchArms (arms.map fun arm =>
-        BodyArm.mk arm.pat arm.rhs.bindAntecedentNames)
+        BodyArm.mk arm.pat arm.rhs.bindAntecedentNames
+          arm.features)
   let curried := { p.fnDef with body := curriedBody }
   curried.toLeanAST (isProperty := true)
 
@@ -776,7 +777,7 @@ private def calledNamesAlg :
   | .implies (_, l) (_, r) => l ++ r
   | .forall_ _ (_, b) => b
   | .match_ (_, scrut) arms _ =>
-    scrut ++ arms.flatMap (fun (_, (_, rhs)) => rhs)
+    scrut ++ arms.flatMap (fun (_, ((_, rhs), _)) => rhs)
   | .letIn _ (_, v) (_, b) => v ++ b
   | .letBindIn _ (_, v) (_, b) => v ++ b
   | .ifThenElse (_, c) (_, t) (_, e) => c ++ t ++ e
