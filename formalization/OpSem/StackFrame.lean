@@ -297,9 +297,7 @@ open StackFrame Memory in
 theorem validStack.head
     {h : StackFrame} {t : List StackFrame} {mem : Memory}
     (hv : validStack (h :: t) mem) :
-    validStackFrame mem h := by
-  cases hv
-  assumption
+    validStackFrame mem h := by cases hv; assumption
 
 /-- The tail of a `validStack` is itself a `validStack`
     against the same memory. Direct projection of the cons
@@ -307,8 +305,7 @@ theorem validStack.head
 theorem validStack.tail
     {h : StackFrame} {t : List StackFrame} {mem : Memory}
     (hv : validStack (h :: t) mem) : validStack t mem := by
-  cases hv
-  assumption
+  cases hv; assumption
 
 open StackFrame in
 /-- The non-overlap premise of `validStack`'s cons rule:
@@ -318,9 +315,7 @@ open StackFrame in
 theorem validStack.head_disjoint_tail
     {h : StackFrame} {t : List StackFrame} {mem : Memory}
     (hv : validStack (h :: t) mem) :
-    headDisjointTail h t mem := by
-  cases hv
-  assumption
+    headDisjointTail h t mem := by cases hv; assumption
 
 open StackFrame Memory in
 /-- Every frame appearing in a `validStack` is itself a
@@ -518,16 +513,11 @@ theorem StackFrame.storageDeadPtr_preserves_validMemory
     {frame : StackFrame} {mem : Memory} {l : Local} (ptr : ThinPointer)
     (h : validPtr mem ptr) (hvm : validMemory mem) :
     validMemory (storageDeadPtr frame mem l ptr h).snd := by
-  obtain ⟨addr, provOpt⟩ := ptr
+  obtain ⟨_, provOpt⟩ := ptr
+  unfold storageDeadPtr
   cases provOpt with
-  | some prov =>
-    unfold storageDeadPtr
-    simp only
-    exact Memory.deallocate_preserves_validMemory mem prov.id h hvm
-  | none =>
-    unfold storageDeadPtr
-    simp only
-    exact hvm
+  | some prov => exact Memory.deallocate_preserves_validMemory mem prov.id h hvm
+  | none => exact hvm
 
 open StackFrame Memory in
 /-- `storageDead` preserves `validMemory`. Either the local has no
@@ -568,16 +558,11 @@ theorem StackFrame.storageDeadPtr_preserves_validPtr
     (h_d : validPtr mem ptr_d)
     {ptr : ThinPointer} (h_p : validPtr mem ptr) :
     validPtr (storageDeadPtr frame mem l ptr_d h_d).snd ptr := by
-  obtain ⟨addr, provOpt⟩ := ptr_d
+  obtain ⟨_, provOpt⟩ := ptr_d
+  unfold storageDeadPtr
   cases provOpt with
-  | some prov =>
-    unfold storageDeadPtr
-    simp only
-    exact Memory.deallocate_preserves_validPtr prov.id h_d h_p
-  | none =>
-    unfold storageDeadPtr
-    simp only
-    exact h_p
+  | some prov => exact Memory.deallocate_preserves_validPtr prov.id h_d h_p
+  | none => exact h_p
 
 open StackFrame Memory in
 /-- `storageDead` preserves `validPtr`: either the memory is
@@ -603,24 +588,17 @@ theorem StackFrame.storageDeadPtr_preserves_validStackFrame
     (h₁ : validStackFrame mem frame) :
     validStackFrame (storageDeadPtr frame mem l ptr_d h_d).snd
                     (storageDeadPtr frame mem l ptr_d h_d).fst := by
-  obtain ⟨addr, provOpt⟩ := ptr_d
+  obtain ⟨_, provOpt⟩ := ptr_d
+  unfold storageDeadPtr
   cases provOpt with
   | some prov =>
-    unfold storageDeadPtr
-    simp only
-    refine ⟨h₁.1, h₁.2.1, ?_⟩
     -- New locals = mapRemove frame.locals l, only ever drops
     -- entries; lift each remaining ptr's validity through
     -- `Memory.deallocate_preserves_validPtr`.
-    intro ptr hptr
-    have hptr_orig : ptr ∈ mapValues frame.locals :=
-      mem_mapValues_mapRemove hptr
-    exact Memory.deallocate_preserves_validPtr prov.id h_d
-      (h₁.2.2 ptr hptr_orig)
-  | none =>
-    unfold storageDeadPtr
-    simp only
-    exact h₁
+    refine ⟨h₁.1, h₁.2.1, fun ptr hptr =>
+      Memory.deallocate_preserves_validPtr prov.id h_d
+        (h₁.2.2 ptr (mem_mapValues_mapRemove hptr))⟩
+  | none => exact h₁
 
 open StackFrame Memory in
 /-- `storageDead` preserves `validStackFrame`: either the
