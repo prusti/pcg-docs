@@ -347,7 +347,7 @@ private theorem load_initialMachine_all_uninit
 
 /-- `decodePtr` returns `none` on any byte sequence drawn from the
     initial machine's memory, since every such byte is `.uninit`
-    while `decodePtr` requires the head to be a `.ptrFragment`. -/
+    so the inner `data` call fails. -/
 private theorem decodePtr_load_initialMachine
     (pr : Program) (h : validProgram pr) (ptr : ThinPointer) :
     decodePtr (Memory.load (initialMachine pr h).mem ptr 8) =

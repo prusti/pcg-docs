@@ -1,7 +1,19 @@
 import Core.Dsl.DefEnum
+import Core.Dsl.DefStruct
 
-/- Abstract bytes, derived from the minirust specification:
+/- Abstract bytes, based on the minirust definition:
    https://github.com/minirust/minirust/blob/master/spec/mem/interface.md#abstract-bytes -/
+
+defStruct ProvenanceFrag (.raw "pf",
+    .text "ProvenanceFrag")
+  "Provenance Fragments"
+  (doc! "A one-byte provenance fragment $_pf_ ∈ _ProvenanceFrag_$ \
+    records the provenance of one byte of an encoded pointer, \
+    along with that byte's position within the pointer.")
+where
+  | provIdx "The allocation index identifying the source pointer's provenance." : Nat
+  | position "The position of this byte within the encoded pointer (0–7)." : Nat
+  deriving DecidableEq, Repr, Hashable, Inhabited
 
 defEnum AbstractByte (.raw "b",
     .text "Byte")
@@ -10,15 +22,7 @@ defEnum AbstractByte (.raw "b",
 where
   | uninit
     "An uninitialized byte."
-  | init (value : UInt8)
-    "An initialized byte with a concrete value."
-    (mathdoc! "#init v")
-  | ptrFragment (provIdx : Option Nat) (addr : Nat)
-      (offset : Nat)
-    "One byte of a pointer value: each fragment redundantly \
-     carries the full address and the optional allocation \
-     index of the source pointer's provenance, plus its \
-     position within the 8-byte pointer encoding (0–7). The \
-     redundancy lets `decode` reconstruct the pointer from \
-     any single fragment without scanning all eight."
-    (mathdoc! "#ptrFragment p a i")
+  | init (value : UInt8) (provFrag : Option ProvenanceFrag)
+    "An initialized byte, optionally with a provenance fragment \
+     (when this byte is part of an encoded pointer)."
+    (mathdoc! "#init v p")

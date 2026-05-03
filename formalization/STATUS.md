@@ -50,7 +50,7 @@ Will not include DeadLock or MemoryLeak
 ### [`interface.md`](https://github.com/minirust/minirust/blob/master/spec/mem/interface.md) -- Memory interface
 
 - [x] `AbstractByte` enum (Uninit, Init) &rarr; `AbstractByte.lean`
-  - [N] Provenance on initialized bytes (minirust attaches optional provenance to each byte)
+  - [x] Provenance fragments on initialized bytes (`ProvenanceFrag` with allocation index + position)
 - [ ] `AllocationKind` enum (Stack, Heap, Global, Function, VTable)
 - [N] `Memory` trait as a formal interface
 - [~] Memory operations are implemented directly rather than via a trait:

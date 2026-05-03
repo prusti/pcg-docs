@@ -11,21 +11,19 @@ defFn decodeBool (.plain "decode_bool")
     {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"}.")
   (bytes "The bytes to decode." : List AbstractByte)
   : Option Bool where
-  | [.init 0] => Some false
-  | [.init 1] => Some true
+  | [.init 0 _] => Some false
+  | [.init 1 _] => Some true
   | _ => None
 
 open AbstractByte in
 defFn data (.plain "data")
   (doc! "Extract the concrete byte values from a sequence of abstract bytes. Returns `None` if any \
-    byte is uninitialised or carries pointer provenance — pointer-fragment bytes don't have a \
-    standalone concrete byte value.")
+    byte is uninitialised. Provenance fragments on initialised bytes are discarded.")
   (bs "The abstract bytes." : List AbstractByte)
   : Option (List UInt8) where
   | [] => Some []
   | .uninit :: _ => None
-  | .ptrFragment _ _ _ :: _ => None
-  | .init v :: rest =>
+  | .init v _ :: rest =>
       let vs ← data rest ;
       Some (v :: vs)
 
@@ -48,8 +46,21 @@ defRaw before => {
 def encodeLeUnsigned (n : Nat) : Nat → List AbstractByte
   | 0 => []
   | k + 1 =>
-    .init (UInt8.ofNat (n % 256)) ::
+    .init (UInt8.ofNat (n % 256)) none ::
       encodeLeUnsigned (n / 256) k
+
+/-- Encode `addr` as `count` little-endian abstract bytes,
+    each carrying a `ProvenanceFrag` with the given `provIdx`
+    (when the source pointer has provenance) at successive
+    positions starting from `pos`. -/
+def encodePtrBytes
+    (provIdx : Option Nat) (addr : Nat) :
+    Nat → Nat → List AbstractByte
+  | 0, _ => []
+  | k + 1, pos =>
+    let provFrag := provIdx.map (fun i => ProvenanceFrag.mk i pos)
+    .init (UInt8.ofNat (addr % 256)) provFrag ::
+      encodePtrBytes provIdx (addr / 256) k (pos + 1)
 
 /-- Build an `IntValue` from a decoded natural number
     based on the target size (in bytes). -/
@@ -99,20 +110,19 @@ defFn encodeInt (.plain "encode_int")
     encodeLeUnsigned (intValueToNat iv) (intValueBytes iv)
 
 defFn decodePtr (.plain "decode_ptr")
-  (doc! "Decode an 8-byte pointer encoding back into a #ThinPointer. Each input byte is expected to \
-    be a `ptrFragment` carrying the full address and provenance index redundantly (the encoder \
-    writes the same pair into all eight fragments), so reading the first fragment is sufficient. \
-    Returns `None` if the list is not exactly one `ptrFragment` followed by seven trailing bytes \
-    (their contents are not inspected).")
+  (doc! "Decode an 8-byte pointer encoding back into a #ThinPointer. The byte values are decoded \
+    as a little-endian address; the provenance is taken from the head byte's #ProvenanceFrag (if \
+    any). Returns `None` if any byte is uninitialised or the byte count is not 8.")
   (bs "The bytes to decode." : List AbstractByte)
-  : Option ThinPointer where
-  | .ptrFragment provIdx addr _ :: _ =>
-      let prov := match provIdx with
-        | .some i => Some Provenance⟨AllocId⟨i⟩⟩
-        | .none => None
+  : Option ThinPointer :=
+    let raw ← data bs ;
+    if raw·length ≠ 8 then None
+    else
+      let provenance := match bs with
+        | .init _ (.some f) :: _ => Some Provenance⟨AllocId⟨f↦provIdx⟩⟩
+        | _ => None
         end ;
-      Some ThinPointer⟨Address⟨addr⟩, prov⟩
-  | _ => None
+      Some ThinPointer⟨Address⟨decodeLeUnsigned raw⟩, provenance⟩
 
 defFn decode (.plain "decode")
   (doc! "Decode a byte sequence as a runtime value of the \
@@ -143,14 +153,13 @@ defFn encodeBool (.plain "encode_bool")
     {Doc.link (.plain "here") "https://github.com/minirust/minirust/blob/master/spec/lang/representation.md#bool"}.")
   (b "The boolean to encode." : Bool)
   : List AbstractByte where
-  | true => [AbstractByte.init 1]
-  | false => [AbstractByte.init 0]
+  | true => [AbstractByte.init 1 None]
+  | false => [AbstractByte.init 0 None]
 
 defFn encodePtr (.plain "encode_ptr")
-  (doc! "Encode a #ThinPointer as eight `ptrFragment` bytes. Each fragment redundantly carries the \
-    full address and the optional allocation index of the pointer's provenance plus its position \
-    within the pointer (0–7), so #decodePtr can reconstruct the pointer from the head fragment \
-    alone.")
+  (doc! "Encode a #ThinPointer as eight little-endian address bytes. Each byte carries a \
+    #ProvenanceFrag with the source pointer's allocation index and that byte's position (0–7) \
+    when the pointer has provenance, or no fragment otherwise.")
   (ptr "The pointer to encode." : ThinPointer)
   : List AbstractByte :=
     let prov := ptr↦provenance ;
@@ -158,15 +167,7 @@ defFn encodePtr (.plain "encode_ptr")
       | .some p => Some p↦id↦index
       | .none => None
       end ;
-    let addr := ptr↦addr↦addr ;
-    [AbstractByte.ptrFragment provIdx addr 0,
-     AbstractByte.ptrFragment provIdx addr 1,
-     AbstractByte.ptrFragment provIdx addr 2,
-     AbstractByte.ptrFragment provIdx addr 3,
-     AbstractByte.ptrFragment provIdx addr 4,
-     AbstractByte.ptrFragment provIdx addr 5,
-     AbstractByte.ptrFragment provIdx addr 6,
-     AbstractByte.ptrFragment provIdx addr 7]
+    encodePtrBytes provIdx ptr↦addr↦addr 8 0
 
 defFn encode (.plain "encode")
   (doc! "Encode a runtime value as a byte sequence. \

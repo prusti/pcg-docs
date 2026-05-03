@@ -183,8 +183,26 @@ pub const uninit: AbstractByte = AbstractByte::Uninit;
     let mut out = Vec::with_capacity(*num_bytes);
     let mut cur = *n;
     for _ in 0..*num_bytes {
-        out.push(AbstractByte::Init((cur & 0xff) as u8));
+        out.push(AbstractByte::Init((cur & 0xff) as u8, None));
         cur >>= 8;
+    }
+    out
+}
+
+pub fn encode_ptr_bytes(
+    prov_idx: &Option<usize>,
+    addr: &usize,
+    count: &usize,
+    pos: &usize,
+) -> Vec<AbstractByte> {
+    let mut out = Vec::with_capacity(*count);
+    let mut cur = *addr;
+    let mut p = *pos;
+    for _ in 0..*count {
+        let frag = prov_idx.map(|i| ProvenanceFrag::new(i, p));
+        out.push(AbstractByte::Init((cur & 0xff) as u8, frag));
+        cur >>= 8;
+        p += 1;
     }
     out
 }
