@@ -91,10 +91,10 @@ private theorem storageDead_initFrame_mapEmpty
 private theorem liveAndStoreArgs_nil
     (k : Nat) (frame : StackFrame) (mem : Memory)
     (h1 : validMemory mem) (h2 : validStackFrame mem frame)
-    (h3 : StackFrame.localsAllocated frame 1 k) :
-    liveAndStoreArgs [] k frame mem h1 h2 h3 = (frame, mem) := by
-  unfold liveAndStoreArgs
-  rfl
+    (h3 : StackFrame.localsAllocated frame 1 k)
+    (h4 : k + ([] : List Value).length ≤ frame.body.decls.length) :
+    liveAndStoreArgs [] k frame mem h1 h2 h3 h4 = (frame, mem) := by
+  unfold liveAndStoreArgs; rfl
 
 /-- The current frame of `initialMachine pr h` has its locals map
     consisting of a single entry for `Local⟨0⟩`. -/

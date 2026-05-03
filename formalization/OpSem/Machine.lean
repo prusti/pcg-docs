@@ -170,7 +170,10 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
     on entry, locals at indices `1` through `k - 1` are allocated, and on exit the \
     freshly-allocated argument locals extend that range up through `k + args.length - 1` — \
     `createFrame` consumes that postcondition to assert that every argument local is allocated \
-    after the loop.")
+    after the loop. The bound `k + args.length ≤ frame.body.decls.length` keeps the indices of the \
+    locals about to be brought live in range so each `storageLive` call discharges its \
+    #validLocal obligation; the bound is inductive across the recursive call (sum is preserved as \
+    `args` shrinks and `k` grows).")
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
@@ -180,19 +183,22 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
     validStackFrame mem frame
       using [liveAndStoreArgs.precondAxiom],
     localsAllocated frame 1 k
+      using [liveAndStoreArgs.precondAxiom],
+    k + args·length ≤ frame↦body↦decls·length
       using [liveAndStoreArgs.precondAxiom]
   : StackFrame × Memory where
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
-      -- The `validStackFrame mem frame` precondition discharges
-      -- `storageLive`'s first arg directly. The second arg
-      -- (`validLocal frame.body ⟨k⟩`) needs a
-      -- `k < frame.body.decls.length` bound that no precondition
-      -- currently provides — left as `sorry` until a
-      -- `args.length + k ≤ body.decls.length`-style invariant
-      -- propagates from `createFrame`.
+      -- `storageLive`'s `validStackFrame` arg is `h_validStackFrame`
+      -- directly. Its `validLocal frame.body ⟨k⟩` arg unfolds to
+      -- `k < frame.body.decls.length`, which follows from
+      -- `h_pre3 : k + args.length ≤ frame.body.decls.length` once
+      -- `args.length` is reduced via the arm pattern `args = v :: rest`.
       let ⟨frame1, mem1⟩ := StackFrame.storageLive frame mem Local⟨k⟩
-        proof[h_validStackFrame] proof[sorry] ;
+        proof[h_validStackFrame] proof[(by
+          show k < frame.body.decls.length
+          simp only [List.length_cons] at h_pre3
+          omega)] ;
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
       liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
 
@@ -258,7 +264,17 @@ defFn createFrame (.plain "createFrame")
           -- `∀ i, 1 ≤ i → i < 1 → …`; the premises `1 ≤ i`
           -- and `i < 1` are jointly contradictory.
           intro i hlo hhi
-          omega)] ;
+          omega)]
+        proof[(by
+          -- Discharging `1 + args.length ≤ frame1.body.decls.length`
+          -- requires `body.numArgs = args.length` plus a
+          -- `numArgs < decls.length` conjunct on `validBody`;
+          -- neither invariant is propagated from `evalTerminator`
+          -- through `evalArgs` today, so left as `sorry`. The
+          -- bound is now an explicit precondition on
+          -- `liveAndStoreArgs` (no longer hidden inside its
+          -- body), so this is the single tracked obligation.
+          sorry)] ;
     -- Witness: every argument local is allocated in the
     -- post-call frame. The bound name is unused at runtime
     -- (prefixed with `_` to silence the unused-let warning);
