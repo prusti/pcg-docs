@@ -202,6 +202,49 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
       liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
 
+defRaw inFns =>
+/-- Postcondition of `liveAndStoreArgs`: the returned frame has
+    every local in the half-open range `[1, k + args.length)`
+    allocated. The entry hypothesis `localsAllocated frame 1 k`
+    is extended by the `args.length` consecutive `storageLive`
+    calls inside the loop, each of which brings one more local
+    live. Used by `createFrame` to witness that every
+    argument local is allocated in the post-call frame.
+
+    The predicate names are written unqualified so the same
+    source resolves under both elaboration contexts: in-tree
+    `StackFrame.validStackFrame` / `StackFrame.localsAllocated`
+    via `open StackFrame`, and the generated module's
+    `Memory.validStackFrame` / `StackFrame.localsAllocated`
+    via the file-top `open Memory StackFrame`. -/
+private theorem liveAndStoreArgs_localsAllocated
+    (args : List Value) (k : Nat) (frame : StackFrame) (mem : Memory)
+    (h1 : validMemory mem) (h2 : validStackFrame mem frame)
+    (h3 : localsAllocated frame 1 k)
+    (h4 : k + args.length ≤ frame.body.decls.length) :
+    localsAllocated
+      (liveAndStoreArgs args k frame mem h1 h2 h3 h4).fst
+      1 (k + args.length) := by
+  induction args generalizing k frame mem with
+  | nil =>
+    have h_call :
+        liveAndStoreArgs [] k frame mem h1 h2 h3 h4 = (frame, mem) := by
+      unfold liveAndStoreArgs; rfl
+    rw [h_call, List.length_nil, Nat.add_zero]
+    exact h3
+  | cons v rest ih =>
+    -- Re-shape the conclusion to match the IH's shape under the
+    -- recursive call's `(k+1, frame1, ...)` arguments.
+    have h_len : k + (v :: rest).length = (k + 1) + rest.length := by
+      rw [List.length_cons]; omega
+    rw [h_len]
+    -- The cons branch reduces to a recursive call on
+    -- `(rest, k+1, frame1, typedStore mem1 ptr v)` with axiom-
+    -- derived precondition proofs. Apply the IH; proof
+    -- irrelevance handles the precondition arguments.
+    unfold liveAndStoreArgs
+    apply ih
+
 defFn createFrame (.plain "createFrame")
   (doc! "Build a fresh stack frame for a call into `body` and push it onto the thread's call stack. \
     Allocates the return place (local 0) and each argument local via `StackFrame.storageLive`, then \
@@ -218,9 +261,8 @@ defFn createFrame (.plain "createFrame")
     since the initial frame's locals map is empty). After `liveAndStoreArgs` returns, the \
     strengthened postcondition of `liveAndStoreArgs` (#StackFrame.localsAllocated extended to the \
     range `[1, 1 + args.length)`) witnesses that every argument local — locals 1 through \
-    `args.length` — has been brought live; that witness is bound below as `_h_args_alloc` (the \
-    proof itself is left as `sorry` until the postcondition lemma about `liveAndStoreArgs` is \
-    discharged).")
+    `args.length` — has been brought live; that witness is bound below as `_h_args_alloc` and \
+    discharged via #liveAndStoreArgs_localsAllocated.")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
@@ -280,13 +322,20 @@ defFn createFrame (.plain "createFrame")
     -- (prefixed with `_` to silence the unused-let warning);
     -- its purpose is to demonstrate that the strengthened
     -- postcondition of `liveAndStoreArgs` flows through to
-    -- a usable fact about `frame2`. The proof is `sorry`
-    -- until a postcondition lemma about `liveAndStoreArgs`
-    -- is discharged — the type ascription makes the assertion
-    -- explicit at the call site.
+    -- a usable fact about `frame2`. Discharged via
+    -- #liveAndStoreArgs_localsAllocated. The first, second,
+    -- and fourth precondition arguments are routed through
+    -- `liveAndStoreArgs.precondAxiom` because the same three
+    -- preconditions on the `liveAndStoreArgs` call above are
+    -- themselves still axiom-discharged; by proof irrelevance,
+    -- the postcondition lemma's conclusion does not depend on
+    -- which proofs are supplied.
     let _h_args_alloc :=
-      proof[(sorry : StackFrame.localsAllocated frame2 1
-        (1 + args.length))] ;
+      proof[liveAndStoreArgs_localsAllocated args 1 frame1 mem1
+        liveAndStoreArgs.precondAxiom
+        liveAndStoreArgs.precondAxiom
+        (by intro i hlo hhi; omega)
+        liveAndStoreArgs.precondAxiom] ;
     Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩

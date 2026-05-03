@@ -475,7 +475,11 @@ private def computeMapSetTypes
     renderer only splits fns from properties when
     `beforeProperties` extras are actually present, so
     modules whose source-level order interleaves the two
-    keep that order. -/
+    keep that order. `inFns` raw blocks are interleaved with
+    code defs by `seqNum`; properties (which have no `seqNum`)
+    sit at `seqOf = 0` so they land before every `inFns` block
+    (whose seqNums start at 1) and don't disturb the
+    surrounding fn/property interleaving. -/
 private def renderModule
     (items : List LeanDefItem)
     (imports : List Lean.Name)
@@ -561,17 +565,23 @@ private def renderModule
     output := output ++ blocks.map (·.2)
     return "\n\n".intercalate output
   let codeBlock :=
-    if extrasBeforeProperties.isEmpty
-       && inFnsBlocks.isEmpty then
+    if extrasBeforeProperties.isEmpty then
+      -- No `beforeProperties` extras: keep source-order
+      -- interleaving of `defFn` and `defProperty`. When
+      -- `inFnsBlocks` is also empty this collapses to
+      -- `render codeDefs`; otherwise `renderFns` splices the
+      -- raw blocks at their seqNums while leaving every other
+      -- item in source order. Properties have `seqOf = 0`,
+      -- so they land before any `inFnsBlock` (whose seqNums
+      -- start at 1) and don't disturb the interleaving.
       if codeDefs.isEmpty then ""
-      else s!"\n{render codeDefs}\n"
+      else if inFnsBlocks.isEmpty then s!"\n{render codeDefs}\n"
+      else s!"\n{renderFns codeDefs}\n"
     else
       let (propDefs, fnDefs) :=
         codeDefs.partition isPropertyDef
       let beforePropertiesStr :=
-        if extrasBeforeProperties.isEmpty then ""
-        else "\n" ++ "\n".intercalate
-          extrasBeforeProperties ++ "\n"
+        "\n" ++ "\n".intercalate extrasBeforeProperties ++ "\n"
       let fnBlock := if fnDefs.isEmpty then "" else
         s!"\n{renderFns fnDefs}\n"
       let propBlock := if propDefs.isEmpty then "" else
