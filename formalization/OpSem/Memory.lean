@@ -346,13 +346,11 @@ theorem Memory.store_alloc_endAddr_unchanged
     unfold listSet
     rw [Memory.store_allocs_set_getElem! m aid offset bytes i h]
     by_cases hi : i = aid.index
-    · -- Overwritten slot: `address` and `data.length` both
-      -- match the original allocation.
+    · -- Overwritten slot: `address` matches; `data.length` matches by
+      -- `store_overwritten_data_length_eq`, so `endAddr` is preserved.
       subst hi
-      simp only [if_true]
-      have h_new := Memory.store_overwritten_data_length_eq hcp h
-      unfold Allocation.endAddr
-      simp only [h_new]
+      simp only [↓reduceIte, Allocation.endAddr,
+        Memory.store_overwritten_data_length_eq hcp h]
     · simp only [if_neg hi]
 
 
@@ -372,7 +370,7 @@ theorem Memory.store_alloc_address_unchanged
     unfold listSet
     rw [Memory.store_allocs_set_getElem! m aid offset bytes i h]
     by_cases hi : i = aid.index
-    · subst hi; simp only [if_true]
+    · subst hi; simp only [↓reduceIte]
     · simp only [if_neg hi]
 
 
@@ -385,9 +383,7 @@ theorem Memory.store_allocs_length_unchanged
   unfold Memory.store
   cases hcp : Memory.checkPtr m ptr bytes.length with
   | none => rfl
-  | some p =>
-    obtain ⟨aid, offset⟩ := p
-    unfold listSet; simp
+  | some p => obtain ⟨_, _⟩ := p; unfold listSet; simp
 
 
 /-- `Memory.store` preserves `Memory.validMemory`. The
@@ -498,12 +494,9 @@ theorem Memory.endAddr_lt_top
     (m : Memory) (hvm : Memory.validMemory m) (i : Nat)
     (h : i < m.allocs.length) :
     Allocation.endAddr (m.allocs[i]!) < Memory.top m := by
-  -- The list is non-empty, so `last m.allocs = some allocs[length-1]!`.
-  -- `top m = endAddr (last m.allocs) + 1`, so we want
-  -- `endAddr allocs[i]! < endAddr allocs[length-1]! + 1`. For
-  -- `i = length - 1` it is reflexivity; for `i < length - 1` we chain
-  -- through validMemory: `endAddr allocs[i] < allocs[length-1].address
-  -- ≤ endAddr allocs[length-1]`.
+  -- `top m = endAddr allocs[length-1]! + 1`. For `i = length - 1`
+  -- the goal is reflexive; for `i < length - 1`, validMemory gives
+  -- `endAddr allocs[i] < allocs[length-1].address ≤ endAddr allocs[length-1]`.
   have h_last_idx : m.allocs.length - 1 < m.allocs.length := by omega
   have h_last_eq : last m.allocs = some (m.allocs[m.allocs.length - 1]!) := by
     unfold last
