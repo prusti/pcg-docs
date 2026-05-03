@@ -382,6 +382,65 @@ defFn analyzeRpo (.plain "analyzeRpo")
 -- Top-level entry point
 -- ══════════════════════════════════════════════
 
+-- Lemmas used to discharge `analyzeRpo`'s
+-- `validAnalysisState` precondition for `analyzeBody`'s initial
+-- state, which has `mapEmpty` per-block results and a
+-- `mapSingleton ⟨0⟩ (PcgData.init body)` entry-state map. The
+-- chain factors through three steps: (1) the value list of an
+-- empty `Map` is `[]`; (2) `OwnedState.initial body` produces
+-- exactly `body.decls.length` locals — so the initial PCG
+-- satisfies `validPcgData body`; and (3) those two combine via
+-- `mem_mapValues_mapInsert` to discharge the conjunction
+-- `validAnalysisState` unfolds to.
+defRaw inFns =>
+private theorem mapValues_empty
+    {κ : Type} [BEq κ] [Hashable κ] {ν : Type} :
+    mapValues (∅ : Map κ ν) = [] := by
+  unfold mapValues
+  rw [Std.HashMap.fold_eq_foldl_toList,
+    Std.HashMap.toList_empty]
+  rfl
+
+defRaw inFns =>
+private theorem OwnedState.initial_locals_length (body : Body) :
+    (OwnedState.initial body).locals.length =
+      body.decls.length := by
+  unfold OwnedState.initial
+  simp
+
+defRaw inFns =>
+private theorem PcgData.init_validPcgData (body : Body) :
+    validPcgData body (PcgData.init body) := by
+  show (PcgData.init body).os.locals.length =
+    body.decls.length
+  unfold PcgData.init
+  exact OwnedState.initial_locals_length body
+
+defRaw inFns =>
+private theorem validAnalysisResults_mapEmpty (body : Body) :
+    validAnalysisResults body
+      (∅ : Map BasicBlockIdx (List PcgDomainData)) := by
+  show ∀ pdds ∈ mapValues
+        (∅ : Map BasicBlockIdx (List PcgDomainData)),
+       ∀ pdd ∈ pdds, validPcgDomainData body pdd
+  intro pdds hpdds
+  rw [mapValues_empty] at hpdds
+  exact (List.not_mem_nil hpdds).elim
+
+defRaw inFns =>
+private theorem analyzeBody_state0_validAnalysisState
+    (body : Body) :
+    validAnalysisState body
+      ⟨∅,
+        mapSingleton (⟨0⟩ : BasicBlockIdx)
+          (PcgData.init body)⟩ := by
+  refine ⟨validAnalysisResults_mapEmpty body, ?_⟩
+  intro pcg hpcg
+  rcases mem_mapValues_mapInsert hpcg with rfl | hold
+  · exact PcgData.init_validPcgData body
+  · rw [mapValues_empty] at hold
+    exact (List.not_mem_nil hold).elim
+
 defFn analyzeBody (.plain "analyzeBody")
   (doc! "Run a single forward dataflow pass of \
     `PcgData.analyzeBlock` over every basic block of a \
@@ -403,5 +462,6 @@ defFn analyzeBody (.plain "analyzeBody")
       mapSingleton BasicBlockIdx⟨0⟩ init ;
     let state0 := AnalysisState⟨mapEmpty‹›, entryStates0⟩ ;
     let final ← analyzeRpo
-      body state0 rpo proof[h_validBody] proof[sorry] ;
+      body state0 rpo proof[h_validBody]
+      proof[analyzeBody_state0_validAnalysisState body] ;
     Some final↦results
