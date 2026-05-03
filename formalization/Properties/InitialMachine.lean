@@ -389,11 +389,13 @@ private theorem evalProjs_initialMachine_provenance
       cases hef : evalField pp idx ty with
       | none => rw [hef] at heval; simp at heval
       | some pair =>
-        rcases pair with ⟨fp, ft⟩
+        obtain ⟨fp, ft⟩ := pair
         rw [hef] at heval
         simp only [Option.bind_some] at heval
         -- `fp.ptr.provenance = pp.ptr.provenance` because `evalField`
-        -- only adjusts the address.
+        -- only adjusts the address. The non-`ctor` arms of `evalField`
+        -- never return `some`, so `hef` derives `False`; the `ctor`
+        -- arm exposes the new pointer's address but keeps provenance.
         have hfp : fp.ptr.provenance = pp.ptr.provenance := by
           cases ty with
           | bool | int _ | param _ | alias _ _ _ | ref _ _ _ | box _ | array _ _ =>
@@ -445,17 +447,9 @@ private theorem evalProjs_initialMachine_provenance
               -- begin with `.uninit` (the latter making `data` fail).
               have hempty : idxRaw = [] := by
                 cases hib : Memory.load (initialMachine pr h).mem idxPp.ptr 8 with
-                | nil =>
-                  rw [hib] at hd
-                  simp [data] at hd
-                  exact hd
+                | nil => rw [hib] at hd; simp [data] at hd; exact hd
                 | cons b _ =>
-                  exfalso
-                  have hbu : b = AbstractByte.uninit := by
-                    apply hbytes
-                    rw [hib]
-                    exact List.mem_cons_self
-                  rw [hib, hbu] at hd
+                  rw [hib, hbytes b (hib ▸ List.mem_cons_self)] at hd
                   simp [data] at hd
               -- After substituting `idxRaw = []`, `decodeLeUnsigned [] = 0`,
               -- so the offset added is `0` and the new pointer collapses to
