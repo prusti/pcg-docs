@@ -310,7 +310,8 @@ defFn createFrame (.plain "createFrame")
     let ⟨frame2, mem2⟩ :=
       liveAndStoreArgs args 1 frame1 mem1
         proof[StackFrame.storageLive_preserves_validMemory _ _ _ _ _
-          h_validMachine.2.1] proof[sorry]
+          h_validMachine.2.1]
+        proof[StackFrame.storageLive_preserves_validStackFrame _ _ _ _ _]
         proof[(by
           -- `localsAllocated frame1 1 1` reduces to
           -- `∀ i, 1 ≤ i → i < 1 → …`; the premises `1 ≤ i`

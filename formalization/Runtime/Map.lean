@@ -151,3 +151,33 @@ theorem mem_mapValues_mapInsert
         (List.mem_filter.mp hfilt).1
       rw [Std.HashMap.fold_eq_foldl_toList]
       exact List.mem_foldlConsSnd_of_pair_mem _ hmem'
+
+/-- Every element of `mapValues (mapRemove m k)` is also an
+    element of `mapValues m`: `mapRemove` only ever drops
+    entries, never introduces new values. The proof uses
+    `getElem?_erase` (lookup after `erase` is the original lookup
+    when the keys differ, `none` when they match) to recover the
+    original `(_, e)` pair witness in `m.toList`. -/
+theorem mem_mapValues_mapRemove
+    {κ : Type} [BEq κ] [LawfulBEq κ] [Hashable κ]
+    [LawfulHashable κ] {ν : Type}
+    {m : Map κ ν} {k : κ} {e : ν}
+    (h : e ∈ mapValues (mapRemove m k)) :
+    e ∈ mapValues m := by
+  unfold mapValues mapRemove at *
+  rw [Std.HashMap.fold_eq_foldl_toList] at h
+  rcases (List.mem_foldlConsSnd_iff _ _ _).mp h with hinit | ⟨a, hpair⟩
+  · cases hinit
+  · -- (a, e) ∈ (m.erase k).toList ⇒ (m.erase k)[a]? = some e
+  --                              ⇒ m[a]? = some e (via getElem?_erase)
+  --                              ⇒ (a, e) ∈ m.toList
+    rw [Std.HashMap.mem_toList_iff_getElem?_eq_some,
+        Std.HashMap.getElem?_erase] at hpair
+    split at hpair
+    · -- `k == a` arm: `none = some e`, contradiction.
+      simp at hpair
+    · -- `k ≠ a` arm: `m[a]? = some e`. Lift back to `mapValues m`.
+      rw [Std.HashMap.fold_eq_foldl_toList]
+      apply List.mem_foldlConsSnd_of_pair_mem
+      rw [Std.HashMap.mem_toList_iff_getElem?_eq_some]
+      exact hpair

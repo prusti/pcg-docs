@@ -559,3 +559,147 @@ theorem StackFrame.storageLive_preserves_validMemory
   exact Memory.allocate_preserves_validMemory _ _
     (storageDead_preserves_validMemory frame mem l h₁ h₂ hvm)
 
+defRaw after =>
+open StackFrame Memory in
+/-- `storageDeadPtr` preserves `validPtr`: `Memory.deallocate`
+    preserves `validPtr` (count-based) and the unchanged-memory arm
+    is trivial. -/
+theorem StackFrame.storageDeadPtr_preserves_validPtr
+    {frame : StackFrame} {mem : Memory} {l : Local} {ptr_d : ThinPointer}
+    (h_d : validPtr mem ptr_d)
+    {ptr : ThinPointer} (h_p : validPtr mem ptr) :
+    validPtr (storageDeadPtr frame mem l ptr_d h_d).snd ptr := by
+  obtain ⟨addr, provOpt⟩ := ptr_d
+  cases provOpt with
+  | some prov =>
+    unfold storageDeadPtr
+    simp only
+    exact Memory.deallocate_preserves_validPtr prov.id h_d h_p
+  | none =>
+    unfold storageDeadPtr
+    simp only
+    exact h_p
+
+defRaw after =>
+open StackFrame Memory in
+/-- `storageDead` preserves `validPtr`: either the memory is
+    unchanged or `storageDeadPtr_preserves_validPtr` applies. -/
+theorem StackFrame.storageDead_preserves_validPtr
+    {frame : StackFrame} {mem : Memory} {l : Local}
+    {h₁ : validStackFrame mem frame} {h₂ : validLocal frame.body l}
+    {ptr : ThinPointer} (h_p : validPtr mem ptr) :
+    validPtr (storageDead frame mem l h₁ h₂).snd ptr := by
+  unfold storageDead
+  split
+  · exact h_p
+  · exact StackFrame.storageDeadPtr_preserves_validPtr _ h_p
+
+defRaw after =>
+open StackFrame Memory in
+/-- `storageDeadPtr` preserves `validStackFrame`: the dropped
+    locals entry is the only locals-map change (via `mapRemove`),
+    and `Memory.deallocate` preserves `validPtr` for every
+    remaining pointer (count-based). -/
+theorem StackFrame.storageDeadPtr_preserves_validStackFrame
+    {frame : StackFrame} {mem : Memory} {l : Local} {ptr_d : ThinPointer}
+    (h_d : validPtr mem ptr_d)
+    (h₁ : validStackFrame mem frame) :
+    validStackFrame (storageDeadPtr frame mem l ptr_d h_d).snd
+                    (storageDeadPtr frame mem l ptr_d h_d).fst := by
+  obtain ⟨addr, provOpt⟩ := ptr_d
+  cases provOpt with
+  | some prov =>
+    unfold storageDeadPtr
+    simp only
+    refine ⟨h₁.1, h₁.2.1, ?_⟩
+    -- New locals = mapRemove frame.locals l, only ever drops
+    -- entries; lift each remaining ptr's validity through
+    -- `Memory.deallocate_preserves_validPtr`.
+    intro ptr hptr
+    have hptr_orig : ptr ∈ mapValues frame.locals :=
+      mem_mapValues_mapRemove hptr
+    exact Memory.deallocate_preserves_validPtr prov.id h_d
+      (h₁.2.2 ptr hptr_orig)
+  | none =>
+    unfold storageDeadPtr
+    simp only
+    exact h₁
+
+defRaw after =>
+open StackFrame Memory in
+/-- `storageDead` preserves `validStackFrame`: either the
+    memory and frame are returned unchanged (the `.none` arm)
+    or `storageDeadPtr_preserves_validStackFrame` applies. -/
+theorem StackFrame.storageDead_preserves_validStackFrame
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    validStackFrame (storageDead frame mem l h₁ h₂).snd
+                    (storageDead frame mem l h₁ h₂).fst := by
+  unfold storageDead
+  split
+  · exact h₁
+  · exact StackFrame.storageDeadPtr_preserves_validStackFrame _ h₁
+
+defRaw after =>
+open StackFrame Memory in
+/-- `Memory.allocate` preserves `validStackFrame`: body and pc are
+    independent of memory; existing locals' validity (count-based)
+    is preserved by `Memory.allocate_preserves_validPtr`. -/
+theorem StackFrame.validStackFrame_allocate_preserves
+    {mem : Memory} {frame : StackFrame} (size : Nat)
+    (h : validStackFrame mem frame) :
+    validStackFrame (Memory.allocate mem size).fst frame := by
+  refine ⟨h.1, h.2.1, ?_⟩
+  intro ptr hptr
+  exact Memory.allocate_preserves_validPtr size (h.2.2 ptr hptr)
+
+defRaw after =>
+open StackFrame Memory in
+/-- `storageLive` preserves `validStackFrame`: body and pc are
+    unchanged by construction; the new locals map's only fresh
+    entry is the freshly-allocated pointer (whose provenance has
+    index `< new mem.allocs.length` by
+    `validAllocId_allocate_snd`), and the remaining entries lift
+    via `Memory.allocate_preserves_validPtr` over the inner
+    post-`storageDead` frame.
+
+    Body and pc preservation are re-proved inline via
+    `unfold storageLive; simp` (the source's `@[simp] theorem
+    storageLive_body` / `_pc` are not propagated to the generated
+    project, so referencing them here would break the export). -/
+theorem StackFrame.storageLive_preserves_validStackFrame
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l) :
+    validStackFrame (storageLive frame mem l h₁ h₂).snd
+                    (storageLive frame mem l h₁ h₂).fst := by
+  have h_body : (storageLive frame mem l h₁ h₂).fst.body = frame.body := by
+    unfold storageLive; simp [storageDead]; split <;> simp [storageDeadPtr]
+    split <;> rfl
+  have h_pc : (storageLive frame mem l h₁ h₂).fst.pc = frame.pc := by
+    unfold storageLive; simp [storageDead]; split <;> simp [storageDeadPtr]
+    split <;> rfl
+  refine ⟨?_, ?_, ?_⟩
+  · rw [h_body]; exact h₁.1
+  · rw [h_body, h_pc]; exact h₁.2.1
+  · -- Every ptr in the new locals: either it's the fresh pointer
+    -- bound to `l` (validProvenance via `validAllocId_allocate_snd`)
+    -- or it's an existing ptr from the post-`storageDead` frame's
+    -- locals (validPtr lifts via `allocate_preserves_validPtr`).
+    intro ptr hptr
+    unfold storageLive at hptr
+    simp only at hptr
+    rcases mem_mapValues_mapInsert hptr with rfl | hptr_old
+    · -- Fresh pointer: validPtr by validAllocId_allocate_snd.
+      unfold validPtr
+      simp only
+      unfold validProvenance
+      exact Memory.validAllocId_allocate_snd _ _
+    · -- Existing pointer from the post-`storageDead` frame's
+      -- locals: its validity in the post-`storageDead` memory is
+      -- given by `storageDead_preserves_validStackFrame`'s third
+      -- conjunct; `Memory.allocate_preserves_validPtr` then lifts
+      -- to the post-`allocate` memory.
+      have h_dd := storageDead_preserves_validStackFrame frame mem l h₁ h₂
+      have h_old := h_dd.2.2 ptr hptr_old
+      exact Memory.allocate_preserves_validPtr _ h_old
+
