@@ -764,25 +764,90 @@ private theorem pushToSuccessors_preserves_validAnalysisState
         (AnalysisState.pushOne state exit s h_pre0) exit rest h_pre0'
         hva' hve
 
-}
+/-- `validAnalysisState` is preserved under `mapInsert` of the
+    `results` field with a new per-block entry whose elements
+    are all `validPcgDomainData`. The `entryStates` field is
+    untouched, so its half of the conjunct passes through. The
+    `results` half splits a value of `mapValues (mapInsert …)`
+    into the inserted list (handled by the per-element validity
+    hypothesis) or a value already in the original map (handled
+    by the original `validAnalysisResults`). -/
+private theorem updateResults_preserves_validAnalysisState
+    (body : Body) (state : AnalysisState) (bb : BasicBlockIdx)
+    (result : List PcgDomainData)
+    (hva : validAnalysisState body state)
+    (hres : ∀ pdd ∈ result, validPcgDomainData body pdd) :
+    validAnalysisState body
+      { state with results := mapInsert state.results bb result } := by
+  refine ⟨?_, hva.2⟩
+  intro pdds hpdds
+  rcases mem_mapValues_mapInsert hpdds with rfl | hold
+  · exact hres
+  · exact hva.1 pdds hold
 
-/-! `computeEntry`'s `ensures` clause is left to the default
-auto-discharge cascade `first | trivial | decide | sorry`,
-which closes the `none` arm via `trivial` and leaves the two
-`some s` arms to fall through to `sorry`. A complete
-discharge would route through the existing
-`pushToSuccessors_preserves_validAnalysisState` /
-`analyzeBlock_all_validPcgDomainData` chain via a `via`
-tactic, but the equation-capturing `match h_entry :` in the
-function body blocks tactic-mode case analysis on
-`mapGet state.entryStates bb` (the `cases h :` /
-`generalize h :` tactics fail because the same scrutinee is
-bound by an equation in the goal). Resolving that requires
-either a DSL-side restructuring of `computeEntry`'s body to
-use a non-equation-capturing match plus a manual
-equation-rebuild, or extending the DSL to support per-arm
-proof annotations — both larger refactors than the
-axiom-replacement scope of this PR. -/
+/-- The full `validAnalysisState` postcondition for
+    `computeEntry`'s function body. The proof splits on the two
+    nested equation-capturing matches (the `mapGet` lookup and
+    the `analyzeBlock` call), discharging the trivial arms and
+    delegating the live arm to `pushToSuccessors_preserves_…`
+    composed with `updateResults_preserves_…` and
+    `computeEntry_exit_validPcgData`. -/
+theorem validAnalysisState_of_computeEntry_body
+    (body : Body) (state : AnalysisState) (bb : BasicBlockIdx)
+    (h_validBody : validBody body)
+    (h_validAnalysisState : validAnalysisState body state) :
+    (match (match h_entry : mapGet state.entryStates bb with
+            | .none => some state
+            | .some entry =>
+                match h_result : PcgData.analyzeBlock entry body bb h_validBody with
+                | .none => none
+                | .some result =>
+                    let exit := match result.getLast? with
+                                | .some last => last.states.postMain
+                                | .none => entry
+                    let succs := termSuccessors body.blocks[bb.index]!.terminator
+                    let results1 := mapInsert state.results bb result
+                    let state1 := { state with results := results1 }
+                    some (pushToSuccessors state1 exit succs
+                      (computeEntry_pushToSuccessors_precond
+                        body state exit h_validAnalysisState
+                        (computeEntry_exit_validPcgData
+                          body state bb h_validBody h_validAnalysisState
+                          entry (mem_mapValues_of_mapGet_eq_some h_entry)
+                          result h_result)))) with
+     | .none => true
+     | .some s => validAnalysisState body s) := by
+  split
+  next h_outer =>
+    -- Outer match returned `none`: only possible if `analyzeBlock = none`.
+    trivial
+  next s h_outer =>
+    -- Outer match returned `some s`: figure out which inner arm produced it.
+    split at h_outer
+    · -- mapGet = none arm: outer = some state
+      injection h_outer with h_eq
+      rw [← h_eq]
+      exact h_validAnalysisState
+    · -- mapGet = some entry arm: outer = inner-match result
+      rename_i entry h_entry
+      split at h_outer
+      · -- analyzeBlock = none → outer = none, contradicts h_outer
+        nomatch h_outer
+      · -- analyzeBlock = some result → outer = some (pushToSuccessors …)
+        rename_i result h_result
+        injection h_outer with h_eq
+        rw [← h_eq]
+        apply pushToSuccessors_preserves_validAnalysisState
+        · exact updateResults_preserves_validAnalysisState body state bb result
+            h_validAnalysisState
+            (PcgData.analyzeBlock_all_validPcgDomainData h_validBody h_result
+              (h_validAnalysisState.2 entry
+                (mem_mapValues_of_mapGet_eq_some h_entry)))
+        · exact computeEntry_exit_validPcgData body state bb h_validBody
+            h_validAnalysisState entry
+            (mem_mapValues_of_mapGet_eq_some h_entry) result h_result
+
+}
 
 defFn computeEntry (.plain "computeEntry")
   (doc! "Forward step for one basic block. Reads the pending entry state for `bb` from \
@@ -798,6 +863,7 @@ defFn computeEntry (.plain "computeEntry")
     | .none => true
     | .some s => validAnalysisState body s
     end
+    via exact validAnalysisState_of_computeEntry_body body state bb h_validBody h_validAnalysisState
   : Option AnalysisState :=
     match h_entry : mapGet state↦entryStates bb with
     | .none => Some state
