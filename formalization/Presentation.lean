@@ -110,7 +110,10 @@ def restrictToModule
     inductiveProperties := reg.inductiveProperties.filter
       (·.leanModule == mod)
     theorems := reg.theorems.filter
-      (·.leanModule == mod) }
+      (·.leanModule == mod)
+    -- Template presentations are not module-scoped content;
+    -- they're only used by the export pipeline.
+    presentations := [] }
 
 /-- Keep only the definitions whose module's root crate
     prefix equals `crate`. -/
@@ -129,7 +132,8 @@ def restrictToCrate
     inductiveProperties := reg.inductiveProperties.filter
       (fun q => p q.leanModule)
     theorems := reg.theorems.filter
-      (fun t => p t.leanModule) }
+      (fun t => p t.leanModule)
+    presentations := [] }
 
 /-- Union of every module name that appears in the registry
     (de-duplicated, preserving registration order). -/
@@ -163,10 +167,15 @@ def cratePrefixes (reg : Registry) : List String :=
 
 end Registry
 
-/-- Build the LaTeX body (no header) for a single module:
-    its descriptions, struct, enum, function, and property
-    definitions in order, each followed by two newlines. -/
-private def moduleBodyLatex
+/-- Build the LaTeX body (no headings) for the items in `reg`,
+    rendering each registered descr / struct / alias / enum /
+    inductive property / fn / property / theorem in the
+    canonical kind order, each followed by two newlines.
+
+    Used both by the per-module section rendering of the full
+    presentation and by template presentations, which pass a
+    `reg` containing only the curated subset of definitions. -/
+def renderRegistryItems
     (reg : Registry) (ctx : RenderCtx) : Latex :=
   let descrParts := reg.descrs.map fun d =>
     Latex.seq [d.doc.toLatex, .newline, .newline]
@@ -245,7 +254,7 @@ private def crateLatex
   -- becomes a subsubsection within its depth-2 ancestor.
   let topMods := allMods.filter fun m => modDepth m == 2
   let buildBody := fun (mod : Lean.Name) =>
-    moduleBodyLatex (crateReg.restrictToModule mod) ctx
+    renderRegistryItems (crateReg.restrictToModule mod) ctx
   let sectionHeader := Latex.section (.raw crate)
   let modules := topMods.map fun topMod =>
     let header :=
@@ -263,8 +272,13 @@ private def crateLatex
   .seq ([sectionHeader, .newline] ++ modules)
 
 /-- Build the `RenderCtx` shared by every section of the
-    presentation from a full `Registry`. -/
-private def mkRenderCtx (reg : Registry) : RenderCtx :=
+    presentation from a `Registry`. Cross-references resolve
+    to anchors of names appearing in `reg`; for template
+    presentations, callers pass a sub-registry containing only
+    the curated subset of definitions, so unresolved
+    references stay as plain text rather than dangling
+    hyperlinks. -/
+def mkRenderCtx (reg : Registry) : RenderCtx :=
   let fnNameSet : List String :=
     reg.fns.map (·.fnDef.name)
       ++ reg.properties.map (·.propertyDef.fnDef.name)

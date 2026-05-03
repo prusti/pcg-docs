@@ -5,6 +5,7 @@ import Core.Dsl.Types.PropertyDef
 import Core.Dsl.Types.StructDef
 import Core.Dsl.Types.EnumDef
 import Core.Dsl.Types.InductivePropertyDef
+import Core.Dsl.Types.TheoremDef
 import Core.LeanAST
 
 open LeanAST
@@ -845,3 +846,25 @@ def referencedNames (p : InductivePropertyDef) : List String :=
       r.premises.flatMap (·.calledNames)
 
 end InductivePropertyDef
+
+namespace PropertyDef
+
+/-- All names this property depends on. A property wraps a
+    `FnDef` (whose return type is `Bool` / `Prop`), so the
+    dependency set is just that of the underlying function:
+    parameter types, called fns, and pre/postcondition
+    references. -/
+def referencedNames (p : PropertyDef) : List String :=
+  p.fnDef.referencedNames
+
+end PropertyDef
+
+namespace TheoremDef
+
+/-- All names this theorem's statement depends on. The
+    statement is a single `DslExpr`, so `calledNames` covers
+    every property / function / constructor referenced. -/
+def referencedNames (t : TheoremDef) : List String :=
+  t.statement.calledNames
+
+end TheoremDef

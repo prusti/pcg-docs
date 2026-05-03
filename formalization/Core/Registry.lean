@@ -6,6 +6,7 @@ import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.PropertyDef
 import Core.Dsl.Types.InductivePropertyDef
 import Core.Dsl.Types.TheoremDef
+import Core.Dsl.Types.PresentationDef
 
 /-- A registered enum definition with its source module. -/
 structure RegisteredEnum where
@@ -278,6 +279,33 @@ def getRegisteredTheorems :
     IO (List RegisteredTheorem) :=
   theoremRegistry.get
 
+/-- A registered template-presentation definition with its
+    source module. -/
+structure RegisteredPresentation where
+  /-- The template-presentation value. -/
+  presentation : Presentation
+  /-- The Lean module where this presentation was registered. -/
+  leanModule : Lean.Name
+  deriving Repr
+
+/-- Global registry of every template `Presentation`
+    registered via `registerPresentationDef`. The
+    presentation exporter iterates this list, writing one
+    `<filename>.pdf` per entry. -/
+initialize presentationRegistry :
+    IO.Ref (List RegisteredPresentation) ←
+  IO.mkRef []
+
+/-- Register a template `Presentation` from the given module. -/
+def registerPresentationDef
+    (p : Presentation) (mod : Lean.Name) : IO Unit :=
+  presentationRegistry.modify (· ++ [⟨p, mod⟩])
+
+/-- Retrieve all registered template presentations. -/
+def getRegisteredPresentations :
+    IO (List RegisteredPresentation) :=
+  presentationRegistry.get
+
 /-- A snapshot of every kind of registered DSL definition.
 
     Grouping the registry lists lets downstream consumers
@@ -293,6 +321,7 @@ structure Registry where
   properties : List RegisteredProperty
   inductiveProperties : List RegisteredInductiveProperty
   theorems : List RegisteredTheorem
+  presentations : List RegisteredPresentation
 
 namespace Registry
 
@@ -308,6 +337,7 @@ def current : IO Registry := do
     properties := ← getRegisteredProperties
     inductiveProperties := ← getRegisteredInductiveProperties
     theorems := ← getRegisteredTheorems
+    presentations := ← getRegisteredPresentations
   }
 
 end Registry

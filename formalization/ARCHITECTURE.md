@@ -203,6 +203,57 @@ in which they were declared):
   `\subsubsection`s inside their depth-2 ancestor, with titles
   of the form `"{last component} {parent last component}"` (so
   `OpSem.Expressions.Place` → `"Place Expressions"`).
+  The same exporter also walks `Registry.presentations` and
+  writes one `<filename>.pdf` per registered template
+  presentation (see *Template presentations* below).
+
+## Template presentations
+
+Alongside the monolithic full PDF, users can declare focused
+"template" presentations that contain only chosen registered
+definitions. The user-facing data type is
+
+```lean
+inductive PresElement where
+  | doc (d : Doc)
+  | defRef (name : String)
+
+structure Presentation where
+  elems    : List PresElement
+  filename : String
+  title    : String := ""
+```
+
+A `Presentation` value is registered with the global
+presentation registry via `registerPresentation` (a small
+wrapper command in `Core/Dsl/RegisterPresentation.lean` that
+threads the source module's `Lean.Name` through to
+`registerPresentationDef`). At export time
+`Presentation/Template.lean :: buildTemplatePresentationLatex`:
+
+1. Resolves each `defRef` name against `Registry.lookupKind`
+   (struct / enum / alias / fn / property /
+   inductiveProperty / theorem); unknown names abort the
+   export with a hard error.
+2. Walks the dependency graph (reusing the `referencedNames`
+   / `referencedTypes` helpers from `Core/Export/Lean.lean`)
+   to compute the transitive closure of every reachable
+   registered definition.
+3. Splits the closure into the explicitly-listed names
+   (rendered in the body, in `elems` order) and the
+   appendix names (rendered under an `\section*{Appendix}`
+   block, ordered by kind to mirror `renderRegistryItems`).
+4. Builds a sub-`Registry` containing only the closure and a
+   `RenderCtx` over that sub-registry, so cross-reference
+   anchors point only inside the template — making each
+   template PDF fully self-contained.
+
+`Presentation/Templates/Example.lean` ships a minimal
+`placeTemplate` that embeds `Place` and exercises the
+appendix logic across `Local`, `ProjElem`, `FieldIdx`,
+`Ty`, `VariantIdx`, and their further transitive
+dependencies. CI's existing `lake exe presentation_export`
+step builds this template on every push.
 
 ## Adding a new definition
 
