@@ -12,20 +12,21 @@ import PCG.PlaceExpansion
 defFn expansionOfStep (.plain "expansionOfStep")
   (doc! "Build a single-child place expansion that models one projection step taken while unpacking \
     an owned initialisation tree. The caller supplies the subtree to carry as the single child; no \
-    sibling children are materialised. Returns `None` for guided expansions that have no #ProjElem \
-    counterpart (`constantIndex` and `subslice`).")
+    sibling children are materialised. Total on #ProjElem: every projection step has a unique \
+    single-child expansion shape (the `constantIndex` and `subslice` guided variants have no \
+    #ProjElem counterpart and so cannot arise here).")
   (π "The projection step taken." : ProjElem)
   (child "The subtree to carry as the single child."
       : InitTree)
-  : Option (PlaceExpansion InitTree) where
+  : PlaceExpansion InitTree where
   | .deref ; child =>
-      Some (.deref child)
+      .deref child
   | .field fi ty ; child =>
-      Some (.fields [⟨fi, ty, child⟩])
+      .fields [⟨fi, ty, child⟩]
   | .downcast v ; child =>
-      Some (.guided (.downcast v child))
+      .guided (.downcast v child)
   | .index l ; child =>
-      Some (.guided (.index l child))
+      .guided (.index l child)
 
 defFnMutual
 defFn obtainWriteInTree (.plain "obtainWriteInTree")
@@ -54,8 +55,7 @@ defFn obtainWriteInTree (.plain "obtainWriteInTree")
   | .leaf (.uninit) ; _ :: _ => Some (.leaf .uninit)
   | .leaf (.deep) ; π :: rest =>
       let child ← obtainWriteInTree (.leaf .deep) rest ;
-      let xp ← expansionOfStep π child ;
-      Some (.internal xp)
+      Some (.internal (expansionOfStep π child))
   | .leaf (.shallow) ; _ :: _ => None
   | .internal (.deref sub) ; .deref :: rest =>
       let newSub ← obtainWriteInTree sub rest ;
