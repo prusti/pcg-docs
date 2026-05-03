@@ -269,7 +269,14 @@ defFn createFrame (.plain "createFrame")
   requires validMachine m, validBody body
   : Machine :=
     let initFrame := StackFrame⟨body, START, mapEmpty‹›⟩ ;
-    let ⟨frame1, mem1⟩ := StackFrame.storageLive
+    -- `storageLive`'s result is bound to a single name and accessed
+    -- through `Prod.fst` / `Prod.snd` (rather than a destructuring
+    -- `let ⟨frame1, mem1⟩ :=`) so downstream proofs can rewrite
+    -- `frame1` / `mem1` to the underlying `(storageLive …).fst` /
+    -- `.snd` definitionally — pattern-bound variables compile to a
+    -- `match` whose components are not zeta-reducible to projections
+    -- at type-checking time.
+    let storageLive_initLocal0 := StackFrame.storageLive
       initFrame m↦mem Local⟨0⟩
       proof[(by
         -- `validStackFrame m.mem initFrame` unfolds to
@@ -298,9 +305,12 @@ defFn createFrame (.plain "createFrame")
         -- inequality.
         show 0 < body.decls.length
         exact List.length_pos_iff.mpr h_validBody.1)] ;
+    let frame1 := Prod.fst storageLive_initLocal0 ;
+    let mem1 := Prod.snd storageLive_initLocal0 ;
     let ⟨frame2, mem2⟩ :=
       liveAndStoreArgs args 1 frame1 mem1
-        proof[sorry] proof[sorry]
+        proof[StackFrame.storageLive_preserves_validMemory _ _ _ _ _
+          h_validMachine.2.1] proof[sorry]
         proof[(by
           -- `localsAllocated frame1 1 1` reduces to
           -- `∀ i, 1 ≤ i → i < 1 → …`; the premises `1 ≤ i`

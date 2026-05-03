@@ -405,3 +405,281 @@ theorem Memory.store_preserves_validMemory
   rw [Memory.store_alloc_endAddr_unchanged m ptr bytes i hilen',
       Memory.store_alloc_address_unchanged m ptr bytes j hjlen']
   exact hvm i j ⟨hij, hjlen'⟩
+
+/-! ## Frame-preservation lemmas for `Memory.allocate` and `Memory.deallocate`
+
+`Memory.allocate` appends a single allocation to `allocs` at the next
+free address (`top mem`); `Memory.deallocate` flips one allocation's
+`live` field and leaves every address and the list length alone. The
+preservation lemmas below let consumers (`StackFrame.storageLive`,
+`StackFrame.storageDead`) lift `validMemory` and `validPtr` through
+either operation. -/
+
+defRaw after =>
+/-- `Memory.allocate` increases `allocs.length` by exactly one.
+    `Memory.allocate` appends a single fresh allocation onto the
+    `allocs` list. -/
+theorem Memory.allocate_allocs_length
+    (m : Memory) (size : Nat) :
+    (Memory.allocate m size).fst.allocs.length = m.allocs.length + 1 := by
+  unfold Memory.allocate; simp
+
+defRaw after =>
+/-- `Memory.allocate` returns the next allocation id, equal to
+    the count of allocations already in the input memory. -/
+theorem Memory.allocate_aid_index
+    (m : Memory) (size : Nat) :
+    (Memory.allocate m size).snd.index = m.allocs.length := by
+  unfold Memory.allocate; rfl
+
+defRaw after =>
+/-- `Memory.allocate` preserves the list-prefix of allocations:
+    every existing allocation index `i` retains its identity. -/
+theorem Memory.allocate_alloc_unchanged
+    (m : Memory) (size : Nat) (i : Nat) (h : i < m.allocs.length) :
+    (Memory.allocate m size).fst.allocs[i]! = m.allocs[i]! := by
+  have h_app_len :
+      i < (Memory.allocate m size).fst.allocs.length := by
+    rw [Memory.allocate_allocs_length]; omega
+  rw [getElem!_pos _ i h_app_len, getElem!_pos m.allocs i h]
+  unfold Memory.allocate
+  exact List.getElem_append_left h
+
+defRaw after =>
+/-- `Memory.allocate` preserves the `address` field of every
+    existing allocation: the appended new allocation does not
+    disturb earlier indices. -/
+theorem Memory.allocate_alloc_address_unchanged
+    (m : Memory) (size : Nat) (i : Nat) (h : i < m.allocs.length) :
+    ((Memory.allocate m size).fst.allocs[i]!).address
+      = (m.allocs[i]!).address := by
+  rw [Memory.allocate_alloc_unchanged m size i h]
+
+defRaw after =>
+/-- `Memory.allocate` preserves `endAddr` for every existing
+    allocation. -/
+theorem Memory.allocate_alloc_endAddr_unchanged
+    (m : Memory) (size : Nat) (i : Nat) (h : i < m.allocs.length) :
+    Allocation.endAddr ((Memory.allocate m size).fst.allocs[i]!)
+      = Allocation.endAddr (m.allocs[i]!) := by
+  rw [Memory.allocate_alloc_unchanged m size i h]
+
+defRaw after =>
+/-- The new allocation produced by `Memory.allocate` sits at index
+    `m.allocs.length` and has address `Memory.top m`. -/
+theorem Memory.allocate_new_alloc_address
+    (m : Memory) (size : Nat) :
+    ((Memory.allocate m size).fst.allocs[m.allocs.length]!).address
+      = Memory.top m := by
+  have h_app_len :
+      m.allocs.length < (Memory.allocate m size).fst.allocs.length := by
+    rw [Memory.allocate_allocs_length]; omega
+  rw [getElem!_pos _ m.allocs.length h_app_len]
+  -- After `getElem!_pos`, the LHS is the unfolded `getElem` on the
+  -- appended list; `unfold Memory.allocate` exposes the literal
+  -- shape `m.allocs ++ [⟨..., top m, ...⟩]`. The index hits the
+  -- single appended element, so `List.getElem_append_right` reduces
+  -- to that element's `address` field, which is `Memory.top m`.
+  unfold Memory.allocate
+  rw [List.getElem_append_right (Nat.le_refl _)]
+  simp
+
+defRaw after =>
+/-- For a `validMemory` `m`, the next free address `top m` is
+    strictly above every existing allocation's `endAddr`. This is
+    the key fact making `Memory.allocate` preserve `validMemory`:
+    the freshly appended allocation lives strictly above all
+    existing ones, so the strict-ordering invariant carries
+    through to the new pair. -/
+theorem Memory.endAddr_lt_top
+    (m : Memory) (hvm : Memory.validMemory m) (i : Nat)
+    (h : i < m.allocs.length) :
+    Allocation.endAddr (m.allocs[i]!) < Memory.top m := by
+  -- The list is non-empty, so `last m.allocs = some last_alloc`
+  -- where `last_alloc = m.allocs[length - 1]!`. `top m =
+  -- (endAddr last_alloc).addr + 1`, and we want
+  -- `endAddr (allocs[i]!) < endAddr last_alloc + 1`. For
+  -- `i = length - 1` it's reflexive `≤` plus strict `< +1`; for
+  -- `i < length - 1` we chain through validMemory: `endAddr
+  -- (allocs[i]) < (allocs[length-1]).address ≤ endAddr
+  -- (allocs[length-1])`.
+  have h_nonempty : m.allocs ≠ [] := fun heq => by
+    rw [heq] at h; exact absurd h (Nat.not_lt_zero _)
+  have h_last_idx : m.allocs.length - 1 < m.allocs.length :=
+    Nat.sub_lt (List.length_pos_iff.mpr h_nonempty) Nat.one_pos
+  have h_last_eq : last m.allocs = some (m.allocs[m.allocs.length - 1]!) := by
+    unfold last
+    rw [getElem!_pos m.allocs (m.allocs.length - 1) h_last_idx]
+    rw [List.getLast?_eq_getElem?]
+    rw [List.getElem?_eq_getElem h_last_idx]
+  unfold Memory.top
+  rw [h_last_eq]
+  show (Allocation.endAddr (m.allocs[i]!)).addr
+       < (Allocation.endAddr (m.allocs[m.allocs.length - 1]!)).addr + 1
+  by_cases h_eq : i = m.allocs.length - 1
+  · subst h_eq; omega
+  · -- `i < length - 1`. Use validMemory: endAddr (allocs[i]) <
+    -- (allocs[length-1]).address ≤ endAddr (allocs[length-1]).
+    have hi_lt : i < m.allocs.length - 1 := by omega
+    have h_pair := hvm i (m.allocs.length - 1) ⟨hi_lt, h_last_idx⟩
+    have h_addr_le :
+        (m.allocs[m.allocs.length - 1]!).address.addr
+          ≤ (Allocation.endAddr (m.allocs[m.allocs.length - 1]!)).addr := by
+      unfold Allocation.endAddr; simp
+    have h_lhs_lt : (Allocation.endAddr (m.allocs[i]!)).addr
+        < (m.allocs[m.allocs.length - 1]!).address.addr := h_pair
+    omega
+
+defRaw after =>
+/-- `Memory.allocate` preserves `Memory.validMemory`. Existing
+    pairs of allocations keep their addresses (and hence their
+    strict ordering); the new allocation appended at the end has
+    address `top m`, which by `endAddr_lt_top` is strictly above
+    every existing `endAddr`. -/
+theorem Memory.allocate_preserves_validMemory
+    (m : Memory) (size : Nat) :
+    Memory.validMemory m
+    → Memory.validMemory (Memory.allocate m size).fst := by
+  intro hvm
+  unfold Memory.validMemory at *
+  intro i j hpair
+  obtain ⟨hij, hjlen⟩ := hpair
+  rw [Memory.allocate_allocs_length] at hjlen
+  -- `j < m.allocs.length + 1`. Either `j < m.allocs.length`
+  -- (existing-existing pair, use original `hvm`) or
+  -- `j = m.allocs.length` (existing-new pair, use
+  -- `endAddr_lt_top`).
+  by_cases hj_old : j < m.allocs.length
+  · have hi_old : i < m.allocs.length := by omega
+    rw [Memory.allocate_alloc_endAddr_unchanged m size i hi_old,
+        Memory.allocate_alloc_address_unchanged m size j hj_old]
+    exact hvm i j ⟨hij, hj_old⟩
+  · have hj_eq : j = m.allocs.length := by omega
+    have hi_old : i < m.allocs.length := by omega
+    rw [hj_eq, Memory.allocate_alloc_endAddr_unchanged m size i hi_old,
+        Memory.allocate_new_alloc_address]
+    exact Memory.endAddr_lt_top m hvm i hi_old
+
+defRaw after =>
+/-- `Memory.allocate` preserves `validPtr`: pointer validity only
+    depends on the allocation count of the memory, which only
+    grows. -/
+theorem Memory.allocate_preserves_validPtr
+    {m : Memory} {ptr : ThinPointer} (size : Nat)
+    (h : Memory.validPtr m ptr) :
+    Memory.validPtr (Memory.allocate m size).fst ptr := by
+  unfold Memory.validPtr at *
+  obtain ⟨addr, provOpt⟩ := ptr
+  cases provOpt with
+  | none => simp at *
+  | some prov =>
+    simp only at h ⊢
+    unfold Memory.validProvenance Memory.validAllocId at *
+    rw [Memory.allocate_allocs_length]
+    omega
+
+defRaw after =>
+/-- The freshly minted allocation id from `Memory.allocate` is a
+    valid id in the post-allocate memory: its index equals the
+    pre-allocate length, and the post-allocate length is
+    pre-length + 1. -/
+theorem Memory.validAllocId_allocate_snd
+    (m : Memory) (size : Nat) :
+    Memory.validAllocId (Memory.allocate m size).fst
+      (Memory.allocate m size).snd := by
+  unfold Memory.validAllocId
+  rw [Memory.allocate_aid_index, Memory.allocate_allocs_length]
+  omega
+
+defRaw after =>
+/-- `Memory.deallocate` preserves `allocs.length`: it replaces one
+    allocation in-place via `listSet`. -/
+theorem Memory.deallocate_allocs_length_unchanged
+    (m : Memory) (id : AllocId) (h : Memory.validAllocId m id) :
+    (Memory.deallocate m id h).allocs.length = m.allocs.length := by
+  unfold Memory.deallocate
+  unfold listSet; simp
+
+defRaw after =>
+/-- `Memory.deallocate` preserves the `address` field of every
+    allocation. The "dead" allocation produced inside copies the
+    original's address; `List.set` leaves every other index
+    alone. -/
+theorem Memory.deallocate_alloc_address_unchanged
+    (m : Memory) (id : AllocId) (h : Memory.validAllocId m id)
+    (i : Nat) (h_i : i < m.allocs.length) :
+    ((Memory.deallocate m id h).allocs[i]!).address
+      = (m.allocs[i]!).address := by
+  have h_set_len : i < (Memory.deallocate m id h).allocs.length := by
+    rw [Memory.deallocate_allocs_length_unchanged]; exact h_i
+  rw [getElem!_pos _ i h_set_len, getElem!_pos m.allocs i h_i]
+  unfold Memory.deallocate
+  simp only [listSet]
+  by_cases hi : i = id.index
+  · subst hi
+    rw [List.getElem_set_self]
+    -- Bridge the `[id.index]!`-form used inside `deallocate`'s
+    -- body construction with the `[id.index]'h`-form on the RHS:
+    -- both are equal under proof of in-bounds.
+    rw [getElem!_pos m.allocs id.index h]
+    rfl
+  · rw [List.getElem_set_ne (Ne.symm hi)]
+
+defRaw after =>
+/-- `Memory.deallocate` preserves `endAddr` for every allocation:
+    same argument as `address`-preservation — the dead replacement
+    allocation copies both `address` and `data` from the original. -/
+theorem Memory.deallocate_alloc_endAddr_unchanged
+    (m : Memory) (id : AllocId) (h : Memory.validAllocId m id)
+    (i : Nat) (h_i : i < m.allocs.length) :
+    Allocation.endAddr ((Memory.deallocate m id h).allocs[i]!)
+      = Allocation.endAddr (m.allocs[i]!) := by
+  have h_set_len : i < (Memory.deallocate m id h).allocs.length := by
+    rw [Memory.deallocate_allocs_length_unchanged]; exact h_i
+  rw [getElem!_pos _ i h_set_len, getElem!_pos m.allocs i h_i]
+  unfold Memory.deallocate
+  simp only [listSet]
+  by_cases hi : i = id.index
+  · subst hi
+    rw [List.getElem_set_self]
+    unfold Allocation.endAddr
+    rw [getElem!_pos m.allocs id.index h]
+    rfl
+  · rw [List.getElem_set_ne (Ne.symm hi)]
+
+defRaw after =>
+/-- `Memory.deallocate` preserves `Memory.validMemory`: every
+    allocation's `address` and `endAddr` are unchanged, so the
+    strict-ordering invariant carries through pointwise. -/
+theorem Memory.deallocate_preserves_validMemory
+    (m : Memory) (id : AllocId) (h : Memory.validAllocId m id) :
+    Memory.validMemory m
+    → Memory.validMemory (Memory.deallocate m id h) := by
+  intro hvm
+  unfold Memory.validMemory at *
+  intro i j hpair
+  obtain ⟨hij, hjlen⟩ := hpair
+  have hjlen' : j < m.allocs.length := by
+    rw [Memory.deallocate_allocs_length_unchanged] at hjlen; exact hjlen
+  have hilen' : i < m.allocs.length := by omega
+  rw [Memory.deallocate_alloc_endAddr_unchanged m id h i hilen',
+      Memory.deallocate_alloc_address_unchanged m id h j hjlen']
+  exact hvm i j ⟨hij, hjlen'⟩
+
+defRaw after =>
+/-- `Memory.deallocate` preserves `validPtr`: only the
+    allocation count enters `validPtr`, and it is unchanged. -/
+theorem Memory.deallocate_preserves_validPtr
+    {m : Memory} {ptr : ThinPointer}
+    (id : AllocId) (h : Memory.validAllocId m id)
+    (h_ptr : Memory.validPtr m ptr) :
+    Memory.validPtr (Memory.deallocate m id h) ptr := by
+  unfold Memory.validPtr at *
+  obtain ⟨addr, provOpt⟩ := ptr
+  cases provOpt with
+  | none => simp at *
+  | some prov =>
+    simp only at h_ptr ⊢
+    unfold Memory.validProvenance Memory.validAllocId at *
+    rw [Memory.deallocate_allocs_length_unchanged]
+    exact h_ptr

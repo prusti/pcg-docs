@@ -494,3 +494,68 @@ theorem validStack.store_preserves
     · exact StackFrame.validStackFrame_store_preserves _ _ h_vsf
     · exact ih
     · exact headDisjointTail_store_preserves _ _ h_disj
+
+/-! ## Frame-preservation lemmas for `storageDead` and `storageLive`
+
+`storageDead` either returns the input unchanged (when the local has no
+entry in `locals`) or, via `storageDeadPtr`, deallocates one allocation
+and removes the local's entry. `storageLive` always runs `storageDead`
+first, then `Memory.allocate`s a fresh allocation and binds the local
+to a pointer with that fresh provenance. The two preservation lemmas
+below let `createFrame` discharge `validMemory` / `validStackFrame` on
+the post-`storageLive` state. -/
+
+defRaw after =>
+open StackFrame Memory in
+/-- `storageDeadPtr` preserves `validMemory`: the only memory mutation
+    is `Memory.deallocate`, which preserves `validMemory`. The proof
+    proceeds by `cases` on the pointer's provenance — only the
+    `.some prov` arm runs `Memory.deallocate`, the `.none` arm leaves
+    the memory unchanged. -/
+theorem StackFrame.storageDeadPtr_preserves_validMemory
+    {frame : StackFrame} {mem : Memory} {l : Local} (ptr : ThinPointer)
+    (h : validPtr mem ptr) (hvm : validMemory mem) :
+    validMemory (storageDeadPtr frame mem l ptr h).snd := by
+  obtain ⟨addr, provOpt⟩ := ptr
+  cases provOpt with
+  | some prov =>
+    unfold storageDeadPtr
+    simp only
+    exact Memory.deallocate_preserves_validMemory mem prov.id h hvm
+  | none =>
+    unfold storageDeadPtr
+    simp only
+    exact hvm
+
+defRaw after =>
+open StackFrame Memory in
+/-- `storageDead` preserves `validMemory`. Either the local has no
+    entry (the memory is returned unchanged) or `storageDeadPtr` is
+    invoked, which preserves `validMemory` by
+    `storageDeadPtr_preserves_validMemory`. -/
+theorem StackFrame.storageDead_preserves_validMemory
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l)
+    (hvm : validMemory mem) :
+    validMemory (storageDead frame mem l h₁ h₂).snd := by
+  unfold storageDead
+  split
+  · exact hvm
+  · exact StackFrame.storageDeadPtr_preserves_validMemory _ _ hvm
+
+defRaw after =>
+open StackFrame Memory in
+/-- `storageLive` preserves `validMemory`: combines
+    `storageDead_preserves_validMemory` (the inner `storageDead` step)
+    and `Memory.allocate_preserves_validMemory` (the subsequent
+    `Memory.allocate` step). -/
+theorem StackFrame.storageLive_preserves_validMemory
+    (frame : StackFrame) (mem : Memory) (l : Local)
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body l)
+    (hvm : validMemory mem) :
+    validMemory (storageLive frame mem l h₁ h₂).snd := by
+  unfold storageLive
+  simp only
+  exact Memory.allocate_preserves_validMemory _ _
+    (storageDead_preserves_validMemory frame mem l h₁ h₂ hvm)
+

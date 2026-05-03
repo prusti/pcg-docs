@@ -970,6 +970,17 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
     | .var fn =>
       match fn.splitOn "." with
       | [en, v] =>
+        -- Special case: `Prod.fst` / `Prod.snd` are not enum
+        -- variants — they are projections from a Rust tuple.
+        -- Emit `x.0` / `x.1` (tuple-field access) instead of
+        -- the variant-constructor form `Prod::Fst(x)`.
+        if en == "Prod" && (v == "fst" || v == "snd") then
+          let fieldIdx : RustIdent :=
+            ⟨if v == "fst" then "0" else "1"⟩
+          let rustArgs ← filtered.mapM fun (_, rustA) => pure rustA
+          match rustArgs with
+          | [arg] => return .field arg fieldIdx
+          | _ => pure ()
         let vStr := capitalise v
         let path : RustPath := ⟨[⟨en⟩, ⟨vStr⟩]⟩
         return .call (.path path)
