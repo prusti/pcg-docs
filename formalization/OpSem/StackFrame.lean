@@ -43,6 +43,21 @@ defProperty validStackFrame (.plain "validStackFrame")
     validLocation frame↦body frame↦pc ∧
     (mapValues frame↦locals·forAll fun ptr => validPtr m ptr)
 
+defProperty localsAllocated (.plain "localsAllocated")
+  short
+    (doc! "every local of {frame} with index in the half-open \
+      range [{lo}, {hi}) is allocated")
+  long
+    (doc! "for every index $i$ with {lo} ≤ $i$ and $i$ < {hi}, \
+      the local at index $i$ has an entry in {frame}'s locals \
+      map (i.e. `mapGet frame.locals Local⟨i⟩` is `some _`, \
+      not `none`)")
+  (frame "The stack frame." : StackFrame)
+  (lo "The lower bound on local indices (inclusive)." : Nat)
+  (hi "The upper bound on local indices (exclusive)." : Nat)
+  := ∀∀ i . lo ≤ i → i < hi →
+      mapGet frame↦locals Local⟨i⟩ ≠ None
+
 open Memory in
 defFn storageDeadPtr (.plain "storageDeadPtr")
   (doc! "Helper for `storageDead`: given a live thin pointer already looked up in `locals`, \

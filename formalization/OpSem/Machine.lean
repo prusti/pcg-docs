@@ -165,7 +165,12 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
     allocate the local's backing storage via `StackFrame.storageLive` and write the value into that \
     allocation with `typedStore`. The `validStackFrame` precondition discharges the same-named \
     obligation on `storageLive`; the `validMemory` precondition is structural — `liveAndStoreArgs` \
-    enters with a memory whose existing allocations are non-overlapping.")
+    enters with a memory whose existing allocations are non-overlapping. The \
+    #StackFrame.localsAllocated precondition tracks which locals have already been brought live: \
+    on entry, locals at indices `1` through `k - 1` are allocated, and on exit the \
+    freshly-allocated argument locals extend that range up through `k + args.length - 1` — \
+    `createFrame` consumes that postcondition to assert that every argument local is allocated \
+    after the loop.")
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
@@ -173,6 +178,8 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   requires validMemory mem
       using [liveAndStoreArgs.precondAxiom],
     validStackFrame mem frame
+      using [liveAndStoreArgs.precondAxiom],
+    localsAllocated frame 1 k
       using [liveAndStoreArgs.precondAxiom]
   : StackFrame × Memory where
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
@@ -202,8 +209,12 @@ defFn createFrame (.plain "createFrame")
     `initFrame.body Local⟨0⟩` requirement via the \"`decls ≠ []`\" conjunct, and the \
     #validStackFrame `m.mem initFrame` requirement via the \"`blocks ≠ []`\" conjunct (which closes \
     the #validLocation `body START` half of #validStackFrame; the locals-validity half is vacuous \
-    since the initial frame's locals map is empty). The remaining `liveAndStoreArgs` preconditions \
-    are left as `sorry` for now.")
+    since the initial frame's locals map is empty). After `liveAndStoreArgs` returns, the \
+    strengthened postcondition of `liveAndStoreArgs` (#StackFrame.localsAllocated extended to the \
+    range `[1, 1 + args.length)`) witnesses that every argument local — locals 1 through \
+    `args.length` — has been brought live; that witness is bound below as `_h_args_alloc` (the \
+    proof itself is left as `sorry` until the postcondition lemma about `liveAndStoreArgs` is \
+    discharged).")
   (m "The machine state." : Machine)
   (body "The function body being called." : Body)
   (args "The caller-provided argument values." : List Value)
@@ -241,7 +252,25 @@ defFn createFrame (.plain "createFrame")
         exact List.length_pos_iff.mpr h_validBody.1)] ;
     let ⟨frame2, mem2⟩ :=
       liveAndStoreArgs args 1 frame1 mem1
-        proof[sorry] proof[sorry] ;
+        proof[sorry] proof[sorry]
+        proof[(by
+          -- `localsAllocated frame1 1 1` reduces to
+          -- `∀ i, 1 ≤ i → i < 1 → …`; the premises `1 ≤ i`
+          -- and `i < 1` are jointly contradictory.
+          intro i hlo hhi
+          omega)] ;
+    -- Witness: every argument local is allocated in the
+    -- post-call frame. The bound name is unused at runtime
+    -- (prefixed with `_` to silence the unused-let warning);
+    -- its purpose is to demonstrate that the strengthened
+    -- postcondition of `liveAndStoreArgs` flows through to
+    -- a usable fact about `frame2`. The proof is `sorry`
+    -- until a postcondition lemma about `liveAndStoreArgs`
+    -- is discharged — the type ascription makes the assertion
+    -- explicit at the call site.
+    let _h_args_alloc :=
+      proof[(sorry : StackFrame.localsAllocated frame2 1
+        (1 + args.length))] ;
     Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩

@@ -85,13 +85,14 @@ private theorem storageDead_initFrame_mapEmpty
   storageDead_of_mapGet_eq_none (mapGet_mapEmpty _)
 
 /-- `liveAndStoreArgs []` is the identity — it neither allocates new
-    locals nor mutates the supplied memory. The two proof arguments are
+    locals nor mutates the supplied memory. The proof arguments are
     irrelevant; consumers can supply `sorry`-shaped placeholders or
     real witnesses. -/
 private theorem liveAndStoreArgs_nil
     (k : Nat) (frame : StackFrame) (mem : Memory)
-    (h1 : validMemory mem) (h2 : validStackFrame mem frame) :
-    liveAndStoreArgs [] k frame mem h1 h2 = (frame, mem) := by
+    (h1 : validMemory mem) (h2 : validStackFrame mem frame)
+    (h3 : StackFrame.localsAllocated frame 1 k) :
+    liveAndStoreArgs [] k frame mem h1 h2 h3 = (frame, mem) := by
   unfold liveAndStoreArgs
   rfl
 
