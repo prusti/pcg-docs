@@ -386,48 +386,35 @@ theorem ptrAllocations_endAddr_address_preserved
         a.address = a'.address ∧ Allocation.endAddr a = Allocation.endAddr a' := by
   intro a ha
   unfold ptrAllocations at *
-  -- `ptrAllocations` matches on the pointer's provenance;
-  -- destructure `p` so the match arms reduce.
-  obtain ⟨addr, provOpt⟩ := p
+  obtain ⟨_, provOpt⟩ := p
   cases provOpt with
   | none => simp at ha
   | some prov =>
     simp at ha
-    -- `a` is the looked-up allocation in the stored memory at
-    -- index `prov.id.index`. Either that index is in range or
-    -- not.
-    -- Bridge `[..]?.getD default` with `[..]!` so the
-    -- store-preservation lemmas line up.
-    have h_bridge_lhs :
+    -- Bridge `[..]?.getD default` with `[..]!` so the store-preservation
+    -- lemmas line up against `ha`.
+    rw [show
         (Memory.store mem storePtr storeBytes).allocs[prov.id.index]?.getD default
-          = (Memory.store mem storePtr storeBytes).allocs[prov.id.index]! := by
-      cases h : (Memory.store mem storePtr storeBytes).allocs[prov.id.index]? <;> simp [h]
-    rw [h_bridge_lhs] at ha
-    by_cases h_idx : prov.id.index < mem.allocs.length
-    · refine ⟨mem.allocs[prov.id.index]!, by simp, ?_, ?_⟩
-      · rw [ha]
-        exact Memory.store_alloc_address_unchanged mem storePtr storeBytes
-          prov.id.index h_idx
-      · rw [ha]
-        exact Memory.store_alloc_endAddr_unchanged mem storePtr storeBytes
-          prov.id.index h_idx
-    · -- Out-of-range: `getElem!` returns `default`; the store
-      -- preserves list length, so both sides are `default`.
-      have h_eq_len :
-          (Memory.store mem storePtr storeBytes).allocs.length = mem.allocs.length :=
-        Memory.store_allocs_length_unchanged mem storePtr storeBytes
-      have h_idx' :
-          ¬ prov.id.index < (Memory.store mem storePtr storeBytes).allocs.length := by
-        rw [h_eq_len]; exact h_idx
-      have h_def_lhs :
-          (Memory.store mem storePtr storeBytes).allocs[prov.id.index]! =
-            (default : Allocation) :=
-        getElem!_neg _ prov.id.index h_idx'
-      refine ⟨mem.allocs[prov.id.index]!, by simp, ?_, ?_⟩
-      · rw [ha, h_def_lhs]
-        exact (getElem!_neg mem.allocs prov.id.index h_idx).symm ▸ rfl
-      · rw [ha, h_def_lhs]
-        exact (getElem!_neg mem.allocs prov.id.index h_idx).symm ▸ rfl
+          = (Memory.store mem storePtr storeBytes).allocs[prov.id.index]!
+      from by cases h : (Memory.store mem storePtr storeBytes).allocs[prov.id.index]?
+              <;> simp [h]] at ha
+    refine ⟨mem.allocs[prov.id.index]!, by simp, ?_, ?_⟩ <;> rw [ha]
+    -- For both fields: in-range case follows from `store_*_unchanged`;
+    -- out-of-range case has both sides reducing to `default`.
+    all_goals
+      by_cases h_idx : prov.id.index < mem.allocs.length
+      case pos =>
+        first
+          | exact Memory.store_alloc_address_unchanged mem storePtr storeBytes
+              prov.id.index h_idx
+          | exact Memory.store_alloc_endAddr_unchanged mem storePtr storeBytes
+              prov.id.index h_idx
+      case neg =>
+        have h_idx' :
+            ¬ prov.id.index < (Memory.store mem storePtr storeBytes).allocs.length := by
+          rw [Memory.store_allocs_length_unchanged]; exact h_idx
+        rw [getElem!_neg _ prov.id.index h_idx',
+            getElem!_neg mem.allocs prov.id.index h_idx]
 
 /-- `Memory.store` preserves `headDisjointTail`. This rests on
     `nonOverlapping` only depending on each allocation's
@@ -439,26 +426,17 @@ theorem headDisjointTail_store_preserves
     (hd : headDisjointTail h t mem) :
     headDisjointTail h t (Memory.store mem ptr bytes) := by
   unfold headDisjointTail localAllocations at *
-  -- `·forAll` lowers to `∀ x ∈ list, body`. Introduce `a` from
-  -- the head's allocations and `b` from the tail's, both
-  -- indexed in the *stored* memory; then track each one back
-  -- to a local allocation in the original `mem` via
-  -- `ptrAllocations_endAddr_address_preserved`. The head's
-  -- `[h].flatMap` collapses to a single `mem_flatMap` step;
-  -- the tail's `t.flatMap` is one `mem_flatMap` over the
-  -- frame, then another over the locals' pointers.
+  -- For `a` from `[h].flatMap …` and `b` from `t.flatMap …` (both in the
+  -- stored memory), `ptrAllocations_endAddr_address_preserved` recovers
+  -- pre-store witnesses `a'`, `b'` with matching `address`/`endAddr`,
+  -- and `nonOverlapping` only depends on those two fields.
   intro a ha b hb
-  -- Head: `a ∈ [h].flatMap (...)` collapses (one frame in the
-  -- list) to `a ∈ (mapValues h.locals).flatMap …`. Tail: `b ∈
-  -- t.flatMap …` is one `mem_flatMap` over the frame, then
-  -- another over the locals' pointers.
   rw [List.flatMap_cons, List.flatMap_nil, List.append_nil,
     List.mem_flatMap] at ha
   rw [List.mem_flatMap] at hb
   obtain ⟨pa, hpa, ha_in⟩ := ha
-  obtain ⟨frame_b, hframe_b, hb⟩ := hb
-  rw [List.mem_flatMap] at hb
-  obtain ⟨pb, hpb, hb_in⟩ := hb
+  obtain ⟨frame_b, hframe_b, pb, hpb, hb_in⟩ := by
+    simpa [List.mem_flatMap] using hb
   obtain ⟨a', ha'_in, ha'_addr, ha'_end⟩ :=
     ptrAllocations_endAddr_address_preserved pa ptr bytes a ha_in
   obtain ⟨b', hb'_in, hb'_addr, hb'_end⟩ :=
