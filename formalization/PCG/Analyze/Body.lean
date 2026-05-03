@@ -282,16 +282,400 @@ defFn pushToSuccessors (.plain "pushToSuccessors")
 -- sides of the equation `e.os.locals.length =
 -- exit.os.locals.length` reduce to `body.decls.length`, so
 -- the equation collapses to `rfl`. The exit-validity
--- hypothesis is provided as an axiom for now — it follows
--- from `analyzeBlock` preserving `validPcgDomainData`, which
--- has not yet been formalised.
+-- hypothesis is established by tracing length preservation
+-- through `obtain → obtainTriples → analyze → analyzeAt →
+-- analyzeStmtsFrom → analyzeBlock`: each step in the chain
+-- only mutates `pd.os.locals` via `setOwnedLocalAt`, which
+-- maps over `os.locals.zipIdx` and so preserves length.
 defRaw inFns => {
-axiom computeEntry_exit_validPcgData
+-- `setOwnedLocalAt`/`obtainWriteOwned` are top-level in source
+-- but lifted into `OwnedState`/`OwnedState` respectively in
+-- the generated module (their first param is `OwnedState`).
+-- `open OwnedState` resolves the unqualified references in the
+-- generated build; in source they're already top-level so the
+-- open is a no-op there.
+open OwnedState
+
+/-- `setOwnedLocalAt` preserves `os.locals.length`: the
+    function maps `f` over `os.locals.zipIdx`, and
+    `(xs.zipIdx.map f).length = xs.length`. -/
+private theorem setOwnedLocalAt_locals_length
+    (os : OwnedState) (idx : Nat) (newOl : OwnedLocal) :
+    (setOwnedLocalAt os idx newOl).locals.length =
+      os.locals.length := by
+  unfold setOwnedLocalAt
+  simp [List.length_map, List.length_zipIdx]
+
+/-- `obtainWriteOwned` either fails or produces a new
+    `OwnedState` with the same `locals.length`: every `Some`-arm
+    routes through `setOwnedLocalAt`, which preserves length. -/
+private theorem obtainWriteOwned_locals_length
+    {os : OwnedState} {p : Place} {os' : OwnedState}
+    (h : obtainWriteOwned os p = some os') :
+    os'.locals.length = os.locals.length := by
+  unfold obtainWriteOwned at h
+  simp only at h
+  cases hOl : os.locals[p.local.index]? with
+  | none => rw [hOl] at h; simp at h
+  | some ol =>
+    rw [hOl] at h
+    simp only [Option.bind_some] at h
+    cases ol with
+    | unallocated => simp at h
+    | allocated it =>
+      simp only at h
+      cases hT : obtainWriteInTree it p.projection with
+      | none => rw [hT] at h; simp at h
+      | some newIt =>
+        rw [hT] at h
+        simp only [Option.bind_some] at h
+        injection h with h_eq
+        rw [← h_eq]
+        exact setOwnedLocalAt_locals_length os _ _
+
+/-- `PcgData.obtain` preserves `validPcgData`. The four arms of
+    its match all leave `os.locals.length` unchanged: the
+    `.write` owned arm routes through
+    `obtainWriteOwned_locals_length`; the `.write` borrowed and
+    `.read` arms only update `transientState`; the catch-all
+    returns `None` so the equation is vacuous. -/
+private theorem PcgData.obtain_preserves_validPcgData
+    {pd : PcgData Place} {body : Body} {p : Place} {c : Capability}
+    {h_validPlace : validPlace body p}
+    {pd' : PcgData Place}
+    (h : PcgData.obtain pd body p c h_validPlace = some pd')
+    (hv : validPcgData body pd) :
+    validPcgData body pd' := by
+  unfold validPcgData at hv ⊢
+  unfold PcgData.obtain at h
+  cases c with
+  | none => simp at h
+  | exclusive => simp at h
+  | shallowExclusive => simp at h
+  | write =>
+    simp only at h
+    split at h
+    · -- owned: `obtainWriteOwned`
+      cases hOs : obtainWriteOwned pd.os p with
+      | none => rw [hOs] at h; simp at h
+      | some newOs =>
+        rw [hOs] at h
+        simp only [Option.bind_some] at h
+        injection h with h_eq
+        rw [← h_eq]; simp only
+        rw [obtainWriteOwned_locals_length hOs]
+        exact hv
+    · -- borrowed: only `transientState` updated
+      injection h with h_eq
+      rw [← h_eq]; simp only; exact hv
+  | read =>
+    simp only at h
+    cases hT : pd.transientState with
+    | none =>
+      rw [hT] at h
+      simp only at h
+      injection h with h_eq
+      rw [← h_eq]; simp only; exact hv
+    | some t =>
+      rw [hT] at h
+      cases t with
+      | readPlaces s =>
+        simp only at h
+        injection h with h_eq
+        rw [← h_eq]; simp only; exact hv
+      | writeBorrowedPlace _ => simp at h
+
+/-- `PcgData.obtainTriples` preserves `validPcgData`. By
+    induction on the triples list: each step is one
+    `PcgData.obtain` call, which preserves `validPcgData`. -/
+private theorem PcgData.obtainTriples_preserves_validPcgData
+    (body : Body) :
+    ∀ {pd : PcgData Place} {triples : List PlaceTriple}
+      (h_pre0 : ∀ t ∈ triples, validPlace body t.place)
+      {pd' : PcgData Place},
+      PcgData.obtainTriples pd body triples h_pre0 = some pd' →
+      validPcgData body pd → validPcgData body pd'
+  | pd, [], _, pd', h, hv => by
+      unfold PcgData.obtainTriples at h
+      simp at h; rw [← h]; exact hv
+  | pd, t :: rest, h_pre0, pd', h, hv => by
+      unfold PcgData.obtainTriples at h
+      cases h1 : PcgData.obtain pd body t.place t.pre _ with
+      | none => rw [h1] at h; simp at h
+      | some pd1 =>
+        rw [h1] at h
+        simp only [Option.bind_some] at h
+        have hv1 :=
+          PcgData.obtain_preserves_validPcgData h1 hv
+        exact PcgData.obtainTriples_preserves_validPcgData
+          body (pd := pd1) (triples := rest) _ h hv1
+
+/-- `PcgData.analyze` preserves `validPcgData`. Unfolds to a
+    single `PcgData.obtainTriples` call. -/
+private theorem PcgData.analyze_preserves_validPcgData
+    {pd : PcgData Place} {body : Body} {loc : Location}
+    {phase : EvalStmtPhase} (h_validBody : validBody body)
+    {pd' : PcgData Place}
+    (h : PcgData.analyze pd body loc phase h_validBody = some pd')
+    (hv : validPcgData body pd) :
+    validPcgData body pd' := by
+  unfold PcgData.analyze at h
+  exact PcgData.obtainTriples_preserves_validPcgData body _ h hv
+
+/-- `PcgData.analyzeAt`'s output is `validPcgDomainData`: each
+    of its five conjuncts (entryState + four phase outputs) is a
+    `validPcgData body` value. The four phases chain through
+    `PcgData.analyze`, which preserves `validPcgData`. -/
+private theorem PcgData.analyzeAt_validPcgDomainData
+    {pd : PcgData Place} {body : Body} {loc : Location}
+    (h_validBody : validBody body)
+    {dd : PcgDomainData}
+    (h : PcgData.analyzeAt pd body loc h_validBody = some dd)
+    (hv : validPcgData body pd) :
+    validPcgDomainData body dd := by
+  unfold PcgData.analyzeAt at h
+  cases h1 : PcgData.analyze pd body loc .preOperands h_validBody with
+  | none => rw [h1] at h; simp at h
+  | some preOp =>
+    rw [h1] at h
+    simp only [Option.bind_some] at h
+    cases h2 : PcgData.analyze preOp body loc .postOperands h_validBody with
+    | none => rw [h2] at h; simp at h
+    | some postOp =>
+      rw [h2] at h
+      simp only [Option.bind_some] at h
+      cases h3 : PcgData.analyze postOp body loc .preMain h_validBody with
+      | none => rw [h3] at h; simp at h
+      | some preM =>
+        rw [h3] at h
+        simp only [Option.bind_some] at h
+        cases h4 : PcgData.analyze preM body loc .postMain h_validBody with
+        | none => rw [h4] at h; simp at h
+        | some postM =>
+          rw [h4] at h
+          simp only [Option.bind_some] at h
+          injection h with h_eq
+          rw [← h_eq]
+          have hv1 :=
+            PcgData.analyze_preserves_validPcgData h_validBody h1 hv
+          have hv2 :=
+            PcgData.analyze_preserves_validPcgData h_validBody h2 hv1
+          have hv3 :=
+            PcgData.analyze_preserves_validPcgData h_validBody h3 hv2
+          have hv4 :=
+            PcgData.analyze_preserves_validPcgData h_validBody h4 hv3
+          unfold validPcgDomainData
+          exact ⟨hv, hv1, hv2, hv3, hv4⟩
+
+/-- `PcgData.analyzeAt`'s `postMain` is valid (corollary of
+    `analyzeAt_validPcgDomainData`'s last conjunct). -/
+private theorem PcgData.analyzeAt_postMain_validPcgData
+    {pd : PcgData Place} {body : Body} {loc : Location}
+    (h_validBody : validBody body)
+    {dd : PcgDomainData}
+    (h : PcgData.analyzeAt pd body loc h_validBody = some dd)
+    (hv : validPcgData body pd) :
+    validPcgData body dd.states.postMain :=
+  (PcgData.analyzeAt_validPcgDomainData h_validBody h hv).2.2.2.2
+
+/-- `PcgData.analyzeStmtsFrom`'s last element's `postMain` is
+    valid when the input PCG is valid. By induction on the
+    `remaining` statement list: each step's `analyzeAt`
+    preserves validity through `postMain`, and the recursive
+    call inherits the chain. -/
+private theorem PcgData.analyzeStmtsFrom_last_postMain_validPcgData
+    (body : Body) (bb : BasicBlockIdx)
+    (h_validBody : validBody body) :
+    ∀ {pd : PcgData Place} {idx : Nat}
+      {remaining : List Statement} {result : List PcgDomainData},
+      PcgData.analyzeStmtsFrom pd body bb idx remaining
+          h_validBody = some result →
+      validPcgData body pd →
+      ∀ last ∈ result.getLast?,
+        validPcgData body last.states.postMain
+  | pd, idx, [], result, h, hv, last, h_last => by
+      unfold PcgData.analyzeStmtsFrom at h
+      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
+        h_validBody with
+      | none => rw [h1] at h; simp at h
+      | some dd =>
+        rw [h1] at h
+        simp only [Option.bind_some] at h
+        injection h with h_eq
+        rw [← h_eq] at h_last
+        simp [List.getLast?] at h_last
+        rw [← h_last]
+        exact PcgData.analyzeAt_postMain_validPcgData
+          h_validBody h1 hv
+  | pd, idx, _ :: rest, result, h, hv, last, h_last => by
+      unfold PcgData.analyzeStmtsFrom at h
+      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
+        h_validBody with
+      | none => rw [h1] at h; simp at h
+      | some dd =>
+        rw [h1] at h
+        simp only [Option.bind_some] at h
+        cases h2 : PcgData.analyzeStmtsFrom
+          dd.states.postMain body bb (idx + 1) rest h_validBody with
+        | none => rw [h2] at h; simp at h
+        | some restDDs =>
+          rw [h2] at h
+          simp only [Option.bind_some] at h
+          injection h with h_eq
+          rw [← h_eq] at h_last
+          have hv1 :=
+            PcgData.analyzeAt_postMain_validPcgData
+              h_validBody h1 hv
+          have h_ind :=
+            PcgData.analyzeStmtsFrom_last_postMain_validPcgData
+              body bb h_validBody (pd := dd.states.postMain)
+              (idx := idx + 1) (remaining := rest)
+              (result := restDDs) h2 hv1
+          -- `analyzeStmtsFrom` always returns a non-empty list:
+          -- both arms of its match produce `Some (… :: …)` or
+          -- `Some [_]`. So `restDDs ≠ []`, and
+          -- `(dd :: restDDs).getLast? = restDDs.getLast?`.
+          have h_restDDs_nonempty : restDDs ≠ [] := by
+            intro h_nil
+            rw [h_nil] at h2
+            -- analyzeStmtsFrom on rest returning Some [] is
+            -- impossible: every arm wraps the result in a cons.
+            cases rest with
+            | nil =>
+              unfold PcgData.analyzeStmtsFrom at h2
+              cases h2' : PcgData.analyzeAt dd.states.postMain body
+                  ⟨bb, idx + 1⟩ h_validBody with
+              | none => rw [h2'] at h2; simp at h2
+              | some _ => rw [h2'] at h2; simp at h2
+            | cons _ _ =>
+              unfold PcgData.analyzeStmtsFrom at h2
+              cases h2' : PcgData.analyzeAt dd.states.postMain body
+                  ⟨bb, idx + 1⟩ h_validBody with
+              | none => rw [h2'] at h2; simp at h2
+              | some dd' =>
+                rw [h2'] at h2
+                simp only [Option.bind_some] at h2
+                cases h2'' : PcgData.analyzeStmtsFrom
+                  dd'.states.postMain body bb (idx + 2) _
+                  h_validBody with
+                | none => rw [h2''] at h2; simp at h2
+                | some _ => rw [h2''] at h2; simp at h2
+          rw [List.getLast?_cons_of_ne_nil h_restDDs_nonempty]
+            at h_last
+          exact h_ind last h_last
+
+/-- `PcgData.analyzeBlock`'s last element's `postMain` is valid
+    when the input PCG is valid. Delegates to
+    `analyzeStmtsFrom_last_postMain_validPcgData`. -/
+private theorem PcgData.analyzeBlock_last_postMain_validPcgData
+    {pd : PcgData Place} {body : Body} {bb : BasicBlockIdx}
+    (h_validBody : validBody body)
+    {result : List PcgDomainData}
+    (h : PcgData.analyzeBlock pd body bb h_validBody = some result)
+    (hv : validPcgData body pd) :
+    ∀ last ∈ result.getLast?,
+      validPcgData body last.states.postMain := by
+  unfold PcgData.analyzeBlock at h
+  exact PcgData.analyzeStmtsFrom_last_postMain_validPcgData
+    body bb h_validBody h hv
+
+/-- Every `PcgDomainData` in `analyzeStmtsFrom`'s result list is
+    `validPcgDomainData`. Induction on `remaining`: each step's
+    `analyzeAt` produces a valid `PcgDomainData` (by
+    `analyzeAt_validPcgDomainData`), and the recursive call
+    inherits validity. -/
+private theorem PcgData.analyzeStmtsFrom_all_validPcgDomainData
+    (body : Body) (bb : BasicBlockIdx)
+    (h_validBody : validBody body) :
+    ∀ {pd : PcgData Place} {idx : Nat}
+      {remaining : List Statement} {result : List PcgDomainData},
+      PcgData.analyzeStmtsFrom pd body bb idx remaining
+          h_validBody = some result →
+      validPcgData body pd →
+      ∀ dd ∈ result, validPcgDomainData body dd
+  | pd, idx, [], result, h, hv, dd, h_dd => by
+      unfold PcgData.analyzeStmtsFrom at h
+      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
+        h_validBody with
+      | none => rw [h1] at h; simp at h
+      | some dd' =>
+        rw [h1] at h
+        simp only [Option.bind_some] at h
+        injection h with h_eq
+        rw [← h_eq] at h_dd
+        rcases List.mem_singleton.mp h_dd with rfl
+        exact PcgData.analyzeAt_validPcgDomainData
+          h_validBody h1 hv
+  | pd, idx, _ :: rest, result, h, hv, dd, h_dd => by
+      unfold PcgData.analyzeStmtsFrom at h
+      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
+        h_validBody with
+      | none => rw [h1] at h; simp at h
+      | some dd' =>
+        rw [h1] at h
+        simp only [Option.bind_some] at h
+        cases h2 : PcgData.analyzeStmtsFrom
+          dd'.states.postMain body bb (idx + 1) rest h_validBody with
+        | none => rw [h2] at h; simp at h
+        | some restDDs =>
+          rw [h2] at h
+          simp only [Option.bind_some] at h
+          injection h with h_eq
+          rw [← h_eq] at h_dd
+          rcases List.mem_cons.mp h_dd with rfl | h_in_rest
+          · exact PcgData.analyzeAt_validPcgDomainData
+              h_validBody h1 hv
+          · have hv1 :=
+              PcgData.analyzeAt_postMain_validPcgData
+                h_validBody h1 hv
+            exact PcgData.analyzeStmtsFrom_all_validPcgDomainData
+              body bb h_validBody (pd := dd'.states.postMain)
+              (idx := idx + 1) (remaining := rest)
+              (result := restDDs) h2 hv1 dd h_in_rest
+
+/-- Every `PcgDomainData` in `analyzeBlock`'s result list is
+    `validPcgDomainData`. Delegates to
+    `analyzeStmtsFrom_all_validPcgDomainData`. -/
+private theorem PcgData.analyzeBlock_all_validPcgDomainData
+    {pd : PcgData Place} {body : Body} {bb : BasicBlockIdx}
+    (h_validBody : validBody body)
+    {result : List PcgDomainData}
+    (h : PcgData.analyzeBlock pd body bb h_validBody = some result)
+    (hv : validPcgData body pd) :
+    ∀ dd ∈ result, validPcgDomainData body dd := by
+  unfold PcgData.analyzeBlock at h
+  exact PcgData.analyzeStmtsFrom_all_validPcgDomainData
+    body bb h_validBody h hv
+
+/-- The exit-state validity replaces the previous axiom.
+    `exit` is the `postMain` of the last `PcgDomainData` in
+    `analyzeBlock`'s result, with `entry` as the fallback when
+    the result list is empty (which never happens in practice
+    since `analyzeStmtsFrom` always returns a non-empty list,
+    but the fallback keeps the proof structural). The proof
+    routes through
+    `analyzeBlock_last_postMain_validPcgData` for the
+    common case and `h_validAnalysisState.2` for the fallback. -/
+theorem computeEntry_exit_validPcgData
     (body : Body) (state : AnalysisState) (bb : BasicBlockIdx)
+    (h_validBody : validBody body)
     (h_validAnalysisState : validAnalysisState body state)
-    (entry exit : PcgData Place)
-    (h_entry_mem : entry ∈ mapValues state.entryStates) :
-    validPcgData body exit
+    (entry : PcgData Place)
+    (h_entry_mem : entry ∈ mapValues state.entryStates)
+    (result : List PcgDomainData)
+    (h_result : PcgData.analyzeBlock entry body bb h_validBody
+                  = some result) :
+    validPcgData body
+      (match result.getLast? with
+       | .some last => last.states.postMain
+       | .none => entry) := by
+  have h_entry_valid : validPcgData body entry :=
+    h_validAnalysisState.2 entry h_entry_mem
+  cases h_last : result.getLast? with
+  | none => exact h_entry_valid
+  | some last =>
+    exact PcgData.analyzeBlock_last_postMain_validPcgData
+      h_validBody h_result h_entry_valid last h_last
 
 private theorem computeEntry_pushToSuccessors_precond
     (body : Body) (state : AnalysisState)
@@ -305,7 +689,100 @@ private theorem computeEntry_pushToSuccessors_precond
     h_validAnalysisState.2 e he
   -- Both equations unfold to `body.decls.length`.
   exact h_e.trans h_exit.symm
+
+/-- `AnalysisState.pushOneNewEntry` produces a `validPcgData
+    body` value when both `state` and `exit` are valid: in the
+    `.some existing` arm, `PcgData.join` preserves
+    `validPcgData` (its `os` is `OwnedState.meet`, whose length
+    equals the inputs' shared length); in the `.none` arm, the
+    new entry inherits `exit.os` directly. -/
+private theorem AnalysisState.pushOneNewEntry_validPcgData
+    (body : Body) (state : AnalysisState) (exit : PcgData Place)
+    (succ : BasicBlockIdx)
+    (h_pre0 : ∀ e ∈ mapValues state.entryStates,
+                e.os.locals.length = exit.os.locals.length)
+    (hve : validPcgData body exit) :
+    validPcgData body
+      (AnalysisState.pushOneNewEntry state exit succ h_pre0) := by
+  unfold validPcgData
+  rw [AnalysisState.pushOneNewEntry_length state exit succ h_pre0]
+  exact hve
+
+/-- `AnalysisState.pushOne` preserves `validAnalysisState`. The
+    `.results` map is unchanged (so `validAnalysisResults`
+    transfers); the `.entryStates` map gains/refreshes one entry
+    via `mapInsert`, with the new value `validPcgData body` by
+    `pushOneNewEntry_validPcgData`. -/
+private theorem AnalysisState.pushOne_preserves_validAnalysisState
+    (body : Body) (state : AnalysisState) (exit : PcgData Place)
+    (succ : BasicBlockIdx)
+    (h_pre0 : ∀ e ∈ mapValues state.entryStates,
+                e.os.locals.length = exit.os.locals.length)
+    (hva : validAnalysisState body state)
+    (hve : validPcgData body exit) :
+    validAnalysisState body
+      (AnalysisState.pushOne state exit succ h_pre0) := by
+  refine ⟨?_, ?_⟩
+  · -- `validAnalysisResults`: pushOne doesn't touch results.
+    unfold AnalysisState.pushOne; simp only
+    exact hva.1
+  · -- All entryStates values valid.
+    unfold AnalysisState.pushOne
+    simp only
+    intro pcg hpcg
+    rcases mem_mapValues_mapInsert hpcg with rfl | hold
+    · exact AnalysisState.pushOneNewEntry_validPcgData
+        body state exit succ h_pre0 hve
+    · exact hva.2 pcg hold
+
+/-- `pushToSuccessors` preserves `validAnalysisState`: induction
+    on the successor list, with each step delegating to
+    `pushOne_preserves_validAnalysisState`. -/
+private theorem pushToSuccessors_preserves_validAnalysisState
+    (body : Body) :
+    ∀ (state : AnalysisState) (exit : PcgData Place)
+      (succs : List BasicBlockIdx)
+      (h_pre0 : ∀ e ∈ mapValues state.entryStates,
+                  e.os.locals.length = exit.os.locals.length),
+      validAnalysisState body state →
+      validPcgData body exit →
+      validAnalysisState body
+        (pushToSuccessors state exit succs h_pre0)
+  | state, _, [], _, hva, _ => by
+      unfold pushToSuccessors; exact hva
+  | state, exit, s :: rest, h_pre0, hva, hve => by
+      unfold pushToSuccessors
+      have hva' :=
+        AnalysisState.pushOne_preserves_validAnalysisState
+          body state exit s h_pre0 hva hve
+      have h_pre0' :
+          ∀ e ∈ mapValues
+                  (AnalysisState.pushOne state exit s h_pre0).entryStates,
+            e.os.locals.length = exit.os.locals.length :=
+        AnalysisState.pushOne_preserves_lengths state exit s h_pre0
+      exact pushToSuccessors_preserves_validAnalysisState body
+        (AnalysisState.pushOne state exit s h_pre0) exit rest h_pre0'
+        hva' hve
+
 }
+
+/-! `computeEntry`'s `ensures` clause is left to the default
+auto-discharge cascade `first | trivial | decide | sorry`,
+which closes the `none` arm via `trivial` and leaves the two
+`some s` arms to fall through to `sorry`. A complete
+discharge would route through the existing
+`pushToSuccessors_preserves_validAnalysisState` /
+`analyzeBlock_all_validPcgDomainData` chain via a `via`
+tactic, but the equation-capturing `match h_entry :` in the
+function body blocks tactic-mode case analysis on
+`mapGet state.entryStates bb` (the `cases h :` /
+`generalize h :` tactics fail because the same scrutinee is
+bound by an equation in the goal). Resolving that requires
+either a DSL-side restructuring of `computeEntry`'s body to
+use a non-equation-capturing match plus a manual
+equation-rebuild, or extending the DSL to support per-arm
+proof annotations — both larger refactors than the
+axiom-replacement scope of this PR. -/
 
 defFn computeEntry (.plain "computeEntry")
   (doc! "Forward step for one basic block. Reads the pending entry state for `bb` from \
@@ -325,25 +802,35 @@ defFn computeEntry (.plain "computeEntry")
     match h_entry : mapGet state↦entryStates bb with
     | .none => Some state
     | .some entry =>
-        let result ← PcgData.analyzeBlock
-          entry body bb proof[h_validBody] ;
-        let exit :=
-          match result·getLast? with
-          | .some last => last↦states↦postMain
-          | .none => entry
-          end ;
-        let succs := termSuccessors
-          ((body↦blocks ! bb↦index)↦terminator) ;
-        let results1 :=
-          mapInsert state↦results bb result ;
-        let state1 := state[results => results1] ;
-        Some (pushToSuccessors state1 exit succs
-          proof[computeEntry_pushToSuccessors_precond
-            body state exit h_validAnalysisState
-            (computeEntry_exit_validPcgData
-              body state bb h_validAnalysisState
-              entry exit
-              (mem_mapValues_of_mapGet_eq_some h_entry))])
+        -- `match h_result :` (rather than the `←` Option-bind
+        -- form) captures the equation `analyzeBlock _ _ _ _ =
+        -- some result` so the post-call `exit` is provably
+        -- `validPcgData body`-valid via the
+        -- `analyzeBlock_last_postMain_validPcgData` chain
+        -- through `computeEntry_exit_validPcgData`.
+        match h_result : PcgData.analyzeBlock
+            entry body bb proof[h_validBody] with
+        | .none => None
+        | .some result =>
+            let exit :=
+              match result·getLast? with
+              | .some last => last↦states↦postMain
+              | .none => entry
+              end ;
+            let succs := termSuccessors
+              ((body↦blocks ! bb↦index)↦terminator) ;
+            let results1 :=
+              mapInsert state↦results bb result ;
+            let state1 := state[results => results1] ;
+            Some (pushToSuccessors state1 exit succs
+              proof[computeEntry_pushToSuccessors_precond
+                body state exit h_validAnalysisState
+                (computeEntry_exit_validPcgData
+                  body state bb h_validBody h_validAnalysisState
+                  entry
+                  (mem_mapValues_of_mapGet_eq_some h_entry)
+                  result h_result)])
+        end
     end
 
 -- ══════════════════════════════════════════════
