@@ -24,10 +24,10 @@ where
 -- structural `BEq` directly — matching the `BEq` the export
 -- auto-adds — so the lawful derive below picks the same
 -- instance in both builds.
-defRaw after =>
+defRaw after => {
 deriving instance ReflBEq for BasicBlockIdx
-defRaw after =>
 deriving instance LawfulBEq for BasicBlockIdx
+}
 
 defStruct Location (.raw "\\ell", .text "Location")
   "Locations"

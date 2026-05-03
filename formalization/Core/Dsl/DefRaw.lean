@@ -34,9 +34,19 @@ and the command
    registry that `LeanExport`'s renderer reads at render
    time, replacing the old hard-coded `extraLeanItems`.
 
-Each `defRaw` call carries one top-level Lean command — for
-modules that need several declarations in one slot, use
-several `defRaw` calls in source order. -/
+Each `defRaw` call carries one top-level Lean command, or a
+brace-delimited sequence of commands, e.g.
+
+```
+defRaw after => {
+  instance : LT Address where lt a b := a.addr < b.addr
+  instance : LE Address where le a b := a.addr ≤ b.addr
+}
+```
+
+The brace form is sugar for one `defRaw` per inner command in
+source order, so each command becomes its own registered raw
+block. -/
 
 namespace Core.Dsl
 
@@ -143,13 +153,17 @@ private def parseExtraPos (id : Lean.Ident) :
     splice it into the matching slot of the generated module.
 
     The first argument is one of `before`, `middle`,
-    `beforeProperties`, `after`; the body is a single Lean
-    command, which is elaborated normally (so the IDE keeps
-    full highlighting / hover / gotoDef on it) and captured
-    verbatim from the file map for the export. Multiple
-    declarations in one slot use multiple consecutive
-    `defRaw` calls in source order. -/
+    `beforeProperties`, `after`; the body is either a single
+    Lean command or a brace-delimited sequence of commands
+    (`defRaw pos => { c1 c2 ... }`), each of which is
+    elaborated normally (so the IDE keeps full highlighting /
+    hover / gotoDef on it) and captured verbatim from the file
+    map for the export. The brace form is sugar for the
+    corresponding sequence of single-command `defRaw` calls,
+    so each enclosed command becomes its own registered raw
+    block in source order. -/
 syntax "defRaw " ident "=>" command : command
+syntax "defRaw " ident "=>" "{" command* "}" : command
 
 /-- Capture the verbatim source text of `stx` from the
     current file map. Used to register the elaborated `defRaw`
@@ -219,3 +233,10 @@ elab_rules : command
     let registerIdent := mkIdent registerName
     elabCommand (← `(command|
       initialize ($registerIdent $blockId)))
+  | `(defRaw $pos:ident => { $cmds:command* }) => do
+    -- The brace form is sugar for one `defRaw` per inner
+    -- command in source order, so each command keeps its own
+    -- captured source range and (for `inFns`) its own
+    -- sequence number.
+    for cmd in cmds do
+      elabCommand (← `(command| defRaw $pos => $cmd))

@@ -25,7 +25,7 @@ open Machine
 -- The `requires contains ar l` precondition on
 -- `entryStateAt` guarantees the indexed element is always in
 -- bounds, so the default is never actually reached.
-defRaw middle =>
+defRaw middle => {
 /-- A concrete `PcgData Place` inhabitant used as the default
     for `Inhabited (PcgData Place)`. It's never reached at
     runtime — the `requires contains ar l` precondition on
@@ -35,15 +35,14 @@ defRaw middle =>
 private def defaultPcgData : PcgData Place :=
   ⟨⟨mapEmpty⟩, ⟨[]⟩, ⟨0⟩, none⟩
 
-defRaw middle =>
 instance : Inhabited (PcgData Place) :=
   ⟨defaultPcgData⟩
 
-defRaw middle =>
 instance : Inhabited PcgDomainData :=
   ⟨⟨defaultPcgData,
     ⟨defaultPcgData, defaultPcgData,
      defaultPcgData, defaultPcgData⟩⟩⟩
+}
 
 /-! # Soundness supporting definitions
 

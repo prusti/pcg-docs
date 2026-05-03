@@ -277,7 +277,7 @@ where
 -- pattern handles `headDisjointTail`, which is top-level
 -- in-tree but `StackFrame.headDisjointTail` in the generated
 -- project (its first param is `StackFrame`).
-defRaw after =>
+defRaw after => {
 open StackFrame Memory in
 /-- The head of a non-empty `validStack` is itself a
     `validStackFrame` against the same memory. Direct
@@ -290,7 +290,6 @@ theorem validStack.head
   cases hv
   assumption
 
-defRaw after =>
 /-- The tail of a `validStack` is itself a `validStack`
     against the same memory. Direct projection of the cons
     rule's `validStack t mem` premise. -/
@@ -300,7 +299,6 @@ theorem validStack.tail
   cases hv
   assumption
 
-defRaw after =>
 open StackFrame in
 /-- The non-overlap premise of `validStack`'s cons rule:
     `headDisjointTail h t mem` — every allocation in
@@ -313,7 +311,6 @@ theorem validStack.head_disjoint_tail
   cases hv
   assumption
 
-defRaw after =>
 open StackFrame Memory in
 /-- Every frame appearing in a `validStack` is itself a
     `validStackFrame` against the same memory. Recurses on the
@@ -331,8 +328,9 @@ theorem validStack.frame_valid
     rcases List.mem_cons.mp hf with rfl | h_in_t
     · exact validStack.head h
     · exact ih (validStack.tail h) h_in_t
+}
 
-defRaw after =>
+defRaw after => {
 open Memory in
 /-- `Memory.store` preserves `validPtr`: pointer validity only
     depends on the allocation count of the memory, which
@@ -353,7 +351,6 @@ theorem Memory.validPtr_store_preserves
     rw [Memory.store_allocs_length_unchanged]
     exact h
 
-defRaw after =>
 open StackFrame Memory in
 /-- `Memory.store` preserves `validStackFrame`: the body and
     program counter clauses are independent of memory; the
@@ -369,7 +366,6 @@ theorem StackFrame.validStackFrame_store_preserves
   intro p hp
   exact Memory.validPtr_store_preserves _ _ (h.2.2 p hp)
 
-defRaw after =>
 /-- `Memory.store` preserves `ptrAllocations`: the lookup uses
     only the `address` and `data.length` of the targeted
     allocation, both of which `Memory.store` leaves alone (its
@@ -429,7 +425,6 @@ theorem ptrAllocations_endAddr_address_preserved
       · rw [ha, h_def_lhs]
         exact (getElem!_neg mem.allocs prov.id.index h_idx).symm ▸ rfl
 
-defRaw after =>
 /-- `Memory.store` preserves `headDisjointTail`. This rests on
     `nonOverlapping` only depending on each allocation's
     `address` and `endAddr`, both of which `Memory.store`
@@ -474,7 +469,6 @@ theorem headDisjointTail_store_preserves
   rw [ha'_end, hb'_addr, hb'_end, ha'_addr]
   exact h_orig
 
-defRaw after =>
 /-- `Memory.store` preserves `validStack`. The three
     constituents of `validStack` (`validStackFrame`,
     `validStack` of the tail, `headDisjointTail`) are each
@@ -494,6 +488,7 @@ theorem validStack.store_preserves
     · exact StackFrame.validStackFrame_store_preserves _ _ h_vsf
     · exact ih
     · exact headDisjointTail_store_preserves _ _ h_disj
+}
 
 /-! ## Frame-preservation lemmas for `storageDead` and `storageLive`
 
@@ -505,7 +500,7 @@ to a pointer with that fresh provenance. The two preservation lemmas
 below let `createFrame` discharge `validMemory` / `validStackFrame` on
 the post-`storageLive` state. -/
 
-defRaw after =>
+defRaw after => {
 open StackFrame Memory in
 /-- `storageDeadPtr` preserves `validMemory`: the only memory mutation
     is `Memory.deallocate`, which preserves `validMemory`. The proof
@@ -527,7 +522,6 @@ theorem StackFrame.storageDeadPtr_preserves_validMemory
     simp only
     exact hvm
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageDead` preserves `validMemory`. Either the local has no
     entry (the memory is returned unchanged) or `storageDeadPtr` is
@@ -543,7 +537,6 @@ theorem StackFrame.storageDead_preserves_validMemory
   · exact hvm
   · exact StackFrame.storageDeadPtr_preserves_validMemory _ _ hvm
 
-defRaw after =>
 open StackFrame Memory in
 /-- `storageLive` preserves `validMemory`: combines
     `storageDead_preserves_validMemory` (the inner `storageDead` step)
@@ -558,6 +551,7 @@ theorem StackFrame.storageLive_preserves_validMemory
   simp only
   exact Memory.allocate_preserves_validMemory _ _
     (storageDead_preserves_validMemory frame mem l h₁ h₂ hvm)
+}
 
 defRaw after =>
 open StackFrame Memory in

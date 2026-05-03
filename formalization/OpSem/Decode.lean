@@ -42,7 +42,7 @@ defFn decodeLeUnsigned (.plain "decode_le_unsigned")
 -- `encodeLeUnsigned` / `intValueOfNat` are spelled as
 -- `defRaw` blocks: a single source for both the source-side
 -- elaboration and the export.
-defRaw before =>
+defRaw before => {
 /-- Encode a natural number as `numBytes` little-endian
     abstract bytes (least-significant byte first). -/
 def encodeLeUnsigned (n : Nat) : Nat → List AbstractByte
@@ -51,7 +51,6 @@ def encodeLeUnsigned (n : Nat) : Nat → List AbstractByte
     .init (UInt8.ofNat (n % 256)) ::
       encodeLeUnsigned (n / 256) k
 
-defRaw before =>
 /-- Build an `IntValue` from a decoded natural number
     based on the target size (in bytes). -/
 def intValueOfNat : Nat → Nat → Option IntValue
@@ -60,6 +59,7 @@ def intValueOfNat : Nat → Nat → Option IntValue
   | 4, n => some (.u32 (UInt32.ofNat n))
   | 8, n => some (.u64 (UInt64.ofNat n))
   | _, _ => none
+}
 
 defFn intValueToNat (.plain "int_value_to_nat")
   (doc! "Extract the nat payload of an #IntValue.")

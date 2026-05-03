@@ -22,32 +22,27 @@ instance : Ord Address where
 -- inner instances are real Lean (the IDE keeps full
 -- highlighting / hover / gotoDef on them) and the export
 -- pipeline picks their verbatim source up via the registry.
-defRaw after =>
+defRaw after => {
 instance : LT Address where
   lt a b := a.addr < b.addr
 
-defRaw after =>
 instance : LE Address where
   le a b := a.addr ≤ b.addr
 
-defRaw after =>
 instance (a b : Address) : Decidable (a < b) :=
   inferInstanceAs (Decidable (a.addr < b.addr))
 
-defRaw after =>
 instance (a b : Address) : Decidable (a ≤ b) :=
   inferInstanceAs (Decidable (a.addr ≤ b.addr))
 
-defRaw after =>
 instance : DecidableEq Address :=
   fun a b => if h : a.addr = b.addr
     then isTrue (by cases a; cases b; simp_all)
     else isFalse (by intro heq; cases heq; exact h rfl)
 
-defRaw after =>
 instance : HSub Address Address Nat where
   hSub a b := a.addr - b.addr
 
-defRaw after =>
 instance : HAdd Address Nat Address where
   hAdd a n := ⟨a.addr + n⟩
+}

@@ -144,7 +144,7 @@ end AnalysisState
 -- `defFn pushOneNewEntry` declaration (which they
 -- reference) when the export interleaves raw blocks with
 -- DSL-generated function definitions in source order.
-defRaw inFns =>
+defRaw inFns => {
 /-- Join an exit state `exit` into the pending entry state of
     one successor block. If `succ` already has a pending entry,
     the two are combined with `PcgData.join`; otherwise the
@@ -172,7 +172,6 @@ private def AnalysisState.pushOne (state : AnalysisState)
 -- entry inherits `exit.os.locals.length`) — and reduces the
 -- map step to `mem_mapValues_mapInsert` plus the caller's
 -- existing hypothesis.
-defRaw inFns =>
 private theorem ownedLocalsMeet_length
     (xs ys : List OwnedLocal) (h : xs.length = ys.length) :
     (ownedLocalsMeet xs ys h).length = xs.length := by
@@ -213,7 +212,6 @@ private theorem ownedLocalsMeet_length
                        xs.length + 1
                   simp [List.length_cons, heq]
 
-defRaw inFns =>
 private theorem AnalysisState.pushOneNewEntry_length
     (state : AnalysisState) (exit : PcgData Place)
     (succ : BasicBlockIdx)
@@ -231,7 +229,6 @@ private theorem AnalysisState.pushOneNewEntry_length
       (mem_mapValues_of_mapGet_eq_some heq)
   · rfl
 
-defRaw inFns =>
 private theorem AnalysisState.pushOne_preserves_lengths
     (state : AnalysisState) (exit : PcgData Place)
     (succ : BasicBlockIdx)
@@ -248,6 +245,7 @@ private theorem AnalysisState.pushOne_preserves_lengths
   · exact AnalysisState.pushOneNewEntry_length
       state exit succ h
   · exact h e hold
+}
 
 defFn pushToSuccessors (.plain "pushToSuccessors")
   (doc! "Fold an exit state into every successor's pending \
@@ -287,7 +285,7 @@ defFn pushToSuccessors (.plain "pushToSuccessors")
 -- hypothesis is provided as an axiom for now — it follows
 -- from `analyzeBlock` preserving `validPcgDomainData`, which
 -- has not yet been formalised.
-defRaw inFns =>
+defRaw inFns => {
 axiom computeEntry_exit_validPcgData
     (body : Body) (state : AnalysisState) (bb : BasicBlockIdx)
     (h_validAnalysisState : validAnalysisState body state)
@@ -295,7 +293,6 @@ axiom computeEntry_exit_validPcgData
     (h_entry_mem : entry ∈ mapValues state.entryStates) :
     validPcgData body exit
 
-defRaw inFns =>
 private theorem computeEntry_pushToSuccessors_precond
     (body : Body) (state : AnalysisState)
     (exit : PcgData Place)
@@ -308,6 +305,7 @@ private theorem computeEntry_pushToSuccessors_precond
     h_validAnalysisState.2 e he
   -- Both equations unfold to `body.decls.length`.
   exact h_e.trans h_exit.symm
+}
 
 defFn computeEntry (.plain "computeEntry")
   (doc! "Forward step for one basic block. Reads the pending entry state for `bb` from \
@@ -392,7 +390,7 @@ defFn analyzeRpo (.plain "analyzeRpo")
 -- satisfies `validPcgData body`; and (3) those two combine via
 -- `mem_mapValues_mapInsert` to discharge the conjunction
 -- `validAnalysisState` unfolds to.
-defRaw inFns =>
+defRaw inFns => {
 private theorem mapValues_empty
     {κ : Type} [BEq κ] [Hashable κ] {ν : Type} :
     mapValues (∅ : Map κ ν) = [] := by
@@ -401,14 +399,12 @@ private theorem mapValues_empty
     Std.HashMap.toList_empty]
   rfl
 
-defRaw inFns =>
 private theorem OwnedState.initial_locals_length (body : Body) :
     (OwnedState.initial body).locals.length =
       body.decls.length := by
   unfold OwnedState.initial
   simp
 
-defRaw inFns =>
 private theorem PcgData.init_validPcgData (body : Body) :
     validPcgData body (PcgData.init body) := by
   show (PcgData.init body).os.locals.length =
@@ -416,7 +412,6 @@ private theorem PcgData.init_validPcgData (body : Body) :
   unfold PcgData.init
   exact OwnedState.initial_locals_length body
 
-defRaw inFns =>
 private theorem validAnalysisResults_mapEmpty (body : Body) :
     validAnalysisResults body
       (∅ : Map BasicBlockIdx (List PcgDomainData)) := by
@@ -427,7 +422,6 @@ private theorem validAnalysisResults_mapEmpty (body : Body) :
   rw [mapValues_empty] at hpdds
   exact (List.not_mem_nil hpdds).elim
 
-defRaw inFns =>
 private theorem analyzeBody_state0_validAnalysisState
     (body : Body) :
     validAnalysisState body
@@ -440,6 +434,7 @@ private theorem analyzeBody_state0_validAnalysisState
   · exact PcgData.init_validPcgData body
   · rw [mapValues_empty] at hold
     exact (List.not_mem_nil hold).elim
+}
 
 defFn analyzeBody (.plain "analyzeBody")
   (doc! "Run a single forward dataflow pass of \

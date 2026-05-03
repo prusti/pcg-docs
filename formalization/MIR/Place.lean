@@ -20,10 +20,10 @@ where
     matching the `BEq` the export auto-adds to the generated
     module — so the lawful derive below picks the same instance
     in both builds. -/
-defRaw after =>
+defRaw after => {
 deriving instance ReflBEq for Local
-defRaw after =>
 deriving instance LawfulBEq for Local
+}
 
 defStruct FieldIdx (.raw "f", .raw "F")
   "Field Indices"
@@ -46,15 +46,15 @@ where
 -- structural `BEq` and lawful equality on every field type, so
 -- propagate `ReflBEq` / `LawfulBEq` through `FieldIdx` and
 -- `VariantIdx` here.
-defRaw after =>
+defRaw after => {
 deriving instance ReflBEq for FieldIdx
-defRaw after =>
 deriving instance LawfulBEq for FieldIdx
+}
 
-defRaw after =>
+defRaw after => {
 deriving instance ReflBEq for VariantIdx
-defRaw after =>
 deriving instance LawfulBEq for VariantIdx
+}
 
 defEnum ProjElem (.raw "π", .raw "Π")
   "Projection Elements"
@@ -77,10 +77,10 @@ where
 -- `ProjElem` is *not* a nested inductive — it only refers to
 -- already-lawful types (`FieldIdx`, `Ty`, `Local`, `VariantIdx`)
 -- — so the standard `LawfulBEq` derive succeeds.
-defRaw after =>
+defRaw after => {
 deriving instance ReflBEq for ProjElem
-defRaw after =>
 deriving instance LawfulBEq for ProjElem
+}
 
 defStruct Place (.raw "p", .raw "P")
   "Places"
@@ -94,10 +94,10 @@ where
 -- `LawfulBEq (List ProjElem)` is provided by stdlib whenever
 -- `LawfulBEq ProjElem` is in scope; combined with `LawfulBEq
 -- Local`, that gives `LawfulBEq Place`.
-defRaw after =>
+defRaw after => {
 deriving instance ReflBEq for Place
-defRaw after =>
 deriving instance LawfulBEq for Place
+}
 
 -- `LawfulHashable Place` lets `Std.HashSet`/`Std.HashMap` lemmas
 -- (`mem_insert`, `mem_union_iff`, `mem_toList`, …) discharge

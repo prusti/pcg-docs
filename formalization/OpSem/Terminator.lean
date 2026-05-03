@@ -103,7 +103,7 @@ defFn jumpToBlock (.plain "jumpToBlock")
 -- actually true (the originals were universally quantified
 -- with no link to the data they should depend on).
 
-defRaw middle =>
+defRaw middle => {
 /-- A stack frame that lives in the tail of `m`'s call stack
     has a valid program counter in its body. Follows from the
     `validStack` clause of `Runnable m` via
@@ -129,7 +129,6 @@ theorem Machine.tailFrame_validLocation
       exact List.mem_cons_of_mem hd h_mem
   exact (validStack.frame_valid h_Runnable.2.2.2 h_inStack).2.1
 
-defRaw middle =>
 /-- `Runnable` is preserved by popping the topmost stack
     frame, *provided* the resulting tail is non-empty. The
     popped state's stack is `stackTail m h_Runnable`; the
@@ -163,7 +162,6 @@ theorem Machine.Runnable_after_pop
     rw [hstk] at h_vs
     exact h_vs.tail
 
-defRaw middle =>
 /-- `Runnable` is preserved by overwriting `m.mem` with a
     fresh `Memory`, *provided* the new memory is itself valid
     and the call stack is still valid against it. The
@@ -179,7 +177,6 @@ theorem Machine.Runnable_after_mem_update
     Machine.Runnable { m with mem := newMem } :=
   ⟨h_Runnable.1, h_Runnable.2.1, h_validMemory, h_validStack⟩
 
-defRaw middle =>
 /-- `placeStore` preserves `validMemory`: it delegates to
     `typedStore`, which is `Memory.store` on the place's thin
     pointer with `encode v` as the byte payload. Discharged by
@@ -190,7 +187,6 @@ theorem Machine.placeStore_preserves_validMemory
   unfold placeStore typedStore
   exact Memory.store_preserves_validMemory _ _ _
 
-defRaw middle =>
 /-- `placeStore` preserves `validStack`: it delegates to
     `typedStore`, which is `Memory.store` on the place's thin
     pointer with `encode v` as the byte payload. Discharged by
@@ -201,6 +197,7 @@ theorem Machine.placeStore_preserves_validStack
     validStack stack m → validStack stack (placeStore m pp v) := by
   unfold placeStore typedStore
   exact validStack.store_preserves _ _
+}
 
 defFn evalTerminator (.plain "evalTerminator")
   (doc! "Evaluate a basic block terminator. The terminator is responsible for advancing the program \

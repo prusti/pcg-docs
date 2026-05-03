@@ -17,12 +17,14 @@ where
     keeps the variant names of `AbstractByte` unqualified
     in the rest of the generated file. -/
 
-defRaw before => def last := @List.getLast?
-defRaw before => def replicate := @List.replicate
-defRaw before => def listSet := @List.set
-defRaw before => def listTake := @List.take
-defRaw before => def listDrop := @List.drop
-defRaw before => open AbstractByte
+defRaw before => {
+  def last := @List.getLast?
+  def replicate := @List.replicate
+  def listSet := @List.set
+  def listTake := @List.take
+  def listDrop := @List.drop
+  open AbstractByte
+}
 
 namespace Memory
 
