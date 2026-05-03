@@ -226,16 +226,35 @@ defProperty validPlace (.plain "valid")
     p↦«local»↦index < body↦decls·length ∧
     validProjTy (body↦decls ! p↦«local»↦index) p↦projection
 
+defProperty validLocal (.plain "validLocal")
+  short
+    (doc! "{l} is a valid local in body {body}")
+  long
+    (doc! "the index of {l} is in range of {body}'s local \
+      declarations, so #[Body.decls] indexed at {l} returns the \
+      declared type rather than a default fallback")
+  (body "The function body." : Body)
+  (l "The local." : Local)
+  :=
+    l↦index < body↦decls·length
+
 defProperty validStatement (.plain "validStatement")
   short
     (doc! "{s} is a valid statement in {body}")
   long
-    (doc! "every place referenced by {s} is a valid place in \
-      {body}")
+    (doc! "every place referenced by an `assign` statement \
+      {s} is a valid place in {body}, and the local mentioned \
+      by a `storageLive` or `storageDead` statement {s} is a \
+      valid local in {body}")
   (body "The function body." : Body)
   (s "The statement." : Statement)
   :=
-    s·statementPlaces·forAll fun p => validPlace body p
+    match s with
+    | .assign _ _ =>
+        s·statementPlaces·forAll fun p => validPlace body p
+    | .storageLive l => validLocal body l
+    | .storageDead l => validLocal body l
+    end
 
 defProperty validTerminator (.plain "validTerminator")
   short
@@ -262,18 +281,6 @@ defProperty validLocation (.plain "validLocation")
     loc↦block↦index < body↦blocks·length ∧
     loc↦stmtIdx ≤
       (body↦blocks ! loc↦block↦index)↦statements·length
-
-defProperty validLocal (.plain "validLocal")
-  short
-    (doc! "{l} is a valid local in body {body}")
-  long
-    (doc! "the index of {l} is in range of {body}'s local \
-      declarations, so #[Body.decls] indexed at {l} returns the \
-      declared type rather than a default fallback")
-  (body "The function body." : Body)
-  (l "The local." : Local)
-  :=
-    l↦index < body↦decls·length
 
 defProperty validBody (.plain "validBody")
   short

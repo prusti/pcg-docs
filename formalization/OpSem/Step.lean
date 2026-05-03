@@ -24,10 +24,13 @@ defFn evalStatement (.plain "evalStatement")
     place via `evalPlace`, evaluates the rvalue via `evalRvalue`, and writes the value to memory via \
     `placeStore`. The `storageLive` and `storageDead` cases delegate to `StackFrame.storageLive` and \
     `StackFrame.storageDead` on the current frame and reinstall the updated frame and memory on the \
-    machine.")
+    machine. The #validStatement precondition discharges the #validLocal obligation those storage \
+    helpers carry: when {s} is `.storageLive lcl` or `.storageDead lcl`, the precondition unfolds to \
+    #validLocal on `frame.body` and `lcl` directly.")
   (m "The machine state." : Machine)
   (s "The statement to evaluate." : Statement)
-  requires Runnable m
+  requires Runnable m,
+    validStatement (currentFrame m h_Runnable)↦body s
   : Option Machine where
   | m ; .assign destination source =>
       let ⟨place, _⟩ ← evalPlace
@@ -61,14 +64,15 @@ defFn evalStatement (.plain "evalStatement")
             exact validStack.frame_valid
               (hcase ▸ h_Runnable.2.2.2)
               List.mem_cons_self)]
-        -- The `.storageLive lcl` case carries no syntactic
-        -- guarantee that `lcl` is in range of the current
-        -- body's `decls` — `validStatement` only constrains
-        -- the statement's `places`, and `StorageLive` has
-        -- none. Discharging this would need either a
-        -- `validLocal`-flavoured `validStatement` or a
-        -- frame-level invariant about declared locals.
-        proof[sorry] ;
+        proof[(by
+          -- `h_pre1 : validStatement frame.body (.storageLive lcl)`
+          -- (the second precondition, named positionally
+          -- because its first argument isn't a bare variable
+          -- the DSL can lower to a `.named` precondition).
+          -- `validStatement` on `.storageLive` reduces to
+          -- `validLocal body lcl` by definition.
+          show validLocal frame.body lcl
+          simpa [validStatement] using h_pre1)] ;
       let rest := stackTail
         m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
@@ -92,8 +96,10 @@ defFn evalStatement (.plain "evalStatement")
             exact validStack.frame_valid
               (hcase ▸ h_Runnable.2.2.2)
               List.mem_cons_self)]
-        -- Same caveat as the `.storageLive` arm above.
-        proof[sorry] ;
+        proof[(by
+          -- Same caveat as `.storageLive` above.
+          show validLocal frame.body lcl
+          simpa [validStatement] using h_pre1)] ;
       let rest := stackTail
         m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
@@ -112,7 +118,7 @@ defFn step (.plain "step")
   : StepResult :=
     let frame := currentFrame
       m proof[h_Runnable] ;
-    match getStmtOrTerminator
+    match heq : getStmtOrTerminator
         frame↦body frame↦pc
         proof[(by
           -- `frame` is `currentFrame m _`, which unfolds to
@@ -140,7 +146,27 @@ defFn step (.plain "step")
         evalTerminator m t proof[h_Runnable]
     | .stmt s =>
         match evalStatement
-            m s proof[h_Runnable] with
+            m s proof[h_Runnable]
+            proof[(by
+              -- The `.stmt s` case of `getStmtOrTerminator`
+              -- — captured by `heq` — combined with the
+              -- #validBody we can extract from `Runnable m`'s
+              -- inductive `validStack` invariant, discharges
+              -- the #validStatement obligation via
+              -- `validStatement_of_getStmtOrTerminator_eq`.
+              have h_vsf :
+                  validStackFrame m.mem
+                    (currentFrame m h_Runnable) := by
+                unfold currentFrame
+                match hcase :
+                    m.thread.stack, h_Runnable.1 with
+                | [], hne => exact absurd rfl hne
+                | hd :: tl, _ =>
+                  exact validStack.frame_valid
+                    (hcase ▸ h_Runnable.2.2.2)
+                    List.mem_cons_self
+              exact validStatement_of_getStmtOrTerminator_eq
+                _ _ h_vsf.1 h_vsf.2.1 heq)] with
         | .none => StepResult.done .error
         | .some m' =>
             match m'↦thread↦stack with
