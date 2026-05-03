@@ -38,15 +38,12 @@ open Machine StackFrame Memory Capability InitialisationState
 -- `Nat` instances.
 instance : LawfulBEq Local where
   eq_of_beq {a b} h := by
-    cases a; cases b
-    simp [BEq.beq, instBEqLocal.beq] at h
+    cases a; cases b; simp [BEq.beq, instBEqLocal.beq] at h
     exact congrArg _ h
   rfl {a} := by cases a; simp [BEq.beq, instBEqLocal.beq]
 
 instance : LawfulHashable Local where
-  hash_eq {a b} h := by
-    have heq : a = b := LawfulBEq.eq_of_beq h
-    subst heq; rfl
+  hash_eq {a b} h := by cases LawfulBEq.eq_of_beq h; rfl
 
 section Helpers
 
@@ -69,9 +66,7 @@ private theorem storageDead_of_mapGet_eq_none
   unfold StackFrame.storageDead
   split
   · rfl
-  · rename_i ptr heq
-    rw [hg] at heq
-    cases heq
+  · next ptr heq => rw [hg] at heq; cases heq
 
 /-- Specialisation of `storageDead_of_mapGet_eq_none` for a frame whose
     locals map is the empty map — applies to the very first call inside
@@ -419,11 +414,7 @@ private theorem evalProjs_initialMachine_provenance
       exact ih pp ty pp' ty' hprov heval
     | deref =>
       cases ty with
-      | ref _ _ pointee =>
-        simp only [evalProjs] at heval
-        rw [decodePtr_load_initialMachine pr h pp.ptr] at heval
-        simp at heval
-      | box pointee =>
+      | ref _ _ _ | box _ =>
         simp only [evalProjs] at heval
         rw [decodePtr_load_initialMachine pr h pp.ptr] at heval
         simp at heval
@@ -810,17 +801,10 @@ theorem place_initialMachine_initialPcg_eq_root
     (h_alloc : Machine.placeAllocation
       (initialMachine pr h) p h_R = some a) :
     p = ⟨⟨0⟩, []⟩ := by
-  cases p with
-  | mk loc projs =>
-    have h_proj : projs = [] :=
-      places_initialPcg_root (Program.startProgram pr h)
-        ⟨loc, projs⟩ h_places
-    have h_local : loc = ⟨0⟩ :=
-      placeAllocation_initialMachine_local0
-        pr h ⟨loc, projs⟩ a h_R h_alloc
-    cases h_proj
-    cases h_local
-    rfl
+  obtain ⟨loc, projs⟩ := p
+  have h_proj := places_initialPcg_root (Program.startProgram pr h) ⟨loc, projs⟩ h_places
+  have h_local := placeAllocation_initialMachine_local0 pr h ⟨loc, projs⟩ a h_R h_alloc
+  cases h_proj; cases h_local; rfl
 
 /-- **The base-case connected invariant**: for every valid
     program, the strengthened `ConnectedInvariant` holds
