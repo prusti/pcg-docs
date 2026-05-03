@@ -30,19 +30,32 @@ fails the build. -/
 
 namespace Tests.DslGotoDef
 
+/-- Assert that the registered `DeclarationRanges` for `decl` start
+    on a line strictly after the file's import preamble. If the
+    `setUserDeclRanges` override is missing the range collapses to
+    line 1 and this throws a build-time error. `kind` names the DSL
+    command that introduced `decl` (e.g. `defAlias`) and is used in
+    the error message only. Not marked `private` because the four
+    `run_cmd` callers below run at compile time and don't appear as
+    constant references in the env's usage graph, which would trip
+    the `unusedPrivate` linter. -/
+def checkDeclRangePastImports
+    (decl : Lean.Name) (kind : String) : Lean.Elab.Command.CommandElabM Unit := do
+  let some ranges ← Lean.findDeclarationRanges? decl
+    | throwError s!"{decl}: no DeclarationRanges registered"
+  let line := ranges.range.pos.line
+  unless line > 1 do
+    throwError s!"{decl}: range collapsed to line {line} \
+      (expected the line of `{kind} {decl} ...`)"
+
 defAlias TestAliasDecl (.text "tα", .text "TestAliasDecl")
   "Test Alias"
   (.plain "Sample type alias.")
   := Nat
 
-run_cmd do
-  let some ranges ← Lean.findDeclarationRanges?
-    ``Tests.DslGotoDef.TestAliasDecl
-    | throwError "TestAliasDecl: no DeclarationRanges registered"
-  let line := ranges.range.pos.line
-  unless line > 1 do
-    throwError s!"TestAliasDecl: range collapsed to line {line} \
-      (expected the line of `defAlias TestAliasDecl ...`)"
+run_cmd
+  checkDeclRangePastImports
+    ``Tests.DslGotoDef.TestAliasDecl "defAlias"
 
 defProperty testPropertyDecl (.plain "testPropertyDecl")
   short
@@ -52,14 +65,9 @@ defProperty testPropertyDecl (.plain "testPropertyDecl")
   (x "Test param." : Nat)
   := x < 10
 
-run_cmd do
-  let some ranges ← Lean.findDeclarationRanges?
-    ``Tests.DslGotoDef.testPropertyDecl
-    | throwError "testPropertyDecl: no DeclarationRanges registered"
-  let line := ranges.range.pos.line
-  unless line > 1 do
-    throwError s!"testPropertyDecl: range collapsed to line {line} \
-      (expected the line of `defProperty testPropertyDecl ...`)"
+run_cmd
+  checkDeclRangePastImports
+    ``Tests.DslGotoDef.testPropertyDecl "defProperty"
 
 defFn testFnDecl (.plain "testFnDecl")
   (.plain "Sample defFn for the goto-def regression test.")
@@ -67,14 +75,9 @@ defFn testFnDecl (.plain "testFnDecl")
   : Nat :=
     n + 1
 
-run_cmd do
-  let some ranges ← Lean.findDeclarationRanges?
-    ``Tests.DslGotoDef.testFnDecl
-    | throwError "testFnDecl: no DeclarationRanges registered"
-  let line := ranges.range.pos.line
-  unless line > 1 do
-    throwError s!"testFnDecl: range collapsed to line {line} \
-      (expected the line of `defFn testFnDecl ...`)"
+run_cmd
+  checkDeclRangePastImports
+    ``Tests.DslGotoDef.testFnDecl "defFn"
 
 defInductiveProperty TestInductiveProp
   "Test Inductive Property"
@@ -83,15 +86,9 @@ defInductiveProperty TestInductiveProp
 where
   | refl {x : Nat} ⊢ TestInductiveProp x
 
-run_cmd do
-  let some ranges ← Lean.findDeclarationRanges?
-    ``Tests.DslGotoDef.TestInductiveProp
-    | throwError
-        "TestInductiveProp: no DeclarationRanges registered"
-  let line := ranges.range.pos.line
-  unless line > 1 do
-    throwError s!"TestInductiveProp: range collapsed to line {line} \
-      (expected the line of `defInductiveProperty TestInductiveProp ...`)"
+run_cmd
+  checkDeclRangePastImports
+    ``Tests.DslGotoDef.TestInductiveProp "defInductiveProperty"
 
 -- Call-site gotoDef regression test. `flushIdentRefs` should
 -- attach a `TermInfo` leaf to each user-source identifier in

@@ -157,6 +157,19 @@ theorem mem_initialMachine_length_one
 -- two: any two lookups whose results "match up" via `placeAllocation`
 -- agree by `evalPlace_provenance_initialMachine`.
 
+/-- Project the `Machine.placeAllocation` equation out of a
+    `hasAllocation` witness. The inductive constructor `fromGet`
+    carries this equation as its sole field; we expose it as a
+    helper to avoid repeating the `cases h with | fromGet heq` /
+    `exact heq` two-liner across base-case proofs. The implicit
+    `Runnable` proof inside the constructor coincides with the
+    `h_R` argument by proof irrelevance. -/
+private theorem placeAllocation_of_hasAllocation
+    {m : Machine} {p : Place} {a : Allocation} (h_R : Runnable m)
+    (h : hasAllocation m p a) :
+    Machine.placeAllocation m p h_R = some a := by
+  cases h with | fromGet heq => exact heq
+
 /-- `evalLocal` of `initialMachine` is `some _` only for `Local⟨0⟩`. -/
 private theorem evalLocal_initialMachine_local0
     (pr : Program) (h : validProgram pr)
@@ -567,9 +580,7 @@ theorem framingInvariant_initialMachine
   -- `⟨0⟩` returns `.write`, never `.exclusive`. The
   -- `hasCapability(.exclusive)` antecedent is therefore
   -- unsatisfiable.
-  have h_alloc_eq : Machine.placeAllocation (initialMachine pr h)
-      p h_Runnable = some a := by
-    cases h_hasAlloc1 with | fromGet heq => exact heq
+  have h_alloc_eq := placeAllocation_of_hasAllocation h_Runnable h_hasAlloc1
   have hlocal : p.local = ⟨0⟩ :=
     placeAllocation_initialMachine_local0 pr h p a h_Runnable h_alloc_eq
   have hbody := currBody_initialMachine pr h h_Runnable
@@ -829,12 +840,8 @@ theorem connectedInvariant_initialMachine
         h_places h_places' h_alloc_p h_alloc_p'
   exfalso
   -- Extract the underlying `Machine.placeAllocation` equations.
-  have h_alloc_eq_p : Machine.placeAllocation
-      (initialMachine pr h) p h_Runnable = some a := by
-    cases h_alloc_p with | fromGet heq => exact heq
-  have h_alloc_eq_p' : Machine.placeAllocation
-      (initialMachine pr h) p' h_Runnable = some a' := by
-    cases h_alloc_p' with | fromGet heq => exact heq
+  have h_alloc_eq_p := placeAllocation_of_hasAllocation h_Runnable h_alloc_p
+  have h_alloc_eq_p' := placeAllocation_of_hasAllocation h_Runnable h_alloc_p'
   -- Apply the singleton lemma to both `p` and `p'`.
   have hp : p = ⟨⟨0⟩, []⟩ :=
     place_initialMachine_initialPcg_eq_root

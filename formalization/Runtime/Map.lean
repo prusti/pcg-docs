@@ -41,17 +41,6 @@ def mapSingleton {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     (k : κ) (v : ν) : Map κ ν :=
   (∅ : Std.HashMap κ ν).insert k v
 
-/-- Pointwise union of two maps from keys to sets: for keys
-    present in both maps, the values are combined with
-    `Std.HashSet.union`. -/
-def mapUnionSets {κ α : Type} [BEq κ] [Hashable κ]
-    [BEq α] [Hashable α]
-    (m₁ m₂ : Map κ (Std.HashSet α)) : Map κ (Std.HashSet α) :=
-  m₂.fold (fun acc k v =>
-    match acc.get? k with
-    | some v' => acc.insert k (v'.union v)
-    | none => acc.insert k v) m₁
-
 /-- Merge two maps, combining the values of shared keys with
     `f`. Keys present in only one map are kept with their
     existing value. -/
@@ -61,6 +50,14 @@ def mapMergeWith {κ ν : Type} [BEq κ] [Hashable κ]
     match acc.get? k with
     | some v' => acc.insert k (f v' v)
     | none => acc.insert k v) m₁
+
+/-- Pointwise union of two maps from keys to sets: for keys
+    present in both maps, the values are combined with
+    `Std.HashSet.union`. -/
+def mapUnionSets {κ α : Type} [BEq κ] [Hashable κ]
+    [BEq α] [Hashable α]
+    (m₁ m₂ : Map κ (Std.HashSet α)) : Map κ (Std.HashSet α) :=
+  mapMergeWith Std.HashSet.union m₁ m₂
 
 /-- The values of a `Map`, in unspecified order. Useful for
     iterating every entry of a map without caring about the
