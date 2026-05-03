@@ -94,6 +94,22 @@ private theorem mem_set_singleton {α} [BEq α] [Hashable α]
   unfold Set.singleton
   exact Std.HashSet.mem_insert_self
 
+private theorem mem_set_union_left {α} [BEq α] [Hashable α]
+    [EquivBEq α] [LawfulHashable α] {s₁ s₂ : Set α} {a : α}
+    (h : a ∈ s₁) : a ∈ s₁ ++ s₂ := by
+  change a ∈ Set.union s₁ s₂
+  unfold Set.union
+  rw [Std.HashSet.union_eq]
+  exact Std.HashSet.mem_union_of_left h
+
+private theorem mem_set_union_right {α} [BEq α] [Hashable α]
+    [EquivBEq α] [LawfulHashable α] {s₁ s₂ : Set α} {a : α}
+    (h : a ∈ s₂) : a ∈ s₁ ++ s₂ := by
+  change a ∈ Set.union s₁ s₂
+  unfold Set.union
+  rw [Std.HashSet.union_eq]
+  exact Std.HashSet.mem_union_of_right h
+
 private theorem mem_option_some_toSet {α} [BEq α] [Hashable α]
     [EquivBEq α] [LawfulHashable α] (a : α) :
     a ∈ ((some a : Option α).toSet) := by
@@ -226,10 +242,7 @@ private theorem statementTriples_validPlace
       show p ∈ Statement.statementPlaces (.assign lhs (.use o))
       unfold Statement.statementPlaces
       simp only
-      change p ∈ Set.union _ _
-      unfold Set.union
-      rw [Std.HashSet.union_eq]
-      apply Std.HashSet.mem_union_of_right
+      apply mem_set_union_right
       unfold Rvalue.rvaluePlace
       simp only
       rw [hp]
@@ -245,16 +258,11 @@ private theorem statementTriples_validPlace
         simp only
         unfold Statement.statementPlaces
         simp only
-        change p ∈ Set.union _ _
-        unfold Set.union
-        rw [Std.HashSet.union_eq]
-        apply Std.HashSet.mem_union_of_right
+        apply mem_set_union_right
         unfold Rvalue.rvaluePlace
         simp only
         exact mem_option_some_toSet p)
-  | storageLive _ =>
-    exact absurd ht not_mem_empty_toList
-  | storageDead _ =>
+  | storageLive _ | storageDead _ =>
     exact absurd ht not_mem_empty_toList
 
 /-- Every triple in `(terminatorTriples term).toList` has a
@@ -290,11 +298,8 @@ private theorem terminatorTriples_validPlace
               (.call callee args dest next)
       unfold Terminator.terminatorPlaces
       simp only
-      change p ∈ Set.union (Set.union _ _) _
-      unfold Set.union
-      rw [Std.HashSet.union_eq, Std.HashSet.union_eq]
-      apply Std.HashSet.mem_union_of_left
-      apply Std.HashSet.mem_union_of_right
+      apply mem_set_union_left
+      apply mem_set_union_right
       rw [hp]
       exact mem_option_some_toSet p
     · rcases mem_flatMapList_toList ht2 with ⟨a, ha, ht3⟩
@@ -305,12 +310,7 @@ private theorem terminatorTriples_validPlace
               (.call callee args dest next)
       unfold Terminator.terminatorPlaces
       simp only
-      change p ∈ Set.union (Set.union _ _) _
-      unfold Set.union
-      rw [Std.HashSet.union_eq, Std.HashSet.union_eq]
-      apply Std.HashSet.mem_union_of_right
-      change p ∈ Set.flatMapList args
-        (fun a => a.operandPlace.toSet)
+      apply mem_set_union_right
       apply mem_flatMapList_of_mem ha
       rw [hp]
       exact mem_option_some_toSet p
@@ -354,11 +354,7 @@ private theorem mainTriples_validPlace
       show lhs ∈ Statement.statementPlaces (.assign lhs rhs)
       unfold Statement.statementPlaces
       simp only
-      change lhs ∈ Set.union _ _
-      unfold Set.union
-      rw [Std.HashSet.union_eq]
-      apply Std.HashSet.mem_union_of_left
-      exact mem_set_singleton lhs
+      exact mem_set_union_left (mem_set_singleton lhs)
     | storageLive lcl | storageDead lcl =>
       cases mem_singleton_toList ht
       exact validPlace_of_validLocal_nilProj h
@@ -383,12 +379,7 @@ private theorem mainTriples_validPlace
               (.call callee args dest next)
       unfold Terminator.terminatorPlaces
       simp only
-      change dest ∈ Set.union (Set.union _ _) _
-      unfold Set.union
-      rw [Std.HashSet.union_eq, Std.HashSet.union_eq]
-      apply Std.HashSet.mem_union_of_left
-      apply Std.HashSet.mem_union_of_left
-      exact mem_set_singleton dest
+      exact mem_set_union_left (mem_set_union_left (mem_set_singleton dest))
 
 /-- The combined precondition `analyze` discharges for its
     `obtainTriples` call: every triple produced by the phase's
