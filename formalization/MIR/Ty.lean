@@ -1,5 +1,6 @@
 import MIR.Region
 import Core.Dsl.DefFn
+import Core.Dsl.DefRaw
 
 defStruct TyCtorName (.raw "T",
     .text "TyCtorName")
@@ -8,6 +9,7 @@ defStruct TyCtorName (.raw "T",
    primitive type.")
 where
   | name "The constructor name." : String
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defStruct AliasTyName (.raw "A",
     .text "AliasTyName")
@@ -15,6 +17,7 @@ defStruct AliasTyName (.raw "A",
   (.plain "An associated type name.")
 where
   | name "The associated type name." : String
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defEnum Size (.raw "sz", .raw "Size")
   "Integer Sizes"
@@ -25,6 +28,7 @@ where
     (mathdoc! "#bits n")
   | ptrSize
     "Pointer-sized."
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defFn sizeBytes (.plain "size_bytes")
   (doc! "Number of bytes occupied by an integer of \
@@ -41,6 +45,7 @@ defStruct IntType (.raw "it", .raw "IntType")
 where
   | signed "Whether the integer is signed." : Bool
   | size "The size of the integer." : Size
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defEnum Mutability (.raw "m", .raw "M")
   "Mutabilities"
@@ -51,6 +56,7 @@ where
   | mutable
     "Mutable"
     (MathDoc.text "mut")
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
@@ -93,25 +99,35 @@ instance : Inhabited Ty where
 
 -- `Std.HashMap` / `Std.HashSet` membership simp lemmas need
 -- `EquivBEq` and `LawfulHashable` on the key type, which both
--- follow from `LawfulBEq`. The DSL's default `deriving
--- DecidableEq` produces a `decide`-based `BEq` whose unfolding
--- defeats the `LawfulBEq` derive (same workaround as
--- `Local` / `BasicBlockIdx` elsewhere); install a structural
--- `BEq` first, then `ReflBEq` / `LawfulBEq`.
-deriving instance BEq, ReflBEq, LawfulBEq for RegionVid
-deriving instance BEq, ReflBEq, LawfulBEq for EarlyBoundRegion
-deriving instance BEq, ReflBEq, LawfulBEq for Region
-deriving instance BEq, ReflBEq, LawfulBEq for TyCtorName
-deriving instance BEq, ReflBEq, LawfulBEq for AliasTyName
-deriving instance BEq, ReflBEq, LawfulBEq for Size
-deriving instance BEq, ReflBEq, LawfulBEq for IntType
-deriving instance BEq, ReflBEq, LawfulBEq for Mutability
+-- follow from `LawfulBEq`. The structural `BEq` derives in each
+-- defStruct/defEnum's `deriving` clause (above) install the
+-- structural `BEq` directly — matching what the export auto-adds
+-- — so the lawful derives below pick the same instance in both
+-- builds.
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for RegionVid
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for EarlyBoundRegion
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for Region
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for TyCtorName
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for AliasTyName
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for Size
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for IntType
+defRaw after =>
+deriving instance ReflBEq, LawfulBEq for Mutability
 
 -- Structural `BEq` for `Ty`, defined mutually with the `List Ty`
 -- case so the recursion is non-`partial`. The `deriving BEq`
 -- handler emits a `partial def` for nested inductives, which
 -- blocks any `LawfulBEq` proof; this version is unfoldable
--- and lets `LawfulBEq Ty` go through.
+-- and lets `LawfulBEq Ty` go through. Wrapped in `defRaw after`
+-- so the generated module gets the same instance.
+defRaw after =>
 mutual
 def Ty.beq : Ty → Ty → Bool
   | .bool, .bool => true
@@ -133,8 +149,10 @@ def Ty.beqList : List Ty → List Ty → Bool
   | _, _ => false
 end
 
+defRaw after =>
 instance : BEq Ty := ⟨Ty.beq⟩
 
+defRaw after =>
 mutual
 private theorem Ty.beq_self : ∀ (t : Ty), Ty.beq t t = true
   | .bool => rfl
@@ -157,6 +175,7 @@ private theorem Ty.beqList_self : ∀ (ts : List Ty), Ty.beqList ts ts = true
       simp [Ty.beqList, Ty.beq_self x, Ty.beqList_self xs]
 end
 
+defRaw after =>
 mutual
 private theorem Ty.eq_of_beq : ∀ {a b : Ty}, Ty.beq a b = true → a = b
   | .bool, .bool, _ => rfl
@@ -200,7 +219,9 @@ private theorem Ty.eq_of_beqList : ∀ {a b : List Ty}, Ty.beqList a b = true �
       subst hx; subst hxs; rfl
 end
 
+defRaw after =>
 instance : ReflBEq Ty where rfl := Ty.beq_self _
+defRaw after =>
 instance : LawfulBEq Ty where eq_of_beq := Ty.eq_of_beq
 
 defEnum IntValue (.raw "iv", .cal (.raw "IV"))

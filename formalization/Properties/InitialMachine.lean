@@ -617,17 +617,8 @@ to `⟨⟨0⟩, []⟩` — contradicting the `p ≠ p'` antecedent of
 
 /-! ## Helpers for `places_initialPcg_root` -/
 
--- `Std.HashSet.mem_union_iff` / `mem_insert` and related
--- decomposition lemmas need `EquivBEq` and `LawfulHashable` on
--- the element type. `LawfulBEq Place` is now provided in
--- `MIR/Place.lean` (after `MIR/Ty.lean` swaps in a non-`partial`
--- structural `BEq Ty` so the lawfulness derive can reach
--- through `ProjElem.field`); `LawfulHashable Place` follows
--- from it via the standard `f a = f a` → `rfl` argument.
-instance : LawfulHashable Place where
-  hash_eq {a b} h := by
-    have heq : a = b := LawfulBEq.eq_of_beq h
-    subst heq; rfl
+-- `LawfulHashable Place` is provided in `MIR/Place.lean`,
+-- alongside the `LawfulBEq Place` derive it depends on.
 
 /-- "Forward direction" of `mem_flatMapList_iff`, but stated
     as a forward implication (no `iff`) so we can avoid the

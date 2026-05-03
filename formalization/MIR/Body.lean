@@ -13,22 +13,17 @@ defStruct BasicBlockIdx (.text "bb",
   (.plain "An index into the list of basic blocks.")
 where
   | index "The basic block index." : Nat
+  deriving DecidableEq, Repr, BEq, Hashable
 
 -- `BasicBlockIdx` is the key type for the entry-state map
 -- threaded through the dataflow analysis (`Map BasicBlockIdx
 -- _`). Map-membership lemmas
 -- (`Std.HashMap.getElem?_eq_some_iff_…`) require `EquivBEq`
--- and `LawfulHashable` on the key, which `LawfulBEq` provides
--- (transitively). The DSL exporter only emits `BEq, Hashable`
--- on the generated struct, so we add a structural-`BEq`
--- derive and a follow-on `LawfulBEq` derive here. They are
--- shipped to the generated module verbatim by `defRaw`; the
--- source build sees two `BEq` instances (the
--- `DecidableEq`-driven one from the DSL default plus this
--- one) but Lean picks consistently and lawfulness goes
--- through the explicit derive.
-defRaw after =>
-deriving instance BEq for BasicBlockIdx
+-- and `LawfulHashable` on the key, both of which follow from
+-- `LawfulBEq`. The defStruct's `BEq` derive (above) installs a
+-- structural `BEq` directly — matching the `BEq` the export
+-- auto-adds — so the lawful derive below picks the same
+-- instance in both builds.
 defRaw after =>
 deriving instance ReflBEq for BasicBlockIdx
 defRaw after =>

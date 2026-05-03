@@ -9,20 +9,17 @@ defStruct Local (.raw "l", .raw "L")
   constructor "LocalIdx"
 where
   | index "The local variable index." : Nat
-  deriving DecidableEq, Repr, Hashable
+  deriving DecidableEq, Repr, BEq, Hashable
 
 /-! `Std.HashMap.getElem?_eq_some_iff_…` (used to recover
     `(_, ptr) ∈ frame.locals.toList` from
     `mapGet frame.locals l = some ptr` in StackFrame's
     `storageDead`) needs `EquivBEq` and `LawfulHashable` on the
-    key. Those follow from `LawfulBEq`, whose derive needs a
-    *structural* `BEq` — adding `BEq` to the `defStruct`
-    deriving list installs a `DecidableEq`-driven `BEq` whose
-    `decide` unfolding defeats the `LawfulBEq` derive. The
-    same-shaped block in `MIR/Body.lean` does this for
-    `BasicBlockIdx`. -/
-defRaw after =>
-deriving instance BEq for Local
+    key, both of which follow from `LawfulBEq`. The defStruct's
+    `BEq` derive (above) installs a structural `BEq` directly —
+    matching the `BEq` the export auto-adds to the generated
+    module — so the lawful derive below picks the same instance
+    in both builds. -/
 defRaw after =>
 deriving instance ReflBEq for Local
 defRaw after =>
@@ -34,6 +31,7 @@ defStruct FieldIdx (.raw "f", .raw "F")
   constructor "FieldIdx"
 where
   | index "The field index." : Nat
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defStruct VariantIdx (.raw "V",
     .text "VariantIdx")
@@ -42,19 +40,17 @@ defStruct VariantIdx (.raw "V",
   constructor "VariantIdx"
 where
   | index "The variant index." : Nat
+  deriving DecidableEq, Repr, BEq, Hashable
 
--- Same `decide`-vs-structural workaround as `Local`, applied to
--- `FieldIdx` and `VariantIdx`: `LawfulBEq ProjElem` (and hence
--- `LawfulBEq Place`) needs structural `BEq` on every field type.
-defRaw after =>
-deriving instance BEq for FieldIdx
+-- `LawfulBEq ProjElem` (and hence `LawfulBEq Place`) needs
+-- structural `BEq` and lawful equality on every field type, so
+-- propagate `ReflBEq` / `LawfulBEq` through `FieldIdx` and
+-- `VariantIdx` here.
 defRaw after =>
 deriving instance ReflBEq for FieldIdx
 defRaw after =>
 deriving instance LawfulBEq for FieldIdx
 
-defRaw after =>
-deriving instance BEq for VariantIdx
 defRaw after =>
 deriving instance ReflBEq for VariantIdx
 defRaw after =>
@@ -81,7 +77,10 @@ where
 -- `ProjElem` is *not* a nested inductive — it only refers to
 -- already-lawful types (`FieldIdx`, `Ty`, `Local`, `VariantIdx`)
 -- — so the standard `LawfulBEq` derive succeeds.
-deriving instance ReflBEq, LawfulBEq for ProjElem
+defRaw after =>
+deriving instance ReflBEq for ProjElem
+defRaw after =>
+deriving instance LawfulBEq for ProjElem
 
 defStruct Place (.raw "p", .raw "P")
   "Places"
@@ -95,6 +94,21 @@ where
 -- `LawfulBEq (List ProjElem)` is provided by stdlib whenever
 -- `LawfulBEq ProjElem` is in scope; combined with `LawfulBEq
 -- Local`, that gives `LawfulBEq Place`.
-deriving instance ReflBEq, LawfulBEq for Place
+defRaw after =>
+deriving instance ReflBEq for Place
+defRaw after =>
+deriving instance LawfulBEq for Place
+
+-- `LawfulHashable Place` lets `Std.HashSet`/`Std.HashMap` lemmas
+-- (`mem_insert`, `mem_union_iff`, `mem_toList`, …) discharge
+-- against a `Set Place` or `Map _ Place`. The standard "two
+-- equal-by-`BEq` values hash the same" proof goes via
+-- `LawfulBEq.eq_of_beq` followed by `rfl` on the now-equal
+-- inputs.
+defRaw after =>
+instance : LawfulHashable Place where
+  hash_eq {a b} h := by
+    have heq : a = b := LawfulBEq.eq_of_beq h
+    subst heq; rfl
 
 defAlias RETURN = Place⟨Local⟨0⟩, []⟩

@@ -7,6 +7,7 @@ defStruct RegionVid (.text "vid",
   (.plain "A region variable identifier.")
 where
   | id "The region variable id." : Nat
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defStruct EarlyBoundRegion (.text "eb",
     .text "EarlyBoundRegion")
@@ -16,6 +17,7 @@ defStruct EarlyBoundRegion (.text "eb",
 where
   | index "The index in the generic parameter list."
       : Nat
+  deriving DecidableEq, Repr, BEq, Hashable
 
 defEnum Region (.raw "r", .raw "R")
   "Regions"
@@ -28,3 +30,4 @@ where
     (.doc (.code "'static"))
   | earlyBound (eb : EarlyBoundRegion)
     "An early-bound region from generic parameters."
+  deriving DecidableEq, Repr, BEq, Hashable
