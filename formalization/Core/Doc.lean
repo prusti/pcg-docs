@@ -189,6 +189,11 @@ mutual
         (`\uline` / `<u>`) vs dashed (`\dashuline` /
         `text-decoration-style: dashed`). -/
     | underline (style : UnderlineStyle) (body : Doc)
+    /-- A section heading. Renders as `\section{title}` in
+        LaTeX (preceded by a `\FloatBarrier`), `= title` in
+        Typst, `<h2>title</h2>` in HTML, and `# title` in
+        plain text. -/
+    | section (title : Doc)
     /-- Mathematical content. -/
     | math (m : MathDoc)
     deriving Repr
@@ -339,7 +344,8 @@ mutual
     | d@(.plain _) | d@(.code _) | d@(.line) | d@(.raw ..) =>
       docPred d
     | d@(.bold inner) | d@(.italic inner)
-    | d@(.underline _ inner) | d@(.link inner _) =>
+    | d@(.underline _ inner) | d@(.link inner _)
+    | d@(.section inner) =>
       docPred d || Doc.any mathPred docPred inner
     | d@(.seq ds) | d@(.itemize ds) =>
       docPred d || ds.any (Doc.any mathPred docPred)
@@ -504,6 +510,7 @@ mutual
     | link text url =>
       s!"{text.toPlainText} ({url})"
     | underline _ body => body.toPlainText
+    | .section title => s!"# {title.toPlainText}\n"
     | math m => mathToPlainText m
 
   /-- Extract plain text from a math fragment. -/
@@ -542,6 +549,7 @@ mutual
       s!"#underline[{body.toTypst}]"
     | underline .dashed body =>
       s!"#underline(stroke: (dash: \"dashed\"))[{body.toTypst}]"
+    | .section title => s!"= {title.toTypst}\n"
     | math m => mathToTypst m
 
   /-- Render a math fragment to Typst. -/
@@ -583,6 +591,7 @@ mutual
     | underline .dashed body =>
       s!"<u style=\"text-decoration-style: dashed\">\
          {body.toHTML}</u>"
+    | .section title => s!"<h2>{title.toHTML}</h2>"
     | math m => mathToHTML m
 
   /-- Render a math fragment to HTML. -/

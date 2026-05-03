@@ -390,6 +390,7 @@ mutual
       .cmd "uline" [body.toLatex]
     | .underline .dashed body =>
       .cmd "dashuline" [body.toLatex]
+    | .section title => Latex.«section» title.toLatex
     | .math m => .inlineMath m.toLatexMath
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
@@ -433,6 +434,7 @@ mutual
       .text (.cmd "uline" [body.toLatex])
     | .underline .dashed body =>
       .text (.cmd "dashuline" [body.toLatex])
+    | .section title => .text (Latex.«section» title.toLatex)
     | .math m => MathDoc.toLatexMath m
 
   /-- Convert `MathDoc` to math-mode `LatexMath` AST.
