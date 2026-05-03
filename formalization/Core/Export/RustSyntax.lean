@@ -30,6 +30,11 @@ inductive RustTy where
   /-- An ADT (struct/enum) type, possibly with type
       arguments: `Foo`, `Option<T>`, `Vec<T>`. -/
   | adt (constructor : RustPath) (args : List RustTy)
+  /-- Tuple type: `(T1, T2, …)`. The empty list renders as
+      `()` (the unit type). -/
+  | tuple (elems : List RustTy)
+  /-- Boxed `dyn Fn` trait object: `Box<dyn Fn(A1, …) -> R>`. -/
+  | fnDyn (args : List RustTy) (ret : RustTy)
   /-- `impl Into<T>` argument type. -/
   | implInto (inner : RustTy)
   /-- Slice type: `[T]`. -/
@@ -258,6 +263,15 @@ structure RustTypeAlias where
   generics : List RustIdent := []
   aliased : RustTy
 
+/-- A Rust `pub const NAME: Ty = Value;` declaration. -/
+structure RustConst where
+  doc : String
+  vis : RustVis
+  name : RustIdent
+  ty : RustTy
+  /-- The const-evaluable initialiser expression. -/
+  value : RustExpr
+
 /-- A top-level Rust item. -/
 inductive RustItem where
   | enum (e : RustEnum)
@@ -265,6 +279,7 @@ inductive RustItem where
   | impl_ (i : RustImpl)
   | fn_ (f : RustFn)
   | typeAlias (a : RustTypeAlias)
+  | const_ (c : RustConst)
   | raw (s : String)
 
 /-- A Rust module containing items. -/
@@ -360,6 +375,11 @@ def render : RustTy → String
     else
       let argStrs := args.map RustTy.render
       s!"{ctor.render}<{String.intercalate ", " argStrs}>"
+  | .tuple elems =>
+    s!"({String.intercalate ", " (elems.map RustTy.render)})"
+  | .fnDyn args ret =>
+    let argStrs := args.map RustTy.render
+    s!"Box<dyn Fn({String.intercalate ", " argStrs}) -> {ret.render}>"
   | .implInto inner => s!"impl Into<{inner.render}>"
   | .slice inner => s!"[{inner.render}]"
   | .infer => "_"

@@ -44,41 +44,31 @@ partial def toRust : DSLType → RustTy
   | .set t => .adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust]
   | .map k v =>
     .adt ⟨[⟨"HashMap"⟩]⟩ [k.toRust, v.toRust]
-  | .tuple ts =>
-    .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
+  | .tuple ts => .tuple (ts.map toRust)
   | .arrow a b =>
     -- Render `A → B → C` as `Box<dyn Fn(A, B) -> C>`.
-    let (argStrs, retStr) := arrowFlatten (.arrow a b)
-    .named s!"Box<dyn Fn({", ".intercalate argStrs}) -> {retStr}>"
+    let (argTys, retTy) := arrowFlatten (.arrow a b)
+    .fnDyn argTys retTy
 
-/-- Flatten a right-associated arrow chain into rendered
-    argument strings and a rendered return string. -/
-partial def arrowFlatten : DSLType → List String × String
+/-- Flatten a right-associated arrow chain into argument
+    `RustTy`s and a return `RustTy`. -/
+partial def arrowFlatten : DSLType → List RustTy × RustTy
   | .arrow x y =>
     let (xs, ret) := arrowFlatten y
-    (x.toRust.render :: xs, ret)
-  | t => ([], t.toRust.render)
+    (x.toRust :: xs, ret)
+  | t => ([], t.toRust)
 
 end
 
 /-- Convert to a Rust parameter type. Lists become
-    slices (`&[T]`) for pattern-matching support. -/
-def toRustParam : DSLType → RustTy
-  | .prim p => .builtin p.toRust
-  | .named n => .named n.name
-  | .app h args =>
-    .adt ⟨[⟨h.name⟩]⟩ (args.map toRust)
-  | .option t => .option t.toRust
-  | .list t => .slice t.toRust
-  | .set t =>
-    .ref false (.adt ⟨[⟨"HashSet"⟩]⟩ [t.toRust])
-  | .map k v =>
-    .ref false (.adt ⟨[⟨"HashMap"⟩]⟩ [k.toRust, v.toRust])
-  | .tuple ts =>
-    .named s!"({", ".intercalate (ts.map fun t => t.toRust.render)})"
-  | .arrow a b =>
-    let (argStrs, retStr) := arrowFlatten (.arrow a b)
-    .named s!"Box<dyn Fn({", ".intercalate argStrs}) -> {retStr}>"
+    slices (`&[T]`) for pattern-matching support, and
+    set/map containers are passed by reference so that
+    pattern-matching works without consuming them. -/
+def toRustParam (t : DSLType) : RustTy :=
+  match t with
+  | .list inner => .slice inner.toRust
+  | .set _ | .map _ _ => .ref false t.toRust
+  | _ => t.toRust
 
 /-- Whether this type contains an arrow (function) type.
     Structs with arrow-typed fields cannot derive standard
@@ -441,6 +431,15 @@ def render (a : RustTypeAlias) : String :=
      {a.vis.render}type {a.name.val}{gen} = {a.aliased.render};"
 end RustTypeAlias
 
+namespace RustConst
+def render (c : RustConst) : String :=
+  let docComment :=
+    if c.doc.isEmpty then "" else s!"/// {c.doc}\n"
+  let valStr := (renderExpr 0 c.value).trimAscii.toString
+  s!"{docComment}{c.vis.render}const {c.name.val}: \
+     {c.ty.render} = {valStr};"
+end RustConst
+
 namespace RustItem
 def render : RustItem → String
   | .enum e => e.render
@@ -448,6 +447,7 @@ def render : RustItem → String
   | .impl_ i => i.render
   | .fn_ f => RustFn.render 0 f
   | .typeAlias a => a.render
+  | .const_ c => c.render
   | .raw s => s
 end RustItem
 
@@ -660,13 +660,13 @@ def toRustItem (structFields : String → Option (List String)
       aliased := a.aliased.toRust
     }
   | some e =>
-    let valStr :=
-      (renderExpr 0 (valueExprToRustConst structFields e)).trimAscii.toString
-    let tyStr := a.aliased.toRust.render
-    let docStr := a.doc.toPlainText
-    let docComment :=
-      if docStr.isEmpty then "" else s!"/// {docStr}\n"
-    .raw s!"{docComment}pub const {a.name}: {tyStr} = {valStr};"
+    .const_ {
+      doc := a.doc.toPlainText
+      vis := .pub
+      name := ⟨a.name⟩
+      ty := a.aliased.toRust
+      value := valueExprToRustConst structFields e
+    }
 
 end AliasDef
 
@@ -1010,7 +1010,7 @@ private partial def toRustAlg (recur : DslExpr → FreshM RustExpr)
     let comparisons := pairs.map fun (op, l, r) =>
       RustExpr.binOp (opToRust op) l r
     match comparisons with
-    | [] => pure (.raw "true")
+    | [] => pure (.litBool true)
     | [c] => pure c
     | c :: cs => pure (cs.foldl
         (fun acc x => .binOp .and acc x) c)

@@ -327,16 +327,6 @@ private def precondBinders
       { name := s!"h_pre{i}"
         type := .const e.toLean }
 
-/-- Render a precondition as a Lean source-level expression
-    suitable for splicing into a recursive-call proof obligation
-    or any other context where we need its propositional form
-    (`prop a b` or the rendered DslExpr). -/
-private def precondLean : Precondition → String
-  | .named n args _ =>
-    if args.isEmpty then n
-    else s!"{n} {" ".intercalate args}"
-  | .expr_ e _ => e.toLean
-
 /-- The Lean proof-tactic string spliced as the proof argument
     of a self-recursive call. The strategies tried, in order:
 
