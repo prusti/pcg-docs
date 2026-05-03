@@ -199,16 +199,14 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
         proof[StackFrame.storageLive_localsAllocated_extend _ _
           h_pre2]
         proof[(by
-          -- `frame1.body = frame.body` by `storageLive_body`; the
-          -- bound on `frame1.body.decls.length` then collapses to
-          -- the entry bound `h_pre3` after rewriting
-          -- `(v :: rest).length = rest.length + 1`.
+          -- `frame1.body = frame.body` by the `@[simp]` lemma
+          -- `storageLive_body`; once `frame1` and `storageLiveResult`
+          -- are unfolded, that simp lemma reduces the goal's
+          -- `.fst.body.decls.length` to `frame.body.decls.length`,
+          -- and `omega` closes it from `h_pre3`.
           show (k + 1) + rest.length ≤ frame1.body.decls.length
-          have h_body : frame1.body = frame.body := by
-            unfold frame1 storageLiveResult
-            exact StackFrame.storageLive_body frame mem ⟨k⟩ _ _
-          rw [h_body]
-          simp only [List.length_cons] at h_pre3
+          unfold frame1 storageLiveResult
+          simp only [StackFrame.storageLive_body, List.length_cons] at h_pre3 ⊢
           omega)]
 
 defRaw inFns =>
@@ -236,10 +234,11 @@ private theorem liveAndStoreArgs_localsAllocated
       1 (k + args.length) := by
   induction args generalizing k frame mem with
   | nil =>
-    have h_call :
-        liveAndStoreArgs [] k frame mem h1 h2 h3 h4 = (frame, mem) := by
-      unfold liveAndStoreArgs; rfl
-    rw [h_call, List.length_nil, Nat.add_zero]
+    -- The `nil` arm of `liveAndStoreArgs` returns `(frame, mem)`
+    -- definitionally; `unfold` exposes this so the goal reduces
+    -- to `localsAllocated frame 1 (k + 0)`, matching `h3`.
+    unfold liveAndStoreArgs
+    rw [List.length_nil, Nat.add_zero]
     exact h3
   | cons v rest ih =>
     -- Re-shape the conclusion to match the IH's shape under the
@@ -329,20 +328,15 @@ defFn createFrame (.plain "createFrame")
           omega)]
         proof[(by
           -- Discharge `1 + args.length ≤ frame1.body.decls.length`.
-          -- `frame1.body = body` because `storageLive` does not
-          -- modify the body (witnessed by `StackFrame.storageLive_body`).
-          -- With `frame1.body = body` in hand, combine:
-          --   * `args.length ≤ body.numArgs`         (h_pre2, the
-          --     new precondition added to `createFrame`)
-          --   * `body.numArgs < body.decls.length`   (the new
-          --     `validBody` conjunct, projected as
-          --     `h_validBody.2.2.2.2`)
-          -- to conclude `1 + args.length ≤ body.decls.length`.
-          have h_body :
-              (Prod.fst storageLive_initLocal0).body = body := by
-            unfold storageLive_initLocal0
-            exact StackFrame.storageLive_body initFrame m.mem ⟨0⟩ _ _
-          rw [h_body]
+          -- Unfolding the local lets exposes
+          -- `(StackFrame.storageLive initFrame _ _ _ _).fst.body`,
+          -- which the `@[simp]` lemma `storageLive_body` collapses
+          -- to `initFrame.body = body`. Then combine
+          -- `h_pre2 : args.length ≤ body.numArgs` with
+          -- `h_validBody.2.2.2.2 : body.numArgs < body.decls.length`.
+          show 1 + args.length ≤ frame1.body.decls.length
+          unfold frame1 storageLive_initLocal0 initFrame
+          simp only [StackFrame.storageLive_body]
           have h_numArgs := h_validBody.2.2.2.2
           omega)] ;
     -- Witness: every argument local is allocated in the
@@ -364,15 +358,13 @@ defFn createFrame (.plain "createFrame")
         (StackFrame.storageLive_preserves_validStackFrame _ _ _ _ _)
         (by intro i hlo hhi; omega)
         (by
-          -- The bound `1 + args.length ≤ frame1.body.decls.length`
-          -- follows from `frame1.body = body` (via `storageLive_body`),
-          -- `args.length ≤ body.numArgs` (h_pre2), and
-          -- `body.numArgs < body.decls.length` (h_validBody's
-          -- new fifth conjunct).
-          have h_body : frame1.body = body := by
-            unfold frame1 storageLive_initLocal0
-            exact StackFrame.storageLive_body initFrame m.mem ⟨0⟩ _ _
-          rw [h_body]
+          -- Mirrors the bound proof passed to `liveAndStoreArgs`
+          -- above: unfold the local lets so `storageLive_body`
+          -- can rewrite `frame1.body.decls.length` to
+          -- `body.decls.length`, then close with `omega` from
+          -- `h_pre2` and `h_validBody.2.2.2.2`.
+          unfold frame1 storageLive_initLocal0 initFrame
+          simp only [StackFrame.storageLive_body]
           have h_numArgs := h_validBody.2.2.2.2
           omega)] ;
     Machine⟨m↦program,
@@ -404,15 +396,11 @@ defFn initialMachine (.plain "initialMachine")
         -- `h_validProgram`; the middle conjunct is vacuous —
         -- `blank.mem.allocs = []`, so the `j < 0` clause of the
         -- universal is unsatisfiable; the third is the
-        -- `validStack.nil` constructor applied at the empty
-        -- stack of `blank`.
+        -- `validStack.nil` constructor.
         refine ⟨h_validProgram, ?_, validStack.nil⟩
-        intro _ _ h_pre0
-        exact absurd h_pre0.2 (Nat.not_lt_zero _))]
+        intro _ _ h
+        exact absurd h.2 (Nat.not_lt_zero _))]
       proof[validBody_startProgram program h_validProgram]
-      proof[(by
-        -- `args = []`: `[].length = 0 ≤ body.numArgs` is trivial.
-        show ([] : List Value).length ≤ body.numArgs
-        simp)]
+      proof[Nat.zero_le _]
 
 end Machine
