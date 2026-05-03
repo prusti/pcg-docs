@@ -222,20 +222,40 @@ theorem getCapability_initialPcg_local0_not_exclusive
 /-- The locals map of `initialMachine` binds `Local⟨0⟩` to a thin
     pointer whose provenance is the unique allocation `AllocId⟨0⟩`.
 
-    The same `match heq : ∅[…]? with` shape that blocks the
-    `mem_initialMachine_length_one` / `initialMachine_currentFrame_locals`
-    proofs on `mine/main` blocks this proof too — `simp` won't push
-    a `Std.HashMap.getElem?_empty` rewrite through the scrutinee of
-    a `match heq :` form, so the residual goal still mentions the
-    unreduced `match`. Left as `sorry` until the upstream proofs
-    are updated to handle the new `validStackFrame mem frame`
-    contract on `storageDead`. -/
+    Following the same pattern as `initialMachine_currentFrame_locals`,
+    we unfold the chain `initialMachine` → `createFrame` → `storageLive`,
+    collapse the no-op `storageDead` (via `storageDead_initFrame_mapEmpty`)
+    and the no-op `liveAndStoreArgs []` (via `liveAndStoreArgs_nil`), so
+    the head frame's locals map becomes `mapInsert mapEmpty ⟨0⟩ ptr`
+    where `ptr = ⟨addr, some ⟨allocId⟩⟩` and `allocId = ⟨0⟩` (the
+    initial memory has no allocations, so `Memory.allocate`'s freshly
+    minted id is `AllocId⟨0⟩`). The `get?` on that map for `⟨0⟩`
+    returns `some ptr`, so `evalLocal` returns `some ⟨ptr⟩` whose
+    provenance is `some ⟨⟨0⟩⟩`. -/
 private theorem evalLocal_initialMachine_provenance
     (pr : Program) (h : validProgram pr)
     (h_R : Runnable (initialMachine pr h)) (pp : PlacePtr)
     (heval : evalLocal (initialMachine pr h) ⟨0⟩ h_R = some pp) :
     pp.ptr.provenance = some ⟨⟨0⟩⟩ := by
-  sorry
+  unfold evalLocal currentFrame mapGet at heval
+  change ((initialMachine pr h).thread.stack.head!.locals.get? ⟨0⟩).bind
+      (fun ptr => some (PlacePtr.mk ptr)) = some pp at heval
+  unfold initialMachine Machine.createFrame
+    StackFrame.storageLive at heval
+  simp only [storageDead_initFrame_mapEmpty, liveAndStoreArgs_nil,
+             List.head!] at heval
+  unfold mapInsert at heval
+  rw [Std.HashMap.get?_insert, beq_self_eq_true] at heval
+  simp only [↓reduceIte, Option.bind_some] at heval
+  injection heval with hpp
+  rw [← hpp]
+  -- `Memory.allocate (Memory⟨[]⟩) _`'s `snd` is `AllocId⟨[].length⟩`,
+  -- i.e. `AllocId⟨0⟩` by `rfl` after unfolding `allocate`.
+  show (some (Provenance.mk
+    ((Memory.allocate (Memory.mk []) _).snd))
+    : Option Provenance) = some ⟨⟨0⟩⟩
+  unfold Memory.allocate
+  rfl
 
 /-- Every allocation in the initial machine has data
     `List.replicate _ AbstractByte.uninit`. Same upstream-blocked
