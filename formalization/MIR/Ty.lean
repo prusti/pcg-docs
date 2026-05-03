@@ -146,66 +146,47 @@ instance : BEq Ty := ⟨Ty.beq⟩
 mutual
 private theorem Ty.beq_self : ∀ (t : Ty), Ty.beq t t = true
   | .bool => rfl
-  | .int _ => by simp [Ty.beq]
-  | .param _ => by simp [Ty.beq]
-  | .alias b _ args => by
-      simp [Ty.beq, Ty.beq_self b, Ty.beqList_self args]
-  | .ctor _ args => by
-      simp [Ty.beq, Ty.beqList_self args]
-  | .ref _ _ p => by
-      simp [Ty.beq, Ty.beq_self p]
-  | .box i => by
-      simp [Ty.beq, Ty.beq_self i]
-  | .array e _ => by
-      simp [Ty.beq, Ty.beq_self e]
+  | .int _ | .param _ => by simp [Ty.beq]
+  | .alias b _ args => by simp [Ty.beq, Ty.beq_self b, Ty.beqList_self args]
+  | .ctor _ args => by simp [Ty.beq, Ty.beqList_self args]
+  | .ref _ _ p => by simp [Ty.beq, Ty.beq_self p]
+  | .box i => by simp [Ty.beq, Ty.beq_self i]
+  | .array e _ => by simp [Ty.beq, Ty.beq_self e]
 
 private theorem Ty.beqList_self : ∀ (ts : List Ty), Ty.beqList ts ts = true
   | [] => rfl
-  | x :: xs => by
-      simp [Ty.beqList, Ty.beq_self x, Ty.beqList_self xs]
+  | x :: xs => by simp [Ty.beqList, Ty.beq_self x, Ty.beqList_self xs]
 end
 
 mutual
 private theorem Ty.eq_of_beq : ∀ {a b : Ty}, Ty.beq a b = true → a = b
   | .bool, .bool, _ => rfl
-  | .int _, .int _, h => by
-      simp [Ty.beq] at h
-      exact congrArg _ h
-  | .param _, .param _, h => by
-      simp [Ty.beq] at h
-      exact congrArg _ h
+  | .int _, .int _, h | .param _, .param _, h => by
+      simp [Ty.beq] at h; exact congrArg _ h
   | .alias _ _ _, .alias _ _ _, h => by
       simp [Ty.beq] at h
-      obtain ⟨⟨hbb, hn⟩, ha⟩ := h
-      have hb := Ty.eq_of_beq hbb
-      have hl := Ty.eq_of_beqList ha
-      subst hb; subst hn; subst hl; rfl
+      obtain ⟨⟨hbb, rfl⟩, ha⟩ := h
+      cases Ty.eq_of_beq hbb; cases Ty.eq_of_beqList ha; rfl
   | .ctor _ _, .ctor _ _, h => by
       simp [Ty.beq] at h
-      obtain ⟨hn, ha⟩ := h
-      have hl := Ty.eq_of_beqList ha
-      subst hn; subst hl; rfl
+      obtain ⟨rfl, ha⟩ := h
+      cases Ty.eq_of_beqList ha; rfl
   | .ref _ _ _, .ref _ _ _, h => by
       simp [Ty.beq] at h
-      obtain ⟨⟨hr, hm⟩, hpb⟩ := h
-      have hp := Ty.eq_of_beq hpb
-      subst hr; subst hm; subst hp; rfl
+      obtain ⟨⟨rfl, rfl⟩, hpb⟩ := h
+      cases Ty.eq_of_beq hpb; rfl
   | .box _, .box _, h => by
-      simp [Ty.beq] at h
-      exact congrArg _ (Ty.eq_of_beq h)
+      simp [Ty.beq] at h; exact congrArg _ (Ty.eq_of_beq h)
   | .array _ _, .array _ _, h => by
       simp [Ty.beq] at h
-      obtain ⟨heb, hn⟩ := h
-      have he := Ty.eq_of_beq heb
-      subst he; subst hn; rfl
+      obtain ⟨heb, rfl⟩ := h
+      cases Ty.eq_of_beq heb; rfl
 
 private theorem Ty.eq_of_beqList : ∀ {a b : List Ty}, Ty.beqList a b = true → a = b
   | [], [], _ => rfl
   | _ :: _, _ :: _, h => by
       simp [Ty.beqList] at h
-      have hx := Ty.eq_of_beq h.1
-      have hxs := Ty.eq_of_beqList h.2
-      subst hx; subst hxs; rfl
+      cases Ty.eq_of_beq h.1; cases Ty.eq_of_beqList h.2; rfl
 end
 
 instance : ReflBEq Ty where rfl := Ty.beq_self _
