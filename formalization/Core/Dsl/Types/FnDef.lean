@@ -54,11 +54,40 @@ inductive Precondition where
     either a property call or an arbitrary `DslExpr`. The
     literal argument name `result` (in the named form) refers
     to the function's return value when the Lean output wraps
-    the return in a subtype. -/
+    the return in a subtype.
+
+    Each constructor optionally carries a Lean tactic-block
+    string supplied via the DSL `ensures … via tac` clause.
+    When present, the Lean and export backends splice this
+    tactic into the subtype's proof position instead of the
+    `first | trivial | decide | sorry` fallback, letting the
+    user discharge the postcondition with a real proof
+    (typically a hand-written lemma application). The string
+    is the body of a `by` block, e.g. `"exact lemma_name body"`
+    or `"split <;> simp"`; the surrounding `by` is added by
+    the wrapper. -/
 inductive Postcondition where
   | named (name : String) (args : List String)
-  | expr_ (e : DslExpr)
+      (proof : Option String := none)
+  | expr_ (e : DslExpr) (proof : Option String := none)
   deriving Repr, Inhabited, Lean.Quote
+
+namespace Postcondition
+
+/-- The user-supplied tactic for this postcondition, if any. -/
+def proof? : Postcondition → Option String
+  | .named _ _ p => p
+  | .expr_ _ p => p
+
+/-- Attach (or replace) a user-supplied tactic on this
+    postcondition. Used by the DSL parser to splice in the
+    `via tac` clause after the underlying predicate has been
+    parsed via the shared precondition parser. -/
+def withProof (proof : Option String) : Postcondition → Postcondition
+  | .named n args _ => .named n args proof
+  | .expr_ e _ => .expr_ e proof
+
+end Postcondition
 
 namespace Precondition
 
@@ -478,11 +507,11 @@ def formalDefLatex
              , Latex.require_ (.inlineMath (exprMath e)) ]
   let postcondLines : List Latex :=
     f.postconditions.map fun pc => match pc with
-      | .named name args =>
+      | .named name args _ =>
         .seq [ .raw "    "
              , Latex.ensure_ (.inlineMath
                  (appliedPropMath name args)) ]
-      | .expr_ e =>
+      | .expr_ e _ =>
         .seq [ .raw "    "
              , Latex.ensure_ (.inlineMath (exprMath e)) ]
   let allLines := precondLines ++ postcondLines ++ bodyLines

@@ -292,6 +292,14 @@ syntax fnExpr : fnPrecond
 -- extra simp lemma names spliced into the auto-discharge
 -- tactic the Lean backend emits at recursive call sites.
 syntax fnExpr "using" "[" ident,+ "]" : fnPrecond
+-- Postcondition-only `via tac` clause: the `tac` is a real
+-- Lean `tacticSeq` the exporter splices into the subtype
+-- proof position (`⟨body, by tac⟩`) instead of the default
+-- `first | trivial | decide | sorry` cascade. Lets a `defFn`
+-- discharge an `ensures` clause with a hand-written proof
+-- (typically an application of a lemma proved alongside the
+-- function). Has no effect when used with `requires`.
+syntax fnExpr "via" tacticSeq : fnPrecond
 
 /-- Pattern-matching function.
 
@@ -751,6 +759,10 @@ def parsePrecond
       | some xs => pure (.named name xs lemmaNames)
       | none => pure (.expr_ parsed lemmaNames)
     | _ => pure (.expr_ parsed lemmaNames)
+  | `(fnPrecond| $_:fnExpr via $_:tacticSeq) =>
+    Lean.throwErrorAt stx
+      "the `via tac` clause is only allowed on `ensures`, \
+       not on `requires`"
   | `(fnPrecond| $e:fnExpr) =>
     -- Bracketless property-call form `Name arg₁ arg₂ …`
     -- (the only form now that the legacy `Name(args)`
@@ -772,6 +784,52 @@ def parsePrecond
       | none => pure (.expr_ parsed)
     | _ => pure (.expr_ parsed)
   | _ => Lean.Elab.throwUnsupportedSyntax
+
+/-- Parse an `ensures` clause. Accepts every `parsePrecond`
+    shape (which is reused for the underlying predicate)
+    plus the postcondition-only `via tacticSeq` form: the
+    tactic is captured verbatim as a string and stitched
+    into the subtype proof position by `wrapBody` /
+    `wrapBodyExpr` instead of the fallback
+    `first | trivial | decide | sorry`. -/
+def parsePostcond
+    (stx : Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM Postcondition := do
+  match stx with
+  | `(fnPrecond| $e:fnExpr via $tac:tacticSeq) =>
+    -- Reprint the `tacticSeq` so the rendered Lean source
+    -- carries the user's exact tactic block. `reprint`
+    -- returns `none` only for syntax not produced by the
+    -- parser; in that corner case fall back to `toString`
+    -- to keep elaboration moving.
+    let tacStr :=
+      (tac.raw.reprint.getD (toString tac.raw)).trimAscii.toString
+    -- Reuse `parsePrecond` for the underlying predicate by
+    -- re-wrapping `e` as a bare `fnPrecond`, then convert.
+    let bareStx ← `(fnPrecond| $e:fnExpr)
+    let pre ← parsePrecond bareStx.raw
+    pure (pre.toPostcondition.withProof (some tacStr))
+  | _ =>
+    let pre ← parsePrecond stx
+    pure pre.toPostcondition
+
+/-- Parse the `ensures …` clause list, then enforce the
+    `via tac` restrictions: a `via` is only meaningful when
+    paired with exactly one postcondition (the proof goal in
+    the subtype constructor is then the postcondition's
+    predicate). Multi-postcondition support would need an
+    explicit splitting strategy for the conjunction goal.
+    Throws at the function name on violation. -/
+def parsePostconds
+    (fnName : Lean.Ident)
+    (clauses : List Lean.Syntax)
+    : Lean.Elab.Command.CommandElabM (List Postcondition) := do
+  let parsed ← clauses.mapM parsePostcond
+  if parsed.length > 1 ∧ parsed.any (·.proof?.isSome) then
+    Lean.throwErrorAt fnName
+      "the `via tac` clause is only supported on functions \
+       with exactly one `ensures` postcondition"
+  pure parsed
 
 -- ══════════════════════════════════════════════
 -- Core elaboration helpers
@@ -964,12 +1022,15 @@ private def precondParamBinds
         s!"(h_pre{i} : {e.toLean})")
 
 /-- Render a postcondition as a Lean source-level expression,
-    used inside the subtype return wrapper. -/
+    used inside the subtype return wrapper. The optional
+    `proof` carried by either constructor is consumed by
+    `wrapBody` (the subtype proof position), not by this
+    predicate renderer. -/
 private def postcondLean : Postcondition → String
-  | .named n args =>
+  | .named n args _ =>
     if args.isEmpty then n
     else s!"{n} {" ".intercalate args}"
-  | .expr_ e => e.toLean
+  | .expr_ e _ => e.toLean
 
 /-- Build the conjunction of postcondition applications
     used as the predicate inside the subtype return type. -/
@@ -1004,12 +1065,24 @@ private def renderRetType
     starts with `decide` so postconds that hold by computation
     on the literal body discharge cleanly (no `sorry` warning);
     when `decide` fails or doesn't apply, it falls back to
-    `sorry` to keep the build going. -/
+    `sorry` to keep the build going.
+
+    When a single postcondition carries a `via tac` clause,
+    the user-supplied tactic is spliced in instead of the
+    fallback cascade — so `ensures … via …` discharges the
+    obligation with a real proof. `parsePostconds` rejects a
+    `via` on multi-postcondition functions, so this case
+    can't appear here. -/
 private def wrapBody
     (body : String) (postconds : List Postcondition)
     : String :=
+  let proofText :=
+    match postconds with
+    | [pc] => (pc.proof?.map (s!"by {·}")).getD
+        "by first | trivial | decide | sorry"
+    | _ => "by first | trivial | decide | sorry"
   if postconds.isEmpty then body
-  else s!"⟨{body}, by first | trivial | decide | sorry⟩"
+  else s!"⟨{body}, {proofText}⟩"
 
 /-- Lean proof tactic for a self-recursive call's
     precondition obligation. Tries each `using [lemma, …]`
@@ -1081,9 +1154,7 @@ elab_rules : command
     let postconds : List Postcondition ←
       match ens with
       | some pcs =>
-        (·.map Precondition.toPostcondition) <$>
-          pcs.getElems.toList.mapM
-            (parsePrecond ·.raw)
+        parsePostconds name (pcs.getElems.toList.map (·.raw))
       | none => pure []
     let parsed ← arms.mapM parseFnArm
     let armsList : List (List BodyPat × DslExpr) :=
@@ -1198,9 +1269,7 @@ elab_rules : command
     let postconds : List Postcondition ←
       match ens with
       | some pcs =>
-        (·.map Precondition.toPostcondition) <$>
-          pcs.getElems.toList.mapM
-            (parsePrecond ·.raw)
+        parsePostconds name (pcs.getElems.toList.map (·.raw))
       | none => pure []
     let rhsAst ← parseExpr rhs
     let fnNameStr := toString name.getId
@@ -1298,8 +1367,7 @@ private def parseMutualEntry
     let postconds : List Postcondition ←
       match ens with
       | some pcs =>
-        (·.map Precondition.toPostcondition) <$>
-          pcs.getElems.toList.mapM (parsePrecond ·.raw)
+        parsePostconds name (pcs.getElems.toList.map (·.raw))
       | none => pure []
     let parsed ← arms.mapM parseFnArm
     let armsList : List (List BodyPat × DslExpr) :=

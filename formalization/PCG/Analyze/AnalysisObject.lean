@@ -104,15 +104,127 @@ defFn mainTriples (.plain "mainTriples")
         Some Capability.exclusive⟩⦄
   | .terminator _ => ∅
 
-/-- Local `Inhabited` instances scoped to this module so that
-    the `[i]!` indexing inside `getAnalysisObject` elaborates
-    against the source `defStruct`/`defEnum`s, which only derive
-    `Repr, BEq, Hashable`. The Lean exporter adds `Inhabited`
-    automatically to the corresponding generated declarations,
-    so these instances are not re-emitted there. -/
-private instance : Inhabited Terminator := ⟨.unreachable⟩
-private instance : Inhabited Statement := ⟨.storageLive ⟨0⟩⟩
-private instance : Inhabited BasicBlock := ⟨⟨[], .unreachable⟩⟩
+-- Local `Inhabited` instances scoped to this module so that
+-- the `[i]!` indexing inside `getAnalysisObject` elaborates
+-- against the source `defStruct`/`defEnum`s, which only
+-- derive `Repr, BEq, Hashable`. The Lean exporter also adds
+-- `deriving Inhabited` to the corresponding generated
+-- declarations; the auto-derived defaults pick the *first*
+-- constructor (e.g. `Terminator.goto default` rather than
+-- `Terminator.unreachable`), which would change the
+-- out-of-range arm of `getAnalysisObject` (because
+-- `body.blocks[i]!` falls back to the `Inhabited BasicBlock`
+-- default when `i` is out of range). To keep the in-tree
+-- proof and the generated copy of `getAnalysisObject`
+-- discharging the same out-of-range case, the same instances
+-- are spliced into the generated module via `defRaw inFns =>`
+-- below; later-declared instances take precedence in Lean's
+-- instance resolution, so they outrank the auto-derived
+-- defaults the exporter emits earlier in the file.
+defRaw inFns =>
+instance : Inhabited Terminator := ⟨.unreachable⟩
+
+defRaw inFns =>
+instance : Inhabited Statement := ⟨.storageLive ⟨0⟩⟩
+
+defRaw inFns =>
+instance : Inhabited BasicBlock := ⟨⟨[], .unreachable⟩⟩
+
+-- Bridge from #validBody to the postcondition of
+-- #getAnalysisObject: the if/then/else body of
+-- #getAnalysisObject is a valid #AnalysisObject in `body`
+-- whenever `body` itself is valid. The proof splits on the
+-- `if`, then on whether `loc.block.index` is in range:
+--
+-- * In-range, statement arm — the indexed statement is in
+--   the basic block's statement list, so #validBody's per-
+--   block conjunct gives #validStatement directly.
+-- * In-range, terminator arm — the basic block is in
+--   `body.blocks`, so #validBody's per-block conjunct gives
+--   #validTerminator on its terminator directly.
+-- * Out-of-range — #getElem!_neg makes the indexed block the
+--   `Inhabited` default `⟨[], .unreachable⟩`, whose
+--   terminator is `.unreachable`. The `if` condition is then
+--   `loc.stmtIdx < 0` (always false), so the result is
+--   `.terminator .unreachable`, which has empty
+--   #terminatorPlaces and so is trivially valid.
+--
+-- Stated and proved here so that #getAnalysisObject's
+-- `ensures` clause can attach it via the DSL's `via`
+-- extension. Wrapped in `defRaw inFns =>` so the lemma is
+-- declared in the in-tree build (for the `via` to typecheck)
+-- and is also re-emitted into the generated Lean export
+-- right before #getAnalysisObject (so the exported `via`
+-- block can resolve the same name).
+defRaw inFns =>
+theorem validAnalysisObject_of_getAnalysisObject_body
+    (body : Body) (loc : Location)
+    (h_validBody : validBody body) :
+    validAnalysisObject body
+      (let bb := body.blocks[loc.block.index]!;
+       if loc.stmtIdx < bb.statements.length then
+         AnalysisObject.stmt
+           (bb.statements[loc.stmtIdx]!)
+       else
+         AnalysisObject.terminator bb.terminator) := by
+  -- `validBody`'s relevant conjunct: every block's statements
+  -- are valid statements and its terminator is a valid
+  -- terminator. Specialise once up front so both `if` arms
+  -- (and both branches of the in-/out-of-range split below)
+  -- can pull from it.
+  have h_blocks := h_validBody.2.2.1
+  -- `simp only []` reduces the leading `let bb := …` so the
+  -- subsequent `split` sees the exposed `if` directly.
+  simp only []
+  by_cases h_in : loc.block.index < body.blocks.length
+  · -- In-range: `body.blocks[loc.block.index]!` is in
+    -- `body.blocks`, so `h_blocks` specialises to it.
+    have h_bb_mem :
+        body.blocks[loc.block.index]! ∈ body.blocks := by
+      rw [getElem!_pos body.blocks loc.block.index h_in]
+      exact List.getElem_mem h_in
+    have h_block := h_blocks _ h_bb_mem
+    split
+    · -- statement arm: indexed statement is in
+      -- `bb.statements`, so `h_block.1` gives `validStatement`.
+      rename_i h_lt
+      simp only [validAnalysisObject]
+      have h_stmt_mem :
+          (body.blocks[loc.block.index]!).statements[
+              loc.stmtIdx]! ∈
+            (body.blocks[loc.block.index]!).statements := by
+        rw [getElem!_pos
+              (body.blocks[loc.block.index]!).statements
+              loc.stmtIdx h_lt]
+        exact List.getElem_mem h_lt
+      exact h_block.1 _ h_stmt_mem
+    · -- terminator arm: `h_block.2` is the validity of the
+      -- block's terminator.
+      simp only [validAnalysisObject]
+      exact h_block.2
+  · -- Out-of-range: the `Inhabited BasicBlock` default has an
+    -- empty statements list (so the `if` falls into the
+    -- terminator arm) and an `.unreachable` terminator (whose
+    -- `terminatorPlaces` is empty), making the postcondition
+    -- vacuously true.
+    have h_default :
+        body.blocks[loc.block.index]! =
+          (default : BasicBlock) :=
+      getElem!_neg body.blocks loc.block.index h_in
+    rw [h_default]
+    -- `default = ⟨[], .unreachable⟩`, so `bb.statements`
+    -- is `[]` and the `if` falls through to the terminator
+    -- arm. `loc.stmtIdx < 0` is false.
+    simp only [show (default : BasicBlock).statements = []
+                from rfl,
+               List.length_nil, Nat.not_lt_zero, if_false,
+               show (default : BasicBlock).terminator =
+                    Terminator.unreachable from rfl,
+               validAnalysisObject, validTerminator,
+               Terminator.terminatorPlaces]
+    -- Goal: `∀ p ∈ ∅, validPlace body p`; vacuous.
+    intro p hp
+    exact (Std.HashSet.not_mem_empty hp).elim
 
 defFn getAnalysisObject (.plain "getAnalysisObject")
   (.plain "Look up the analysis object at a location in a body: \
@@ -122,6 +234,7 @@ defFn getAnalysisObject (.plain "getAnalysisObject")
   (loc "The location." : Location)
   requires validBody body
   ensures validAnalysisObject body result
+    via exact validAnalysisObject_of_getAnalysisObject_body body loc h_validBody
   : AnalysisObject :=
     let bb := body↦blocks ! loc↦block↦index ;
     if loc↦stmtIdx < bb↦statements·length then

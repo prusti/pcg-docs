@@ -373,12 +373,15 @@ private def precondProof : Precondition → String
     s!"(by first | {String.intercalate " | " alts})"
 
 /-- Render a postcondition as a Lean source-level expression
-    used inside the subtype return wrapper. -/
+    used inside the subtype return wrapper. The optional
+    `proof` carried by either constructor is consumed by
+    `wrapBodyExpr` (the subtype proof position), not by this
+    predicate renderer. -/
 private def postcondLean : Postcondition → String
-  | .named n args =>
+  | .named n args _ =>
     if args.isEmpty then n
     else s!"{n} {" ".intercalate args}"
-  | .expr_ e => e.toLean
+  | .expr_ e _ => e.toLean
 
 /-- Build the conjunction of postcondition applications used
     inside the subtype return wrapper. The literal argument
@@ -404,12 +407,21 @@ private def wrapRetType
     otherwise return the body unchanged. The proof tactic
     starts with `decide` so postconds that hold by computation
     on the literal body discharge cleanly (no `sorry` warning),
-    falling back to `sorry` when `decide` doesn't apply. -/
+    falling back to `sorry` when `decide` doesn't apply.
+
+    Mirrors `Core.Dsl.DefFn.wrapBody`: when a single
+    postcondition carries a `via tac` clause, the user's
+    tactic is spliced in instead of the fallback cascade. -/
 private def wrapBodyExpr
     (body : LeanExpr)
     (postconds : List Postcondition) : LeanExpr :=
+  let proofText :=
+    match postconds with
+    | [pc] => (pc.proof?.map (s!"by {·}")).getD
+        "by first | trivial | decide | sorry"
+    | _ => "by first | trivial | decide | sorry"
   if postconds.isEmpty then body
-  else .anonCtor [body, .raw "by first | trivial | decide | sorry"]
+  else .anonCtor [body, .raw proofText]
 
 /-- Convert FnDef params to AST binders. -/
 private def paramBinders
@@ -821,8 +833,8 @@ where
     | .named n _ _ => [n]
     | .expr_ e _ => e.calledNames
   postcondCalledNames : Postcondition → List String
-    | .named n _ => [n]
-    | .expr_ e => e.calledNames
+    | .named n _ _ => [n]
+    | .expr_ e _ => e.calledNames
 
 /-- Whether this function uses `Set` anywhere. -/
 def usesSet (f : FnDef) : Bool :=
