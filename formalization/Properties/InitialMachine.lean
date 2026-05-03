@@ -258,13 +258,28 @@ private theorem evalLocal_initialMachine_provenance
   rfl
 
 /-- Every allocation in the initial machine has data
-    `List.replicate _ AbstractByte.uninit`. Same upstream-blocked
-    `match heq :` issue as `evalLocal_initialMachine_provenance`. -/
+    `List.replicate _ AbstractByte.uninit`. The initial machine
+    performs exactly one `Memory.allocate` call (for `Local⟨0⟩`),
+    which constructs an allocation whose `data` is precisely
+    `List.replicate sz AbstractByte.uninit`. -/
 private theorem initialMachine_alloc_data_eq_replicate
     (pr : Program) (h : validProgram pr) (a : Allocation)
     (ha : a ∈ (initialMachine pr h).mem.allocs) :
     ∃ sz, a.data = List.replicate sz AbstractByte.uninit := by
-  sorry
+  unfold initialMachine Machine.createFrame StackFrame.storageLive at ha
+  simp only [storageDead_initFrame_mapEmpty, liveAndStoreArgs_nil] at ha
+  unfold Memory.allocate at ha
+  simp only [List.nil_append] at ha
+  rw [List.mem_singleton] at ha
+  -- The `IsSized` obligation mirrors the one discharged inside
+  -- `storageLive`'s `proof[…]` for `Local⟨0⟩`.
+  have hvb := validBody_startProgram pr h
+  refine ⟨Ty.sizeOf (Program.startProgram pr h).decls[0]! ?_, ?_⟩
+  · show Ty.IsSized ((Program.startProgram pr h).decls[0]!)
+    rw [getElem!_pos (Program.startProgram pr h).decls 0
+      (List.length_pos_iff.mpr hvb.1)]
+    exact hvb.2.2.2 _ (List.getElem_mem _)
+  · rw [ha]; rfl
 
 private theorem initialMachine_alloc_data_uninit
     (pr : Program) (h : validProgram pr) (idx : Nat)
