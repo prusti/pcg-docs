@@ -177,40 +177,28 @@ private theorem ownedLocalsMeet_length
     (ownedLocalsMeet xs ys h).length = xs.length := by
   induction xs generalizing ys with
   | nil =>
-      cases ys with
-      | nil => rfl
-      | cons _ _ => simp at h
+    cases ys with
+    | nil => rfl
+    | cons _ _ => simp at h
   | cons x xs ih =>
-      cases ys with
-      | nil => simp at h
-      | cons y ys =>
-          have hh : xs.length = ys.length := by simpa using h
-          have heq := ih ys hh
-          cases x with
-          | allocated ix =>
-              cases y with
-              | allocated iy =>
-                  show (OwnedLocal.allocated _ ::
-                          ownedLocalsMeet xs ys hh).length =
-                       xs.length + 1
-                  simp [List.length_cons, heq]
-              | unallocated =>
-                  show (OwnedLocal.unallocated ::
-                          ownedLocalsMeet xs ys hh).length =
-                       xs.length + 1
-                  simp [List.length_cons, heq]
-          | unallocated =>
-              cases y with
-              | allocated _ =>
-                  show (OwnedLocal.unallocated ::
-                          ownedLocalsMeet xs ys hh).length =
-                       xs.length + 1
-                  simp [List.length_cons, heq]
-              | unallocated =>
-                  show (OwnedLocal.unallocated ::
-                          ownedLocalsMeet xs ys hh).length =
-                       xs.length + 1
-                  simp [List.length_cons, heq]
+    cases ys with
+    | nil => simp at h
+    | cons y ys =>
+      have hh : xs.length = ys.length := by simpa using h
+      have heq := ih ys hh
+      -- All four (x, y) constructor combinations reduce to a
+      -- one-element-wider `<ctor> :: ownedLocalsMeet xs ys hh`,
+      -- whose length is `xs.length + 1` via the induction
+      -- hypothesis. The function isn't simp-reducible, so each
+      -- arm needs an explicit `show` to expose the cons shape.
+      cases x <;> cases y <;>
+        (first
+          | (show (OwnedLocal.allocated _ :: ownedLocalsMeet xs ys hh).length =
+                  xs.length + 1
+             simp [List.length_cons, heq])
+          | (show (OwnedLocal.unallocated :: ownedLocalsMeet xs ys hh).length =
+                  xs.length + 1
+             simp [List.length_cons, heq]))
 
 private theorem AnalysisState.pushOneNewEntry_length
     (state : AnalysisState) (exit : PcgData Place)
@@ -222,11 +210,9 @@ private theorem AnalysisState.pushOneNewEntry_length
       exit.os.locals.length := by
   unfold AnalysisState.pushOneNewEntry
   split
-  · rename_i existing heq
-    simp only [PcgData.join, OwnedState.meet,
-      ownedLocalsMeet_length]
-    exact h existing
-      (mem_mapValues_of_mapGet_eq_some heq)
+  · next existing heq =>
+    simp only [PcgData.join, OwnedState.meet, ownedLocalsMeet_length]
+    exact h existing (mem_mapValues_of_mapGet_eq_some heq)
   · rfl
 
 private theorem AnalysisState.pushOne_preserves_lengths
@@ -239,11 +225,8 @@ private theorem AnalysisState.pushOne_preserves_lengths
               state exit succ h).entryStates,
       e.os.locals.length = exit.os.locals.length := by
   intro e he
-  unfold AnalysisState.pushOne at he
-  simp only at he
   rcases mem_mapValues_mapInsert he with rfl | hold
-  · exact AnalysisState.pushOneNewEntry_length
-      state exit succ h
+  · exact AnalysisState.pushOneNewEntry_length state exit succ h
   · exact h e hold
 }
 
