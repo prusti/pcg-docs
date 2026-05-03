@@ -86,8 +86,8 @@ defFn placesFromFields (.plain "placesFromFields")
   : Set Place where
   | [] ; _ ; _ => ∅
   | ⟨fi, ty, sub⟩ :: rest ; base ; projAcc =>
-      let fldPlaces := itPlaces sub base (projAcc ++ [ProjElem.field fi ty]);
-      placesFromFields rest base projAcc
+      itPlaces sub base (projAcc ++ [ProjElem.field fi ty]) ∪
+        placesFromFields rest base projAcc
 end
 
 
@@ -175,21 +175,18 @@ theorem meet_comm
     : ∀ (a b : InitTree), meet a b = meet b a
   | .leaf x, .leaf y => by
       simp only [meet, InitialisationState.meet_comm]
-  | .leaf .uninit, .internal _ => rfl
-  | .internal _, .leaf .uninit => rfl
-  | .leaf .shallow, .internal _ => rfl
-  | .internal _, .leaf .shallow => rfl
-  | .leaf .deep, .internal _ => rfl
-  | .internal _, .leaf .deep => rfl
   | .internal (.deref a), .internal (.deref b) => by
       simp only [meet, meet_comm a b]
-  | .internal (.deref _), .internal (.fields _) => rfl
-  | .internal (.deref _), .internal (.guided _) => rfl
-  | .internal (.fields _), .internal (.deref _) => rfl
-  | .internal (.fields _), .internal (.fields _) => rfl
-  | .internal (.fields _), .internal (.guided _) => rfl
-  | .internal (.guided _), .internal (.deref _) => rfl
-  | .internal (.guided _), .internal (.fields _) => rfl
+  | .leaf .uninit, .internal _ | .internal _, .leaf .uninit
+  | .leaf .shallow, .internal _ | .internal _, .leaf .shallow
+  | .leaf .deep, .internal _ | .internal _, .leaf .deep
+  | .internal (.deref _), .internal (.fields _)
+  | .internal (.deref _), .internal (.guided _)
+  | .internal (.fields _), .internal (.deref _)
+  | .internal (.fields _), .internal (.fields _)
+  | .internal (.fields _), .internal (.guided _)
+  | .internal (.guided _), .internal (.deref _)
+  | .internal (.guided _), .internal (.fields _)
   | .internal (.guided _), .internal (.guided _) => rfl
 termination_by a _ => sizeOf a
 
