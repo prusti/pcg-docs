@@ -383,15 +383,11 @@ private theorem PcgData.obtainTriples_preserves_validPcgData
       simp at h; rw [← h]; exact hv
   | pd, t :: rest, h_pre0, pd', h, hv => by
       unfold PcgData.obtainTriples at h
-      cases h1 : PcgData.obtain pd body t.place t.pre _ with
-      | none => rw [h1] at h; simp at h
-      | some pd1 =>
-        rw [h1] at h
-        simp only [Option.bind_some] at h
-        have hv1 :=
-          PcgData.obtain_preserves_validPcgData h1 hv
-        exact PcgData.obtainTriples_preserves_validPcgData
-          body (pd := pd1) (triples := rest) _ h hv1
+      simp only [Option.bind_eq_some_iff] at h
+      obtain ⟨pd1, h1, h2⟩ := h
+      exact PcgData.obtainTriples_preserves_validPcgData
+        body (pd := pd1) (triples := rest) _ h2
+        (PcgData.obtain_preserves_validPcgData h1 hv)
 
 /-- `PcgData.analyze` preserves `validPcgData`. Unfolds to a
     single `PcgData.obtainTriples` call. -/
@@ -417,38 +413,15 @@ private theorem PcgData.analyzeAt_validPcgDomainData
     (hv : validPcgData body pd) :
     validPcgDomainData body dd := by
   unfold PcgData.analyzeAt at h
-  cases h1 : PcgData.analyze pd body loc .preOperands h_validBody with
-  | none => rw [h1] at h; simp at h
-  | some preOp =>
-    rw [h1] at h
-    simp only [Option.bind_some] at h
-    cases h2 : PcgData.analyze preOp body loc .postOperands h_validBody with
-    | none => rw [h2] at h; simp at h
-    | some postOp =>
-      rw [h2] at h
-      simp only [Option.bind_some] at h
-      cases h3 : PcgData.analyze postOp body loc .preMain h_validBody with
-      | none => rw [h3] at h; simp at h
-      | some preM =>
-        rw [h3] at h
-        simp only [Option.bind_some] at h
-        cases h4 : PcgData.analyze preM body loc .postMain h_validBody with
-        | none => rw [h4] at h; simp at h
-        | some postM =>
-          rw [h4] at h
-          simp only [Option.bind_some] at h
-          injection h with h_eq
-          rw [← h_eq]
-          have hv1 :=
-            PcgData.analyze_preserves_validPcgData h_validBody h1 hv
-          have hv2 :=
-            PcgData.analyze_preserves_validPcgData h_validBody h2 hv1
-          have hv3 :=
-            PcgData.analyze_preserves_validPcgData h_validBody h3 hv2
-          have hv4 :=
-            PcgData.analyze_preserves_validPcgData h_validBody h4 hv3
-          unfold validPcgDomainData
-          exact ⟨hv, hv1, hv2, hv3, hv4⟩
+  simp only [Option.bind_eq_some_iff] at h
+  obtain ⟨preOp, h1, postOp, h2, preM, h3, postM, h4, h_eq⟩ := h
+  have hv1 := PcgData.analyze_preserves_validPcgData h_validBody h1 hv
+  have hv2 := PcgData.analyze_preserves_validPcgData h_validBody h2 hv1
+  have hv3 := PcgData.analyze_preserves_validPcgData h_validBody h3 hv2
+  have hv4 := PcgData.analyze_preserves_validPcgData h_validBody h4 hv3
+  injection h_eq with h_eq
+  rw [← h_eq]
+  exact ⟨hv, hv1, hv2, hv3, hv4⟩
 
 /-- `PcgData.analyzeAt`'s `postMain` is valid (corollary of
     `analyzeAt_validPcgDomainData`'s last conjunct). -/
@@ -478,74 +451,37 @@ private theorem PcgData.analyzeStmtsFrom_last_postMain_validPcgData
         validPcgData body last.states.postMain
   | pd, idx, [], result, h, hv, last, h_last => by
       unfold PcgData.analyzeStmtsFrom at h
-      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
-        h_validBody with
-      | none => rw [h1] at h; simp at h
-      | some dd =>
-        rw [h1] at h
-        simp only [Option.bind_some] at h
-        injection h with h_eq
-        rw [← h_eq] at h_last
-        simp [List.getLast?] at h_last
-        rw [← h_last]
-        exact PcgData.analyzeAt_postMain_validPcgData
-          h_validBody h1 hv
+      simp only [Option.bind_eq_some_iff] at h
+      obtain ⟨dd, h1, h_eq⟩ := h
+      injection h_eq with h_eq
+      rw [← h_eq] at h_last
+      simp [List.getLast?] at h_last
+      rw [← h_last]
+      exact PcgData.analyzeAt_postMain_validPcgData h_validBody h1 hv
   | pd, idx, _ :: rest, result, h, hv, last, h_last => by
       unfold PcgData.analyzeStmtsFrom at h
-      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
-        h_validBody with
-      | none => rw [h1] at h; simp at h
-      | some dd =>
-        rw [h1] at h
-        simp only [Option.bind_some] at h
-        cases h2 : PcgData.analyzeStmtsFrom
-          dd.states.postMain body bb (idx + 1) rest h_validBody with
-        | none => rw [h2] at h; simp at h
-        | some restDDs =>
-          rw [h2] at h
-          simp only [Option.bind_some] at h
-          injection h with h_eq
-          rw [← h_eq] at h_last
-          have hv1 :=
-            PcgData.analyzeAt_postMain_validPcgData
-              h_validBody h1 hv
-          have h_ind :=
-            PcgData.analyzeStmtsFrom_last_postMain_validPcgData
-              body bb h_validBody (pd := dd.states.postMain)
-              (idx := idx + 1) (remaining := rest)
-              (result := restDDs) h2 hv1
-          -- `analyzeStmtsFrom` always returns a non-empty list:
-          -- both arms of its match produce `Some (… :: …)` or
-          -- `Some [_]`. So `restDDs ≠ []`, and
-          -- `(dd :: restDDs).getLast? = restDDs.getLast?`.
-          have h_restDDs_nonempty : restDDs ≠ [] := by
-            intro h_nil
-            rw [h_nil] at h2
-            -- analyzeStmtsFrom on rest returning Some [] is
-            -- impossible: every arm wraps the result in a cons.
-            cases rest with
-            | nil =>
-              unfold PcgData.analyzeStmtsFrom at h2
-              cases h2' : PcgData.analyzeAt dd.states.postMain body
-                  ⟨bb, idx + 1⟩ h_validBody with
-              | none => rw [h2'] at h2; simp at h2
-              | some _ => rw [h2'] at h2; simp at h2
-            | cons _ _ =>
-              unfold PcgData.analyzeStmtsFrom at h2
-              cases h2' : PcgData.analyzeAt dd.states.postMain body
-                  ⟨bb, idx + 1⟩ h_validBody with
-              | none => rw [h2'] at h2; simp at h2
-              | some dd' =>
-                rw [h2'] at h2
-                simp only [Option.bind_some] at h2
-                cases h2'' : PcgData.analyzeStmtsFrom
-                  dd'.states.postMain body bb (idx + 2) _
-                  h_validBody with
-                | none => rw [h2''] at h2; simp at h2
-                | some _ => rw [h2''] at h2; simp at h2
-          rw [List.getLast?_cons_of_ne_nil h_restDDs_nonempty]
-            at h_last
-          exact h_ind last h_last
+      simp only [Option.bind_eq_some_iff] at h
+      obtain ⟨dd, h1, restDDs, h2, h_eq⟩ := h
+      injection h_eq with h_eq
+      rw [← h_eq] at h_last
+      have hv1 :=
+        PcgData.analyzeAt_postMain_validPcgData h_validBody h1 hv
+      have h_ind :=
+        PcgData.analyzeStmtsFrom_last_postMain_validPcgData
+          body bb h_validBody (pd := dd.states.postMain)
+          (idx := idx + 1) (remaining := rest)
+          (result := restDDs) h2 hv1
+      -- `analyzeStmtsFrom` always returns a non-empty list (every arm
+      -- wraps the result in a cons), so `(dd :: restDDs).getLast? =
+      -- restDDs.getLast?`.
+      have h_restDDs_nonempty : restDDs ≠ [] := by
+        intro h_nil
+        rw [h_nil] at h2
+        cases rest <;>
+          (unfold PcgData.analyzeStmtsFrom at h2
+           simp [Option.bind_eq_some_iff] at h2)
+      rw [List.getLast?_cons_of_ne_nil h_restDDs_nonempty] at h_last
+      exact h_ind last h_last
 
 /-- `PcgData.analyzeBlock`'s last element's `postMain` is valid
     when the input PCG is valid. Delegates to
@@ -578,43 +514,26 @@ private theorem PcgData.analyzeStmtsFrom_all_validPcgDomainData
       ∀ dd ∈ result, validPcgDomainData body dd
   | pd, idx, [], result, h, hv, dd, h_dd => by
       unfold PcgData.analyzeStmtsFrom at h
-      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
-        h_validBody with
-      | none => rw [h1] at h; simp at h
-      | some dd' =>
-        rw [h1] at h
-        simp only [Option.bind_some] at h
-        injection h with h_eq
-        rw [← h_eq] at h_dd
-        rcases List.mem_singleton.mp h_dd with rfl
-        exact PcgData.analyzeAt_validPcgDomainData
-          h_validBody h1 hv
+      simp only [Option.bind_eq_some_iff] at h
+      obtain ⟨dd', h1, h_eq⟩ := h
+      injection h_eq with h_eq
+      rw [← h_eq] at h_dd
+      rcases List.mem_singleton.mp h_dd with rfl
+      exact PcgData.analyzeAt_validPcgDomainData h_validBody h1 hv
   | pd, idx, _ :: rest, result, h, hv, dd, h_dd => by
       unfold PcgData.analyzeStmtsFrom at h
-      cases h1 : PcgData.analyzeAt pd body ⟨bb, idx⟩
-        h_validBody with
-      | none => rw [h1] at h; simp at h
-      | some dd' =>
-        rw [h1] at h
-        simp only [Option.bind_some] at h
-        cases h2 : PcgData.analyzeStmtsFrom
-          dd'.states.postMain body bb (idx + 1) rest h_validBody with
-        | none => rw [h2] at h; simp at h
-        | some restDDs =>
-          rw [h2] at h
-          simp only [Option.bind_some] at h
-          injection h with h_eq
-          rw [← h_eq] at h_dd
-          rcases List.mem_cons.mp h_dd with rfl | h_in_rest
-          · exact PcgData.analyzeAt_validPcgDomainData
-              h_validBody h1 hv
-          · have hv1 :=
-              PcgData.analyzeAt_postMain_validPcgData
-                h_validBody h1 hv
-            exact PcgData.analyzeStmtsFrom_all_validPcgDomainData
-              body bb h_validBody (pd := dd'.states.postMain)
-              (idx := idx + 1) (remaining := rest)
-              (result := restDDs) h2 hv1 dd h_in_rest
+      simp only [Option.bind_eq_some_iff] at h
+      obtain ⟨dd', h1, restDDs, h2, h_eq⟩ := h
+      injection h_eq with h_eq
+      rw [← h_eq] at h_dd
+      rcases List.mem_cons.mp h_dd with rfl | h_in_rest
+      · exact PcgData.analyzeAt_validPcgDomainData h_validBody h1 hv
+      · have hv1 :=
+          PcgData.analyzeAt_postMain_validPcgData h_validBody h1 hv
+        exact PcgData.analyzeStmtsFrom_all_validPcgDomainData
+          body bb h_validBody (pd := dd'.states.postMain)
+          (idx := idx + 1) (remaining := rest)
+          (result := restDDs) h2 hv1 dd h_in_rest
 
 /-- Every `PcgDomainData` in `analyzeBlock`'s result list is
     `validPcgDomainData`. Delegates to
