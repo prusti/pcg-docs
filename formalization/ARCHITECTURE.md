@@ -298,11 +298,11 @@ defFn expansionOfStep …
 
 Feature names in the surface DSL are the upper-snake-case
 spelling of the constructor (`ENUM_TYPES → Feature.enumTypes`);
-the elaborator (`Core/Dsl/ElabUtils.lean :: identToFeature`)
+the elaborator (`Core/Dsl/Types/Feature.lean :: identToFeature`)
 raises an error at the source position on an unknown spelling.
-Adding a new feature is therefore three steps: add a
-constructor to `Feature`, extend `identToFeature`, document
-the spelling here.
+The constructor and its parser arm both live in
+`Core/Dsl/Types/Feature.lean`, so adding a new feature is a
+single-file change there (plus documenting the spelling here).
 
 The render-time filter lives at:
 

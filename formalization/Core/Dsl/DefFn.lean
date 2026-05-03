@@ -6,6 +6,7 @@ import Core.Dsl.ElabUtils
 import Core.Dsl.IdentRefs
 import Core.Dsl.Lint
 import Core.Dsl.ProofFolding
+import Core.Dsl.Types.Feature
 import Runtime
 import Lean
 
