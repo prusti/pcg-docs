@@ -216,14 +216,16 @@ private theorem Memory.writeBytesAt_length_eq
   omega
 
 
-/-- From `checkPtr m ptr len = some (aid, offset)` recover the
-    `canAccess` predicate on the looked-up allocation: this is
-    the only branch of `checkPtr` that returns `some`. -/
-private theorem Memory.canAccess_of_checkPtr_eq_some
+/-- Destructor for `checkPtr m ptr len = some (aid, offset)`:
+    only the `some prov` / `canAccess = true` branch can return
+    `some`, and from it we recover both the `canAccess` predicate
+    and the offset relation. -/
+private theorem Memory.checkPtr_eq_some_inv
     {m : Memory} {ptr : ThinPointer} {len : Nat}
     {aid : AllocId} {offset : Nat}
     (h : Memory.checkPtr m ptr len = some (aid, offset)) :
-    Allocation.canAccess (m.allocs[aid.index]!) ptr len = true := by
+    Allocation.canAccess (m.allocs[aid.index]!) ptr len = true ∧
+    (ptr.addr.addr - (m.allocs[aid.index]!).address.addr : Nat) = offset := by
   unfold Memory.checkPtr at h
   cases hprov : ptr.provenance with
   | none => rw [hprov] at h; simp at h
@@ -233,34 +235,33 @@ private theorem Memory.canAccess_of_checkPtr_eq_some
     split at h
     · rename_i h_can
       injection h with h_eq
-      have h_aid : prov.id = aid := by
-        have := congrArg Prod.fst h_eq; exact this
-      rw [← h_aid]; exact h_can
-    · simp at h
-
-
-/-- From `checkPtr m ptr len = some (aid, offset)` recover the
-    relation `offset = ptr.addr - alloc.address` between the
-    returned offset and the looked-up allocation. -/
-private theorem Memory.offset_of_checkPtr_eq_some
-    {m : Memory} {ptr : ThinPointer} {len : Nat}
-    {aid : AllocId} {offset : Nat}
-    (h : Memory.checkPtr m ptr len = some (aid, offset)) :
-    (ptr.addr.addr - (m.allocs[aid.index]!).address.addr : Nat) = offset := by
-  unfold Memory.checkPtr at h
-  cases hprov : ptr.provenance with
-  | none => rw [hprov] at h; simp at h
-  | some prov =>
-    rw [hprov] at h
-    simp only [Option.bind_some] at h
-    split at h
-    · injection h with h_eq
       have h_aid : prov.id = aid := congrArg Prod.fst h_eq
       have h_off_p :
           (ptr.addr - (m.allocs[prov.id.index]!).address : Nat) = offset :=
         congrArg Prod.snd h_eq
-      rw [← h_aid]; exact h_off_p
+      refine ⟨?_, ?_⟩ <;> rw [← h_aid]
+      · exact h_can
+      · exact h_off_p
     · simp at h
+
+/-- From `checkPtr m ptr len = some (aid, offset)` recover the
+    `canAccess` predicate on the looked-up allocation. -/
+private theorem Memory.canAccess_of_checkPtr_eq_some
+    {m : Memory} {ptr : ThinPointer} {len : Nat}
+    {aid : AllocId} {offset : Nat}
+    (h : Memory.checkPtr m ptr len = some (aid, offset)) :
+    Allocation.canAccess (m.allocs[aid.index]!) ptr len = true :=
+  (Memory.checkPtr_eq_some_inv h).1
+
+
+/-- From `checkPtr m ptr len = some (aid, offset)` recover the
+    relation `offset = ptr.addr - alloc.address`. -/
+private theorem Memory.offset_of_checkPtr_eq_some
+    {m : Memory} {ptr : ThinPointer} {len : Nat}
+    {aid : AllocId} {offset : Nat}
+    (h : Memory.checkPtr m ptr len = some (aid, offset)) :
+    (ptr.addr.addr - (m.allocs[aid.index]!).address.addr : Nat) = offset :=
+  (Memory.checkPtr_eq_some_inv h).2
 
 
 /-- The overwritten allocation produced by `Memory.store` (in
@@ -497,33 +498,24 @@ theorem Memory.endAddr_lt_top
     (m : Memory) (hvm : Memory.validMemory m) (i : Nat)
     (h : i < m.allocs.length) :
     Allocation.endAddr (m.allocs[i]!) < Memory.top m := by
-  -- The list is non-empty, so `last m.allocs = some last_alloc`
-  -- where `last_alloc = m.allocs[length - 1]!`. `top m =
-  -- (endAddr last_alloc).addr + 1`, and we want
-  -- `endAddr (allocs[i]!) < endAddr last_alloc + 1`. For
-  -- `i = length - 1` it's reflexive `≤` plus strict `< +1`; for
-  -- `i < length - 1` we chain through validMemory: `endAddr
-  -- (allocs[i]) < (allocs[length-1]).address ≤ endAddr
-  -- (allocs[length-1])`.
-  have h_nonempty : m.allocs ≠ [] := fun heq => by
-    rw [heq] at h; exact absurd h (Nat.not_lt_zero _)
-  have h_last_idx : m.allocs.length - 1 < m.allocs.length :=
-    Nat.sub_lt (List.length_pos_iff.mpr h_nonempty) Nat.one_pos
+  -- The list is non-empty, so `last m.allocs = some allocs[length-1]!`.
+  -- `top m = endAddr (last m.allocs) + 1`, so we want
+  -- `endAddr allocs[i]! < endAddr allocs[length-1]! + 1`. For
+  -- `i = length - 1` it is reflexivity; for `i < length - 1` we chain
+  -- through validMemory: `endAddr allocs[i] < allocs[length-1].address
+  -- ≤ endAddr allocs[length-1]`.
+  have h_last_idx : m.allocs.length - 1 < m.allocs.length := by omega
   have h_last_eq : last m.allocs = some (m.allocs[m.allocs.length - 1]!) := by
     unfold last
-    rw [getElem!_pos m.allocs (m.allocs.length - 1) h_last_idx]
-    rw [List.getLast?_eq_getElem?]
-    rw [List.getElem?_eq_getElem h_last_idx]
+    rw [getElem!_pos m.allocs _ h_last_idx,
+        List.getLast?_eq_getElem?, List.getElem?_eq_getElem h_last_idx]
   unfold Memory.top
   rw [h_last_eq]
   show (Allocation.endAddr (m.allocs[i]!)).addr
        < (Allocation.endAddr (m.allocs[m.allocs.length - 1]!)).addr + 1
   by_cases h_eq : i = m.allocs.length - 1
   · subst h_eq; omega
-  · -- `i < length - 1`. Use validMemory: endAddr (allocs[i]) <
-    -- (allocs[length-1]).address ≤ endAddr (allocs[length-1]).
-    have hi_lt : i < m.allocs.length - 1 := by omega
-    have h_pair := hvm i (m.allocs.length - 1) ⟨hi_lt, h_last_idx⟩
+  · have h_pair := hvm i (m.allocs.length - 1) ⟨by omega, h_last_idx⟩
     have h_addr_le :
         (m.allocs[m.allocs.length - 1]!).address.addr
           ≤ (Allocation.endAddr (m.allocs[m.allocs.length - 1]!)).addr := by
@@ -603,15 +595,16 @@ theorem Memory.deallocate_allocs_length_unchanged
   unfold listSet; simp
 
 
-/-- `Memory.deallocate` preserves the `address` field of every
-    allocation. The "dead" allocation produced inside copies the
-    original's address; `List.set` leaves every other index
-    alone. -/
-theorem Memory.deallocate_alloc_address_unchanged
+/-- `Memory.deallocate` preserves both `address` and `data` of
+    every allocation: the "dead" replacement copies both fields
+    from the original; `List.set` leaves every other index alone. -/
+private theorem Memory.deallocate_alloc_addr_data_unchanged
     (m : Memory) (id : AllocId) (h : Memory.validAllocId m id)
     (i : Nat) (h_i : i < m.allocs.length) :
     ((Memory.deallocate m id h).allocs[i]!).address
-      = (m.allocs[i]!).address := by
+        = (m.allocs[i]!).address ∧
+    ((Memory.deallocate m id h).allocs[i]!).data
+        = (m.allocs[i]!).data := by
   have h_set_len : i < (Memory.deallocate m id h).allocs.length := by
     rw [Memory.deallocate_allocs_length_unchanged]; exact h_i
   rw [getElem!_pos _ i h_set_len, getElem!_pos m.allocs i h_i]
@@ -619,35 +612,31 @@ theorem Memory.deallocate_alloc_address_unchanged
   simp only [listSet]
   by_cases hi : i = id.index
   · subst hi
-    rw [List.getElem_set_self]
-    -- Bridge the `[id.index]!`-form used inside `deallocate`'s
-    -- body construction with the `[id.index]'h`-form on the RHS:
-    -- both are equal under proof of in-bounds.
-    rw [getElem!_pos m.allocs id.index h]
-    rfl
-  · rw [List.getElem_set_ne (Ne.symm hi)]
+    rw [List.getElem_set_self, getElem!_pos m.allocs id.index h]
+    exact ⟨rfl, rfl⟩
+  · rw [List.getElem_set_ne (Ne.symm hi)]; exact ⟨rfl, rfl⟩
+
+/-- `Memory.deallocate` preserves the `address` field of every
+    allocation. -/
+theorem Memory.deallocate_alloc_address_unchanged
+    (m : Memory) (id : AllocId) (h : Memory.validAllocId m id)
+    (i : Nat) (h_i : i < m.allocs.length) :
+    ((Memory.deallocate m id h).allocs[i]!).address
+      = (m.allocs[i]!).address :=
+  (Memory.deallocate_alloc_addr_data_unchanged m id h i h_i).1
 
 
 /-- `Memory.deallocate` preserves `endAddr` for every allocation:
-    same argument as `address`-preservation — the dead replacement
-    allocation copies both `address` and `data` from the original. -/
+    follows from address- and data-preservation, since `endAddr`
+    is `address + data.length`. -/
 theorem Memory.deallocate_alloc_endAddr_unchanged
     (m : Memory) (id : AllocId) (h : Memory.validAllocId m id)
     (i : Nat) (h_i : i < m.allocs.length) :
     Allocation.endAddr ((Memory.deallocate m id h).allocs[i]!)
       = Allocation.endAddr (m.allocs[i]!) := by
-  have h_set_len : i < (Memory.deallocate m id h).allocs.length := by
-    rw [Memory.deallocate_allocs_length_unchanged]; exact h_i
-  rw [getElem!_pos _ i h_set_len, getElem!_pos m.allocs i h_i]
-  unfold Memory.deallocate
-  simp only [listSet]
-  by_cases hi : i = id.index
-  · subst hi
-    rw [List.getElem_set_self]
-    unfold Allocation.endAddr
-    rw [getElem!_pos m.allocs id.index h]
-    rfl
-  · rw [List.getElem_set_ne (Ne.symm hi)]
+  obtain ⟨h_addr, h_data⟩ :=
+    Memory.deallocate_alloc_addr_data_unchanged m id h i h_i
+  unfold Allocation.endAddr; rw [h_addr, h_data]
 
 
 /-- `Memory.deallocate` preserves `Memory.validMemory`: every
