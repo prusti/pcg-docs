@@ -198,13 +198,8 @@ private theorem operandTriple_validPlace
     validPlace body t.place := by
   unfold operandTriple at ht
   cases o with
-  | copy p =>
-    have heq := mem_singleton_toList ht
-    subst heq
-    exact h p rfl
-  | move p =>
-    have heq := mem_singleton_toList ht
-    subst heq
+  | copy p | move p =>
+    cases mem_singleton_toList ht
     exact h p rfl
   | const _ =>
     exact absurd ht not_mem_empty_toList
@@ -271,26 +266,17 @@ private theorem terminatorTriples_validPlace
     validPlace body t.place := by
   unfold terminatorTriples at ht
   cases term with
-  | goto _ =>
+  | goto _ | return_ | unreachable | drop _ _ =>
     exact absurd ht not_mem_empty_toList
   | switchInt o cs fb =>
     apply operandTriple_validPlace body o _ t ht
     intro p hp
-    have hterm :
-        ∀ p ∈ Terminator.terminatorPlaces (.switchInt o cs fb),
-          validPlace body p := h
-    apply hterm
+    apply (h : ∀ p ∈ Terminator.terminatorPlaces (.switchInt o cs fb), _)
     show p ∈ Terminator.terminatorPlaces (.switchInt o cs fb)
     unfold Terminator.terminatorPlaces
     simp only
     rw [hp]
     exact mem_option_some_toSet p
-  | return_ =>
-    exact absurd ht not_mem_empty_toList
-  | unreachable =>
-    exact absurd ht not_mem_empty_toList
-  | drop _ _ =>
-    exact absurd ht not_mem_empty_toList
   | call callee args dest next =>
     have hterm :
         ∀ p ∈ Terminator.terminatorPlaces
@@ -373,24 +359,13 @@ private theorem mainTriples_validPlace
       rw [Std.HashSet.union_eq]
       apply Std.HashSet.mem_union_of_left
       exact mem_set_singleton lhs
-    | storageLive lcl =>
-      have heq := mem_singleton_toList ht
-      subst heq
-      exact validPlace_of_validLocal_nilProj h
-    | storageDead lcl =>
-      have heq := mem_singleton_toList ht
-      subst heq
+    | storageLive lcl | storageDead lcl =>
+      cases mem_singleton_toList ht
       exact validPlace_of_validLocal_nilProj h
   | terminator term =>
     have hterm : validTerminator body term := h
     cases term with
-    | goto _ =>
-      exact absurd ht not_mem_empty_toList
-    | switchInt _ _ _ =>
-      exact absurd ht not_mem_empty_toList
-    | return_ =>
-      exact absurd ht not_mem_empty_toList
-    | unreachable =>
+    | goto _ | switchInt _ _ _ | return_ | unreachable =>
       exact absurd ht not_mem_empty_toList
     | drop p tgt =>
       have heq := mem_singleton_toList ht
@@ -440,13 +415,9 @@ private theorem analyze_triples_validPlace
         (getAnalysisObject body loc h_validBody).val :=
     (getAnalysisObject body loc h_validBody).property
   cases phase with
-  | preOperands =>
-    exact operandTriples_validPlace body _ h_ao t ht
-  | preMain =>
-    exact mainTriples_validPlace body _ h_ao t ht
-  | postOperands =>
-    exact absurd ht not_mem_empty_toList
-  | postMain =>
+  | preOperands => exact operandTriples_validPlace body _ h_ao t ht
+  | preMain => exact mainTriples_validPlace body _ h_ao t ht
+  | postOperands | postMain =>
     exact absurd ht not_mem_empty_toList
 
 }
