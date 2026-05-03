@@ -35,26 +35,6 @@ hypergraph reachability — not necessarily complete for paths
 that thread through unmodelled lifetime-projection nodes. -/
 
 -- ══════════════════════════════════════════════
--- Endpoint → PcgNode lifters
--- ══════════════════════════════════════════════
-
-defFn implicit mlpNode (.plain "mlpNode")
-  (doc! "Lift a maybe-labelled place to a PCG node by \
-    wrapping it in a #PcgPlace.maybeLabelled and then a \
-    #PcgNode.place.")
-  (mlp "The maybe-labelled place." : MaybeLabelled Place)
-  : PcgNode Place :=
-    PcgNode.place (PcgPlace.maybeLabelled mlp)
-
-defFn pcgLpNode (.plain "pcgLpNode")
-  (doc! "Lift a PCG lifetime projection to a PCG node by \
-    wrapping it in #PcgNode.lifetimeProjection.")
-  (lp "The PCG lifetime projection."
-      : PcgLifetimeProjection Place)
-  : PcgNode Place :=
-    PcgNode.lifetimeProjection lp
-
--- ══════════════════════════════════════════════
 -- Per-edge out-neighbours
 -- ══════════════════════════════════════════════
 

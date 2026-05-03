@@ -60,15 +60,21 @@ end BorrowsGraph
 -- Converting owned init trees to unpack edges
 -- ══════════════════════════════════════════════
 
+defFn implicit mlpNode (.plain "mlpNode")
+  (doc! "Lift a maybe-labelled place to a PCG node by \
+    wrapping it in a #PcgPlace.maybeLabelled and then a \
+    #PcgNode.place.")
+  (mlp "The maybe-labelled place." : MaybeLabelled Place)
+  : PcgNode Place :=
+    PcgNode.place (PcgPlace.maybeLabelled mlp)
+
 defFn implicit placeNode (.plain "placeNode")
   (.plain "Wrap a MIR place as a PCG node: inject it as a \
     current (unlabelled) maybe-labelled place nested inside a \
     PCG place and then a PCG node.")
   (p "The place to wrap." : Place)
   : PcgNode Place :=
-    PcgNode.place
-      (PcgPlace.maybeLabelled
-        (MaybeLabelled.current p))
+    mlpNode (MaybeLabelled.current p)
 
 defFnMutual
 defFn itUnpackEdges (.plain "itUnpackEdges")
