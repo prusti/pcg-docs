@@ -66,42 +66,6 @@ def mapValues {κ : Type} [BEq κ] [Hashable κ] {ν : Type}
     (m : Map κ ν) : List ν :=
   m.fold (fun acc _ v => v :: acc) []
 
-private theorem List.mem_foldlConsSnd_of_mem
-    {α β : Type} (l : List (α × β)) {init : List β} {b : β}
-    (h : b ∈ init) :
-    b ∈ l.foldl (fun acc x => x.2 :: acc) init := by
-  induction l generalizing init with
-  | nil => exact h
-  | cons _ _ ih => exact ih (List.mem_cons_of_mem _ h)
-
-private theorem List.mem_foldlConsSnd_of_pair_mem
-    {α β : Type} (l : List (α × β)) {init : List β}
-    {a : α} {b : β} (h : (a, b) ∈ l) :
-    b ∈ l.foldl (fun acc x => x.2 :: acc) init := by
-  induction l generalizing init with
-  | nil => exact (List.not_mem_nil h).elim
-  | cons x xs ih =>
-      rcases List.mem_cons.mp h with rfl | h
-      · exact List.mem_foldlConsSnd_of_mem xs
-          (List.mem_cons_self)
-      · exact ih h
-
-/-- If `mapGet m k = some v` then `v` appears in `mapValues m`.
-    The implementation goes through `Std.HashMap.toList` and a
-    list-fold lemma; we expose it here so call sites can lift
-    `forAll`-style preconditions over a map's values to a fact
-    about a particular looked-up value. -/
-theorem mem_mapValues_of_mapGet_eq_some
-    {κ : Type} [BEq κ] [EquivBEq κ] [Hashable κ]
-    [LawfulHashable κ] {ν : Type}
-    {m : Map κ ν} {k : κ} {v : ν}
-    (h : mapGet m k = some v) : v ∈ mapValues m := by
-  obtain ⟨k', _, hmem⟩ :=
-    Std.HashMap.getElem?_eq_some_iff_exists_beq_and_mem_toList.mp h
-  unfold mapValues
-  rw [Std.HashMap.fold_eq_foldl_toList]
-  exact List.mem_foldlConsSnd_of_pair_mem _ hmem
-
 private theorem List.mem_foldlConsSnd_iff
     {α β : Type} (l : List (α × β)) (init : List β) (b : β) :
     b ∈ l.foldl (fun acc x => x.2 :: acc) init ↔
@@ -113,15 +77,36 @@ private theorem List.mem_foldlConsSnd_iff
     rw [List.foldl_cons, ih]
     simp only [List.mem_cons, Prod.mk.injEq]
     constructor
-    · rintro (h | ⟨a, ha⟩)
-      · rcases h with rfl | h
-        · exact Or.inr ⟨xa, Or.inl ⟨rfl, rfl⟩⟩
-        · exact Or.inl h
+    · rintro ((rfl | h) | ⟨a, ha⟩)
+      · exact Or.inr ⟨xa, Or.inl ⟨rfl, rfl⟩⟩
+      · exact Or.inl h
       · exact Or.inr ⟨a, Or.inr ha⟩
     · rintro (h | ⟨a, ⟨_, rfl⟩ | ha⟩)
       · exact Or.inl (Or.inr h)
       · exact Or.inl (Or.inl rfl)
       · exact Or.inr ⟨a, ha⟩
+
+private theorem List.mem_foldlConsSnd_of_pair_mem
+    {α β : Type} (l : List (α × β)) {init : List β}
+    {a : α} {b : β} (h : (a, b) ∈ l) :
+    b ∈ l.foldl (fun acc x => x.2 :: acc) init :=
+  (List.mem_foldlConsSnd_iff l init b).mpr (Or.inr ⟨a, h⟩)
+
+/-- If `mapGet m k = some v` then `v` appears in `mapValues m`.
+    The implementation goes through `Std.HashMap.toList` and a
+    list-fold lemma; we expose it here so call sites can lift
+    `forAll`-style preconditions over a map's values to a fact
+    about a particular looked-up value. -/
+theorem mem_mapValues_of_mapGet_eq_some
+    {κ : Type} [BEq κ] [EquivBEq κ] [Hashable κ]
+    [LawfulHashable κ] {ν : Type}
+    {m : Map κ ν} {k : κ} {v : ν}
+    (h : mapGet m k = some v) : v ∈ mapValues m := by
+  obtain ⟨_, _, hmem⟩ :=
+    Std.HashMap.getElem?_eq_some_iff_exists_beq_and_mem_toList.mp h
+  unfold mapValues
+  rw [Std.HashMap.fold_eq_foldl_toList]
+  exact List.mem_foldlConsSnd_of_pair_mem _ hmem
 
 /-- The values of `mapInsert m k v` are exactly `v` together
     with the values of `m` minus the one at key `k` (if any).
@@ -136,21 +121,17 @@ theorem mem_mapValues_mapInsert
   unfold mapValues mapInsert at *
   rw [Std.HashMap.fold_eq_foldl_toList] at h
   rcases (List.mem_foldlConsSnd_iff _ _ _).mp h with hinit | ⟨a, hpair⟩
-  · cases hinit
-  · -- (a, e) ∈ (m.insert k v).toList
-    -- via toList_insert_perm: (a, e) ∈ ⟨k, v⟩ :: m.toList.filter (¬k == ·.1)
-    have hperm := Std.HashMap.toList_insert_perm (m := m) (k := k) (v := v)
-    have hmem : (a, e) ∈ (⟨k, v⟩ :: m.toList.filter (fun p => ¬k == p.1)) :=
-      hperm.mem_iff.mp hpair
-    rcases List.mem_cons.mp hmem with heq | hfilt
-    · left
-      have : (a, e) = (k, v) := heq
-      exact (Prod.mk.injEq .. |>.mp this).2
-    · right
-      have hmem' : (a, e) ∈ m.toList :=
-        (List.mem_filter.mp hfilt).1
-      rw [Std.HashMap.fold_eq_foldl_toList]
-      exact List.mem_foldlConsSnd_of_pair_mem _ hmem'
+  · exact (List.not_mem_nil hinit).elim
+  -- (a, e) ∈ (m.insert k v).toList. By toList_insert_perm, that means
+  -- (a, e) ∈ ⟨k, v⟩ :: m.toList.filter (¬k == ·.1) — either the head
+  -- (forces e = v) or an entry of m.toList (lifts back to mapValues m).
+  rcases List.mem_cons.mp
+    ((Std.HashMap.toList_insert_perm (m := m) (k := k) (v := v)).mem_iff.mp hpair)
+    with heq | hfilt
+  · exact Or.inl (Prod.mk.injEq .. |>.mp heq).2
+  · refine Or.inr ?_
+    rw [Std.HashMap.fold_eq_foldl_toList]
+    exact List.mem_foldlConsSnd_of_pair_mem _ (List.mem_filter.mp hfilt).1
 
 /-- Every element of `mapValues (mapRemove m k)` is also an
     element of `mapValues m`: `mapRemove` only ever drops
@@ -167,17 +148,14 @@ theorem mem_mapValues_mapRemove
   unfold mapValues mapRemove at *
   rw [Std.HashMap.fold_eq_foldl_toList] at h
   rcases (List.mem_foldlConsSnd_iff _ _ _).mp h with hinit | ⟨a, hpair⟩
-  · cases hinit
-  · -- (a, e) ∈ (m.erase k).toList ⇒ (m.erase k)[a]? = some e
-  --                              ⇒ m[a]? = some e (via getElem?_erase)
-  --                              ⇒ (a, e) ∈ m.toList
-    rw [Std.HashMap.mem_toList_iff_getElem?_eq_some,
-        Std.HashMap.getElem?_erase] at hpair
-    split at hpair
-    · -- `k == a` arm: `none = some e`, contradiction.
-      simp at hpair
-    · -- `k ≠ a` arm: `m[a]? = some e`. Lift back to `mapValues m`.
-      rw [Std.HashMap.fold_eq_foldl_toList]
-      apply List.mem_foldlConsSnd_of_pair_mem
-      rw [Std.HashMap.mem_toList_iff_getElem?_eq_some]
-      exact hpair
+  · exact (List.not_mem_nil hinit).elim
+  -- (a, e) ∈ (m.erase k).toList ⇒ (m.erase k)[a]? = some e ⇒
+  -- m[a]? = some e via getElem?_erase (the `k == a` arm is
+  -- vacuous, leaving the original lookup) ⇒ (a, e) ∈ m.toList.
+  rw [Std.HashMap.mem_toList_iff_getElem?_eq_some,
+      Std.HashMap.getElem?_erase] at hpair
+  split at hpair
+  · simp at hpair
+  · rw [Std.HashMap.fold_eq_foldl_toList]
+    exact List.mem_foldlConsSnd_of_pair_mem _
+      (Std.HashMap.mem_toList_iff_getElem?_eq_some.mpr hpair)
