@@ -28,22 +28,19 @@ defFn placeLoad (.plain "placeLoad")
 
 defFn evalOperand (.plain "evalOperand")
   (doc! "Evaluate a MIR operand to a runtime value. `copy` and `move` resolve the operand's place \
-    and load the value from memory at the resulting place pointer; `const` converts the constant \
-    directly via `evalConstant`. Move semantics (storage invalidation of the source) are not yet \
-    modelled — both `copy` and `move` currently just load.")
+    via `operandPlace` and load the value from memory at the resulting place pointer; `const` \
+    converts the constant directly via `evalConstant`. Move semantics (storage invalidation of the \
+    source) are not yet modelled — both `copy` and `move` currently just load.")
   (m "The machine state." : Machine)
   (o "The operand." : Operand)
   requires Runnable m
   : Option Value where
-  | m ; .copy p =>
-      let ⟨pp, ty⟩ ←
-        evalPlace m p proof[h_Runnable] ;
-      placeLoad m↦mem pp ty
-  | m ; .move p =>
-      let ⟨pp, ty⟩ ←
-        evalPlace m p proof[h_Runnable] ;
-      placeLoad m↦mem pp ty
   | _ ; .const cv => Some (evalConstant cv)
+  | m ; o =>
+      let p ← o·operandPlace ;
+      let ⟨pp, ty⟩ ←
+        evalPlace m p proof[h_Runnable] ;
+      placeLoad m↦mem pp ty
 
 defFn evalRvalue (.plain "evalRvalue")
   (doc! "Evaluate an rvalue to a runtime value. `use` forwards to `evalOperand`. The \

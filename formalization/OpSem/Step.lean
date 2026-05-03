@@ -18,6 +18,27 @@ open StackFrame
 
 namespace Machine
 
+-- The currently executing stack frame is itself a
+-- `validStackFrame` against the machine's memory. Follows
+-- from the inductive `validStack` clause of `Runnable m`:
+-- the head of a non-empty `validStack` is a `validStackFrame`
+-- via `validStack.frame_valid`. Used by the storage helpers
+-- below and by `step` to discharge the `validStackFrame`
+-- precondition of `StackFrame.storageLive` /
+-- `StackFrame.storageDead` / `getStmtOrTerminator` at the
+-- current frame.
+defRaw middle =>
+theorem Machine.currentFrame_validStackFrame
+    (m : Machine) (h_Runnable : Machine.Runnable m) :
+    validStackFrame m.mem (Machine.currentFrame m h_Runnable) := by
+  unfold Machine.currentFrame
+  match hcase : m.thread.stack, h_Runnable.1 with
+  | [], hne => exact absurd rfl hne
+  | hd :: tl, _ =>
+    exact validStack.frame_valid
+      (hcase ▸ h_Runnable.2.2.2)
+      List.mem_cons_self
+
 defFn evalStatement (.plain "evalStatement")
   (doc! "Evaluate a single MIR statement against the machine, returning the resulting machine \
     state. Mirrors MiniRust's `Machine::eval_statement`. The `assign` case resolves the destination \
@@ -43,36 +64,13 @@ defFn evalStatement (.plain "evalStatement")
         m proof[h_Runnable] ;
       let ⟨frame', mem'⟩ := StackFrame.storageLive
         frame m↦mem lcl
-        proof[(by
-          -- `frame` is `currentFrame m _`, which unfolds to
-          -- `m.thread.stack.head!`. `Runnable m` gives us
-          -- `stack ≠ [] ∧ validProgram ∧ validStack`; the
-          -- inductive `validStack` then exposes
-          -- `validStackFrame m.mem f` for any `f ∈ stack`
-          -- via `validStack.frame_valid`.
-          show validStackFrame m.mem
-                  (currentFrame m h_Runnable)
-          unfold currentFrame
-          match hcase : m.thread.stack, h_Runnable.1 with
-          | [], hne => exact absurd rfl hne
-          | hd :: tl, _ =>
-            -- The match arm has substituted `m.thread.stack`
-            -- with `hd :: tl` in the goal; thread the same
-            -- substitution into `h_Runnable.2.2.2` via
-            -- `hcase ▸` so its type matches the cons-shaped
-            -- stack the frame_valid lookup expects.
-            exact validStack.frame_valid
-              (hcase ▸ h_Runnable.2.2.2)
-              List.mem_cons_self)]
-        proof[(by
-          -- `h_pre1 : validStatement frame.body (.storageLive lcl)`
-          -- (the second precondition, named positionally
-          -- because its first argument isn't a bare variable
-          -- the DSL can lower to a `.named` precondition).
-          -- `validStatement` on `.storageLive` reduces to
-          -- `validLocal body lcl` by definition.
-          show validLocal frame.body lcl
-          simpa [validStatement] using h_pre1)] ;
+        proof[Machine.currentFrame_validStackFrame m h_Runnable]
+        -- `h_pre1 : validStatement frame.body (.storageLive lcl)`
+        -- (named positionally because the precondition's first
+        -- argument isn't a bare variable the DSL can lower to a
+        -- `.named` form). `validStatement` on `.storageLive`
+        -- reduces to `validLocal body lcl` by definition.
+        proof[(by simpa [validStatement] using h_pre1)] ;
       let rest := stackTail
         m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
@@ -81,25 +79,11 @@ defFn evalStatement (.plain "evalStatement")
         m proof[h_Runnable] ;
       let ⟨frame', mem'⟩ := StackFrame.storageDead
         frame m↦mem lcl
-        proof[(by
-          show validStackFrame m.mem
-                  (currentFrame m h_Runnable)
-          unfold currentFrame
-          match hcase : m.thread.stack, h_Runnable.1 with
-          | [], hne => exact absurd rfl hne
-          | hd :: tl, _ =>
-            -- The match arm has substituted `m.thread.stack`
-            -- with `hd :: tl` in the goal; thread the same
-            -- substitution into `h_Runnable.2.2.2` via
-            -- `hcase ▸` so its type matches the cons-shaped
-            -- stack the frame_valid lookup expects.
-            exact validStack.frame_valid
-              (hcase ▸ h_Runnable.2.2.2)
-              List.mem_cons_self)]
-        proof[(by
-          -- Same caveat as `.storageLive` above.
-          show validLocal frame.body lcl
-          simpa [validStatement] using h_pre1)] ;
+        proof[Machine.currentFrame_validStackFrame m h_Runnable]
+        -- Same shape as the `.storageLive` arm above:
+        -- `h_pre1 : validStatement frame.body (.storageDead lcl)`
+        -- reduces to `validLocal frame.body lcl`.
+        proof[(by simpa [validStatement] using h_pre1)] ;
       let rest := stackTail
         m proof[h_Runnable] ;
       Some m[mem => mem'][thread => Thread⟨frame' :: rest⟩]
@@ -120,28 +104,8 @@ defFn step (.plain "step")
       m proof[h_Runnable] ;
     match heq : getStmtOrTerminator
         frame↦body frame↦pc
-        proof[(by
-          -- `frame` is `currentFrame m _`, which unfolds to
-          -- `m.thread.stack.head!`. `Runnable m`'s third
-          -- conjunct is `validStack stack mem`; for any
-          -- `f ∈ stack`, `validStack.frame_valid` gives back
-          -- `validStackFrame m.mem f`, and projecting `.2.1`
-          -- yields `validLocation frame.body frame.pc`.
-          show validLocation
-            (currentFrame m h_Runnable).body
-            (currentFrame m h_Runnable).pc
-          unfold currentFrame
-          match hcase : m.thread.stack, h_Runnable.1 with
-          | [], hne => exact absurd rfl hne
-          | hd :: tl, _ =>
-            -- The match arm has substituted `m.thread.stack`
-            -- with `hd :: tl` in the goal. Thread the same
-            -- substitution into `h_Runnable.2.2.2`'s type via
-            -- `hcase ▸` so `validStack.frame_valid` lines up
-            -- with the cons-shaped stack.
-            exact (validStack.frame_valid
-              (hcase ▸ h_Runnable.2.2.2)
-              List.mem_cons_self).2.1)] with
+        proof[(Machine.currentFrame_validStackFrame
+          m h_Runnable).2.1] with
     | .terminator t =>
         evalTerminator m t proof[h_Runnable]
     | .stmt s =>
@@ -156,15 +120,9 @@ defFn step (.plain "step")
               -- `validStatement_of_getStmtOrTerminator_eq`.
               have h_vsf :
                   validStackFrame m.mem
-                    (currentFrame m h_Runnable) := by
-                unfold currentFrame
-                match hcase :
-                    m.thread.stack, h_Runnable.1 with
-                | [], hne => exact absurd rfl hne
-                | hd :: tl, _ =>
-                  exact validStack.frame_valid
-                    (hcase ▸ h_Runnable.2.2.2)
-                    List.mem_cons_self
+                    (currentFrame m h_Runnable) :=
+                Machine.currentFrame_validStackFrame
+                  m h_Runnable
               exact validStatement_of_getStmtOrTerminator_eq
                 _ _ h_vsf.1 h_vsf.2.1 heq)] with
         | .none => StepResult.done .error

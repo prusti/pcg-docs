@@ -21,12 +21,4 @@ defFn evalValue (.plain "evalValue")
   | .tuple exprs _ =>
       Value.tuple (exprs ·map evalValue)
 
-defFn evalTuple (.plain "evalTuple")
-  (doc! "Evaluate a tuple value expression: recursively invoke `evalValue` on each sub-expression \
-    and wrap the results in #Value.tuple.")
-  (exprs "The sub-expressions." : List ValueExpr)
-  (ty "The tuple type." : Ty)
-  : Value :=
-    Value.tuple (exprs ·map evalValue)
-
 end Machine
