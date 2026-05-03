@@ -713,3 +713,59 @@ theorem StackFrame.storageLive_preserves_validStackFrame
       have h_old := h_dd.2.2 ptr hptr_old
       exact Memory.allocate_preserves_validPtr _ h_old
 
+defRaw after =>
+open StackFrame Memory in
+/-- `storageLive frame mem ⟨k⟩ _ _` extends `localsAllocated`
+    from the half-open range `[1, k)` to `[1, k+1)`: the
+    freshly-bound pointer at `⟨k⟩` adds the missing index, and
+    indices `i < k` retain their entries (the inner `storageDead`
+    can only erase the entry at `⟨k⟩`, leaving `⟨i⟩` for `i ≠ k`
+    untouched, and the outer `mapInsert` likewise preserves
+    lookups at `⟨i⟩ ≠ ⟨k⟩`). Used to discharge `liveAndStoreArgs`'s
+    recursive-call `localsAllocated frame1 1 (k+1)` precondition
+    without going through `liveAndStoreArgs.precondAxiom`. -/
+theorem StackFrame.storageLive_localsAllocated_extend
+    {frame : StackFrame} {mem : Memory} {k : Nat}
+    (h₁ : validStackFrame mem frame) (h₂ : validLocal frame.body ⟨k⟩)
+    (h_alloc : localsAllocated frame 1 k) :
+    localsAllocated (storageLive frame mem ⟨k⟩ h₁ h₂).fst 1 (k + 1) := by
+  intro i hlo hhi
+  -- The new frame's locals = mapInsert (storageDead-frame).locals ⟨k⟩ ptr_new.
+  -- Lookup at ⟨i⟩ via `getElem?_insert`: branches on `⟨k⟩ == ⟨i⟩`.
+  show mapGet (storageLive frame mem ⟨k⟩ h₁ h₂).fst.locals ⟨i⟩ ≠ .none
+  unfold storageLive
+  simp only
+  unfold mapInsert mapGet
+  rw [Std.HashMap.get?_insert]
+  by_cases h_eq : k = i
+  · subst h_eq; simp
+  · -- `i ≠ k`. Since `i < k+1`, we have `i < k`.
+    have h_lt : i < k := by omega
+    have h_neq_beq : ((⟨k⟩ : Local) == ⟨i⟩) = false := by
+      apply Bool.eq_false_iff.mpr
+      intro hk
+      simp [BEq.beq, instBEqLocal.beq] at hk
+      exact h_eq hk
+    rw [h_neq_beq]
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    -- Goal: (storageDead-frame).locals.get? ⟨i⟩ ≠ none.
+    -- For `i ≠ k`, the inner `storageDead` preserves the entry at
+    -- `⟨i⟩` (whether it no-ops or erases the entry at `⟨k⟩`).
+    have h_dd_lookup :
+        (storageDead frame mem ⟨k⟩ h₁ h₂).fst.locals.get? ⟨i⟩
+          = frame.locals.get? ⟨i⟩ := by
+      unfold storageDead
+      split
+      · rfl
+      · rename_i ptr_d _
+        unfold storageDeadPtr
+        split
+        · simp only
+          unfold mapRemove
+          rw [Std.HashMap.get?_erase]
+          rw [show ((⟨k⟩ : Local) == ⟨i⟩) = false from h_neq_beq]
+          rfl
+        · rfl
+    rw [h_dd_lookup]
+    exact h_alloc i hlo h_lt
+

@@ -152,7 +152,20 @@ private def toLeanASTAlg
     let fnName := match fn with
       | .ident n => n | _ => fn.toString
     if fnName == selfName && !proofArgs.isEmpty then
-      .app fnName (args ++ proofArgs)
+      -- Recursive call: the DSL normally appends `proofArgs`
+      -- (auto-discharge tactics) for each precondition. Detect
+      -- when the user has already supplied explicit proofs at
+      -- the call site by counting trailing `.raw` args — these
+      -- are what `.leanProof` lowers to (see the `.leanProof`
+      -- arm above). When the user has supplied at least as many
+      -- trailing `.raw` args as the precondition count, treat
+      -- those as the proofs and skip the auto-discharge append.
+      let rawSuffixCount := args.reverse.takeWhile (fun e =>
+        match e with | .raw _ => true | _ => false) |>.length
+      if rawSuffixCount ≥ proofArgs.length then
+        .app fnName args
+      else
+        .app fnName (args ++ proofArgs)
     else if calleeProofNames.contains fnName then
       .app fnName (args ++ [.raw "sorry"])
     else

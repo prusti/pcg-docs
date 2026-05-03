@@ -144,21 +144,6 @@ defFn typedStore (.plain "typedStore")
   : Memory :=
     Memory.store m ptr (encode v)
 
-/-! `liveAndStoreArgs`'s recursive call needs to discharge
-`validMemory` / `validStackFrame` for the post-`storageLive`,
-post-`typedStore` memory and frame. Rigorous proofs need
-`Memory.allocate` / `Memory.store` frame-preservation lemmas
-(allocation count, addresses, data lengths preserved when
-writing in-bounds); they are stubbed with `sorry` here. The
-helper `liveAndStoreArgs.precondAxiom` takes any `Prop` and
-returns a proof — `apply`'d by the DSL-generated
-auto-discharge tactic, it closes the recursive-call
-preconditions in one step (with sorry). -/
-
-defRaw middle =>
-private theorem liveAndStoreArgs.precondAxiom
-    {P : Prop} : P := sorry
-
 defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
   (doc! "Per-argument helper for `createFrame`: iterate the caller-provided value list with `k` \
     tracking the current callee local index (starting at 1 for the first argument). For each value, \
@@ -173,19 +158,17 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
     after the loop. The bound `k + args.length ≤ frame.body.decls.length` keeps the indices of the \
     locals about to be brought live in range so each `storageLive` call discharges its \
     #validLocal obligation; the bound is inductive across the recursive call (sum is preserved as \
-    `args` shrinks and `k` grows).")
+    `args` shrinks and `k` grows). The recursive-call preconditions are discharged explicitly via \
+    the `*_preserves_*` infrastructure in `OpSem/Memory.lean` and `OpSem/StackFrame.lean` rather \
+    than going through a universal escape-hatch axiom.")
   (args "The caller-provided argument values." : List Value)
   (k "The current callee local index." : Nat)
   (frame "The stack frame under construction." : StackFrame)
   (mem "The memory state." : Memory)
-  requires validMemory mem
-      using [liveAndStoreArgs.precondAxiom],
-    validStackFrame mem frame
-      using [liveAndStoreArgs.precondAxiom],
-    localsAllocated frame 1 k
-      using [liveAndStoreArgs.precondAxiom],
+  requires validMemory mem,
+    validStackFrame mem frame,
+    StackFrame.localsAllocated frame 1 k,
     k + args·length ≤ frame↦body↦decls·length
-      using [liveAndStoreArgs.precondAxiom]
   : StackFrame × Memory where
   | [] ; _ ; frame ; mem => ⟨frame, mem⟩
   | v :: rest ; k ; frame ; mem =>
@@ -194,13 +177,39 @@ defFn liveAndStoreArgs (.plain "liveAndStoreArgs")
       -- `k < frame.body.decls.length`, which follows from
       -- `h_pre3 : k + args.length ≤ frame.body.decls.length` once
       -- `args.length` is reduced via the arm pattern `args = v :: rest`.
-      let ⟨frame1, mem1⟩ := StackFrame.storageLive frame mem Local⟨k⟩
+      -- The result is bound to a single name and accessed through
+      -- `Prod.fst` / `Prod.snd` (rather than a destructuring
+      -- `let ⟨frame1, mem1⟩ :=`) so the recursive call's
+      -- precondition proofs can rewrite `frame1` / `mem1` to the
+      -- underlying `(storageLive …).fst` / `.snd` definitionally.
+      let storageLiveResult := StackFrame.storageLive frame mem Local⟨k⟩
         proof[h_validStackFrame] proof[(by
           show k < frame.body.decls.length
           simp only [List.length_cons] at h_pre3
           omega)] ;
+      let frame1 := Prod.fst storageLiveResult ;
+      let mem1 := Prod.snd storageLiveResult ;
       let ptr := mapAt frame1↦locals Local⟨k⟩ ;
       liveAndStoreArgs rest (k + 1) frame1 (typedStore mem1 ptr v)
+        proof[Memory.store_preserves_validMemory _ _ _
+          (StackFrame.storageLive_preserves_validMemory _ _ _ _ _
+            h_validMemory)]
+        proof[StackFrame.validStackFrame_store_preserves _ _
+          (StackFrame.storageLive_preserves_validStackFrame _ _ _ _ _)]
+        proof[StackFrame.storageLive_localsAllocated_extend _ _
+          h_pre2]
+        proof[(by
+          -- `frame1.body = frame.body` by `storageLive_body`; the
+          -- bound on `frame1.body.decls.length` then collapses to
+          -- the entry bound `h_pre3` after rewriting
+          -- `(v :: rest).length = rest.length + 1`.
+          show (k + 1) + rest.length ≤ frame1.body.decls.length
+          have h_body : frame1.body = frame.body := by
+            unfold frame1 storageLiveResult
+            exact StackFrame.storageLive_body frame mem ⟨k⟩ _ _
+          rw [h_body]
+          simp only [List.length_cons] at h_pre3
+          omega)]
 
 defRaw inFns =>
 /-- Postcondition of `liveAndStoreArgs`: the returned frame has
@@ -220,9 +229,9 @@ defRaw inFns =>
 private theorem liveAndStoreArgs_localsAllocated
     (args : List Value) (k : Nat) (frame : StackFrame) (mem : Memory)
     (h1 : validMemory mem) (h2 : validStackFrame mem frame)
-    (h3 : localsAllocated frame 1 k)
+    (h3 : StackFrame.localsAllocated frame 1 k)
     (h4 : k + args.length ≤ frame.body.decls.length) :
-    localsAllocated
+    StackFrame.localsAllocated
       (liveAndStoreArgs args k frame mem h1 h2 h3 h4).fst
       1 (k + args.length) := by
   induction args generalizing k frame mem with
@@ -342,19 +351,30 @@ defFn createFrame (.plain "createFrame")
     -- its purpose is to demonstrate that the strengthened
     -- postcondition of `liveAndStoreArgs` flows through to
     -- a usable fact about `frame2`. Discharged via
-    -- #liveAndStoreArgs_localsAllocated. The first, second,
-    -- and fourth precondition arguments are routed through
-    -- `liveAndStoreArgs.precondAxiom` because the same three
-    -- preconditions on the `liveAndStoreArgs` call above are
-    -- themselves still axiom-discharged; by proof irrelevance,
-    -- the postcondition lemma's conclusion does not depend on
-    -- which proofs are supplied.
+    -- #liveAndStoreArgs_localsAllocated. The four precondition
+    -- arguments mirror the proofs supplied to the
+    -- `liveAndStoreArgs` call above, recomposed to match the
+    -- postcondition lemma's parameter order — by proof
+    -- irrelevance, the conclusion is independent of which proofs
+    -- are supplied.
     let _h_args_alloc :=
       proof[liveAndStoreArgs_localsAllocated args 1 frame1 mem1
-        liveAndStoreArgs.precondAxiom
-        liveAndStoreArgs.precondAxiom
+        (StackFrame.storageLive_preserves_validMemory _ _ _ _ _
+          h_validMachine.2.1)
+        (StackFrame.storageLive_preserves_validStackFrame _ _ _ _ _)
         (by intro i hlo hhi; omega)
-        liveAndStoreArgs.precondAxiom] ;
+        (by
+          -- The bound `1 + args.length ≤ frame1.body.decls.length`
+          -- follows from `frame1.body = body` (via `storageLive_body`),
+          -- `args.length ≤ body.numArgs` (h_pre2), and
+          -- `body.numArgs < body.decls.length` (h_validBody's
+          -- new fifth conjunct).
+          have h_body : frame1.body = body := by
+            unfold frame1 storageLive_initLocal0
+            exact StackFrame.storageLive_body initFrame m.mem ⟨0⟩ _ _
+          rw [h_body]
+          have h_numArgs := h_validBody.2.2.2.2
+          omega)] ;
     Machine⟨m↦program,
       Thread⟨frame2 :: m↦thread↦stack⟩,
       mem2⟩
