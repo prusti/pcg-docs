@@ -138,7 +138,15 @@ private def bodyMath
     let paramNames : LatexMath :=
       LatexMath.intercalate (.raw ",~")
         (p.fnDef.params.map fun f => .escaped f.name)
-    let rows : List LatexMath := arms.map fun arm =>
+    -- Drop arms gated on a disabled feature (explicit or
+    -- variant-inherited; see `BodyArm.effectiveFeatures`).
+    -- The walk into nested patterns means a disabled
+    -- destructor like `.ref` is hidden even when it sits
+    -- alongside another scrutinee pattern in this arm.
+    let visibleArms : List BodyArm :=
+      arms.filter fun a =>
+        !(a.effectiveFeatures ctx).any ctx.isFeatureDisabled
+    let rows : List LatexMath := visibleArms.map fun arm =>
       let patMath := LatexMath.intercalate (.raw ",~")
         (arm.pat.zip (p.fnDef.params.map (·.ty)) |>.map
           fun (pat, ty) =>
