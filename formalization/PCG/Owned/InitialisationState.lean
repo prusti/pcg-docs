@@ -11,18 +11,13 @@ defEnum InitialisationState (.raw "i", .raw "I")
     initialisation state tree carries one of these values.")
 where
   | uninit
-    "Uninitialised or moved-out (no reads are permitted; \
-     only writes, to re-initialise the place, are allowed)."
+    "Uninitialised"
     (.bold (.raw "U"))
   | shallow
-    "Shallowly initialised (the place itself holds a valid \
-     value, but memory behind a dereference may not be \
-     initialised; arises only for `Box`-typed places)."
+    "Shallowly initialised"
     (.bold (.raw "S"))
   | deep
-    "Fully initialised (all memory reachable from this \
-     place, including through dereferences, is valid and \
-     accessible)."
+    "Fully initialised"
     (.bold (.raw "D"))
 
 namespace InitialisationState

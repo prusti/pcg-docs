@@ -18,12 +18,11 @@ defEnum PlaceExpansion {D}
     {Doc.math (.text "(field, type, payload)")} triples, \
     kept in ascending field-index order so that two \
     structurally-equal expansions have identical \
-    representations.")
+    representations.") long
 where
   | fields (children : List (FieldIdx × Ty × D))
     "A struct/tuple field expansion."
-    (mathdoc! "{(MathDoc.doc (.code "fields "))}#fs")
-  | deref (data : D)
+  | deref (d : D)
     "A dereference."
   | guided (guide : RequiredGuide D)
     "A guided expansion."

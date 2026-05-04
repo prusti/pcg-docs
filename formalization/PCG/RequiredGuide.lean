@@ -10,16 +10,16 @@ defEnum RequiredGuide {D}
     downcast, a constant array index, a variable array \
     index, or a subslice. Each variant carries a per-child \
     payload drawn from a parameter set $#D$.")
-  subscript
+  long subscript
 where
   | [feature ENUM_TYPES] downcast (variant : VariantIdx) (data : D)
     "An enum downcast."
-  | constantIndex (offset : Nat) (data : D)
+  | constantIndex (n : Nat) (d : D)
     "A constant array index."
-    (mathdoc! "{(MathDoc.doc (.code "constIdx "))}n D")
+    (mathdoc! "_constIdx_ {n} {d}")
   | index (loc : Local) (data : D)
     "A variable array index."
-  | subslice (from_ : Nat) (to_ : Nat) (fromEnd : Bool)
-      (data : D)
+  | subslice (n : Nat) (n' : Nat) (fromEnd : Bool)
+      (d : D)
     "An array subslice."
-    (mathdoc! "{(MathDoc.doc (.code "subslice "))}n..n B D")
+    (mathdoc! "_subslice_ [{n}..{n'}] {fromEnd} {d}")

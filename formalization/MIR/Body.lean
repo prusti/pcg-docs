@@ -301,7 +301,7 @@ defProperty validBody (.plain "validBody")
 
 defFn placeTy (.plain "ty")
   (doc! "Compute the type of a place: look up the base local \
-    in $\\Delta$, then project through projections.")
+    in $Δ$, then project through projections.")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace body place
@@ -309,8 +309,7 @@ defFn placeTy (.plain "ty")
     placeTy' (body↦decls ! place↦«local»↦index) None place↦projection proof[h_validPlace.2]
 
 defFn isOwned (.plain "isOwned")
-  (doc! "Returns `true` iff a place is owned, i.e. it does not project from the dereference of a \
-    reference-typed place. See `definitions/places.md`.")
+  (doc! "Returns `true` iff a place is owned, i.e., does not dereference a reference-typed place.")
   (body "The function body." : Body)
   (place "The place to type-check." : Place)
   requires validPlace body place
