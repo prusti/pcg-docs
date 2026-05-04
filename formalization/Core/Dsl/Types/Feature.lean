@@ -25,6 +25,7 @@ matching arm in `identToFeature`. Both edits live in this
 file. -/
 inductive Feature where
   | enumTypes
+  | refTypes
   deriving Repr, BEq, DecidableEq, Hashable, Inhabited, Lean.Quote
 
 open Lean Elab Command in
@@ -39,6 +40,7 @@ open Lean Elab Command in
 def identToFeature (id : Lean.Ident) : CommandElabM Feature := do
   match toString id.getId with
   | "ENUM_TYPES" => pure .enumTypes
+  | "REF_TYPES" => pure .refTypes
   | other =>
     Lean.throwErrorAt id
       s!"unknown feature `{other}` — \

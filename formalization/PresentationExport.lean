@@ -1,6 +1,6 @@
 import Presentation
 import Presentation.Template
-import Presentation.Templates.Example
+import Presentation.Templates.Louis
 import OpSem
 -- `Properties` is its own library bridging `PCG` and `OpSem`,
 -- opt-in so the Rust exporter's import chain stays untouched.

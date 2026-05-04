@@ -61,7 +61,7 @@ where
 defEnum Ty (.raw "τ", .raw "Ty")
   "Types"
   (doc! "A type in the MIR. See `definitions/types.md`.")
-where
+long where
   | bool
     "The boolean type."
   | int (it : IntType)
@@ -77,7 +77,7 @@ where
   | ctor (name : TyCtorName) (args : List Ty)
     "A type constructor application."
     (mathdoc! "{name}⟨τ̄⟩")
-  | ref (region : Region) (mutability : Mutability)
+  | [feature REF_TYPES] ref (region : Region) (mutability : Mutability)
       (pointee : Ty)
     "A reference type."
     (mathdoc! "&{region} {mutability} {pointee}")
