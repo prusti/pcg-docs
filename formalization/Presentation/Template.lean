@@ -206,15 +206,27 @@ def message (e : TemplateError) : String :=
 
 end TemplateError
 
+/-- Wrap a rendered fragment in an `mdframed` box, with a
+    trailing blank line so consecutive boxes are visually
+    separated rather than abutting. Used by template
+    presentations to set off each inline-inserted
+    registered definition. Appendix entries are rendered
+    unboxed so the appendix reads as a single reference
+    section rather than a stack of framed cards. -/
+private def boxify (body : Latex) : Latex :=
+  .seq [.env "mdframed" body, .newline, .newline]
+
 /-- Render a single `PresElement` to LaTeX, using the same
     per-kind helpers as the full presentation. A `defRef`
     builds a one-element sub-registry on the fly so it
-    flows through `renderRegistryItems` like any other slice. -/
+    flows through `renderRegistryItems` like any other
+    slice, then the rendered definition is framed in an
+    `mdframed` box. -/
 private def renderElement
     (reg : Registry) (ctx : RenderCtx) : PresElement → Latex
   | .doc d => Latex.seq [d.toLatex, .newline, .newline]
   | .defRef n =>
-    renderRegistryItems (reg.restrictToNames [n]) ctx
+    boxify (renderRegistryItems (reg.restrictToNames [n]) ctx)
 
 /-- Order names by kind in the same sequence
     `renderRegistryItems` uses, so the appendix layout

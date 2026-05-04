@@ -402,11 +402,15 @@ def buildPresentationLatex (reg : Registry) : Latex :=
     `placeins` provides `\FloatBarrier`, which the
     `section`/`subsection` helpers emit before each heading
     so that all content of a (sub)section appears before the
-    next (sub)section begins. -/
+    next (sub)section begins.
+
+    `mdframed` is used by template presentations to wrap each
+    rendered registered definition (`defStruct`, `defEnum`,
+    …) in a framed box (see `Presentation/Template.lean`). -/
 def latexPackages : List String :=
   ["tikz", "amsmath", "amssymb", "amsthm",
    "algorithm", "algpseudocode", "hyperref", "xcolor",
-   "placeins", "mathpartir"]
+   "placeins", "mathpartir", "mdframed"]
 
 /-- Page geometry. `article`'s default ~1.5in side margins
     waste a lot of horizontal space — shrink to 1in on all
