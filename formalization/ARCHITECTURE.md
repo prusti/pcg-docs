@@ -254,6 +254,14 @@ threads the source module's `Lean.Name` through to
    anchors point only inside the template — making each
    template PDF fully self-contained.
 
+Body entries are wrapped in an `mdframed` box to set them
+off visually — except `defFn` entries, which render as a
+LaTeX `algorithm` float and so cannot be nested inside
+`mdframed` (LaTeX rejects the float's `\caption` with "Not in
+outer par mode"). The `algorithm` environment already provides
+its own framed, captioned visual block, so function defs are
+emitted unboxed.
+
 `Presentation/Templates/Example.lean` ships a minimal
 `placeTemplate` that embeds `Place` and exercises the
 appendix logic across `Local`, `ProjElem`, `FieldIdx`,

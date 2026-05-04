@@ -216,17 +216,36 @@ end TemplateError
 private def boxify (body : Latex) : Latex :=
   .seq [.env "mdframed" body, .newline, .newline]
 
+/-- Whether a registered name renders as a LaTeX float (i.e.
+    inside a `\begin{algorithm}…\end{algorithm}` block with a
+    `\caption`). Floats cannot legally appear inside `mdframed`
+    — LaTeX rejects the embedded `\caption` with "Not in outer
+    par mode" — so these entries are emitted unboxed. The
+    `algorithm` environment already provides its own framed,
+    captioned visual block. -/
+private def rendersAsFloat
+    (reg : Registry) (n : String) : Bool :=
+  match reg.lookupKind n with
+  | some .fn => true
+  | _        => false
+
 /-- Render a single `PresElement` to LaTeX, using the same
     per-kind helpers as the full presentation. A `defRef`
     builds a one-element sub-registry on the fly so it
     flows through `renderRegistryItems` like any other
-    slice, then the rendered definition is framed in an
-    `mdframed` box. -/
+    slice; the rendered definition is then framed in an
+    `mdframed` box, except for function definitions whose
+    `algorithm` float cannot be nested in `mdframed` (see
+    `rendersAsFloat`). -/
 private def renderElement
     (reg : Registry) (ctx : RenderCtx) : PresElement → Latex
   | .doc d => Latex.seq [d.toLatex, .newline, .newline]
   | .defRef n =>
-    boxify (renderRegistryItems (reg.restrictToNames [n]) ctx)
+    let body := renderRegistryItems (reg.restrictToNames [n]) ctx
+    if rendersAsFloat reg n then
+      Latex.seq [body, .newline, .newline]
+    else
+      boxify body
 
 /-- Order names by kind in the same sequence
     `renderRegistryItems` uses, so the appendix layout
