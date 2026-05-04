@@ -10,20 +10,25 @@ def template : Presentation := {
   elems    := presBody!
     "
 
+# Background
+
+## Owned vs Borrowed Places
+
 The PCG model distinguishes places as being either _owned_ or _borrowed_.
 Intuitively, _owned_ places are those that do not dereference any
 reference-typed value. Formally, this classification is determined as follows:
 
 [[isOwned]]
 
-In this project, you will be formalising properties about how PCG tracks the
-_owned_ places in a program, in particular
-
-The PCG tracks what places have been moved out at particular program points by
+For this project, the focus is on the handling of owned places only. The PCG
+tracks what places have been moved out at particular program points by
 associating them with an `InitialisationState`, defined as follows:
 
 [[InitialisationState]]
 
+For now you can ignore the \"Shallowly Initialized\" case. The Deep (__D__)
+capability corresponds to the PCG's Exclusive (__E__) capability, and Uninitialised
+(__U__) corresponds to __W__.
 
 The PCG uses the `InitTree` data structure to track partial move-outs of places.
 

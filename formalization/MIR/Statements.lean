@@ -29,13 +29,13 @@ end Operand
 defEnum Rvalue (.raw "rv", .raw "Rv")
   "Rvalues"
   (.plain "A right-hand side value in an assignment.")
-where
+long where
   | use (operand : Operand)
     "Use an operand directly."
-  | ref (region : Region) (mutability : Mutability)
+  |[feature REF_TYPES] ref (region : Region) (mutability : Mutability)
       (place : Place)
     "Create a reference to a place."
-    (mathdoc! "{(MathDoc.doc (.code "&"))}{region} {mutability} {place}")
+    (mathdoc! "&{region} {mutability} {place}")
   deriving Repr, BEq, Hashable
 
 namespace Rvalue
