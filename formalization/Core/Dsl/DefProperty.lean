@@ -94,7 +94,16 @@ private def elabPropertyDecl
     retType := .const "Prop"
     body
   }
-  let defStr := toString decl
+  -- Wrap the property def with `set_option match.ignoreUnusedAlts
+  -- true in …` so the `_ => False` catch-all that
+  -- `FnDef.toLeanAST` appends doesn't trigger Lean's
+  -- "Redundant alternative" error in the case where the user's
+  -- arms already exhaust the scrutinee. Property defs use the
+  -- catch-all to default uncovered cases to `False`; on
+  -- exhaustive matches (e.g. the existing `inductively`
+  -- properties) the catch-all is unreachable, which is harmless.
+  let defStr :=
+    s!"set_option match.ignoreUnusedAlts true in\n{toString decl}"
   let env ← getEnv
   match Parser.runParserCategory env `command
     defStr with
@@ -209,15 +218,16 @@ elab_rules : command
     -- in a `dslProofMarker` placeholder so the
     -- `graftDslProofMarkers` pass in `elabPropertyDecl` can
     -- splice the user-source syntax back in.
-    -- The default `where` form treats the user's arms as a
-    -- partial cover and appends a `_ => False` catch-all so
-    -- uncovered scrutinees default to `False` (matching the
-    -- semantics of "the property holds in these cases"). Under
-    -- `inductively`, the user's match is interpreted as a set
-    -- of inductive rules and is expected to be exhaustive over
-    -- the scrutinee — Lean's own exhaustiveness checker is
-    -- authoritative there, and an extra catch-all would surface
-    -- as a redundant-alternative linter error.
+    -- The `where` form treats the user's arms as a partial
+    -- cover and appends a `_ => False` catch-all so uncovered
+    -- scrutinees default to `False`, matching the semantics
+    -- "the property holds in these cases (and only these)".
+    -- This applies to `inductively`-rendered properties too:
+    -- a missing case there means "no inductive rule fires"
+    -- — i.e. the property is `False` for that case — rather
+    -- than a Lean-level "missing cases" error. Whether the
+    -- catch-all is reachable is checked separately below
+    -- (`lastIsCatchAll`) so an explicit catch-all isn't doubled.
     let armASTs : List LeanMatchArm :=
       parsed.toList.map fun (patAst, rhsAst, _) =>
         .mk (patAst.toList.map BodyPat.toLeanAST)
@@ -230,7 +240,7 @@ elab_rules : command
           | .wild | .var _ => true | _ => false
       | none => false
     let allArms :=
-      if ind.isSome || lastIsCatchAll then armASTs
+      if lastIsCatchAll then armASTs
       else
         let wildPats := params.map fun _ => LeanPat.wild
         armASTs ++ [.mk wildPats (.ident "False")]

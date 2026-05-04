@@ -427,15 +427,10 @@ namespace FnDef
 /-- Lower a function definition to a `LeanDecl`.
     If `isProperty` is true, the return type is `Prop`
     and a catch-all `False` arm is appended for
-    pattern-matching bodies that don't already have one,
-    unless `skipCatchAll` is set — used by
-    `inductively`-rendered properties whose match is
-    expected to be exhaustive (an extra `_ => False` arm
-    there would trip the redundant-alternative linter). -/
+    pattern-matching bodies that don't already have one. -/
 def toLeanAST
     (f : FnDef)
     (isProperty : Bool := false)
-    (skipCatchAll : Bool := false)
     : LeanDecl :=
   let precondProofs := f.preconditions.map precondProof
   let baseRetType : LeanTy :=
@@ -457,7 +452,7 @@ def toLeanAST
             match p with | .wild | .var _ => true | _ => false
         | none => false
       let armASTs :=
-        if isProperty && !lastIsCatchAll && !skipCatchAll then
+        if isProperty && !lastIsCatchAll then
           let wildPats := f.params.map fun _ => LeanPat.wild
           armASTs ++ [.mk wildPats (.ident "False")]
         else armASTs
@@ -657,7 +652,17 @@ namespace PropertyDef
     `proof[hᵢ]` reference inside `G` or in a later
     antecedent. The DSL `FnBody` registry entry is left
     untouched, so the LaTeX renderer continues to display
-    the original conjunction-style implication. -/
+    the original conjunction-style implication.
+
+    The catch-all `_ => False` arm is always appended for
+    pattern-matching properties (including ones marked
+    `inductively`), so missing scrutinee combinations evaluate
+    to `False` rather than triggering a Lean "missing cases"
+    error. The output is wrapped in
+    `set_option match.ignoreUnusedAlts true in …` so the same
+    catch-all does not trip Lean's "Redundant alternative"
+    error when the user-supplied arms already exhaust the
+    scrutinee. -/
 def toLeanAST (p : PropertyDef) : LeanDecl :=
   let curriedBody : FnBody := match p.fnDef.body with
     | .expr e => .expr e.bindAntecedentNames
@@ -665,8 +670,11 @@ def toLeanAST (p : PropertyDef) : LeanDecl :=
         BodyArm.mk arm.pat arm.rhs.bindAntecedentNames
           arm.features)
   let curried := { p.fnDef with body := curriedBody }
-  curried.toLeanAST (isProperty := true)
-    (skipCatchAll := p.renderAsInductive)
+  let inner := curried.toLeanAST (isProperty := true)
+  match p.fnDef.body with
+  | .matchArms _ =>
+    .raw_ s!"set_option match.ignoreUnusedAlts true in\n{inner}"
+  | .expr _ => inner
 
 end PropertyDef
 

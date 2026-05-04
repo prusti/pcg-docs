@@ -201,14 +201,15 @@ are applied automatically:
 
 The Lean and Rust exports are unaffected: the underlying `def
 Name … : Prop` is still elaborated from the user's match
-verbatim. `inductively` also opts out of the default
-`_ => False` catch-all the `where` form normally appends to
-match-arm bodies — under inductive rendering the user's match
-is interpreted as a complete enumeration of inference rules
-and is expected to be exhaustive over the scrutinee, so an
-extra catch-all would surface as a redundant-alternative
-linter error. Authors that still want a default-False
-fall-through include their own `| _ => false` arm.
+verbatim, with the same `_ => False` catch-all the `where`
+form normally appends so missing scrutinee combinations
+default to `False` (i.e. "no inference rule fires for that
+input"). Because that catch-all is unreachable when the user's
+arms already exhaust the scrutinee, the generated `def` is
+wrapped in `set_option match.ignoreUnusedAlts true in …` so
+exhaustive `inductively` properties (e.g. `HasNonDeepLeaf`
+over `InitTree`) don't trip Lean's "Redundant alternative"
+error.
 
 `PCG/Owned/InitTree.lean :: HasNonDeepLeaf` uses this mode.
 

@@ -156,6 +156,7 @@ defProperty validProjTy (.plain "validProjTy")
       any type")
   (τ "The current type." : Ty)
   (projs "The projection elements." : List ProjElem)
+  inductively
   where
   | _ ; [] => true
   | .ref _ _ pointee ; .deref :: π =>
