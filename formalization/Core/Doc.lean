@@ -194,6 +194,17 @@ mutual
         Typst, `<h2>title</h2>` in HTML, and `# title` in
         plain text. -/
     | section (title : Doc)
+    /-- A subsection heading. Renders as `\subsection{title}`
+        in LaTeX (preceded by a `\FloatBarrier`), `== title`
+        in Typst, `<h3>title</h3>` in HTML, and `## title` in
+        plain text. -/
+    | subsection (title : Doc)
+    /-- A subsubsection heading. Renders as
+        `\subsubsection{title}` in LaTeX (preceded by a
+        `\FloatBarrier`), `=== title` in Typst,
+        `<h4>title</h4>` in HTML, and `### title` in plain
+        text. -/
+    | subsubsection (title : Doc)
     /-- Mathematical content. -/
     | math (m : MathDoc)
     deriving Repr
@@ -345,7 +356,8 @@ mutual
       docPred d
     | d@(.bold inner) | d@(.italic inner)
     | d@(.underline _ inner) | d@(.link inner _)
-    | d@(.section inner) =>
+    | d@(.section inner) | d@(.subsection inner)
+    | d@(.subsubsection inner) =>
       docPred d || Doc.any mathPred docPred inner
     | d@(.seq ds) | d@(.itemize ds) =>
       docPred d || ds.any (Doc.any mathPred docPred)
@@ -518,6 +530,8 @@ mutual
       s!"{text.toPlainText} ({url})"
     | underline _ body => body.toPlainText
     | .section title => s!"# {title.toPlainText}\n"
+    | .subsection title => s!"## {title.toPlainText}\n"
+    | .subsubsection title => s!"### {title.toPlainText}\n"
     | math m => mathToPlainText m
 
   /-- Extract plain text from a math fragment. -/
@@ -557,6 +571,8 @@ mutual
     | underline .dashed body =>
       s!"#underline(stroke: (dash: \"dashed\"))[{body.toTypst}]"
     | .section title => s!"= {title.toTypst}\n"
+    | .subsection title => s!"== {title.toTypst}\n"
+    | .subsubsection title => s!"=== {title.toTypst}\n"
     | math m => mathToTypst m
 
   /-- Render a math fragment to Typst. -/
@@ -599,6 +615,8 @@ mutual
       s!"<u style=\"text-decoration-style: dashed\">\
          {body.toHTML}</u>"
     | .section title => s!"<h2>{title.toHTML}</h2>"
+    | .subsection title => s!"<h3>{title.toHTML}</h3>"
+    | .subsubsection title => s!"<h4>{title.toHTML}</h4>"
     | math m => mathToHTML m
 
   /-- Render a math fragment to HTML. -/

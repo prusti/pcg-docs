@@ -286,6 +286,10 @@ parity with `doc!`. -/
 private def presTag : PresElement → String
   | .doc (Doc.section title) =>
     s!"section({title.toLatex.render})"
+  | .doc (Doc.subsection title) =>
+    s!"subsection({title.toLatex.render})"
+  | .doc (Doc.subsubsection title) =>
+    s!"subsubsection({title.toLatex.render})"
   | .doc d => s!"doc({d.toLatex.render})"
   | .defRef n => s!"defRef({n})"
 
@@ -307,6 +311,21 @@ private def presBodyHeadingThenProse : List PresElement :=
   presBody! "# A Heading
 
 paragraph body"
+
+private def presBodySubsectionThenProse : List PresElement :=
+  presBody! "## A Subsection
+
+paragraph body"
+
+private def presBodySubsubsectionThenProse : List PresElement :=
+  presBody! "### A Subsubsection
+
+paragraph body"
+
+private def presBodyAllHeadingLevels : List PresElement :=
+  presBody! "# Top
+## Middle
+### Bottom"
 
 private def presBodyDefRefBetweenParagraphs : List PresElement :=
   presBody! "intro prose
@@ -404,6 +423,16 @@ private def hasSectionThenDoc (es : List PresElement) : Bool :=
   | [.doc (Doc.section _), .doc _] => true
   | _ => false
 
+private def hasSubsectionThenDoc (es : List PresElement) : Bool :=
+  match es with
+  | [.doc (Doc.subsection _), .doc _] => true
+  | _ => false
+
+private def hasSubsubsectionThenDoc (es : List PresElement) : Bool :=
+  match es with
+  | [.doc (Doc.subsubsection _), .doc _] => true
+  | _ => false
+
 private def isOnlySection (es : List PresElement) : Bool :=
   match es with
   | [.doc (Doc.section _)] => true
@@ -436,6 +465,15 @@ def presBodyTests : TestSeq :=
       (hasTwoDocs presBodyTwoParagraphs) $
     test "# heading line yields a .doc Doc.section"
       (hasSectionThenDoc presBodyHeadingThenProse) $
+    test "## heading line yields a .doc Doc.subsection"
+      (hasSubsectionThenDoc presBodySubsectionThenProse) $
+    test "### heading line yields a .doc Doc.subsubsection"
+      (hasSubsubsectionThenDoc presBodySubsubsectionThenProse) $
+    test "# / ## / ### produce three nested heading levels"
+      (presTags presBodyAllHeadingLevels ==
+        ["section(Top)",
+         "subsection(Middle)",
+         "subsubsection(Bottom)"]) $
     test "[[Name]] alone between paragraphs collapses blank \
           lines"
       (hasDocDefRefDoc presBodyDefRefBetweenParagraphs "Place") $

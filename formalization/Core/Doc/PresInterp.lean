@@ -39,6 +39,12 @@ elems := presBody! "
   `PresElement.doc (Doc.section <line content>)`. The `# ` prefix
   is stripped; the rest of the line is parsed with the same inline
   grammar as `doc!`. `[[Name]]` is *not* recognised inside a heading.
+* `## ` at the start of a line — emits
+  `PresElement.doc (Doc.subsection <line content>)`, with the same
+  body-grammar rules as `# `.
+* `### ` at the start of a line — emits
+  `PresElement.doc (Doc.subsubsection <line content>)`, with the
+  same body-grammar rules as `# `.
 * `--` at the start of a line (after optional whitespace) — line
   comment: the entire line is dropped from the output, including any
   `[[Name]]` it contains (so commented-out defRefs do *not* register
@@ -65,6 +71,15 @@ empty `Doc.seq`. -/
 
 namespace Doc.Interp
 
+/-- The heading level recognised on a `presBody!` line: `# ` is
+    `.h1` (`Doc.section`), `## ` is `.h2` (`Doc.subsection`), and
+    `### ` is `.h3` (`Doc.subsubsection`). -/
+private inductive HeadingLevel where
+  | h1
+  | h2
+  | h3
+  deriving Inhabited
+
 /-- A top-level token produced by the `presBody!` chunk parser, as
     seen by the elaborator's paragraph-accumulation pass. Inline
     grammar inside `prose` and `heading` runs is the same as in
@@ -74,9 +89,10 @@ private inductive PresChunkTok where
   | prose (segs : List ChunkSeg)
   /-- A blank-line break: end the current paragraph. -/
   | paraBreak
-  /-- A `# ` heading line: end the current paragraph and emit a
-      `Doc.section` element. -/
-  | heading (segs : List ChunkSeg)
+  /-- A `# `/`## `/`### ` heading line: end the current paragraph
+      and emit the matching `Doc.section` / `Doc.subsection` /
+      `Doc.subsubsection` element. -/
+  | heading (level : HeadingLevel) (segs : List ChunkSeg)
   /-- A `[[Name]]` definition reference: end the current paragraph
       and emit a `PresElement.defRef`. -/
   | defRefTok (name : String)
@@ -145,11 +161,12 @@ private partial def tokenizeLine
   | c :: rest => tokenizeLine (c :: acc) rest
 
 /-- Consume the body of a heading line (already stripped of its
-    `# ` prefix and leading whitespace). The body is parsed with
-    the same inline grammar as a `doc!` chunk; `[[Name]]` is *not*
-    recognised inside a heading — a heading is a single
-    `Doc.section` whose argument is a `Doc.seq`, so embedding a
-    `defRef` inside would not type-check. -/
+    `# ` / `## ` / `### ` prefix and leading whitespace). The body
+    is parsed with the same inline grammar as a `doc!` chunk;
+    `[[Name]]` is *not* recognised inside a heading — a heading is
+    a single `Doc.section` (or `Doc.subsection` / `Doc.subsubsection`)
+    whose argument is a `Doc.seq`, so embedding a `defRef` inside
+    would not type-check. -/
 private def parseHeading (line : List Char) : List ChunkSeg :=
   parseSegs (String.ofList line)
 
@@ -158,8 +175,8 @@ private def parseHeading (line : List Char) : List ChunkSeg :=
 
     * a whitespace-only line → `paraBreak` (idempotent — runs of
       blank lines collapse to a single paragraph break).
-    * a line whose first non-whitespace characters are `# ` →
-      `heading <inline-parsed body>`.
+    * a line whose first non-whitespace characters are `# ` /
+      `## ` / `### ` → `heading <level> <inline-parsed body>`.
     * any other line → `tokenizeLine` (which produces `prose` and
       `defRefTok`s).
 
@@ -190,8 +207,14 @@ where
         -- is preserved so `prose / -- comment / prose` joins as a
         -- single paragraph, the same as a soft line break.
         go rest prevWasProseLine
+      | '#' :: '#' :: '#' :: ' ' :: hdr =>
+        .heading .h3 (parseHeading (dropHSpace hdr)) ::
+          go rest false
+      | '#' :: '#' :: ' ' :: hdr =>
+        .heading .h2 (parseHeading (dropHSpace hdr)) ::
+          go rest false
       | '#' :: ' ' :: hdr =>
-        .heading (parseHeading (dropHSpace hdr)) ::
+        .heading .h1 (parseHeading (dropHSpace hdr)) ::
           go rest false
       | _ =>
         let withLead :=
@@ -211,12 +234,19 @@ private def mkPresDocPara (parts : Array (TSyntax `term)) :
   return some (← `((PresElement.doc $body : PresElement)))
 
 open Lean Elab Term in
-/-- Build a `PresElement.doc (Doc.section (Doc.seq <parts>))`
-    term from a heading line's lowered Doc-segment terms. -/
-private def mkPresHeading (parts : Array (TSyntax `term)) :
+/-- Build a `PresElement.doc (Doc.<section|subsection|subsubsection>
+    (Doc.seq <parts>))` term from a heading line's lowered Doc-segment
+    terms. The constructor is selected by `level`. -/
+private def mkPresHeading (level : HeadingLevel)
+    (parts : Array (TSyntax `term)) :
     TermElabM (TSyntax `term) := do
   let title ← `(Doc.seq [$parts,*])
-  `((PresElement.doc (Doc.section $title) : PresElement))
+  match level with
+  | .h1 => `((PresElement.doc (Doc.section $title) : PresElement))
+  | .h2 =>
+    `((PresElement.doc (Doc.subsection $title) : PresElement))
+  | .h3 =>
+    `((PresElement.doc (Doc.subsubsection $title) : PresElement))
 
 open Lean Elab Term in
 /-- Build a `PresElement.defRef <name>` term. -/
@@ -258,12 +288,12 @@ private def elabPresBodyInterp : Term.TermElab :=
             if let some t ← mkPresDocPara paraParts then
               result := result.push t
             paraParts := #[]
-          | .heading segs =>
+          | .heading level segs =>
             if let some t ← mkPresDocPara paraParts then
               result := result.push t
             paraParts := #[]
             let lowered ← chunkSegsToDocTerms chunkPos? segs
-            result := result.push (← mkPresHeading lowered)
+            result := result.push (← mkPresHeading level lowered)
           | .defRefTok name =>
             if let some t ← mkPresDocPara paraParts then
               result := result.push t

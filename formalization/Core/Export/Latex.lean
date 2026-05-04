@@ -391,6 +391,8 @@ mutual
     | .underline .dashed body =>
       .cmd "dashuline" [body.toLatex]
     | .section title => Latex.«section» title.toLatex
+    | .subsection title => Latex.«subsection» title.toLatex
+    | .subsubsection title => Latex.«subsubsection» title.toLatex
     | .math m => .inlineMath m.toLatexMath
 
   /-- Convert `MathDoc` to text-mode `Latex` AST. -/
@@ -450,6 +452,9 @@ mutual
     | .underline .dashed body =>
       .text (.cmd "dashuline" [body.toLatex])
     | .section title => .text (Latex.«section» title.toLatex)
+    | .subsection title => .text (Latex.«subsection» title.toLatex)
+    | .subsubsection title =>
+      .text (Latex.«subsubsection» title.toLatex)
     | .math m => MathDoc.toLatexMath m
 
   /-- Convert `MathDoc` to math-mode `LatexMath` AST.
