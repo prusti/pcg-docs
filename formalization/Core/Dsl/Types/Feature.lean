@@ -7,9 +7,13 @@ import Core.Dsl.DeriveQuote
 feature flags. A `Presentation` may opt out of selected
 features via `disabledFeatures`; `defEnum` variants and
 `defFn` / inline-`match` arms tagged with a disabled feature
-are omitted from LaTeX rendering. The Lean and Rust exports
-ignore the `features` field — generated code stays
-exhaustive.
+are omitted from LaTeX rendering. Feature gating also prunes
+the template-presentation appendix dependency closure (see
+`Presentation/Template.lean`), so types and functions only
+referenced from gated variants/arms are dropped from the
+appendix rather than appearing as dangling entries. The Lean
+and Rust exports ignore the `features` field — generated code
+stays exhaustive.
 
 The DSL surface accepts the upper-snake-case spelling of each
 constructor (e.g. `ENUM_TYPES` for `enumTypes`); `identToFeature`

@@ -235,10 +235,16 @@ threads the source module's `Lean.Name` through to
    (struct / enum / alias / fn / property /
    inductiveProperty / theorem); unknown names abort the
    export with a hard error.
-2. Walks the dependency graph (reusing the `referencedNames`
-   / `referencedTypes` helpers from `Core/Export/Lean.lean`)
-   to compute the transitive closure of every reachable
-   registered definition.
+2. Walks the dependency graph (using the feature-aware
+   `referencedNamesUnderCtx` / `referencedTypesUnderCtx`
+   helpers from `Core/Export/Lean.lean`) to compute the
+   transitive closure of every reachable registered
+   definition. The walk consults a `RenderCtx` built from
+   the full registry plus `p.disabledFeatures`, so variants
+   gated on a disabled feature and match arms whose
+   `effectiveFeatures` include a disabled one contribute no
+   dependencies — definitions only reachable through such
+   gated content are pruned from the closure.
 3. Splits the closure into the explicitly-listed names
    (rendered in the body, in `elems` order) and the
    appendix names (rendered under an `\section*{Appendix}`
@@ -325,6 +331,11 @@ The render-time filter lives at:
   complex RHSs).
 * `DslExpr.toDoc`'s `.match_` case (top-level
   inline-match arms inside DSL expressions).
+* `Registry.dependenciesOf` / `Registry.closure` in
+  `Presentation/Template.lean`, which call the
+  `…UnderCtx` walkers from `Core/Export/Lean.lean` so the
+  template appendix only includes definitions reachable
+  through enabled-feature content.
 
 `Presentation.mkRenderCtx` turns the presentation's
 `disabledFeatures` into the `RenderCtx.isFeatureDisabled`

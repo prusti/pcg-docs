@@ -30,7 +30,11 @@ def placeTemplate : Presentation := {
   -- Disabling `ENUM_TYPES` hides every `downcast` variant
   -- and every `.downcast` match arm reachable from this
   -- template's appendix, so the focused PDF doesn't have to
-  -- explain enum projections.
+  -- explain enum projections. The closure walker is
+  -- feature-aware, so types only reachable through those
+  -- gated variants/arms (e.g. `VariantIdx`, only used by
+  -- `.downcast`) are dropped from the appendix entirely
+  -- rather than rendered as dangling entries.
   disabledFeatures := [.enumTypes]
   elems    := presBody!
     "A focused look at the `Place` definition and its transitive dependencies. Definitions referenced by `Place` but not embedded directly here are rendered in the Appendix below.

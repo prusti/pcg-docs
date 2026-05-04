@@ -709,6 +709,19 @@ def referencedTypes (e : EnumDef) : List String :=
   e.variants.flatMap fun v =>
     v.args.flatMap fun a => a.type.namedTypes
 
+/-- Feature-aware variant of `referencedTypes`: variants whose
+    `features` list contains a disabled feature contribute no
+    referenced types. The plain `referencedTypes` stays
+    exhaustive because the Lean export's topo sort relies on
+    every variant being reachable so the generated `inductive`
+    declaration is complete regardless of which presentation
+    features are toggled. -/
+def referencedTypesUnderCtx
+    (e : EnumDef) (ctx : RenderCtx) : List String :=
+  e.variants.flatMap fun v =>
+    if v.features.any ctx.isFeatureDisabled then []
+    else v.args.flatMap fun a => a.type.namedTypes
+
 /-- Whether this enum uses `Set` anywhere. -/
 def usesSet (e : EnumDef) : Bool :=
   e.variants.any fun v =>
@@ -794,6 +807,26 @@ private def calledNamesAlg :
 def calledNames (e : DslExpr) : List String :=
   DslExpr.para calledNamesAlg e
 
+/-- Feature-aware variant of `calledNamesAlg`: identical except
+    that the `.match_` case drops arms whose effective feature
+    set (explicit `[feature …]` flags ∪ features inherited from
+    variants the patterns name) intersects `ctx`'s disabled set. -/
+private def calledNamesAlgUnderCtx (ctx : RenderCtx) :
+    DslExprF (DslExpr × List String) → List String
+  | .match_ (_, scrut) arms _ =>
+    scrut ++ arms.flatMap fun (pat, (_, rhs), features) =>
+      let eff := BodyPat.armEffectiveFeatures
+        ctx.variants ctx.resolveVariant pat features
+      if eff.any ctx.isFeatureDisabled then [] else rhs
+  | other => calledNamesAlg other
+
+/-- Feature-aware variant of `calledNames`. The non-`ctx`
+    `calledNames` walks every arm — the Lean export topo sort
+    needs that to keep generated code exhaustive regardless of
+    presentation feature flags. -/
+def calledNamesUnderCtx (ctx : RenderCtx) (e : DslExpr) : List String :=
+  DslExpr.para (calledNamesAlgUnderCtx ctx) e
+
 end DslExpr
 
 namespace FnBody
@@ -803,6 +836,16 @@ def calledNames : FnBody → List String
   | .matchArms arms =>
     arms.flatMap fun a => a.rhs.calledNames
   | .expr body => body.calledNames
+
+/-- Feature-aware variant of `calledNames`. See
+    `DslExpr.calledNamesUnderCtx` for the gating rule. -/
+def calledNamesUnderCtx (ctx : RenderCtx) : FnBody → List String
+  | .matchArms arms =>
+    arms.flatMap fun a =>
+      if (a.effectiveFeatures ctx).any ctx.isFeatureDisabled then
+        []
+      else a.rhs.calledNamesUnderCtx ctx
+  | .expr body => body.calledNamesUnderCtx ctx
 
 end FnBody
 
@@ -828,6 +871,25 @@ where
     | .named n _ _ => [n]
     | .expr_ e _ => e.calledNames
 
+/-- Feature-aware variant of `referencedNames`. Parameter
+    types and pre/postcondition names stay as-is — there is
+    no per-type or per-condition feature gate today. -/
+def referencedNamesUnderCtx
+    (f : FnDef) (ctx : RenderCtx) : List String :=
+  f.referencedTypes ++
+  f.preconditions.flatMap (precondCalledNamesUnderCtx ctx) ++
+  f.postconditions.flatMap (postcondCalledNamesUnderCtx ctx) ++
+  f.body.calledNamesUnderCtx ctx
+where
+  precondCalledNamesUnderCtx
+      (ctx : RenderCtx) : Precondition → List String
+    | .named n _ _ => [n]
+    | .expr_ e _ => e.calledNamesUnderCtx ctx
+  postcondCalledNamesUnderCtx
+      (ctx : RenderCtx) : Postcondition → List String
+    | .named n _ _ => [n]
+    | .expr_ e _ => e.calledNamesUnderCtx ctx
+
 /-- Whether this function uses `Set` anywhere. -/
 def usesSet (f : FnDef) : Bool :=
   f.returnType.usesSet ||
@@ -849,6 +911,14 @@ def referencedNames (p : InductivePropertyDef) : List String :=
       r.conclusion.calledNames ++
       r.premises.flatMap (·.calledNames)
 
+/-- Feature-aware variant of `referencedNames`. -/
+def referencedNamesUnderCtx
+    (p : InductivePropertyDef) (ctx : RenderCtx) : List String :=
+  p.referencedTypes ++
+    p.rules.flatMap fun r =>
+      r.conclusion.calledNamesUnderCtx ctx ++
+      r.premises.flatMap (·.calledNamesUnderCtx ctx)
+
 end InductivePropertyDef
 
 namespace PropertyDef
@@ -861,6 +931,11 @@ namespace PropertyDef
 def referencedNames (p : PropertyDef) : List String :=
   p.fnDef.referencedNames
 
+/-- Feature-aware variant of `referencedNames`. -/
+def referencedNamesUnderCtx
+    (p : PropertyDef) (ctx : RenderCtx) : List String :=
+  p.fnDef.referencedNamesUnderCtx ctx
+
 end PropertyDef
 
 namespace TheoremDef
@@ -870,5 +945,10 @@ namespace TheoremDef
     every property / function / constructor referenced. -/
 def referencedNames (t : TheoremDef) : List String :=
   t.statement.calledNames
+
+/-- Feature-aware variant of `referencedNames`. -/
+def referencedNamesUnderCtx
+    (t : TheoremDef) (ctx : RenderCtx) : List String :=
+  t.statement.calledNamesUnderCtx ctx
 
 end TheoremDef

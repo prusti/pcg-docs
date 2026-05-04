@@ -10,6 +10,14 @@ referenced by an embedded one but not itself listed in the
 template's `elems` is rendered in an "Appendix" section so the
 resulting PDF is self-contained.
 
+The dependency closure is **feature-aware**: definitions only
+reachable through content gated on a disabled feature — i.e.
+`defEnum` variants whose `features` includes a disabled feature,
+or match arms whose `effectiveFeatures` (explicit `[feature …]`
+union the features inherited from variants their patterns name)
+include a disabled one — are NOT pulled into the closure and
+therefore do not appear in the appendix.
+
 The user-facing data type is `Presentation` (see
 `Core/Dsl/Types/PresentationDef.lean`); template values are
 registered via `registerPresentationDef`. The presentation
@@ -56,31 +64,36 @@ def lookupKind (reg : Registry) (n : String) : Option DepKind :=
   else none
 
 /-- All registered names this name depends on, dispatched by
-    kind. Returns `[]` for unknown / primitive names. -/
-def dependenciesOf (reg : Registry) (n : String) : List String :=
+    kind, filtered by the presentation's disabled features
+    carried in `ctx`. Returns `[]` for unknown / primitive
+    names. The feature-aware `…UnderCtx` walkers are used so a
+    type only reachable through a variant or match arm gated on
+    a disabled feature is not pulled into the appendix. -/
+def dependenciesOf
+    (reg : Registry) (ctx : RenderCtx) (n : String) : List String :=
   match reg.lookupKind n with
   | some .struct =>
     (reg.structs.find? (·.structDef.name == n)).map
       (·.structDef.referencedTypes) |>.getD []
   | some .enum_ =>
     (reg.enums.find? (·.enumDef.name.name == n)).map
-      (·.enumDef.referencedTypes) |>.getD []
+      (·.enumDef.referencedTypesUnderCtx ctx) |>.getD []
   | some .alias =>
     (reg.aliases.find? (·.aliasDef.name == n)).map
       (·.aliasDef.referencedTypes) |>.getD []
   | some .fn =>
     (reg.fns.find? (·.fnDef.name == n)).map
-      (·.fnDef.referencedNames) |>.getD []
+      (·.fnDef.referencedNamesUnderCtx ctx) |>.getD []
   | some .property =>
     (reg.properties.find? (·.propertyDef.fnDef.name == n)).map
-      (·.propertyDef.referencedNames) |>.getD []
+      (·.propertyDef.referencedNamesUnderCtx ctx) |>.getD []
   | some .inductiveProperty =>
     (reg.inductiveProperties.find?
         (·.inductivePropertyDef.name == n)).map
-      (·.inductivePropertyDef.referencedNames) |>.getD []
+      (·.inductivePropertyDef.referencedNamesUnderCtx ctx) |>.getD []
   | some .theorem_ =>
     (reg.theorems.find? (·.theoremDef.name == n)).map
-      (·.theoremDef.referencedNames) |>.getD []
+      (·.theoremDef.referencedNamesUnderCtx ctx) |>.getD []
   | none => []
 
 /-- Whether `n` resolves to a registered definition. Primitive
@@ -94,9 +107,12 @@ def isRegistered (reg : Registry) (n : String) : Bool :=
     discovery order, deduplicated. Names that don't resolve
     to a registered definition (primitives or unknowns) are
     silently skipped — callers that want to surface those as
-    errors should walk separately via `unresolvedReferences`. -/
+    errors should walk separately via `unresolvedReferences`.
+    The `ctx` is forwarded to `dependenciesOf` so the closure
+    respects the presentation's `disabledFeatures`. -/
 partial def closure
-    (reg : Registry) (seeds : List String) : List String :=
+    (reg : Registry) (ctx : RenderCtx) (seeds : List String)
+    : List String :=
   let rec go (acc : List String)
       : List String → List String
     | [] => acc
@@ -104,7 +120,7 @@ partial def closure
       if acc.contains n then go acc rest
       else if !reg.isRegistered n then go acc rest
       else
-        let deps := reg.dependenciesOf n
+        let deps := reg.dependenciesOf ctx n
         go (acc ++ [n]) (deps ++ rest)
   go [] seeds
 
@@ -116,14 +132,15 @@ partial def closure
     walker, or genuine typos. The exporter surfaces them as
     a warning so users can audit a template's surface area. -/
 partial def unresolvedReferences
-    (reg : Registry) (seeds : List String) : List String :=
+    (reg : Registry) (ctx : RenderCtx) (seeds : List String)
+    : List String :=
   let rec go (visited unresolved : List String)
       : List String → List String × List String
     | [] => (visited, unresolved)
     | n :: rest =>
       if visited.contains n then go visited unresolved rest
       else if reg.isRegistered n then
-        let deps := reg.dependenciesOf n
+        let deps := reg.dependenciesOf ctx n
         go (visited ++ [n]) unresolved (deps ++ rest)
       else if primitiveTypeNames.contains n
               || unresolved.contains n then
@@ -227,11 +244,19 @@ def buildTemplatePresentationLatex
     return .error
       { unresolvedDefRefs := unresolvedDefRefs
         unresolvedReferences := [] }
-  let closed : List String := reg.closure included
+  -- Closure ctx: built from the *full* registry so feature
+  -- inheritance via `BodyArm.effectiveFeatures` can resolve any
+  -- variant the walk encounters (the closure is precisely the
+  -- step that discovers which definitions belong in `subReg`).
+  let closureCtx : RenderCtx :=
+    mkRenderCtx reg p.disabledFeatures
+  let closed : List String := reg.closure closureCtx included
   let appendixNames : List String :=
     appendixSortByKind reg
       (closed.filter (fun n => !included.contains n))
   let subReg : Registry := reg.restrictToNames closed
+  -- Render ctx: built from `subReg` so cross-references only
+  -- hyperlink to definitions that are actually emitted.
   let ctx : RenderCtx := mkRenderCtx subReg p.disabledFeatures
   let titleBlock : Latex :=
     if p.title.isEmpty then .seq []

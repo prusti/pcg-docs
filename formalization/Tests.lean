@@ -10,6 +10,7 @@ import Core.Dsl.Types.FnDef
 import Core.Dsl.Types.PresentationDef
 import Core.Dsl.Types.RenderCtx
 import Core.Dsl.Types.Feature
+import Presentation.Template
 import Tests.DslGotoDef
 import Tests.ProofFolding
 
@@ -469,6 +470,117 @@ private def nestedPats : BodyPat × BodyPat :=
   (.ctor "Some" [.ctor "hidden" []],
    .ctor "Some" [.ctor "shown"  []])
 
+/-! ## Closure-level feature awareness
+
+The fixtures below build a tiny `Registry` containing a struct
+`AppendixOnly` and an enum `GatedRef` with two variants:
+
+* `noArg` — no arguments, no feature gate
+* `gatedArg` — gated on `.enumTypes`, taking one `AppendixOnly` arg
+
+`Registry.closure` is then exercised both with the feature
+enabled and disabled. With the feature enabled the closure
+should drag `AppendixOnly` in; with the feature disabled the
+gated variant contributes no referenced types and the closure
+should NOT include `AppendixOnly`. -/
+
+private def appendixStruct : StructDef :=
+  { name := "AppendixOnly"
+    symbolDoc := MathDoc.text "ao"
+    setDoc := MathDoc.text "AppendixOnly"
+    docParam := "Appendix Only"
+    doc := Doc.plain "Reachable only through a gated variant."
+    fields := [] }
+
+private def appendixEnum : EnumDef :=
+  EnumDef.mk ⟨"GatedRef"⟩ (MathDoc.text "gr")
+    (MathDoc.text "GatedRef") "GatedRef"
+    (Doc.plain "Enum whose only ref to AppendixOnly is gated.")
+    [] false false
+    [ VariantDef.mk ⟨"noArg"⟩ (Doc.plain "noArg")
+        (fun _ => MathDoc.text "noArg") [] []
+    , VariantDef.mk ⟨"gatedArg"⟩ (Doc.plain "gatedArg")
+        (fun _ => MathDoc.text "gatedArg")
+        [{ name := "x"
+           type := .named ⟨"AppendixOnly"⟩
+           symbolDoc := MathDoc.text "x" }]
+        [.enumTypes] ]
+
+private def appendixRegistry : Registry :=
+  { descrs := []
+    enums := [⟨appendixEnum, .anonymous⟩]
+    structs := [⟨appendixStruct, .anonymous⟩]
+    aliases := []
+    orders := []
+    fns := []
+    properties := []
+    inductiveProperties := []
+    theorems := []
+    presentations := [] }
+
+/-- Render `appendixRegistry`'s template containing only
+    `[[GatedRef]]`, returning the resulting LaTeX as a string
+    (or `none` on `TemplateError`). -/
+private def renderGatedRefTemplate
+    (disabled : List Feature) : Option String :=
+  let p : Presentation :=
+    { elems := [.defRef "GatedRef"], filename := "t",
+      disabledFeatures := disabled }
+  match buildTemplatePresentationLatex appendixRegistry p with
+  | .ok l => some l.render
+  | .error _ => none
+
+/-! ## Match-arm-level feature awareness
+
+Mirror of the `appendixRegistry` fixtures above but for case (b)
+of the documented invariant: a function `gatedFn` whose only
+reference to `armOnlyFn` lives inside a match arm carrying
+`[.enumTypes]` in its `features`. With `.enumTypes` enabled the
+closure should pull `armOnlyFn` in; with it disabled the arm
+contributes no calls so `armOnlyFn` should NOT appear. -/
+
+private def armOnlyFn : FnDef :=
+  { name := "armOnlyFn"
+    symbolDoc := Doc.plain "armOnlyFn"
+    doc := Doc.plain "Reachable only via a gated match arm."
+    params := []
+    returnType := .prim .bool
+    body := .expr .true_ }
+
+/-- A function whose body is a `matchArms`. The first arm is
+    explicitly gated on `.enumTypes` and is the ONLY caller of
+    `armOnlyFn`; the second arm is ungated and refers to no
+    other registered name. -/
+private def gatedFn : FnDef :=
+  { name := "gatedFn"
+    symbolDoc := Doc.plain "gatedFn"
+    doc := Doc.plain "Calls armOnlyFn from a gated match arm."
+    params := [{ name := "b"
+                 ty := .prim .bool
+                 doc := Doc.plain "input flag"
+                 symbolDoc := some (MathDoc.text "b") }]
+    returnType := .prim .bool
+    body := .matchArms
+      [{ pat := [.var "true"]
+         rhs := .call (.var "armOnlyFn") []
+         features := [.enumTypes] },
+       { pat := [.var "false"]
+         rhs := .true_
+         features := [] }] }
+
+private def armRegistry : Registry :=
+  { descrs := []
+    enums := []
+    structs := []
+    aliases := []
+    orders := []
+    fns := [⟨armOnlyFn, .anonymous, 0⟩,
+            ⟨gatedFn, .anonymous, 1⟩]
+    properties := []
+    inductiveProperties := []
+    theorems := []
+    presentations := [] }
+
 def featureFlagTests : TestSeq :=
   group "Feature flag" $
     test "enum: tagged variant omitted when feature disabled"
@@ -509,6 +621,40 @@ def featureFlagTests : TestSeq :=
       (let rendered := renderAutoElide gatedRegistry topLevelPats
        hasSubstr rendered "alpha" &&
          hasSubstr rendered "beta") $
+    test "closure: gated variant pulls in arg type when enabled"
+      (let ctx := mkRenderCtx appendixRegistry []
+       let closed := appendixRegistry.closure ctx ["GatedRef"]
+       closed.contains "GatedRef" &&
+         closed.contains "AppendixOnly") $
+    test "closure: gated variant omits arg type when disabled"
+      (let ctx := mkRenderCtx appendixRegistry [.enumTypes]
+       let closed := appendixRegistry.closure ctx ["GatedRef"]
+       closed.contains "GatedRef" &&
+         !closed.contains "AppendixOnly") $
+    test "dependenciesOf: enum drops gated arg's type when disabled"
+      (let onCtx := mkRenderCtx appendixRegistry []
+       let offCtx := mkRenderCtx appendixRegistry [.enumTypes]
+       let onDeps := appendixRegistry.dependenciesOf onCtx "GatedRef"
+       let offDeps := appendixRegistry.dependenciesOf offCtx "GatedRef"
+       onDeps.contains "AppendixOnly" &&
+         !offDeps.contains "AppendixOnly") $
+    test "buildTemplatePresentationLatex: feature off omits appendix entry"
+      (let onRendered := renderGatedRefTemplate []
+       let offRendered := renderGatedRefTemplate [.enumTypes]
+       (onRendered.map (hasSubstr · "Appendix Only")
+         |>.getD false) &&
+         (offRendered.map (fun s => !hasSubstr s "Appendix Only")
+           |>.getD false)) $
+    test "closure: gated match arm pulls in callee when enabled"
+      (let ctx := mkRenderCtx armRegistry []
+       let closed := armRegistry.closure ctx ["gatedFn"]
+       closed.contains "gatedFn" &&
+         closed.contains "armOnlyFn") $
+    test "closure: gated match arm omits callee when disabled"
+      (let ctx := mkRenderCtx armRegistry [.enumTypes]
+       let closed := armRegistry.closure ctx ["gatedFn"]
+       closed.contains "gatedFn" &&
+         !closed.contains "armOnlyFn") $
     .done
 
 def main (args : List String) : IO UInt32 :=
