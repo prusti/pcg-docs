@@ -70,7 +70,7 @@ long where
   | param (index : Nat)
     "A type parameter."
     (mathdoc! "#param i")
-  | alias (base : Ty) (name : AliasTyName)
+  | [feature ALIAS_TYPES] alias (base : Ty) (name : AliasTyName)
       (args : List Ty)
     "An alias type."
     (mathdoc! "{base}::{name}⟨τ̄⟩")

@@ -6,7 +6,7 @@ import MIR
 def template : Presentation := {
   filename := "louis"
   title    := "Louis"
-  disabledFeatures := [.enumTypes, .refTypes]
+  disabledFeatures := [.enumTypes, .refTypes, .aliasTypes]
   elems    := presBody!
     "
 

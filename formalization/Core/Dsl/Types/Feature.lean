@@ -26,6 +26,7 @@ file. -/
 inductive Feature where
   | enumTypes
   | refTypes
+  | aliasTypes
   deriving Repr, BEq, DecidableEq, Hashable, Inhabited, Lean.Quote
 
 open Lean Elab Command in
@@ -34,6 +35,8 @@ open Lean Elab Command in
     an unknown spelling. The currently-supported spellings:
 
     * `ENUM_TYPES` → `Feature.enumTypes`
+    * `REF_TYPES` → `Feature.refTypes`
+    * `ALIAS_TYPES` → `Feature.aliasTypes`
 
     Add a new line here whenever a new constructor is added to
     `Feature`. -/
@@ -41,10 +44,11 @@ def identToFeature (id : Lean.Ident) : CommandElabM Feature := do
   match toString id.getId with
   | "ENUM_TYPES" => pure .enumTypes
   | "REF_TYPES" => pure .refTypes
+  | "ALIAS_TYPES" => pure .aliasTypes
   | other =>
     Lean.throwErrorAt id
       s!"unknown feature `{other}` — \
-         supported features: ENUM_TYPES"
+         supported features: ENUM_TYPES, REF_TYPES, ALIAS_TYPES"
 
 open Lean Elab Command in
 /-- Map an array of feature idents (the comma-separated list
