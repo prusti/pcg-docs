@@ -468,9 +468,16 @@ def escapeLatex : String → String :=
     upward-tick primes (for code identifiers). Additionally,
     a zero-width `\allowbreak` is inserted after `/` so that
     paths like `\texttt{definitions/places.md}` can be broken
-    across lines without producing an overfull `\hbox`. -/
+    across lines without producing an overfull `\hbox`.
+
+    The ASCII double quote `"` is escaped to
+    `\textquotedbl{}` so that the active `"` set up by
+    `csquotes`' `\MakeOuterQuote` (see `Presentation.latexPreamble`)
+    does not turn `"`s inside `\texttt{...}` into paired
+    typographic quotes. -/
 def escapeLatexCode : String → String :=
   fun s => (escapeLatex s).replace "'" "\\ensuremath{'}"
+    |>.replace "\"" "\\textquotedbl{}"
     |>.replace "/" "/\\allowbreak{}"
 
 /-- Transform a function / identifier name so trailing-prime

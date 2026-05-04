@@ -410,7 +410,7 @@ def buildPresentationLatex (reg : Registry) : Latex :=
 def latexPackages : List String :=
   ["tikz", "amsmath", "amssymb", "amsthm",
    "algorithm", "algpseudocode", "hyperref", "xcolor",
-   "placeins", "mathpartir", "mdframed"]
+   "placeins", "mathpartir", "mdframed", "csquotes"]
 
 /-- Page geometry. `article`'s default ~1.5in side margins
     waste a lot of horizontal space — shrink to 1in on all
@@ -476,5 +476,12 @@ def latexPreamble : Latex :=
       ++ "    \\kern.04em}\\ULon}\n"
       ++ "\\makeatother\n"),
     .raw ("\\hypersetup{colorlinks=false, "
-      ++ "pdfborder={0 0 0}}\n")
+      ++ "pdfborder={0 0 0}}\n"),
+    -- Make the ASCII double-quote character `"` an outer
+    -- quote so authors can write `"foo"` in `presBody!` and
+    -- have it render as paired typographic quotes
+    -- (i.e. ``foo''). Code samples are protected separately
+    -- by escaping `"` to `\textquotedbl{}` in
+    -- `Doc.escapeLatexCode`.
+    .raw "\\MakeOuterQuote{\"}\n"
   ]
