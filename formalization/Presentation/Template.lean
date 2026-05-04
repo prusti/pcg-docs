@@ -212,9 +212,19 @@ end TemplateError
     presentations to set off each inline-inserted
     registered definition. Appendix entries are rendered
     unboxed so the appendix reads as a single reference
-    section rather than a stack of framed cards. -/
+    section rather than a stack of framed cards.
+
+    The `nobreak=true` option keeps each definition on a
+    single page: `mdframed`'s default behaviour is to allow
+    the frame to split at a page boundary, which produces
+    half-boxed definitions where the top sits at the bottom
+    of one page and the rest continues on the next. For the
+    relatively short, self-contained definitions emitted
+    here it reads much better to push the whole box to the
+    next page when it would otherwise straddle two. -/
 private def boxify (body : Latex) : Latex :=
-  .seq [.env "mdframed" body, .newline, .newline]
+  .seq [.envOpts "mdframed" (.raw "nobreak=true") body,
+        .newline, .newline]
 
 /-- Whether a registered name renders as a LaTeX float (i.e.
     inside a `\begin{algorithm}…\end{algorithm}` block with a

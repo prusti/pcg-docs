@@ -298,6 +298,11 @@ outer par mode"). The `algorithm` environment already provides
 its own framed, captioned visual block, so function defs are
 emitted unboxed.
 
+Each `mdframed` is opened with `[nobreak=true]` so a single
+definition is never split across a page boundary: when a
+box would otherwise straddle two pages, LaTeX pushes the
+whole box to the next page instead of breaking the frame.
+
 `Presentation/Templates/Example.lean` ships a minimal
 `placeTemplate` that embeds `Place` and exercises the
 appendix logic across `Local`, `ProjElem`, `FieldIdx`,
