@@ -416,7 +416,22 @@ mutual
 
   /-- Convert `Doc` to math-mode `LatexMath` AST. -/
   partial def Doc.toLatexMath : Doc → LatexMath
-    | .plain s => .text (.text s)
+    | .plain s =>
+      -- Trailing apostrophes in a math-mode plain string
+      -- render as math primes (the bare `'` after a base in
+      -- math mode), not as literal apostrophes inside
+      -- `\text{...}`. So `n'` becomes `\text{n}'` (a prime),
+      -- not `\text{n'}` (a typographer's apostrophe).
+      let charsRev := s.toList.reverse
+      let primesRev := charsRev.takeWhile (· == '\'')
+      if primesRev.isEmpty then
+        .text (.text s)
+      else
+        let basesRev := charsRev.dropWhile (· == '\'')
+        let base := String.ofList basesRev.reverse
+        let primes := String.ofList primesRev
+        if base.isEmpty then .raw primes
+        else .seq [.text (.text base), .raw primes]
     | .bold d => .mathbf d.toLatexMath
     | .italic d => d.toLatexMath
     | .code s => .texttt s
