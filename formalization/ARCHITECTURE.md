@@ -176,6 +176,42 @@ helpers stay inline in their consumer's `ExtraSpec.items`
 `int_value_of_nat` remain inline in the `OpSem` decode
 module.
 
+### `defProperty` rendering modes
+
+A `defProperty` body may be written as either a direct
+expression (`:= …`) or as pattern-matching arms (`where | pat
+=> rhs`). The default LaTeX rendering for both forms emits a
+single equation `Name(p₁, …, pₙ) := body` inside the
+`definition` environment.
+
+The pattern-matching form additionally supports an
+`inductively` modifier between the parameter list and `where`.
+When set, the LaTeX exporter renders the body as a sequence of
+`\inferrule` blocks — one per arm — mirroring
+`defInductiveProperty`'s output, with each arm's RHS as the
+premise and `Name(pat)` as the conclusion. Two transformations
+are applied automatically:
+
+- arms whose RHS is the literal `false` are dropped (the
+  property does not hold for that pattern), and
+- arms whose RHS is a top-level disjunction `A ∨ B` are split
+  into two rules — one with premise `A`, one with `B` — since
+  `(A ∨ B) → G` is equivalent to two rules `A → G` and
+  `B → G`.
+
+The Lean and Rust exports are unaffected: the underlying `def
+Name … : Prop` is still elaborated from the user's match
+verbatim. `inductively` also opts out of the default
+`_ => False` catch-all the `where` form normally appends to
+match-arm bodies — under inductive rendering the user's match
+is interpreted as a complete enumeration of inference rules
+and is expected to be exhaustive over the scrutinee, so an
+extra catch-all would surface as a redundant-alternative
+linter error. Authors that still want a default-False
+fall-through include their own `| _ => false` arm.
+
+`PCG/Owned/InitTree.lean :: HasNonDeepLeaf` uses this mode.
+
 ## Registries and exporters
 
 Each DSL command appends to a global `IO.Ref` registry (see

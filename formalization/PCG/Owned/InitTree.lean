@@ -29,27 +29,27 @@ defProperty HasNonDeepLeaf (.plain "HasNonDeepLeaf")
     (doc! "{it} has at least one non-deep leaf")
   long
     (doc! "{it} contains at least one descendant leaf whose \
-      capability is not fully initialised — recurses \
-      structurally on the tree, with the `fields` case \
+      capability is not fully initialised — defined by direct \
+      pattern-matching on the tree, with the `fields` case \
       folded over the children list as a disjunction.")
   (it "The initialisation tree." : InitTree)
-  := match it with
-     | .leaf cap => cap ≠ .deep
-     | .internal (.fields []) => false
-     | .internal (.fields (⟨_, _, sub⟩ :: rest)) =>
-         HasNonDeepLeaf sub ∨
-         HasNonDeepLeaf (.internal (.fields rest))
-     | .internal (.deref d) => HasNonDeepLeaf d
-     | [feature ENUM_TYPES]
-         .internal (.guided (.downcast _ d)) =>
-         HasNonDeepLeaf d
-     | .internal (.guided (.constantIndex _ d)) =>
-         HasNonDeepLeaf d
-     | .internal (.guided (.index _ d)) =>
-         HasNonDeepLeaf d
-     | .internal (.guided (.subslice _ _ _ d)) =>
-         HasNonDeepLeaf d
-     end
+  inductively
+  where
+  | .leaf cap => cap ≠ .deep
+  | .internal (.fields []) => false
+  | .internal (.fields (⟨_, _, sub⟩ :: rest)) =>
+      HasNonDeepLeaf sub ∨
+      HasNonDeepLeaf (.internal (.fields rest))
+  | .internal (.deref d) => HasNonDeepLeaf d
+  | [feature ENUM_TYPES]
+      .internal (.guided (.downcast _ d)) =>
+      HasNonDeepLeaf d
+  | .internal (.guided (.constantIndex _ d)) =>
+      HasNonDeepLeaf d
+  | .internal (.guided (.index _ d)) =>
+      HasNonDeepLeaf d
+  | .internal (.guided (.subslice _ _ _ d)) =>
+      HasNonDeepLeaf d
 
 defFnMutual
 defFn itPlaces (.plain "itPlaces")

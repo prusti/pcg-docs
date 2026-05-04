@@ -147,7 +147,7 @@ private def stripOptionQualifier (n : String) : String :=
     surrounding delimiters and don't need parens; everything
     else (a constructor applied to arguments, a non-list-literal
     cons chain) does. -/
-private partial def needsParen : BodyPat → Bool
+partial def needsParen : BodyPat → Bool
   | .wild | .var _ | .natLit _ | .nil => false
   | .ctor "⟨⟩" _ => false
   | .ctor _ as => !as.isEmpty

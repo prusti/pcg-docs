@@ -82,12 +82,39 @@ namespace InductivePropertyDef
     become hyperlinks and operators use math notation.
     `ctx` supplies the renderer's constructor/function
     resolution; `fnName` is used for self-reference. -/
-private def exprLatex
+def exprLatex
     (ctx : RenderCtx) (fnName : String) (e : DslExpr)
     : LatexMath :=
   -- `isProperty := true` switches boolean literals and
   -- related atoms to their Prop-mode presentations.
   (DslExpr.toDoc fnName ctx (fun _ => none) true e).toLatexMath
+
+/-- Build a `\inferrule*[Right=\textsc{name}]{premises}{concl}`
+    block from already-rendered premise / conclusion
+    `LatexMath`s. Premises are separated by `\\\\`; an empty
+    premise list renders as a single empty premise position.
+    Shared by `defInductiveProperty` and the
+    `inductively`-rendered branch of `defProperty`. -/
+def renderInferrule
+    (ruleName : String)
+    (premises : List LatexMath)
+    (conclusion : LatexMath)
+    : Latex :=
+  let premiseLatex : LatexMath :=
+    if premises.isEmpty then .raw ""
+    else LatexMath.intercalate (.raw " \\\\ ") premises
+  let inference : LatexMath :=
+    -- The `Right=` label of `\inferrule*` is rendered in text
+    -- mode, so use a raw plain string for the rule name.
+    .seq [
+      .raw "\\inferrule*[Right=\\textsc{",
+      .raw (ruleName.replace "_" "\\_"),
+      .raw "}]{",
+      premiseLatex,
+      .raw "}{",
+      conclusion,
+      .raw "}" ]
+  Latex.displayMath inference
 
 /-- Render a single rule as a `\inferrule`. Premises sit
     above the inference line (separated by `\\\\`),
@@ -101,23 +128,8 @@ private def ruleLatex
   let inlineCtx := { ctx with allowBreak := false }
   let premiseLines : List LatexMath :=
     r.premises.map (exprLatex inlineCtx fnName)
-  let premises : LatexMath :=
-    if r.premises.isEmpty then .raw ""
-    else
-      LatexMath.intercalate (.raw " \\\\ ") premiseLines
   let conclusion : LatexMath := exprLatex inlineCtx fnName r.conclusion
-  let inference : LatexMath :=
-    -- The `Right=` label of `\inferrule*` is rendered in text
-    -- mode, so use a raw plain string for the rule name.
-    .seq [
-      .raw "\\inferrule*[Right=\\textsc{",
-      .raw (r.name.replace "_" "\\_"),
-      .raw "}]{",
-      premises,
-      .raw "}{",
-      conclusion,
-      .raw "}" ]
-  Latex.displayMath inference
+  renderInferrule r.name premiseLines conclusion
 
 /-- Render the inductive property as a LaTeX `definition`
     environment (prose) followed by one `\inferrule` per rule.

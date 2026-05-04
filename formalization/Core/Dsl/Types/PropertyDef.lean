@@ -1,4 +1,5 @@
 import Core.Dsl.Types.FnDef
+import Core.Dsl.Types.InductivePropertyDef
 
 /-- An exportable property (predicate) definition.
 
@@ -21,6 +22,18 @@ structure PropertyDef where
       so a reader can jump from the precondition to the long
       description. -/
   shortDoc : List Doc → Doc
+  /-- When `true`, the LaTeX rendering of the property's body
+      switches from the default `match … with case … ⇒ …`
+      array to a sequence of `\inferrule` blocks — one per
+      match arm — mirroring `defInductiveProperty`'s output.
+      Each arm contributes a rule whose conclusion is the
+      property applied to the arm's pattern(s) and whose
+      premise is the arm's right-hand side. RHS literal
+      `false` arms are dropped, and a top-level disjunction
+      RHS is split into one rule per disjunct. Only
+      meaningful when `fnDef.body` is `.matchArms`; ignored
+      otherwise. The Lean and Rust outputs are unaffected. -/
+  renderAsInductive : Bool := false
 
 namespace PropertyDef
 
@@ -143,12 +156,178 @@ private def bodyMath
           LatexMath.seq (rows.intersperse (.raw "\n")),
           .raw "\n\\end{array}"]
 
+/-- Render a single `BodyPat` as `LatexMath`, threading
+    the per-parameter type so that constructor names inside
+    the pattern (e.g. `.fields` inside an `InitTree` slot)
+    resolve against the type's namespace before falling back
+    to the global registry. Mirrors the per-arm scoping used
+    by `bodyMath`. When `juxtaposition := true`, compound
+    patterns (constructor applications, non-list-literal cons
+    chains) are wrapped in parentheses so they can sit safely
+    next to the property name in a Haskell-style call. -/
+private def patLatex
+    (ctx : RenderCtx) (ty : DSLType) (pat : BodyPat)
+    (juxtaposition : Bool := false)
+    : LatexMath :=
+  let scopedResolveCtor : String → Option String :=
+    match ty with
+    | .named n => fun name =>
+      if name.contains '.' then ctx.resolveCtor name
+      else (ctx.resolveCtor s!"{n.name}.{name}").orElse
+        fun _ => ctx.resolveCtor name
+    | _ => ctx.resolveCtor
+  let scopedResolveVariant : String → Option VariantDef :=
+    match ty with
+    | .named n => fun name =>
+      if name.contains '.' then ctx.resolveVariant name
+      else (ctx.resolveVariant s!"{n.name}.{name}").orElse
+        fun _ => ctx.resolveVariant name
+    | _ => ctx.resolveVariant
+  let inner : MathDoc := BodyPat.toDoc ctx.ctorDisplay
+    scopedResolveCtor scopedResolveVariant
+    ctx.variants pat
+  if juxtaposition && pat.needsParen then
+    (MathDoc.paren inner).toLatexMath
+  else inner.toLatexMath
+
+/-- Build the inductive-form conclusion `Name(pat₁, …, patₙ)`
+    for a single match arm: rendered patterns sit in the
+    parameter positions of the property's header. A custom
+    `displayed` template is honoured by substituting each
+    `#paramName` reference with the rendered pattern at the
+    matching slot. Mirrors `lhsMath`'s shape selection
+    (Haskell juxtaposition, `Rust` parens / infix). -/
+private def conclusionLatex
+    (p : PropertyDef) (ctx : RenderCtx) (pats : List BodyPat)
+    : LatexMath :=
+  -- For a Haskell-style header `Name p₁ p₂ …` and for the
+  -- one-arg `Name(p)` Rust shape, compound argument patterns
+  -- need parens so the application binds correctly. The infix
+  -- two-arg Rust shape (`p₁ Name p₂`) already separates its
+  -- arguments with the property name and doesn't need
+  -- parens. Custom display templates are user-controlled and
+  -- handled below without extra parenthesisation.
+  let nameLatex : LatexMath :=
+    .text (.text (Doc.fnNameDisplay p.fnDef.name))
+  let usesJuxtaposition : Bool :=
+    p.fnDef.display.isNone &&
+      (PRESENTATION_PROP_APP_STYLE == .Haskell ||
+        pats.length == 1)
+  let patArgs : List LatexMath :=
+    pats.zip (p.fnDef.params.map (·.ty)) |>.map fun (pat, ty) =>
+      patLatex ctx ty pat (juxtaposition := usesJuxtaposition)
+  match p.fnDef.display with
+  | some parts =>
+    let paramToPat : String → Option LatexMath := fun name =>
+      let zipped := p.fnDef.params.zip patArgs
+      match zipped.find? (fun (f, _) => f.name == name) with
+      | some (_, m) => some m
+      | none => none
+    .seq (parts.map fun
+      | .lit d => d.toLatexMath
+      | .arg name symbol =>
+        match paramToPat name with
+        | some m => m
+        | none => symbol.toLatexMath)
+  | none =>
+    if patArgs.isEmpty then nameLatex
+    else if PRESENTATION_PROP_APP_STYLE == .Haskell then
+      .seq [nameLatex, .raw "~",
+            LatexMath.intercalate (.raw "~") patArgs]
+    else match patArgs with
+      | [a] => .seq [nameLatex, .raw "(", a, .raw ")"]
+      | [a, b] =>
+        .seq [a, .raw "~", nameLatex, .raw "~", b]
+      | xs =>
+        .seq [nameLatex, .raw "(",
+              LatexMath.intercalate (.raw ", ") xs, .raw ")"]
+
+/-- Strip the leading anonymous-constructor `.` from a pattern
+    constructor name. -/
+private def stripCtorDot (n : String) : String :=
+  if n.startsWith "." then (n.drop 1).toString else n
+
+/-- Walk the leftmost-deepest constructor chain of a single
+    `BodyPat`, collecting short ctor names. Used to derive a
+    rule label from a match arm's pattern. -/
+private partial def patNameParts : BodyPat → List String
+  | .ctor n args =>
+    let head := stripCtorDot n
+    match args with
+    | h :: _ => head :: patNameParts h
+    | [] => [head]
+  | .cons _ _ => ["cons"]
+  | .nil => ["nil"]
+  | .wild | .var _ | .natLit _ => []
+
+/-- Derive a stable, human-readable rule label for an arm
+    from its patterns: join the leftmost-deepest constructor
+    chain across each pattern with `_`. Falls back to
+    `caseN` for arms whose patterns are entirely
+    irrefutable (`_`, variables). -/
+private def patternsRuleName
+    (pats : List BodyPat) (idx : Nat) : String :=
+  let parts := pats.flatMap patNameParts
+  if parts.isEmpty then s!"case{idx + 1}"
+  else String.intercalate "_" parts
+
+/-- Decompose the right-hand side of a match arm into a list
+    of premise sets, one per inductive rule the arm should
+    generate. A literal `false`/`False` produces no rules;
+    a top-level disjunction recurses on each branch
+    (since `(A ∨ B) → G` is equivalent to two rules
+    `A → G` and `B → G`); a literal `true` produces a single
+    premise-free rule; everything else becomes one rule with
+    the whole expression as its sole premise. -/
+private partial def rhsToPremiseSets
+    : DslExpr → List (List DslExpr)
+  | .false_ => []
+  | .true_ => [[]]
+  | .or l r => rhsToPremiseSets l ++ rhsToPremiseSets r
+  | e => [[e]]
+
+/-- Render the property's `where` arms as a sequence of
+    `\inferrule` blocks — one per rule produced by
+    `rhsToPremiseSets`. Used in place of `bodyMath` when the
+    property is declared `inductively`. Arms gated on a
+    disabled feature are dropped before rule expansion. -/
+private def inductiveRulesLatex
+    (p : PropertyDef) (ctx : RenderCtx) : Latex :=
+  let inlineCtx := { ctx with allowBreak := false }
+  let arms : List BodyArm := match p.fnDef.body with
+    | .matchArms arms => arms
+    | .expr _ => []
+  let visibleArms : List BodyArm := arms.filter fun a =>
+    !(a.effectiveFeatures ctx).any ctx.isFeatureDisabled
+  let rules : List Latex :=
+    visibleArms.zipIdx.flatMap fun (arm, idx) =>
+      let baseName := patternsRuleName arm.pat idx
+      let conclusion := conclusionLatex p inlineCtx arm.pat
+      let sets := rhsToPremiseSets arm.rhs
+      let n := sets.length
+      sets.zipIdx.map fun (premiseExprs, j) =>
+        let premiseLatex : List LatexMath :=
+          premiseExprs.map
+            (InductivePropertyDef.exprLatex inlineCtx p.fnDef.name)
+        let ruleName :=
+          if n ≤ 1 then baseName
+          else s!"{baseName}_{j + 1}"
+        InductivePropertyDef.renderInferrule
+          ruleName premiseLatex conclusion
+  Latex.seq (rules.intersperse Latex.newline)
+
 /-- Render the property as a LaTeX `definition` environment
     containing the prose description and a single boxed
     display-math equation `LHS := body \quad where p ∈ T,
     …`. Properties no longer emit a separate `\begin{algorithm}`
     float; the formal predicate sits directly under the
     English description.
+
+    When `p.renderAsInductive` is set, the body is replaced
+    by a sequence of `\inferrule` blocks (one per arm, mirroring
+    `defInductiveProperty`'s output) and the `where`-block of
+    parameter bindings is emitted inside the same `definition`
+    environment so types stay visible above the rules.
 
     `labelKey` overrides the `\hypertarget` / `\label` key
     used for the underlying function's anchor (see
@@ -163,16 +342,28 @@ def formalDefLatex
     .raw s!"\\hypertarget\{property:{p.fnDef.name}}\{}"
   let fnAnchor : Latex :=
     .raw s!"\\hypertarget\{fn:{key}}\{}\\label\{fn:{key}}"
-  let lhs := lhsMath p
-  let body := bodyMath p ctx
-  let equation : LatexMath :=
-    .seq [lhs, .raw " \\mathrel{:=} ", body]
-  .envOpts "definition"
-      (.text (Doc.fnNameDisplay p.fnDef.name)) (.seq [
-    propertyAnchor, fnAnchor, .newline,
-    p.defaultDoc.toLatex, .newline,
-    .displayMath equation, .newline,
-    whereBlock p ctx
-  ])
+  if p.renderAsInductive then
+    let header := lhsMath p
+    let defBlock : Latex :=
+      .envOpts "definition"
+          (.text (Doc.fnNameDisplay p.fnDef.name)) (.seq [
+        propertyAnchor, fnAnchor, .newline,
+        p.defaultDoc.toLatex, .newline,
+        .displayMath header, .newline,
+        whereBlock p ctx ])
+    .seq [defBlock, .newline,
+          inductiveRulesLatex p ctx, .newline]
+  else
+    let lhs := lhsMath p
+    let body := bodyMath p ctx
+    let equation : LatexMath :=
+      .seq [lhs, .raw " \\mathrel{:=} ", body]
+    .envOpts "definition"
+        (.text (Doc.fnNameDisplay p.fnDef.name)) (.seq [
+      propertyAnchor, fnAnchor, .newline,
+      p.defaultDoc.toLatex, .newline,
+      .displayMath equation, .newline,
+      whereBlock p ctx
+    ])
 
 end PropertyDef

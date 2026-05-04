@@ -21,11 +21,27 @@ open Lean in
     unambiguous. -/
 syntax docDescr := "(" term ")"
 
-/-- Pattern-matching property. -/
+/-- Pattern-matching property.
+
+    An optional `inductively` modifier before `where` switches
+    the LaTeX presentation of the body from the default
+    `match … with case … ⇒ …` array to a sequence of
+    `\inferrule` blocks — one per arm, mirroring
+    `defInductiveProperty`'s output. Each arm contributes a rule
+    whose conclusion is the property applied to the arm's
+    pattern(s) and whose premise is the arm's right-hand side.
+    Arms whose RHS is the literal `false` are dropped from the
+    rendering, and arms whose RHS is a top-level disjunction
+    `A ∨ B` are split into one rule per disjunct (since
+    `(A ∨ B) → G` is equivalent to two rules `A → G` and
+    `B → G`). The Lean and Rust code-generation paths are
+    unaffected: the underlying definition is still elaborated
+    as a `match` returning `Prop`. -/
 syntax "defProperty " ident "(" term ")"
     "short " docDescr
     "long " docDescr
     fnParam* ("displayed " "(" displayPart,+ ")")?
+    ("inductively")?
     "where" fnArm*
     : command
 
@@ -116,6 +132,7 @@ private def buildPropertyDef
     (docBinders : Array Ident)
     (docExpr : TSyntax `term)
     (display : Option (TSyntax `term) := none)
+    (renderAsInductive : Bool := false)
     : CommandElabM Unit := do
   let paramDefs ← paramData.mapM
     fun (pn, pd, pt) => do
@@ -138,6 +155,8 @@ private def buildPropertyDef
       | [$[$shortBinders:ident],*] => ($shortExpr : Doc)
       | _ => Doc.plain "")
   let displayTerm ← buildDisplayTerm display
+  let renderFlag : TSyntax `term :=
+    if renderAsInductive then quote true else quote false
   elabCommand (← `(command|
     def $propDefId : PropertyDef :=
       { fnDef :=
@@ -149,7 +168,8 @@ private def buildPropertyDef
             body := $body,
             display := $displayTerm },
         doc := $docFn,
-        shortDoc := $shortFn }))
+        shortDoc := $shortFn,
+        renderAsInductive := $renderFlag }))
   registerInCurrentModule ``registerPropertyDef propDefId
 
 -- ══════════════════════════════════════════════
@@ -164,6 +184,7 @@ elab_rules : command
        long ($docExpr:term)
        $ps:fnParam*
        $[displayed ( $dps:displayPart,* )]?
+       $[inductively%$ind]?
        where $arms:fnArm*) => do
     DslLint.lintDocTerm shortExpr
     DslLint.lintDocTerm docExpr
@@ -188,6 +209,15 @@ elab_rules : command
     -- in a `dslProofMarker` placeholder so the
     -- `graftDslProofMarkers` pass in `elabPropertyDecl` can
     -- splice the user-source syntax back in.
+    -- The default `where` form treats the user's arms as a
+    -- partial cover and appends a `_ => False` catch-all so
+    -- uncovered scrutinees default to `False` (matching the
+    -- semantics of "the property holds in these cases"). Under
+    -- `inductively`, the user's match is interpreted as a set
+    -- of inductive rules and is expected to be exhaustive over
+    -- the scrutinee — Lean's own exhaustiveness checker is
+    -- authoritative there, and an extra catch-all would surface
+    -- as a redundant-alternative linter error.
     let armASTs : List LeanMatchArm :=
       parsed.toList.map fun (patAst, rhsAst, _) =>
         .mk (patAst.toList.map BodyPat.toLeanAST)
@@ -200,7 +230,7 @@ elab_rules : command
           | .wild | .var _ => true | _ => false
       | none => false
     let allArms :=
-      if lastIsCatchAll then armASTs
+      if ind.isSome || lastIsCatchAll then armASTs
       else
         let wildPats := params.map fun _ => LeanPat.wild
         armASTs ++ [.mk wildPats (.ident "False")]
@@ -218,6 +248,7 @@ elab_rules : command
     buildPropertyDef name symDoc paramData
       bodyTerm shortBinders shortExpr docBinders docExpr
       (display := displayTerm)
+      (renderAsInductive := ind.isSome)
     flushIdentRefs
 
 -- ══════════════════════════════════════════════
