@@ -179,13 +179,6 @@ namespace VariantDef
 def displayLatexMath (v : VariantDef) : LatexMath :=
   v.displayMathDoc.toLatexMath
 
-/-- Like `displayLatexMath`, but renders argument references
-    using the argument's declared name rather than its
-    auto-looked-up `symbolDoc`. Used for the long form, where
-    the subsequent `where`-block binds each name explicitly. -/
-def displayLatexMathNamed (v : VariantDef) : LatexMath :=
-  (v.display (v.args.map fun a => MathDoc.text a.name)).toLatexMath
-
 end VariantDef
 
 namespace EnumDef
@@ -227,10 +220,11 @@ private def longRows
     let target : LatexMath :=
       .raw s!"\\hypertarget\{ctor:{d.name.name}.{v.name.name}}\{}"
     -- In the long form the variant row renders each argument
-    -- reference as the argument's declared name; the subsequent
-    -- `where` rows then bind those names to their types.
+    -- using its type's auto-looked-up `symbolDoc` (matching the
+    -- short form); the subsequent `where` rows then bind those
+    -- symbols to the argument types.
     let variant : LatexMath :=
-      .seq [.raw " ", target, v.displayLatexMathNamed]
+      .seq [.raw " ", target, v.displayLatexMath]
     let desc : LatexMath :=
       .seq [.raw "~", .text (Latex.parbox
         "\\dimexpr\\linewidth-8cm\\relax" (.seq [
@@ -239,7 +233,7 @@ private def longRows
     -- The `where` keyword and argument rows go in the array's
     -- second column (aligned with the variant display above),
     -- with a `\quad` indent so `where` sits slightly in from
-    -- the variant and each `argName : argType` sits further
+    -- the variant and each `argSym : argType` sits further
     -- in from `where`.
     let whereRow : List LatexMath :=
       [.raw "", .seq [.raw "\\quad ", .text (.text "where")],
@@ -247,7 +241,7 @@ private def longRows
     let argRow (a : ArgDef) : List LatexMath :=
       let sig : LatexMath := .seq [
         .raw "\\quad\\quad ",
-        .escaped a.name, .raw " : ",
+        a.symbolDoc.toLatexMath, .raw " : ",
         a.type.toLatexMath knownTypes]
       [.raw "", sig, .raw ""]
     -- Drop arguments whose type only references the enum's
