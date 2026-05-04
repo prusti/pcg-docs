@@ -2,6 +2,7 @@ import Presentation
 import Core.Dsl.RegisterPresentation
 import Core.Doc.PresInterp
 import MIR
+import PCG.Owned.InitTree
 
 def template : Presentation := {
   filename := "louis"
@@ -34,7 +35,24 @@ The PCG uses the `InitTree` data structure to track partial move-outs of places.
 
 [[InitTree]]
 
+## Meet Operations
+
+The `meet` operation on these is defined as follows:
+
+[[meet]]
+
 A focused look at the `Place` definition and its transitive dependencies. Definitions referenced by `Place` but not embedded directly here are rendered in the Appendix below.
+
+## Transition Functions
+
+The PCG transition function is given via #analyzeAt:
+
+[[analyzeAt]]
+
+Much of the logic is rather complex (and unrelated to the owned state that you
+will be modelling). The most relevant function is probably `obtainWriteOwned`
+which is used to expand an #InitTree.
+
 
 [[Place]]"
 }
