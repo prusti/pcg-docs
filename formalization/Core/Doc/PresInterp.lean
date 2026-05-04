@@ -39,6 +39,13 @@ elems := presBody! "
   `PresElement.doc (Doc.section <line content>)`. The `# ` prefix
   is stripped; the rest of the line is parsed with the same inline
   grammar as `doc!`. `[[Name]]` is *not* recognised inside a heading.
+* `--` at the start of a line (after optional whitespace) — line
+  comment: the entire line is dropped from the output, including any
+  `[[Name]]` it contains (so commented-out defRefs do *not* register
+  for export). Comment lines are invisible to paragraph splitting:
+  they neither introduce a paragraph break nor interrupt the
+  soft-line-break joining of the prose lines around them. Mid-line
+  `--` is *not* a comment marker — it stays as literal text.
 * A blank line (run of `\n`s with optional whitespace between them)
   — paragraph break: finalises the in-progress prose chunk into a
   single `PresElement.doc` and starts a new one.
@@ -178,6 +185,11 @@ where
     else
       let stripped := dropHSpace curLine
       match stripped with
+      | '-' :: '-' :: _ =>
+        -- Line comment: drop the line entirely. `prevWasProseLine`
+        -- is preserved so `prose / -- comment / prose` joins as a
+        -- single paragraph, the same as a soft line break.
+        go rest prevWasProseLine
       | '#' :: ' ' :: hdr =>
         .heading (parseHeading (dropHSpace hdr)) ::
           go rest false

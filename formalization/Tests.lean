@@ -353,6 +353,37 @@ private def presBodyMultipleBlankLines : List PresElement :=
 
 beta"
 
+private def presBodyCommentOnly : List PresElement :=
+  presBody! "-- ignored"
+
+private def presBodyCommentedDefRef : List PresElement :=
+  presBody! "before
+-- [[Place]]
+after"
+
+private def presBodyCommentBetweenParagraphs : List PresElement :=
+  presBody! "alpha
+
+-- ignored
+
+beta"
+
+private def presBodyCommentSoftBreak : List PresElement :=
+  presBody! "line one
+-- comment
+line two"
+
+private def presBodyMidLineDashes : List PresElement :=
+  presBody! "foo -- bar"
+
+private def presBodyIndentedComment : List PresElement :=
+  presBody! "   -- ignored
+kept"
+
+private def presBodyCommentedHeading : List PresElement :=
+  presBody! "-- # not a heading
+body"
+
 private def docInPresFirst (es : List PresElement) : Option Doc :=
   match es with
   | .doc d :: _ => some d
@@ -436,6 +467,24 @@ def presBodyTests : TestSeq :=
           "[[NotARef]]") $
     test "multiple consecutive blank lines collapse to one break"
       (hasTwoDocs presBodyMultipleBlankLines) $
+    test "-- comment-only body emits no elements"
+      (presBodyCommentOnly.isEmpty) $
+    test "-- commented [[Name]] is not emitted as a defRef"
+      (firstDocPlain presBodyCommentedDefRef == "before after" &&
+        presBodyCommentedDefRef.length == 1) $
+    test "-- comment between paragraphs preserves paragraph break"
+      (hasTwoDocs presBodyCommentBetweenParagraphs) $
+    test "-- comment between prose lines collapses to one paragraph"
+      (firstDocPlain presBodyCommentSoftBreak ==
+        "line one line two") $
+    test "mid-line -- stays literal"
+      (firstDocPlain presBodyMidLineDashes == "foo -- bar") $
+    test "leading whitespace before -- still recognised as comment"
+      (firstDocPlain presBodyIndentedComment == "kept" &&
+        presBodyIndentedComment.length == 1) $
+    test "-- commented heading line is not emitted"
+      (firstDocPlain presBodyCommentedHeading == "body" &&
+        presBodyCommentedHeading.length == 1) $
     .done
 
 /-- A `RenderCtx` that knows about `gatedEnum`'s variants
