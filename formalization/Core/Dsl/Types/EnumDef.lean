@@ -219,12 +219,32 @@ private def longRows
       else .cmd "mid"
     let target : LatexMath :=
       .raw s!"\\hypertarget\{ctor:{d.name.name}.{v.name.name}}\{}"
+    -- Whether an argument's type is a bare type parameter of
+    -- the enum (e.g. `(d : D)` in `AbstractInitTree {D}`). Such
+    -- arguments are rendered as `argName \in TypeParam` in the
+    -- `where` block — the argument name acts as a variable
+    -- ranging over the parameter set rather than as a symbol
+    -- standing for a value of a known type.
+    let isDirectTypeParam (a : ArgDef) : Bool :=
+      match a.type with
+      | .named n => d.typeParams.contains n.name
+      | _ => false
+    -- The symbol to display for an argument both in the variant
+    -- header and on the left of its `where`-row signature. For
+    -- direct type-parameter arguments we use the argument name
+    -- (typically the lowercased parameter, e.g. `d` for `D`)
+    -- rather than the auto symbolDoc (which is the parameter
+    -- name itself, `D`), so the header reads `leaf d` and the
+    -- where-row reads `d \in D`.
+    let argSym (a : ArgDef) : MathDoc :=
+      if isDirectTypeParam a then MathDoc.text a.name
+      else a.symbolDoc
     -- In the long form the variant row renders each argument
-    -- using its type's auto-looked-up `symbolDoc` (matching the
-    -- short form); the subsequent `where` rows then bind those
-    -- symbols to the argument types.
+    -- using `argSym`; the subsequent `where` rows then bind
+    -- those symbols to the argument types.
+    let variantHead : MathDoc := v.display (v.args.map argSym)
     let variant : LatexMath :=
-      .seq [.raw " ", target, v.displayLatexMath]
+      .seq [.raw " ", target, variantHead.toLatexMath]
     let desc : LatexMath :=
       .seq [.raw "~", .text (Latex.parbox
         "\\dimexpr\\linewidth-8cm\\relax" (.seq [
@@ -239,20 +259,15 @@ private def longRows
       [.raw "", .seq [.raw "\\quad ", .text (.text "where")],
        .raw ""]
     let argRow (a : ArgDef) : List LatexMath :=
+      let rel : LatexMath :=
+        if isDirectTypeParam a then MathSym.setContains.toLatex
+        else .raw " : "
       let sig : LatexMath := .seq [
         .raw "\\quad\\quad ",
-        a.symbolDoc.toLatexMath, .raw " : ",
+        (argSym a).toLatexMath, rel,
         a.type.toLatexMath knownTypes]
       [.raw "", sig, .raw ""]
-    -- Drop arguments whose type only references the enum's
-    -- own type parameters (e.g. `d : D` in
-    -- `AbstractInitTree {D}`). The variant header already
-    -- shows the name; repeating the type in the `where`
-    -- block would add noise without new information. If all
-    -- arguments drop out, omit the whole `where` clause.
-    let shownArgs : List ArgDef :=
-      v.args.filter fun a => !a.type.onlyUsesParams d.typeParams
-    match shownArgs with
+    match v.args with
     | [] => [headerRow]
     | args => headerRow :: whereRow :: args.map argRow
 
