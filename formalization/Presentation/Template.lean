@@ -258,10 +258,13 @@ def buildTemplatePresentationLatex
   -- Render ctx: built from `subReg` so cross-references only
   -- hyperlink to definitions that are actually emitted.
   let ctx : RenderCtx := mkRenderCtx subReg p.disabledFeatures
+  -- `\author{}` suppresses LaTeX's "No \author given" warning
+  -- while still letting `\maketitle` render a clean title.
   let titleBlock : Latex :=
     if p.title.isEmpty then .seq []
     else .seq [
       .cmd "title" [.text p.title], .newline,
+      .cmd "author" [.seq []], .newline,
       .cmd0 "maketitle", .newline ]
   let body : List Latex :=
     p.elems.map (renderElement subReg ctx)
@@ -272,11 +275,5 @@ def buildTemplatePresentationLatex
       .seq [
         .cmd "section*" [.text "Appendix"], .newline,
         renderRegistryItems appendixReg ctx ]
-  -- Trailing `.newline`s after `\tableofcontents` / `\newpage`
-  -- give TeX a token boundary so the first body element
-  -- (typically prose starting with a letter) is not glued
-  -- onto `\newpage` to form an undefined macro.
   return .ok (.seq
-    ([titleBlock, .tableofcontents, .newline,
-      .newpage, .newline] ++ body
-      ++ [appendixBlock]))
+    ([titleBlock] ++ body ++ [appendixBlock]))
